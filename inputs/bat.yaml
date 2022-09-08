@@ -1,0 +1,15 @@
+# battery
+dep: 0.0152 # 20.e-3 * 0.76 # 20e-3 * 0.76 GBP/kWh cost of battery depreciation from Mortsyn multiclass 2019 / 3.2p/kWh V2GB
+c_max: 22 # kWh max battery charge per time interval (based on kW charging rate)
+d_max: 100 # kWh max battery discharge per time interval
+SoCmin: 0.1 # minimum state of charge
+SoC0: 0.5 # initial and final state of charge
+cap: 75 # kWh (one number applies to all buses, or one per bus)
+baseld: 0 # 6 kWh/day average consumption, so always want x to be charged and ready when the car is on charge
+eta_ch: 0.9327379053088815 # np.sqrt(0.87)
+eta_dis: 0.9327379053088815 # np.sqrt(0.87)
+efftype: 0 # 0 just constant efficiency, 1 iterate to make it dependent on SoC
+eff: 1
+# 'maxthrough' : 750, # max thoughput per day [kWh]
+intervals_fprob: 50
+own_EV: 1 # 1 if all have EVs, else array of ownership

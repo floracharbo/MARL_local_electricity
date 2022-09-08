@@ -1,0 +1,5 @@
+# local renewable generation PV
+co2: 0 # tCO2/kWh previously 41e-6 /
+c: 0 # GBP/kWh previously 141e-3
+own_PV: 1 # 1 if all have PV, else array of ownership
+own_PVP: 1
