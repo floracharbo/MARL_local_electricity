@@ -366,7 +366,8 @@ def _update_rl_prm(prm, initialise_all):
     rl['T_decay_param'] = (rl['Tend'] / rl['T0']) ** (1 / rl['n_epochs'])
     rl['tot_learn_cycles'] = rl['n_epochs'] * rl['ncpu'] \
         if rl['parallel'] else rl['n_epochs']
-    rl['n_epochs'] = int(rl['n_epochs'])
+    for key in ["n_epochs", "n_repeats"]:
+        rl[key] = int(rl[key])
     if isinstance(rl['default_action'], (int, float)):
         for p in ["P", ""]:
             rl['default_action' + p] = [
@@ -761,6 +762,7 @@ def get_settings_i(settings, i):
         else:
             settings_i['RL'][key[2:]] = val
             print(f"RL['{key[2:]}'] = {val}")
+            print(f"type = {type(val)}")
     if len(obs) > 0:
         settings_i['RL']['state_space'] = obs
         

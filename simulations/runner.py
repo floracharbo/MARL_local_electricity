@@ -361,10 +361,19 @@ class Runner():
                 self.buffer[t].insert_episode_batch(
                     self.episode_batch[t_explo], difference=diff,
                     optimisation=opt)
-                print(f"self.buffer[t].can_sample(self.rl['facmac']['batch_size']) {self.buffer[t].can_sample(self.rl['facmac']['batch_size'])}")
+                can_sample = self.buffer[t].can_sample(
+                    self.rl['facmac']['batch_size']
+                )
+                print(f"self.buffer[t].can_sample("
+                      f"self.rl['facmac']['batch_size']) "
+                      f"{can_sample}")
+                buffer_warm_up_bool = (
+                    self.buffer[t].episodes_in_buffer
+                    > self.rl['buffer_warmup']
+                )
                 print(f"self.buffer[t].episodes_in_buffer "
                       f"> self.rl['buffer_warmup'] = "
-                      f"{self.buffer[t].episodes_in_buffer > self.rl['buffer_warmup']}")
+                      f"{buffer_warm_up_bool}")
                 if self.buffer[t].can_sample(self.rl['facmac']['batch_size']) \
                         and (self.buffer[t].episodes_in_buffer
                              > self.rl['buffer_warmup']):

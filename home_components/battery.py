@@ -263,13 +263,16 @@ class Battery:
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else h
             n_avail_until_end = sum(
-                self.batch['avail_EV'][a][h_] for h_ in range(final_i_endtrip, self.N)
+                self.batch['avail_EV'][a][h_]
+                for h_ in range(final_i_endtrip, self.N)
             )
 
             if len(trips) == 0:
                 n_avail_until_end -= 1
 
-            Creq.append(max(0, self.store0[a] - self.c_max * n_avail_until_end))
+            Creq.append(
+                max(0, self.store0[a] - self.c_max * n_avail_until_end)
+            )
 
             for it in range(len(trips)):
                 loads_T, deltaT = trips[- (it + 1)][0:2]
@@ -289,7 +292,8 @@ class Battery:
         for a in range(self.n_agents):
             if h == 22 and avail_EV[a]:
                 assert min_charge_t[a] >= self.store0[a] - self.c_max, \
-                    f"h == 22 and min_charge_t {min_charge_t} < {self.store0[a]} - {self.c_max}"
+                    f"h == 22 and min_charge_t {min_charge_t} " \
+                    f"< {self.store0[a]} - {self.c_max}"
 
         self.min_charge_t = min_charge_t
 
@@ -617,8 +621,9 @@ class Battery:
                     - sum(self.batch['loads_EV'][a][0: h])
                 if min_charge_t[a] > store_t_a + self.c_max + 1e-3:
                     bool_penalty[a] = True
-    
+
     def check_feasible_bat(self, prm, ntw, p, bat, syst):
+        """Check charging constraints for proposed data batch."""
         feasible = np.ones(ntw['n' + p], dtype=bool)
         for a in range(ntw['n' + p]):
             if bat['d_max'] < np.max(bat['batch_loads_EV'][a]):
@@ -639,5 +644,5 @@ class Battery:
             feasible[bool_penalty] = False
             self.update_step()
             t += 1
-            
+
         return feasible

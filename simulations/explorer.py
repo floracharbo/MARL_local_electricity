@@ -140,7 +140,7 @@ class Explorer():
             while not done:
                 action = rl["default_actionP"]
                 state, done, reward, _, _, constraint_ok, [
-                    netp, discfharge_tot, charge] = env.step(
+                    netp, discharge_tot, charge] = env.step(
                     action, record=record,
                     evaluation=evaluation, netp_storeout=True)
                 for e, val in zip(["netp0", "discharge_tot0", "charge0"],
