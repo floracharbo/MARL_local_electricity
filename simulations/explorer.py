@@ -140,7 +140,7 @@ class Explorer():
             while not done:
                 action = rl["default_actionP"]
                 state, done, reward, _, _, constraint_ok, [
-                    netp, discharge_tot, charge] = env.step(
+                    netp, discfharge_tot, charge] = env.step(
                     action, record=record,
                     evaluation=evaluation, netp_storeout=True)
                 for e, val in zip(["netp0", "discharge_tot0", "charge0"],
@@ -471,7 +471,9 @@ class Explorer():
             loads, res, feasible, reward
     ):
         obtain_diff_reward = any(
-            len(q.split("_")) >= 2 and q.split("_")[1] == "d" for q in self.prm["RL"]["type_Qs"]
+            len(q.split("_")) >= 2
+            and q.split("_")[1] == "d"
+            for q in self.prm["RL"]["type_Qs"]
         )
         if obtain_diff_reward and not evaluation:
             rewards_baseline, feasible_getting_baseline = \

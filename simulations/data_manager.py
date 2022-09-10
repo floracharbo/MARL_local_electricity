@@ -20,7 +20,6 @@ for optimisation problem.
 """
 
 import copy
-import datetime
 import glob
 import os
 import traceback
@@ -107,9 +106,13 @@ class Data_manager():
         res = None
         opt_needed = 'opt' in type_actions \
             or (not feasibility_checked and self.check_feasibility_with_opt)
-        just_load_data = not self.rl['deterministic'] == 2 \
-            and (opt_needed and (self.paths['res_path'] / self.res_name).is_file()
-                 or not opt_needed and (self.paths['res_path'] / f"batch{self.file_id()}").is_file())
+        if opt_needed:
+            file_exists = (self.paths['res_path'] / self.res_name).is_file()
+        else:
+            file_exists = (self.paths['res_path'] / f"batch{self.file_id()}"
+                           ).is_file()
+        just_load_data = not self.rl['deterministic'] == 2 and file_exists
+
         # check if data is feasible by solving optimisation problem
         if just_load_data:
             if opt_needed:
@@ -159,7 +162,8 @@ class Data_manager():
 
         seed_data = res, fs, cluss, batch
 
-        return seed_data, new_res, data_feasible, step_vals, mus_opt, feasibility_checked
+        return [seed_data, new_res, data_feasible, step_vals,
+                mus_opt, feasibility_checked]
 
     def find_feasible_data(self,
                            seed_ind: int,
@@ -203,7 +207,8 @@ class Data_manager():
                 seed_data, new_res, data_feasible \
                     = self._passive_find_feasible_data()
             else:
-                [seed_data, new_res, data_feasible, step_vals, mus_opt, feasibility_checked] \
+                [seed_data, new_res, data_feasible, step_vals,
+                 mus_opt, feasibility_checked] \
                     = self._active_find_feasible_data(
                         type_actions, feasibility_checked, step_vals,
                         evaluation, epoch, mus_opt
@@ -405,7 +410,7 @@ class Data_manager():
         loads['n_types'] = 2
 
         ntw = self._format_ntw(ntw, loads, syst, bat, batch, p)
-        
+
         feasible = self.env.bat.check_feasible_bat(self.prm, ntw, p, bat, syst)
 
         heat['T_out'] = self.env.heat.T_out

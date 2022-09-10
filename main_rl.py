@@ -19,7 +19,7 @@ import numpy as np  # array management / data handling
 import torch as th
 
 from config.initialise_objects import initialise_objects
-from config.initialise_prm import load_existing_prm, get_settings_i
+from config.initialise_prm import get_settings_i, load_existing_prm
 from config.input_data import input_paths
 from post_analysis.plot_summary_no_agents import plot_results_vs_nag
 from post_analysis.post_processing import post_processing
@@ -36,28 +36,28 @@ settings = {
     'RL': {
         'type_learning': 'facmac',
         'type_env': 'continuous',
-        'explo_reward_type': 'random',
+        'explo_reward_type': [['random', 'env_r_c']] ,
         'gamma': {'q_learning': 0.99, 'facmac': 0.85},
         'aggregate_actions': False,
         'mixer': 'qmix',
 
         # current experiment
-        # 'rnn_hidden_dim': [1e3] * 2 + [5e3] * 6 + [1e4] * 6,
-        # 'n_hidden_layers': [3] * 2 + [2] * 3 + [3] * 3 + [2] * 3 + [3] * 3,
-        # 'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']] * 15,
-        # 'n_epochs': [20, 30] + [20, 30, 50] * 4,
-        # 'n_repeats': 5
+        'rnn_hidden_dim': [5e3]*3+[1e4]*6,
+        'n_hidden_layers': [3] * 3 + [2] * 3 + [3] * 3,
+        'state_space': [['grdC','bat_dem_agg','avail_EV_step']]*10,
+        'n_epochs': [20, 30, 50] * 3,
+        'n_repeats': 5
 
         # quick check
-        'n_repeats': 2,
-        'n_epochs': 20,
-        'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']],
-        'rnn_hidden_dim': 1e2
+        # 'n_repeats': 2,
+        # 'n_epochs': 20,
+        # 'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']],
+        # 'rnn_hidden_dim': 1e2
     },
 
     'ntw': {
-        # 'n': 50
-        'n': 5
+        'n': 50
+        # 'n': 5
     },
 
     'save': {

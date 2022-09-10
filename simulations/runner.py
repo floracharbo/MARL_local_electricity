@@ -6,6 +6,7 @@ Created on Fri Mar 20 14:49:57 2020.
 @author: floracharbonnier
 """
 import datetime
+import os
 import random
 import time
 from datetime import date, timedelta
@@ -58,6 +59,8 @@ class Runner():
 
             # looping through epochs
             # have progress bar while running through epochs
+
+            model_save_time = 0
             for epoch in tqdm(range(self.rl['n_epochs']),
                               position=0, leave=True):
                 t_start = time.time()  # start recording time
@@ -70,10 +73,11 @@ class Runner():
                     print(f"i_explore {i_explore}")
                     episode += 1
 
-                    steps_vals, date0, delta, i0_costs, type_explo = self._exploration_episode(
-                        ridx, epoch, i_explore, date0, delta,
-                        i0_costs, new_env, evaluation=False, evaluation_add1=False
-                    )
+                    steps_vals, date0, delta, i0_costs, type_explo \
+                        = self._exploration_episode(
+                            ridx, epoch, i_explore, date0, delta, i0_costs,
+                            new_env, evaluation=False, evaluation_add1=False
+                        )
 
                     train_steps_vals.append(steps_vals)
 
@@ -85,6 +89,22 @@ class Runner():
                     for e in ['seed', 'n_not_feas', 'not_feas_vars']:
                         self.record.__dict__[e][ridx].append(
                             train_steps_vals[-1][e])
+
+                    print(f"self.explorer.t_env {self.explorer.t_env}")
+                    if self.rl['save_model'] and (
+                            self.explorer.t_env - model_save_time
+                            >= self.rl['save_model_interval']
+                            or model_save_time == 0):
+                        model_save_time = self.explorer.t_env
+
+                        for t_explo in self.rl['type_explo']:
+                            if t_explo not in self.learner:
+                                continue
+                            save_path \
+                                = self.prm["paths"]["record_folder"] \
+                                / f"models_{t_explo}_{self.explorer.t_env}"
+                            os.makedirs(save_path, exist_ok=True)
+                            self.learner[t_explo].save_models(save_path)
 
                 # learning step at the end of the exploration
                 # if it was not done instantly after each step
@@ -150,7 +170,7 @@ class Runner():
                     type_eval, ridx, epoch_test, self.rl['n_explore'],
                     evaluation=True, new_episode_batch=self.new_episode_batch)
                 duration_epoch = time.time() - t_start
-                
+
                 self.record.end_epoch(
                     epoch_test, eval_steps, list_train_stepvals,
                     self.rl, self.learner, duration_epoch, end_test=True)
@@ -342,7 +362,8 @@ class Runner():
                     self.episode_batch[t_explo], difference=diff,
                     optimisation=opt)
                 print(f"self.buffer[t].can_sample(self.rl['facmac']['batch_size']) {self.buffer[t].can_sample(self.rl['facmac']['batch_size'])}")
-                print(f"self.buffer[t].episodes_in_buffer > self.rl['buffer_warmup'] = "
+                print(f"self.buffer[t].episodes_in_buffer "
+                      f"> self.rl['buffer_warmup'] = "
                       f"{self.buffer[t].episodes_in_buffer > self.rl['buffer_warmup']}")
                 if self.buffer[t].can_sample(self.rl['facmac']['batch_size']) \
                         and (self.buffer[t].episodes_in_buffer
@@ -473,15 +494,3 @@ class Runner():
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)
 
         return steps_vals, date0, delta, i0_costs, type_explo
-
-        # set_date = False, evaluation_add1 = True, evaluation=True
-        #
-        #
-        #         self.env.reinitialise_envfactors(
-        #             date0, epoch, i_explore, evaluation_add1=True)
-
-# type_eval = self._check_if_opt_needed(epoch, evaluation=True)
-#
-# eval_steps, _ = self.explorer.get_steps(
-#                     type_eval, ridx, epoch, self.rl['n_explore'],
-#                     evaluation=True, new_episode_batch=self.new_episode_batch)

@@ -180,8 +180,9 @@ def _eval_entries_plot_colors(prm):
         type_plot[e] = '-'
     eval_entries_bars = [e for e in eval_entries_plot
                          if e not in ['baseline', 'opt']]
-    eval_entries_distr = [e for e in eval_entries if len(e.split('_')) == 1 or e.split('_')[-1] == 'd']
-    eval_entries_centr = [e for e in eval_entries if len(e.split('_')) == 1 or e.split('_')[-1] == 'c']
+    eval_entries_distr = [e for e in eval_entries if len(e.split('_')) > 1 and e.split('_')[-1] == 'd']
+    eval_entries_centr = [e for e in eval_entries if len(e.split('_')) > 1 and e.split('_')[-1] == 'c']
+    other_eval_entries = [e for e in eval_entries if len(e.split("_")) == 1]
     eval_entries_notCd = [e for e in eval_entries_plot
                           if not(len(e.split('_')) > 1
                           and e.split('_')[-1] == 'Cd')]
@@ -191,6 +192,7 @@ def _eval_entries_plot_colors(prm):
     colors_barplot = [prm['save']['colorse'][e] for e in eval_entries_bars]
     base_entries = eval_entries_distr if len(eval_entries_distr) > 0 \
         else eval_entries_centr
+    base_entries += other_eval_entries
     colors_barplot_baseentries = [prm['save']['colorse'][e]
                                   for e in base_entries]
 
@@ -1173,7 +1175,7 @@ def _barplot_metrics(
             maxval = {}
             for label in ['env_r', 'env_d', 'env_A', 'opt_r',
                           'opt_d', 'opt_A', 'opt_n']:
-                if sum([label_[0:len(label)] == label
+                if sum([label_[0: len(label)] == label
                         for label_ in metrics[m_]['ave'].keys()]) > 0:
                     maxval[label] = \
                         max([metrics[m_][ave][e]
