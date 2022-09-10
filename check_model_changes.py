@@ -1,8 +1,9 @@
 import os
-import torch as th
 from pathlib import Path
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import torch as th
 
 # 764 - 10 batch
 # 765 - 64 batch
