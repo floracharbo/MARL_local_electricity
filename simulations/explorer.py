@@ -314,10 +314,9 @@ class Explorer():
                             rewards_baseline.append(reward_a)
                             if reward_a is None:
                                 print(f"reward_a {reward_a}")
-
                     [state, done, reward, break_down_rewards, bool_flex,
                      constraint_ok, record_output] = env.step(
-                        action, record=record, mu=mu,
+                        action, record=record,
                         evaluation=evaluation, E_req_only=E_req_only)
                     if constraint_ok:
                         traj_reward = self.learning_manager.learning(

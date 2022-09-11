@@ -15,7 +15,6 @@ from learners.facmac.modules.mixers.vdn import VDNMixer
 
 class FACMACLearner:
     def __init__(self, mac, scheme, rl):
-        print("init facmac learner")
         self.rl = rl
         self.n_agents = rl['n_agents']
         self.n_actions = rl['dim_actions']

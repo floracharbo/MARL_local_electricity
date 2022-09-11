@@ -13,7 +13,7 @@ lint:
 	mypy .
 
 quick_run:
-	python main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC --o avail_EV_step --rnn_hidden_dim 100
+	python main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC -o bat_dem_agg -o avail_EV_step --rnn_hidden_dim 100
 
 test:
 	pytest tests

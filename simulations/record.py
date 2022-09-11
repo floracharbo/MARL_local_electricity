@@ -118,7 +118,7 @@ class Record():
             for t in rl["type_eval"]:
                 self.eps[ridx][t] = initialise_dict(range(self.n_agents))
 
-        for e in ["eval_rewards", "mean_eval_rewards"] \
+        for e in ["eval_rewards", "mean_eval_rewards", "eval_actions"] \
                 + self.break_down_rewards_entries:
             self.__dict__[e][ridx] = initialise_dict(rl["type_eval"])
 
@@ -474,9 +474,11 @@ class Record():
                 epoch_mean_eval_t = np.mean(eval_steps[t]["reward"])
             else:
                 epoch_mean_eval_t = None
-            self.eval_rewards[self.ridx][t].append(eval_steps[t]["reward"])
+            for e in ["reward", "action"]:
+                self.__dict__[f"eval_{e}s"][self.ridx][t].append(eval_steps[t][e])
         else:
-            self.eval_rewards[self.ridx][t].append(None)
+            for e in ["eval_rewards", "eval_actions"]:
+                self.__dict__[e][self.ridx][t].append(None)
             epoch_mean_eval_t = None
         self.mean_eval_rewards[self.ridx][t].append(epoch_mean_eval_t)
         all_mean_eval_t = self.mean_eval_rewards[self.ridx][t]

@@ -1425,6 +1425,43 @@ def _distribution_savings(mean_eval_rewards_per_hh, prm, aggregate='daily'):
     )
 
 
+def _plot_eval_action(record, prm):
+        actions = record.eval_actions
+        for type_eval in prm["RL"]["type_eval"]:
+            print(f"type(actions[0][{type_eval}][0]) {type(actions[0][type_eval][0])}")
+            for ridx in range(prm["RL"]["n_repeats"]):
+                n_mus = 1 if prm["RL"]["aggregate_actions"] else 3
+                for mu in range(n_mus):
+                    fig = plt.figure()
+                    for epoch in range(prm["RL"]["n_epochs"]):
+                        for step in range(len(actions[ridx][type_eval][epoch])):
+                            for home in range(len(actions[ridx][type_eval][epoch][step])):
+                                plt.plot(epoch, actions[ridx][type_eval][epoch][step][home][mu], 'o')
+                    title = f"actions {type_eval} mu {mu} {ridx}"
+                    _title_and_save(
+                            title, fig, prm["paths"]["fig_folder"], prm["save"]["save_run"])
+
+
+def _check_model_changes(paths, prm):
+    if prm["RL"]["type_learning"] == "q_learning":
+        return
+    networks = [t for t in prm["RL"]["types_eval"] if t not in ["baseline", "opt", "random"]]
+    for t in networks:
+        folders = [folder for folder in os.listdir(paths["record_folder"]) if folder[0:len(f"models_{t}")] == "models_{t}"]
+        nos = [int(folder.split("_")[-1]) for folder in folders]
+        nos.sort()
+        agents, mixers = [], []
+        for no in nos:
+            agents.append(th.load(path / f"models_env_r_c_{no}/agent.th"))
+            mixers.append(th.load(path / f"models_env_r_c_{no}/mixer.th"))
+
+        assert not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"]), \
+            f"agent network has not changed"
+
+        assert not all(mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]), \
+            f"mixers network has not changed"
+
+
 def plotting(record, spaces, prm, f):
     """Plot and save results."""
     [prm, action_state_space_0, state_space_0, f,
@@ -1557,6 +1594,12 @@ def plotting(record, spaces, prm, f):
 
             # 17 - n not feas vs variables vs time step
             _plot_unfeasible_attempts(ridx, record, prm)
+
+    # 18 - plot eval_actions over time
+    _plot_eval_action(record, prm)
+
+    # 19 - check that some learning has occurred
+    _check_model_changes(paths, prm)
 
     if prm['save']['save_run']:
         np.save(prm['paths']['fig_folder'] / 'eval_entries', eval_entries)

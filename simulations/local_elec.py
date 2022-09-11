@@ -295,10 +295,11 @@ class LocalElecEnv():
 
         return new_batch_flex
 
-    def step(self, action: list, implement: bool = True,
-             record: bool = False, mu: list = None,
-             evaluation: bool = False, netp_storeout: bool = False,
-             E_req_only: bool = False) -> list:
+    def step(
+            self, action: list, implement: bool = True,
+            record: bool = False, evaluation: bool = False,
+            netp_storeout: bool = False, E_req_only: bool = False
+    ) -> list:
         """Compute environment updates and reward from selected action."""
         h = self._get_h()
         agents = self.agents
@@ -317,7 +318,7 @@ class LocalElecEnv():
         if h == 2:
             self.slid_day = False
         home, loads, constraint_ok = self.policy_to_rewardvar(
-            action, mu=mu, E_req_only=E_req_only)
+            action, E_req_only=E_req_only)
         if not constraint_ok:
             print('constraint false not returning to original values')
             return None, None, None, None, None, constraint_ok, None

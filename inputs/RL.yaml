@@ -177,7 +177,7 @@ ou_stop_episode: 100 # for cqmix controller - training noise goes to zero after 
 start_steps: 0 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
 act_noise: 0.1 # Stddev for Gaussian exploration noise added to policy at training time.
 hyper_initialization_nonzeros: 0
-lr: 1.e-6
+lr: 1.e-2
 buffer_size: 5000
 optimizer: adam # D
 mixing_embed_dim: 64
@@ -205,9 +205,9 @@ optim_eps: 0.00001 # RMSProp
 
 facmac:
         # varied
-        critic_lr: 1.e-6
+        critic_lr: 1.e-2
         # to vary
-        batch_size: 64 # Num of tuples to train on.
+        batch_size: 2 # Num of tuples to train on.
         gamma: 0.85
 
 aggregate_actions: True

@@ -42,22 +42,16 @@ settings = {
         'mixer': 'qmix',
 
         # current experiment
-        # 'rnn_hidden_dim': [5e3]*3+[1e4]*6,
-        # 'n_hidden_layers': [3] * 3 + [2] * 3 + [3] * 3,
-        # 'state_space': [['grdC','bat_dem_agg','avail_EV_step']]*10,
-        # 'n_epochs': [20, 30, 50] * 3,
-        # 'n_repeats': 5
-
-        # quick check
-        'n_repeats': 2,
-        'n_epochs': 20,
-        'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']],
-        'rnn_hidden_dim': 1e2
+        'rnn_hidden_dim': [1e2, 1e3, 5e3, 1e4] + [5e4] * 3 + [1e2, 1e3, 5e3],
+        'n_hidden_layers': [2] * 7 + [3] * 3,
+        'state_space': [['grdC','bat_dem_agg','avail_EV_step']] * 10,
+        'n_epochs': [50] * 4 + [20, 30, 50] + [50] * 3,
+        'n_repeats': 5,
+        'print_learn': False
     },
 
     'ntw': {
-        # 'n': 50
-        'n': 5
+        'n': 30
     },
 
     'save': {
@@ -162,14 +156,13 @@ if LEARN_PLOT == 1:
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment()
-            if not prm['RL']['server']:
-                play_sound()
             record.save(end_of='end')  # save progress at end
-
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i
             )
             print(f"--- {time.time() - start_time} seconds ---")
+            if not prm['RL']['server']:
+                play_sound()
     except Exception as ex:
         print(f"ex {ex}")
         print(traceback.format_exc())
