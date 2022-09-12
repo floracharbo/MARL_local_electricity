@@ -1,6 +1,6 @@
 .PHONY: all install lint test format
 
-all: lint test
+all: test lint
 
 install:
 	pip install -r requirements.txt

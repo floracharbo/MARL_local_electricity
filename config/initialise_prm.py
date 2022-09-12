@@ -388,8 +388,9 @@ def _update_rl_prm(prm, initialise_all):
                         if not (t[0:3] == 'opt' and len(t) > 3)]
     rl['type_Qs'] = rl['eval_action_choice'] \
         + [ac + '0' for ac in rl['eval_action_choice']
-            if len(ac.split('_')) >=3 and (ac.split('_')[1] == 'A'
-            or ac.split('_')[2][0] == 'C')]
+           if len(ac.split('_')) >= 3
+           and (ac.split('_')[1] == 'A' or ac.split('_')[2][0] == 'C')
+           ]
     rl['start_end_eval'] = int(rl['share_epochs_start_end_eval']
                                * rl['n_epochs'])
     rl['n_all_epochs'] = rl['n_epochs'] + rl['n_end_test']
@@ -699,10 +700,11 @@ def load_existing_prm(prm, no_run, current_path, settings):
     if settings['RL']['server']:
         input_folder = p / 'results' / f'run{no_run}' / 'inputData'
     elif settings['save']['EPG_beast'] is False:
-        input_folder = p / 'results' / f'results{no_run}' / 'inputData'
+        input_folder = p / 'results' / f'run{no_run}' / 'inputData'
     else:
         input_folder = p / 'results' / 'results_EPGbeast' / \
             f'run{no_run}' / 'inputData'
+
     # if input data was saved, load input data
     if os.path.exists(input_folder):
         if os.path.exists(input_folder / 'lp.npy'):
@@ -719,6 +721,7 @@ def load_existing_prm(prm, no_run, current_path, settings):
         else:
             prm = np.load(input_folder / 'prm.npy',
                           allow_pickle=True).item()
+            lp = None
         prm['paths']['current_path'] = Path(current_path)
         if 'repeats' in prm['RL']:
             prm['RL']['n_repeats'] = prm['RL']['repeats']
@@ -731,7 +734,9 @@ def load_existing_prm(prm, no_run, current_path, settings):
 
     return lp, prm
 
+
 def get_settings_i(settings, i):
+    """Get run-specific settings from general settings dictionary."""
     settings_i = {}
     for key, sub_dict in settings.items():
         settings_i[key] = {}
@@ -746,7 +751,7 @@ def get_settings_i(settings, i):
                             val[subsubkey][i]
             else:
                 settings_i[key][sub_key] = val
-                
+
     obs = []
     args = sys.argv[1:]
     # o is observation, l is learning type,
@@ -765,5 +770,5 @@ def get_settings_i(settings, i):
             print(f"type = {type(val)}")
     if len(obs) > 0:
         settings_i['RL']['state_space'] = obs
-        
+
     return settings_i

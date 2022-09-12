@@ -989,6 +989,7 @@ class LocalElecEnv():
 
         for a in self.agents:
             self.batch[a] = initialise_dict(self.batch_entries)
+
         self.batch_file = self.save_file
         self.load_data = True
         self.dloaded = 0

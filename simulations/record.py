@@ -308,6 +308,18 @@ class Record():
                 for type_learning in ["DQN", "DDQN", "q_learning"]:
                     prm["RL"][type_learning]["end_decay"] \
                         = self.n_epochs
+
+            keys_ = self.mean_eval_rewards[ridx].keys()
+            for e in eval_entries_plot.copy():
+                if e not in keys_:
+                    if prm["RL"]["type_learning"] == "facmac" \
+                        and any(key[0: len(e[:-2])] == e[:-2] for key in keys_):
+                        new = [key for key in keys_ if key[0: len(e[:-2])] == e[:-2]][0]
+                        eval_entries_plot.remove(e)
+                        eval_entries_plot.append(new)
+                    else:
+                        eval_entries_plot.remove(e)
+
             for e in eval_entries_plot:
                 mean_eval_rewards_per_hh[e] = \
                     [r / (prm["ntw"]["n"] + prm["ntw"]["nP"])
@@ -475,7 +487,9 @@ class Record():
             else:
                 epoch_mean_eval_t = None
             for e in ["reward", "action"]:
-                self.__dict__[f"eval_{e}s"][self.ridx][t].append(eval_steps[t][e])
+                self.__dict__[f"eval_{e}s"][self.ridx][t].append(
+                    eval_steps[t][e]
+                )
         else:
             for e in ["eval_rewards", "eval_actions"]:
                 self.__dict__[e][self.ridx][t].append(None)

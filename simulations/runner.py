@@ -97,14 +97,15 @@ class Runner():
                             or model_save_time == 0):
                         model_save_time = self.explorer.t_env
 
-                        for t_explo in self.rl['type_explo']:
-                            if t_explo not in self.learner:
-                                continue
-                            save_path \
-                                = self.prm["paths"]["record_folder"] \
-                                / f"models_{t_explo}_{self.explorer.t_env}"
-                            os.makedirs(save_path, exist_ok=True)
-                            self.learner[t_explo].save_models(save_path)
+                        if prm["save"]["save_nns"]:
+                            for t_explo in self.rl['type_explo']:
+                                if t_explo not in self.learner:
+                                    continue
+                                save_path \
+                                    = self.prm["paths"]["record_folder"] \
+                                    / f"models_{t_explo}_{self.explorer.t_env}"
+                                os.makedirs(save_path, exist_ok=True)
+                                self.learner[t_explo].save_models(save_path)
 
                 # learning step at the end of the exploration
                 # if it was not done instantly after each step
