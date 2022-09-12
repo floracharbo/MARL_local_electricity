@@ -97,7 +97,7 @@ class Runner():
                             or model_save_time == 0):
                         model_save_time = self.explorer.t_env
 
-                        if prm["save"]["save_nns"]:
+                        if self.prm["save"]["save_nns"]:
                             for t_explo in self.rl['type_explo']:
                                 if t_explo not in self.learner:
                                     continue

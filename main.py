@@ -59,15 +59,15 @@ settings = {
         'save_run': 1,
         # if doing post run analysis -
         # load results from laptop or from beast folder
-        'EPG_beast': True
+        'EPG_beast': False
     }
 }
 
 # on server check centralised opts false - next lr sensitivity
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
-LEARN_PLOT = 2
+LEARN_PLOT = 1
 # no_runs = [504]   # if plotting
-no_runs = [631]   # if plotting
+no_runs = [610]   # if plotting
 
 MAIN_DIR_NOT_SERVER = '/Users/floracharbonnier/OneDrive - Nexus365' \
                       '/DPhil/Python/Phase2'

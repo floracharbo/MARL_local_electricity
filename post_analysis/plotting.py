@@ -1106,8 +1106,6 @@ def _barplot_metrics(
             fig, axs = plt.subplots(2, 3)
         for m in metric_entries + [m + '_p50' for m in metric_entries[0:4]]:
             eval_entries_bars_ = eval_entries_bars
-            print(f"eval_entries_bars_ {eval_entries_bars_}")
-            print("eval_entries_bars_")
             colors_barplot_ = [prm['save']['colorse'][e]
                                for e in eval_entries_bars_]
             ave = 'ave'
@@ -1182,7 +1180,6 @@ def _barplot_metrics(
             ax = plt.gca()
 
             xs, colors_plot_end = {}, {}
-            print(f"base_entries {base_entries}")
             for i in range(len(base_entries)):
                 splits = base_entries[i].split('_')
                 label = f"{splits[0]}_{splits[1]}" if len(splits) > 1 \
@@ -1467,13 +1464,9 @@ def _plot_eval_action(record, prm):
     actions = record.eval_actions
     if len(list(actions.keys())) == 0:
         return
-    print(f"np.shape(actions) {np.shape(actions)}")
-    print(f"len(actions) {len(actions)}")
-    print(f"type(actions) {type(actions)}")
-    print(f"len(actions.keys()) {len(list(actions.keys()))}")
-    print(f"prm['RL']['n_repeats'] {prm['RL']['n_repeats']}")
+
     for type_eval in prm["RL"]["type_eval"]:
-        if type_eval == "opt":
+        if type_eval == "baseline":
             continue
         for ridx in range(prm["RL"]["n_repeats"]):
             n_mus = 1 if prm["RL"]["aggregate_actions"] else 3
@@ -1518,7 +1511,6 @@ def _check_model_changes(prm):
                 agents.append(th.load(path / "agent.th"))
                 mixers.append(th.load(path / "mixer.th"))
 
-            print(f"t {t} len(nos) = {len(nos)}, len(agents) = {len(agents)}")
             assert not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"]), \
                 "agent network has not changed"
 

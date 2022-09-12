@@ -1,8 +1,9 @@
-import numpy as np
-import pytest
 from unittest import mock
 
-from config.generate_colors import generate_colors, _check_color_diffs
+import numpy as np
+import pytest
+
+from config.generate_colors import _check_color_diffs, generate_colors
 
 
 def random_True_False(colors, color, min_diffs=None):
