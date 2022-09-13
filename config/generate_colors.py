@@ -82,7 +82,7 @@ def _colors_to_prm(save, prm, colors0, colors, all_type_eval):
     return save, prm
 
 
-def generate_colors(save, prm, all_type_eval):
+def generate_colors(save, prm, all_type_eval, colours_only=False):
     """
     Generate a list of colors for plotting the results.
 
@@ -155,7 +155,9 @@ def generate_colors(save, prm, all_type_eval):
             n_added += 1
         iteration += 1
 
-    # save the list to the parameters
-    save, prm = _colors_to_prm(save, prm, colors0, colors, all_type_eval)
-
-    return save, prm
+    if colours_only:
+        return colors0 + colors
+    else:
+        # save the list to the parameters
+        save, prm = _colors_to_prm(save, prm, colors0, colors, all_type_eval)
+        return save, prm

@@ -118,7 +118,7 @@ class Record():
             for t in rl["type_eval"]:
                 self.eps[ridx][t] = initialise_dict(range(self.n_agents))
 
-        for e in ["eval_rewards", "mean_eval_rewards"] \
+        for e in ["eval_rewards", "mean_eval_rewards", "eval_actions"] \
                 + self.break_down_rewards_entries:
             self.__dict__[e][ridx] = initialise_dict(rl["type_eval"])
 
@@ -308,6 +308,20 @@ class Record():
                 for type_learning in ["DQN", "DDQN", "q_learning"]:
                     prm["RL"][type_learning]["end_decay"] \
                         = self.n_epochs
+
+            keys_ = self.mean_eval_rewards[ridx].keys()
+            for e in eval_entries_plot.copy():
+                if e not in keys_:
+                    if prm["RL"]["type_learning"] == "facmac" \
+                        and any(key[0: len(e[:-2])] == e[:-2] for key in keys_):
+                        new = [
+                            key for key in keys_ if key[0: len(e[:-2])] == e[:-2]
+                        ][0]
+                        eval_entries_plot.remove(e)
+                        eval_entries_plot.append(new)
+                    else:
+                        eval_entries_plot.remove(e)
+
             for e in eval_entries_plot:
                 mean_eval_rewards_per_hh[e] = \
                     [r / (prm["ntw"]["n"] + prm["ntw"]["nP"])
@@ -474,9 +488,13 @@ class Record():
                 epoch_mean_eval_t = np.mean(eval_steps[t]["reward"])
             else:
                 epoch_mean_eval_t = None
-            self.eval_rewards[self.ridx][t].append(eval_steps[t]["reward"])
+            for e in ["reward", "action"]:
+                self.__dict__[f"eval_{e}s"][self.ridx][t].append(
+                    eval_steps[t][e]
+                )
         else:
-            self.eval_rewards[self.ridx][t].append(None)
+            for e in ["eval_rewards", "eval_actions"]:
+                self.__dict__[e][self.ridx][t].append(None)
             epoch_mean_eval_t = None
         self.mean_eval_rewards[self.ridx][t].append(epoch_mean_eval_t)
         all_mean_eval_t = self.mean_eval_rewards[self.ridx][t]

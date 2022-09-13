@@ -140,7 +140,7 @@ class Explorer():
             while not done:
                 action = rl["default_actionP"]
                 state, done, reward, _, _, constraint_ok, [
-                    netp, discfharge_tot, charge] = env.step(
+                    netp, discharge_tot, charge] = env.step(
                     action, record=record,
                     evaluation=evaluation, netp_storeout=True)
                 for e, val in zip(["netp0", "discharge_tot0", "charge0"],
@@ -314,10 +314,9 @@ class Explorer():
                             rewards_baseline.append(reward_a)
                             if reward_a is None:
                                 print(f"reward_a {reward_a}")
-
                     [state, done, reward, break_down_rewards, bool_flex,
                      constraint_ok, record_output] = env.step(
-                        action, record=record, mu=mu,
+                        action, record=record,
                         evaluation=evaluation, E_req_only=E_req_only)
                     if constraint_ok:
                         traj_reward = self.learning_manager.learning(

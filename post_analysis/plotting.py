@@ -14,7 +14,9 @@ import matplotlib as matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import torch as th
 
+from config.generate_colors import generate_colors
 from utils.userdeftools import (get_moving_average, granularity_to_multipliers,
                                 initialise_dict)
 
@@ -105,7 +107,7 @@ def _barplot(
         bars, eval_types, prm, baseline=None, opt=None, text_labels=True,
         colors=None, error=None, title=None, display_title=True,
         lower_bound=None, upper_bound=None, display_ticks=True,
-        ax0=None, display_legend=False
+        ax0=None, display_legend=False, ylabel=None, xlabel=None
 ):
 
     n_evaltype = len(eval_types)
@@ -145,12 +147,18 @@ def _barplot(
                     ha='center', va='bottom', fontsize=9)
     if not display_ticks:
         plt.gca().set_yticks([])
-        plt.gca().set_xticks([])
+
+    plt.gca().set_xticks([])
 
     if display_legend:
-        plt.legend(
-            loc='center right', bbox_to_anchor=(1.2, 0.5), fancybox=True
-        )
+        if ax0 is None:
+            fig.legend(
+                loc='lower center', bbox_to_anchor=(0.57, -0.35), fancybox=True, ncol=2
+            )
+        else:
+            plt.legend(
+                loc='center right', bbox_to_anchor=(1.2, 0.5), fancybox=True
+            )
 
     if title is not None and display_title:
         ax.set_title(title)
@@ -180,12 +188,21 @@ def _eval_entries_plot_colors(prm):
         type_plot[e] = '-'
     eval_entries_bars = [e for e in eval_entries_plot
                          if e not in ['baseline', 'opt']]
-    eval_entries_distr = [e for e in eval_entries if len(e.split('_')) > 1 and e.split('_')[-1] == 'd']
-    eval_entries_centr = [e for e in eval_entries if len(e.split('_')) > 1 and e.split('_')[-1] == 'c']
-    other_eval_entries = [e for e in eval_entries if len(e.split("_")) == 1]
-    eval_entries_notCd = [e for e in eval_entries_plot
-                          if not(len(e.split('_')) > 1
-                          and e.split('_')[-1] == 'Cd')]
+    eval_entries_distr = [
+        e for e in eval_entries
+        if len(e.split('_')) > 1 and e.split('_')[-1] == 'd'
+    ]
+    eval_entries_centr = [
+        e for e in eval_entries
+        if len(e.split('_')) > 1 and e.split('_')[-1] == 'c'
+    ]
+    other_eval_entries = [
+        e for e in eval_entries if len(e.split("_")) == 1
+    ]
+    eval_entries_notCd = [
+        e for e in eval_entries_plot
+        if not (len(e.split('_')) > 1 and e.split('_')[-1] == 'Cd')
+    ]
     eval_entries_plot_indiv = [e for e in eval_entries_plot
                                if len(e.split('_')) > 1
                                and e.split('_')[2] not in ['Cc0', 'Cd0']]
@@ -1088,25 +1105,43 @@ def _barplot_metrics(
         if plot_type == 'subplots':
             fig, axs = plt.subplots(2, 3)
         for m in metric_entries + [m + '_p50' for m in metric_entries[0:4]]:
-            eval_entries_bars_ = eval_entries_notCd
-            print(f"eval_entries_bars_ {eval_entries_bars_}")
-            print("eval_entries_bars_")
+            eval_entries_bars_ = eval_entries_bars
             colors_barplot_ = [prm['save']['colorse'][e]
-                               for e in eval_entries_notCd]
+                               for e in eval_entries_bars_]
             ave = 'ave'
             m_ = m
             if m[-3:] == 'p50':
                 ave = 'p50'
                 m_ = m[0:-4]
-                eval_entries_bars_ = eval_entries_bars
-                colors_barplot_ = colors_barplot
-            bars, err = [[metrics[m_][s][e]
-                          for e in eval_entries_bars_]
-                         for s in [ave, 'std']]
-            baseline, opt = [metrics[m_][ave][e]
-                             if e in eval_entries_plot else None
-                             for e in ['baseline', 'opt']]
-            print(f"np.shape(err) {np.shape(err)}")
+
+            # if m == 'end_test_bl':
+            #     # add comparison with laptop run 504 (good facmac run)
+            #     metrics[m_][ave]['facmac'] = 0.10876560799027099
+            #     metrics[m_]['std']['facmac'] = 0.009784742346438599
+            #     eval_entries_bars_ += ["facmac"]
+            #     base_entries += ['facmac']
+            #     # colors_barplot_ += ['k']
+            #     colors_barplot_baseentries += ['k']
+            #     prm['save']['colorse']['facmac'] = 'k'
+            #
+            #     metrics[m_]['std']['facmac'] = 0
+            #
+            # elif 'facmac' in eval_entries_bars_:
+            #     eval_entries_bars_.remove('facmac')
+            #     base_entries.remove('facmac')
+
+            colors_barplot_ = generate_colors(prm["save"], prm, eval_entries_bars_, colours_only=True)
+
+            bars, err = [
+                [metrics[m_][s][e] for e in eval_entries_bars_]
+                for s in [ave, 'std']
+            ]
+
+            baseline, opt = [
+                metrics[m_][ave][e] if e in eval_entries_plot else None
+                for e in ['baseline', 'opt']
+            ]
+
             if err[0] is None:
                 err = None
             display_legend = False if m_ == 'end' else True
@@ -1145,10 +1180,10 @@ def _barplot_metrics(
             ax = plt.gca()
 
             xs, colors_plot_end = {}, {}
-            print(f"base_entries {base_entries}")
             for i in range(len(base_entries)):
                 splits = base_entries[i].split('_')
-                label = splits[0] + '_' + splits[1] if len(splits) > 1 else base_entries[i]
+                label = f"{splits[0]}_{splits[1]}" if len(splits) > 1 \
+                    else base_entries[i]
                 xs[label] = i
                 colors_plot_end[label] = colors_barplot_baseentries[i]
             baseline, opt = [metrics[m_][ave][e]
@@ -1425,6 +1460,65 @@ def _distribution_savings(mean_eval_rewards_per_hh, prm, aggregate='daily'):
     )
 
 
+def _plot_eval_action(record, prm):
+    actions = record.eval_actions
+    if len(list(actions.keys())) == 0:
+        return
+
+    for type_eval in prm["RL"]["type_eval"]:
+        if type_eval == "baseline":
+            continue
+        for ridx in range(prm["RL"]["n_repeats"]):
+            n_mus = 1 if prm["RL"]["aggregate_actions"] else 3
+            if len(actions[ridx]) == 0:
+                continue
+            actions_ = actions[ridx][type_eval]
+            for mu in range(n_mus):
+                fig = plt.figure()
+                for epoch in range(prm["RL"]["n_epochs"]):
+                    for step in range(len(actions_[epoch])):
+                        for home in range(len(actions_[epoch][step])):
+                            plt.plot(
+                                epoch,
+                                actions_[epoch][step][home][mu],
+                                'o'
+                            )
+                title = f"actions {type_eval} mu {mu} {ridx}"
+                _title_and_save(
+                    title, fig, prm["paths"]["fig_folder"],
+                    prm["save"]["save_run"]
+                )
+
+
+def _check_model_changes(prm):
+    if prm["RL"]["type_learning"] == "q_learning":
+        return
+    networks = [
+        t for t in prm["RL"]["type_eval"]
+        if t not in ["baseline", "opt", "random"]
+    ]
+    for t in networks:
+        folders = [
+            folder for folder in os.listdir(prm["paths"]["record_folder"])
+            if folder[0:len(f"models_{t}")] == f"models_{t}"
+        ]
+        if len(folders) > 0:
+            nos = [int(folder.split("_")[-1]) for folder in folders]
+            nos.sort()
+            agents, mixers = [], []
+            for no in nos:
+                path = prm["paths"]["record_folder"] / f"models_{t}_{no}"
+                agents.append(th.load(path / "agent.th"))
+                mixers.append(th.load(path / "mixer.th"))
+
+            assert not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"]), \
+                "agent network has not changed"
+
+            assert not all(
+                mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]
+            ), "mixers network has not changed"
+
+
 def plotting(record, spaces, prm, f):
     """Plot and save results."""
     [prm, action_state_space_0, state_space_0, f,
@@ -1557,6 +1651,12 @@ def plotting(record, spaces, prm, f):
 
             # 17 - n not feas vs variables vs time step
             _plot_unfeasible_attempts(ridx, record, prm)
+
+    # 18 - plot eval_actions over time
+    _plot_eval_action(record, prm)
+
+    # 19 - check that some learning has occurred
+    _check_model_changes(prm)
 
     if prm['save']['save_run']:
         np.save(prm['paths']['fig_folder'] / 'eval_entries', eval_entries)

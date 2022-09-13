@@ -23,7 +23,7 @@ from config.initialise_prm import get_settings_i, load_existing_prm
 from config.input_data import input_paths
 from post_analysis.plot_summary_no_agents import plot_results_vs_nag
 from post_analysis.post_processing import post_processing
-from simulations.LocalElec import LocalElecEnv
+from simulations.local_elec import LocalElecEnv
 from simulations.runner import Runner
 
 # %% =========================================================================
@@ -36,28 +36,22 @@ settings = {
     'RL': {
         'type_learning': 'facmac',
         'type_env': 'continuous',
-        'explo_reward_type': [['random', 'env_r_c']] ,
+        'explo_reward_type': [['random', 'env_r_c']],
         'gamma': {'q_learning': 0.99, 'facmac': 0.85},
         'aggregate_actions': False,
         'mixer': 'qmix',
 
         # current experiment
-        'rnn_hidden_dim': [5e3]*3+[1e4]*6,
-        'n_hidden_layers': [3] * 3 + [2] * 3 + [3] * 3,
-        'state_space': [['grdC','bat_dem_agg','avail_EV_step']]*10,
-        'n_epochs': [20, 30, 50] * 3,
-        'n_repeats': 5
-
-        # quick check
-        # 'n_repeats': 2,
-        # 'n_epochs': 20,
-        # 'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']],
-        # 'rnn_hidden_dim': 1e2
+        'rnn_hidden_dim': [1e2, 1e3, 5e3, 1e4] + [5e4] * 3 + [1e2, 1e3, 5e3],
+        'n_hidden_layers': [2] * 7 + [3] * 3,
+        'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']] * 10,
+        'n_epochs': [50] * 4 + [20, 30, 50] + [50] * 3,
+        'n_repeats': 5,
+        'print_learn': False
     },
 
     'ntw': {
-        'n': 50
-        # 'n': 5
+        'n': 30
     },
 
     'save': {
@@ -65,14 +59,15 @@ settings = {
         'save_run': 1,
         # if doing post run analysis -
         # load results from laptop or from beast folder
-        'EPG_beast': True
+        'EPG_beast': False
     }
 }
 
 # on server check centralised opts false - next lr sensitivity
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 LEARN_PLOT = 1
-no_runs = [530]   # if plotting
+# no_runs = [504]   # if plotting
+no_runs = [610]   # if plotting
 
 MAIN_DIR_NOT_SERVER = '/Users/floracharbonnier/OneDrive - Nexus365' \
                       '/DPhil/Python/Phase2'
@@ -162,14 +157,13 @@ if LEARN_PLOT == 1:
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment()
-            if not prm['RL']['server']:
-                play_sound()
             record.save(end_of='end')  # save progress at end
-
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i
             )
             print(f"--- {time.time() - start_time} seconds ---")
+            if not prm['RL']['server']:
+                play_sound()
     except Exception as ex:
         print(f"ex {ex}")
         print(traceback.format_exc())
@@ -184,6 +178,9 @@ elif LEARN_PLOT == 2:
 
     for no_run in no_runs:
         lp, prm = load_existing_prm(prm, no_run, current_path, settings)
+        # prm["RL"]["type_learning"] = "facmac"
+        # prm["RL"]["n_repeats"] = 5
+        # prm["RL"]["n_epochs"] = 10
         if not settings['RL']['server']:
             prm['paths']['main_dir'] = Path(MAIN_DIR_NOT_SERVER)
 
@@ -191,9 +188,6 @@ elif LEARN_PLOT == 2:
         prm, record, profiles = initialise_objects(prm, no_run=no_run)
         # make user defined environment
         env = LocalElecEnv(prm, profiles)
-        # second part of initialisation specifying environment
-        # with relevant parameters
-        # env.my_init(prm, profiles)
         record.init_env(env)  # record progress as we train
         post_processing(record, env, prm, no_run=no_run)
 

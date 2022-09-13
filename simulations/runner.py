@@ -97,14 +97,15 @@ class Runner():
                             or model_save_time == 0):
                         model_save_time = self.explorer.t_env
 
-                        for t_explo in self.rl['type_explo']:
-                            if t_explo not in self.learner:
-                                continue
-                            save_path \
-                                = self.prm["paths"]["record_folder"] \
-                                / f"models_{t_explo}_{self.explorer.t_env}"
-                            os.makedirs(save_path, exist_ok=True)
-                            self.learner[t_explo].save_models(save_path)
+                        if self.prm["save"]["save_nns"]:
+                            for t_explo in self.rl['type_explo']:
+                                if t_explo not in self.learner:
+                                    continue
+                                save_path \
+                                    = self.prm["paths"]["record_folder"] \
+                                    / f"models_{t_explo}_{self.explorer.t_env}"
+                                os.makedirs(save_path, exist_ok=True)
+                                self.learner[t_explo].save_models(save_path)
 
                 # learning step at the end of the exploration
                 # if it was not done instantly after each step
@@ -173,7 +174,8 @@ class Runner():
 
                 self.record.end_epoch(
                     epoch_test, eval_steps, list_train_stepvals,
-                    self.rl, self.learner, duration_epoch, end_test=True)
+                    self.rl, self.learner, duration_epoch, end_test=True
+                )
 
                 episode += 1
 
@@ -361,10 +363,19 @@ class Runner():
                 self.buffer[t].insert_episode_batch(
                     self.episode_batch[t_explo], difference=diff,
                     optimisation=opt)
-                print(f"self.buffer[t].can_sample(self.rl['facmac']['batch_size']) {self.buffer[t].can_sample(self.rl['facmac']['batch_size'])}")
+                can_sample = self.buffer[t].can_sample(
+                    self.rl['facmac']['batch_size']
+                )
+                print(f"self.buffer[t].can_sample("
+                      f"self.rl['facmac']['batch_size']) "
+                      f"{can_sample}")
+                buffer_warm_up_bool = (
+                    self.buffer[t].episodes_in_buffer
+                    > self.rl['buffer_warmup']
+                )
                 print(f"self.buffer[t].episodes_in_buffer "
                       f"> self.rl['buffer_warmup'] = "
-                      f"{self.buffer[t].episodes_in_buffer > self.rl['buffer_warmup']}")
+                      f"{buffer_warm_up_bool}")
                 if self.buffer[t].can_sample(self.rl['facmac']['batch_size']) \
                         and (self.buffer[t].episodes_in_buffer
                              > self.rl['buffer_warmup']):

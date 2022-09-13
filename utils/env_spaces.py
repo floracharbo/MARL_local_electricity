@@ -39,6 +39,7 @@ class EnvSpaces():
                     max_normgen_hour = np.max(env.prof["gen"][m])
 
         self.c_max = env.prm["bat"]["c_max"]
+        self.type_eval = env.prm["RL"]["type_eval"]
         prm = env.prm
 
         columns = ["name", "min", "max", "n", "discrete"]
@@ -137,9 +138,10 @@ class EnvSpaces():
                     0, self.n[space] - 1, num=self.n[space])
                 # initialise global multipliers for going to agent
                 # states and actions to global states and actions
-                self.global_multipliers[space] = \
-                    granularity_to_multipliers(
-                        [self.n[space] for _ in range(self.n_agents)])
+                if any(t[-2] == 'C' for t in self.type_eval):
+                    self.global_multipliers[space] = \
+                        granularity_to_multipliers(
+                            [self.n[space] for _ in range(self.n_agents)])
 
         # need to first define descriptors to define brackets
         self.brackets = self._init_brackets()

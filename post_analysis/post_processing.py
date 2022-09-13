@@ -143,7 +143,7 @@ def get_prm_save(prm):
     to_save_entries_syst = \
         np.load(Path(prm['paths']['input_dir']) / 'to_save_entries_syst.npy',
                 allow_pickle=True).item()
-    for key in to_save_entries_syst.keys():
+    for key in to_save_entries_syst:
         prm_save[key] = {}
         sub_keys = to_save_entries_syst[key] \
             if len(to_save_entries_syst[key]) > 0 \
@@ -163,7 +163,7 @@ def get_prm_save(prm):
                 print(f"{sub_key} not in prm[{key}]")
 
     prm_save['RL'] = {}
-    for e, val in prm_save['RL'].items():
+    for e, val in prm['RL'].items():
         if isinstance(val, list):
             prm_save['RL'][e] = []
             for item in val:
@@ -177,7 +177,7 @@ def get_prm_save(prm):
                     for item in val[key]:
                         if isinstance(item, (int, float, bool)):
                             prm_save['RL'][e][key].append(item)
-                elif isinstance(val[key], (int, float, bool)):
+                elif isinstance(item, (int, float, bool)):
                     prm_save['RL'][e][key] = item
         elif isinstance(val, (int, float, bool)):
             prm_save['RL'][e] = val
