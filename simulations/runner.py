@@ -174,7 +174,8 @@ class Runner():
 
                 self.record.end_epoch(
                     epoch_test, eval_steps, list_train_stepvals,
-                    self.rl, self.learner, duration_epoch, end_test=True)
+                    self.rl, self.learner, duration_epoch, end_test=True
+                )
 
                 episode += 1
 
