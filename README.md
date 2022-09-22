@@ -88,14 +88,15 @@ User inputs are in the inputs folder
 The user can modify entries in the yaml files, or keep these as default values and enter specific values in the main_rl.py file in the settings dictionary, as shown in as an example in the file.
 If values entered are in a list format, multiple experiments will loop though these values, so multiple experiments can be planned in one run.
 
-6. Run`main_rl.py`
+6. Run`main.py`
 
 Alternatively, settings can be enterered through the command line rather than from the .py or .yaml files, e.g.
 
 `python main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC --o avail_EV_step --rnn_hidden_dim 100`
 
 Where `-o` stands for observation, `-n` for the number of homes. You can add more abbreviations in the `get_settings_i` function in the `initialise_prm.py` file.
-8. Obtain results in`results` folder.
+
+7. Obtain results in`results` folder.
 
 ## License
 [GNU AGPLv3](LICENSE.txt)
