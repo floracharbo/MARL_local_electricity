@@ -148,7 +148,7 @@ class Data_manager():
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())
                     print(f'ex.args {ex.args}')
-                    if not self.rl['server']:
+                    if self.prm["syst"]["play_sound"]:
                         play_sound()
                 data_feasible = False
             new_res = True
@@ -201,7 +201,7 @@ class Data_manager():
             mus_opt = None
             self.res_name = \
                 f"res_P{int(self.seed['P'])}_" \
-                f"{int(self.seed[''])}{self.rl['opt_res_file']}"
+                f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
 
             if passive:
                 seed_data, new_res, data_feasible \
@@ -281,7 +281,7 @@ class Data_manager():
 
     def file_id(self):
         """Generate string to identify the run in saved files."""
-        return f"{int(self.seed[self.p])}{self.p}{self.rl['opt_res_file']}"
+        return f"{int(self.seed[self.p])}{self.p}{self.prm['paths']['opt_res_file']}"
 
     def _loop_replace_data(self,
                            data_feasibles: list_bool,

@@ -211,8 +211,3 @@ facmac:
         gamma: 0.85
 
 aggregate_actions: True
-
-# i think this is not used
-normalise_actions: False
-
-#i think this has to be episodic

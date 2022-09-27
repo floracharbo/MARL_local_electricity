@@ -82,8 +82,9 @@ class LocalElecEnv():
         self.spaces.new_state_space(self.rl['state_space'])
         self.add_noise = 1 if self.rl['deterministic'] == 2 else 0
         for e in ['competitive', 'n_grdC_level',
-                  'opt_res_file', 'offset_reward', 'delta_reward']:
+                  'offset_reward', 'delta_reward']:
             self.__dict__[e] = self.rl[e]
+        self.opt_res_file = self.prm['paths']['opt_res_file']
         self.res_path = prm['paths']['res_path']
         self.i0_costs = 0
         self.bat = Battery(prm)

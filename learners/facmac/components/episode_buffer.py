@@ -454,22 +454,22 @@ class CompressibleBatchTensor():
 
         # calculate compression ratio
         chunk_compression_ratios = \
-            [len(_x) / (np.asscalar(np.prod(np.array(self.shape)))
+            [len(_x) / ((np.prod(np.array(self.shape))).item()
                         * self.chunk_size * self.np_dtype.itemsize)
              for k, _x in self._storage.items() if _x is not None]
         stats["compression_ratio"] = \
-            np.asscalar(np.array(chunk_compression_ratios).mean())
+            (np.array(chunk_compression_ratios).mean()).item()
 
         stats["predicted_full_size_compressed"] = \
             stats["compression_ratio"] \
             * self.chunk_size \
             * len(self._storage.keys()) \
-            * np.asscalar(np.prod(np.array(self.shape))
-                          * self.np_dtype.itemsize)
+            * (np.prod(np.array(self.shape))
+                          * self.np_dtype.itemsize).item()
         stats["predicted_full_size_uncompressed"] = \
             self.chunk_size * len(self._storage.keys()) \
-            * np.asscalar(np.prod(np.array(self.shape))
-                          * self.np_dtype.itemsize)
+            * (np.prod(np.array(self.shape))
+                          * self.np_dtype.itemsize).item()
         return stats
 
     pass
@@ -548,19 +548,19 @@ class CompressibleEpisodeBatch(EpisodeBatch):
         for k, v in self.data.transition_data.items():
             stats_list_trans[k] = v.get_compression_stats()
 
-        stats["fill_level"] = np.asscalar(
-            np.mean([v["fill_level"] for _, v in stats_list_trans.items()]))
+        stats["fill_level"] = (
+            np.mean([v["fill_level"] for _, v in stats_list_trans.items()])).item()
         stats["compression_ratio"] = \
-            np.asscalar(np.sum([v["predicted_full_size_compressed"]
-                                for _, v in stats_list_trans.items()]))\
-            / np.asscalar(np.sum([v["predicted_full_size_uncompressed"]
-                                  for _, v in stats_list_trans.items()]))
-        stats["predicted_full_size_compressed"] = np.asscalar(
+            (np.sum([v["predicted_full_size_compressed"]
+                                for _, v in stats_list_trans.items()])).item() \
+            / (np.sum([v["predicted_full_size_uncompressed"]
+                                  for _, v in stats_list_trans.items()])).item()
+        stats["predicted_full_size_compressed"] = (
             np.sum([v["predicted_full_size_compressed"]
-                    for _, v in stats_list_trans.items()]))
-        stats["predicted_full_size_uncompressed"] = np.asscalar(
+                    for _, v in stats_list_trans.items()])).item()
+        stats["predicted_full_size_uncompressed"] = (
             np.sum([v["predicted_full_size_uncompressed"]
-                    for _, v in stats_list_trans.items()]))
+                    for _, v in stats_list_trans.items()])).item()
         return stats
 
 
@@ -607,7 +607,6 @@ class ReplayBuffer(EpisodeBatch):
                 ep_batch[buffer_left:, :].to(self.device))
 
     def can_sample(self, batch_size):
-        print(f"self.episodes_in_buffer {self.episodes_in_buffer} batch_size {batch_size}")
         return self.episodes_in_buffer >= batch_size
 
     def sample(self, batch_size):

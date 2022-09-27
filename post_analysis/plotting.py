@@ -1034,7 +1034,7 @@ def _plot_results_all_ridx(
         np.save('upper_bound0', upper_bound)
         print(f'new up lb [{lower_bound}, {upper_bound}]')
 
-    lower_bound, upper_bound = [np.load(prm['paths']['main_dir'] / f"{e}0.npy")
+    lower_bound, upper_bound = [np.load(prm['paths']['input_folder'] / f"{e}0.npy")
                                 for e in ['lower_bound', 'upper_bound']]
     plt.ylim([lower_bound, upper_bound])
     plt.gca().set_yticks(np.arange(-0.25, 0.2, 0.05))

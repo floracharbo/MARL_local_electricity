@@ -18,7 +18,7 @@ from gym import spaces
 from config.generate_colors import generate_colors
 from config.get_heat_coeffs import get_heat_coeffs
 from learners.facmac.components.transforms import OneHot
-from utils.userdeftools import initialise_dict, str_to_int
+from utils.userdeftools import initialise_dict, str_to_int, play_sound
 
 sys.path.append(
     '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/Python/'
@@ -64,8 +64,8 @@ def _facmac_initialise(prm):
                 _action_min = rl['action_space'][_aid].low[_actid]
                 _action_max = rl['action_space'][_aid].high[_actid]
                 mult_coef_tensor[_aid, _actid] = \
-                    np.asscalar(_action_max - _action_min)
-                action_min_tensor[_aid, _actid] = np.asscalar(_action_min)
+                    (_action_max - _action_min).item()
+                action_min_tensor[_aid, _actid] = _action_min.item()
 
     else:
         print("need to set up rl['type_learning'] "
@@ -146,9 +146,7 @@ def _facmac_initialise(prm):
                       "n_actions": rl['dim_actions'],
                       "n_agents": rl['n_agents'],
                       "episode_limit": rl['episode_limit'],
-                      # "action_spaces": action_spaces,
                       "actions_dtype": np.float32,
-                      "normalise_actions": rl['normalise_actions']}
 
     return prm
 
@@ -165,24 +163,12 @@ def _update_paths(paths, prm, no_run):
     paths:
         correpsonding to prm['paths']; with updated parameters
     """
-    for old, new in zip(['maindir', 'factorsfolder'],
-                        ['main_dir', 'factors_folder']):
-        if new not in paths:
-            paths[new] = paths[old]
-
-    paths['input_dir'] = paths['main_dir'] / paths['input_folder']
-    if prm['RL']['server']:
-        paths['folder_run'] = Path(
-            f"/home/epg/Flora/Phase2/results/run{no_run}")
-    elif 'EPG_beast' not in prm['save'] or not prm['save']['EPG_beast']:
-        paths['folder_run'] = paths['main_dir'] / 'results' / f'run{no_run}'
-    else:
-        paths['folder_run'] = paths['main_dir'] / 'results' \
-            / 'results_EPGbeast' / f'run{no_run}'
+    paths['folder_run'] = Path('results') / f'run{no_run}'
     paths['record_folder'] = paths['folder_run'] / 'record'
     prm['paths']['fig_folder'] = paths['folder_run'] / 'figures'
-    paths['res_path'] = paths['main_dir'] / paths['res_folder']
-    paths['factors_path'] = paths['input_dir'] / paths['factors_folder']
+    paths['res_path'] = Path(paths['res_folder'])
+    paths['input_folder'] = Path(paths['input_folder'])
+    paths['factors_path'] = paths['input_folder'] / paths['factors_folder']
 
     return paths
 
@@ -210,7 +196,7 @@ def _load_data_dictionaries(loads, gen, bat, paths, syst):
                         factors_path / f'meandistr_{dict_label[d]}_{dtt}.npy')
             for p in ['pclus', 'ptrans']:
                 dicts[d][p] = np.reshape(
-                    np.load(paths['input_dir'] / paths['clusfolder']
+                    np.load(paths['input_folder'] / paths['clusfolder']
                             / f'{p}_{dict_label[d]}.npy',
                             allow_pickle=True), 1)[0]
             dicts[d]['n_clus'] = len(dicts[d]['pclus']['wd'])
@@ -232,7 +218,7 @@ def _load_profiles(paths, bat, syst, loads, gen):
     bat['n_prof'] = initialise_dict(syst['labels_day'])
 
     for data in ['cons', 'avail']:
-        path = paths['input_dir'] / paths[f'ev_{data}_folder']
+        path = paths['input_folder'] / paths[f'ev_{data}_folder']
         files = os.listdir(path)
         for file in files:
             if file[0] != '.':
@@ -249,7 +235,7 @@ def _load_profiles(paths, bat, syst, loads, gen):
         bat['n_prof'][day_type] = [len(profiles['bat']['cons'][day_type][clus])
                                    for clus in range(bat['n_clus'])]
 
-    prof_path = paths['input_dir'] / paths['profiles_folder']
+    prof_path = paths['input_folder'] / paths['profiles_folder']
     profiles['loads'] = {}
     loads['n_prof'] = {}
     for day_type in syst['labels_day']:
@@ -258,8 +244,8 @@ def _load_profiles(paths, bat, syst, loads, gen):
                      mmap_mode='r') for clus in range(syst['n_loads_clus'])]
         loads['n_prof'][day_type] = [len(profiles['loads'][day_type][clus])
                                      for clus in range(loads['n_clus'])]
-    loads['perc'] = np.load(paths['input_dir'] / paths['loads_cons_perc'])
-    bat['perc'] = np.load(paths['input_dir'] / paths['EV_perc'])
+    loads['perc'] = np.load(paths['input_folder'] / paths['loads_cons_perc'])
+    bat['perc'] = np.load(paths['input_folder'] / paths['EV_perc'])
 
     # PV generation bank and month
     gen_profs = np.load(prof_path / 'normbank_gen.npy', mmap_mode='r')
@@ -272,7 +258,7 @@ def _load_profiles(paths, bat, syst, loads, gen):
                 profiles['gen'][month].append(
                     [gen_data if gen_data > 0 else 0 for gen_data in gen_prof])
     gen['n_prof'] = [len(profiles['gen'][m]) for m in range(12)]
-    list_fact_gen = np.load(paths['input_dir'] / 'factorsstats'
+    list_fact_gen = np.load(paths['input_folder'] / 'factorsstats'
                             / 'list_factors_gen.npy')
     month = syst['date0'].month
     non_0_norm_gen = [x for x in profiles['gen'][month] if x != 0]
@@ -505,31 +491,29 @@ def _seed_save_paths(prm):
     rl, heat, syst, ntw, paths = \
         [prm[key] for key in ['RL', 'heat', 'syst', 'ntw', 'paths']]
 
-    rl['opt_res_file'] = \
+    paths['opt_res_file'] = \
         f"_D{syst['D']}_{syst['solver']}_Uval{heat['Uvalues']}" \
         f"_ntwn{ntw['n']}_nP{ntw['nP']}"
     if 'file' in heat and heat['file'] != 'heat.yaml':
-        rl['opt_res_file'] += f"{heat['file']}"
-    rl['seeds_file'] = 'seeds' + rl['opt_res_file']
+        paths['opt_res_file'] += f"{heat['file']}"
+    paths['seeds_file'] = 'seeds' + paths['opt_res_file']
     if rl['deterministic'] == 2:
         for file in ['opt_res_file', 'seeds_file']:
-            rl[file] += '_noisy'
+            paths[file] += '_noisy'
     for file in ['opt_res_file', 'seeds_file']:
-        rl[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
+        paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
                     f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
     if prm['syst']['change_start']:
-        rl['opt_res_file'] += '_changestart'
+        paths['opt_res_file'] += '_changestart'
 
     # eff does not matter for seeds, but only for res
     if prm['bat']['efftype'] == 1:
-        rl['opt_res_file'] += '_eff1'
+        paths['opt_res_file'] += '_eff1'
     for file in ['opt_res_file', 'seeds_file']:
-        rl[file] += '.npy'
+        paths[file] += '.npy'
 
-    paths['seeds_path'] = paths['main_dir'] / rl['seeds_file']
-    print(f"rl['seeds_file'] {rl['seeds_file']}")
-    if os.path.exists(paths['seeds_path']):
-        rl['seeds'] = np.load(paths['seeds_path'], allow_pickle=True).item()
+    if os.path.exists(paths['seeds_file']):
+        rl['seeds'] = np.load(paths['seeds_file'], allow_pickle=True).item()
     else:
         rl['seeds'] = {'P': [], '': []}
     rl['init_len_seeds'] = {}
@@ -555,10 +539,10 @@ def _update_grd_prm(prm):
     """
     paths, grd, syst = [prm[key] for key in ['paths', 'grd', 'syst']]
     # wholesale
-    wholesale_path = paths['input_dir'] / paths['wholesale']
+    wholesale_path = paths['input_folder'] / paths['wholesale']
     wholesale = [x * 1e-3 for x in np.load(wholesale_path)]  # p/kWh -> GBP/kWh
     grd['wholesale_all'] = wholesale
-    carbon_intensity_path = paths['input_dir'] / paths['carbon_intensity']
+    carbon_intensity_path = paths['input_folder'] / paths['carbon_intensity']
 
     # gCO2/kWh to tCO2/kWh
     grd['cintensity_all'] = np.load(
@@ -605,6 +589,9 @@ def initialise(prm, no_run, initialise_all=True):
     syst['N'] = syst['D'] * syst['H']
     syst['duration'] = datetime.timedelta(days=syst['D'])
     ntw['n_all'] = ntw['n'] + ntw['nP']
+    if syst['play_sound']:
+        if syst["play_sound"] and os.file.exist(syst["sound_file"]):
+            syst["play_sound"] = False
 
     for p in ["", "P"]:
         if 'own_PV' + p in gen:
@@ -626,11 +613,11 @@ def initialise(prm, no_run, initialise_all=True):
             loads, gen, bat = _load_data_dictionaries(
                 loads, gen, bat, paths, syst)
             syst['datetimes'] = \
-                np.load(paths['input_dir'] / paths['datetimes'],
+                np.load(paths['input_folder'] / paths['datetimes'],
                         allow_pickle=True)
 
             # dates
-            dates_path = paths['input_dir'] / paths['dates']
+            dates_path = paths['input_folder'] / paths['dates']
             dates = np.load(dates_path)
             dates = [str_to_int(date) for date in dates]
             syst['date0_dates'] = \
@@ -670,10 +657,6 @@ def initialise(prm, no_run, initialise_all=True):
     if rl['type_learning'] in ["q_learning", "DQN"]:
         prm['RL']['type_env'] = 'discrete'
 
-    # %% correct input data file if on server
-    if rl['server']:
-        paths['inputDatafolder'] = os.getcwd()
-
     # calculate heating coefficients for recursive expression
     # based on input data
     if initialise_all and heat is not None:
@@ -693,17 +676,10 @@ def initialise(prm, no_run, initialise_all=True):
     return prm, profiles
 
 
-def load_existing_prm(prm, no_run, current_path, settings):
+def load_existing_prm(prm, no_run):
     """Load input data for the previous run no_run."""
-    p = Path(prm['paths']['main_dir'])
     prev_paths = prm['paths'].copy()
-    if settings['RL']['server']:
-        input_folder = p / 'results' / f'run{no_run}' / 'inputData'
-    elif settings['save']['EPG_beast'] is False:
-        input_folder = p / 'results' / f'run{no_run}' / 'inputData'
-    else:
-        input_folder = p / 'results' / 'results_EPGbeast' / \
-            f'run{no_run}' / 'inputData'
+    input_folder = Path('results') / f'run{no_run}' / 'inputData'
 
     # if input data was saved, load input data
     if os.path.exists(input_folder):
@@ -722,7 +698,6 @@ def load_existing_prm(prm, no_run, current_path, settings):
             prm = np.load(input_folder / 'prm.npy',
                           allow_pickle=True).item()
             lp = None
-        prm['paths']['current_path'] = Path(current_path)
         if 'repeats' in prm['RL']:
             prm['RL']['n_repeats'] = prm['RL']['repeats']
         for path in prev_paths:
@@ -767,7 +742,6 @@ def get_settings_i(settings, i):
         else:
             settings_i['RL'][key[2:]] = val
             print(f"RL['{key[2:]}'] = {val}")
-            print(f"type = {type(val)}")
     if len(obs) > 0:
         settings_i['RL']['state_space'] = obs
 

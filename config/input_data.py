@@ -14,14 +14,12 @@ import numpy as np
 import yaml
 
 
-def input_paths(current_path=str):
+def input_paths():
     """Load paths parameters."""
     prm = {}
     # Get the defaults from default.yaml
     with open("inputs/paths.yaml", "r") as f:
         prm['paths'] = yaml.safe_load(f)
-    if current_path is not None:
-        prm['paths']['current_path'] = Path(current_path)
 
     return prm
 
@@ -46,15 +44,12 @@ def input_params(prm, settings=None):
                 e_file = settings['heat']['file']
             else:
                 e_file = e
-            path_exists = os.path.exists(
-                prm['paths']['current_path'] / f'inputs/{e}.yaml')
+            path_exists = os.path.exists(f'inputs/{e}.yaml')
             if path_exists:
-                with open(prm['paths']['current_path']
-                          / f"inputs/{e_file}.yaml", "r") as f:
+                with open(f"inputs/{e_file}.yaml", "r") as f:
                     prm[e] = yaml.safe_load(f)
             else:
-                print(f"os.path.exists(prm['paths']['current_path'] "
-                      f"{path_exists}")
+                print(f"inputs/{e_file}.yaml does not exist")
     else:
         print("'paths' not in prm")
     prm['RL']['RL_to_save'] = list(prm['RL'].keys())

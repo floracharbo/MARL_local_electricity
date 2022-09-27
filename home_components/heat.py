@@ -57,14 +57,16 @@ class Heat:
         self._update_passive_active_vars(prm)
 
         # flexibility around T_req
-        self.dT = prm['heat']['dT']
+        self.dT = prm["heat"]['dT']
 
         # number of hours (time intervals) in a day
-        self.H = prm['syst']['H']
+        self.H = prm["syst"]['H']
 
         # number of hours (time intervals) in episode
-        self.N = prm['syst']['N']
+        self.N = prm["syst"]['N']
 
+        # whether to play sound on errors
+        self.play_sound = prm["syst"]["play_sound"]
         # amount of energy consumed at time step that was optional
         # / could have been delayed
         self.E_flex = None
@@ -100,21 +102,21 @@ class Heat:
             E_req_only = False
 
         # current indoor air temperatures
-        self.T_air = [prm['heat']['T_req' + self.p][a][0]
+        self.T_air = [prm["heat"]["T_req" + self.p][a][0]
                       for a in range(self.n_agents)]
 
         # required temperature profile
-        self.T_req = prm['heat']['T_req' + self.p]
+        self.T_req = prm["heat"]["T_req" + self.p]
 
         # temperature bounds based on whether there is flexibility or not
         if not E_req_only:
-            self.T_UB = prm['heat']['T_UB' + self.p]
-            self.T_LB = prm['heat']['T_LB' + self.p]
+            self.T_UB = prm["heat"]["T_UB" + self.p]
+            self.T_LB = prm["heat"]["T_LB" + self.p]
         else:
             self.T_UB, self.T_LB = [self.T_req for _ in range(2)]
 
         # external temperature
-        self.T_out = prm['heat']['T_out_all'][
+        self.T_out = prm["heat"]['T_out_all'][
             self.i0_costs: self.i0_costs + prm['syst']['N']]
 
     def next_T(self, T_start=None, E_heat=None, T_out_t=None,
@@ -175,8 +177,8 @@ class Heat:
         i_step:
             index current time step
         """
-        for e in ['T_LB', 'T_UB']:
-            self.__dict__[e + '_t'] = [self.__dict__[e][a][i_step]
+        for e in ["T_LB", "T_UB"]:
+            self.__dict__[e + "_t"] = [self.__dict__[e][a][i_step]
                                        for a in range(self.n_agents)]
 
     def E_heat_min_max(self, i_step):
@@ -263,8 +265,8 @@ class Heat:
             # check E_heat_min makes sense
             assert E_heat_min0[a] < 100, f"E_heat_min0 = {E_heat_min0}"
             assert E_heat_min0[a] <= E_heat_max0[a], \
-                f'E_heat_min0[{a}] {E_heat_min0[a]} ' \
-                f'> E_heat_max0[{a}] {E_heat_max0[a]}'
+                f"E_heat_min0[{a}] {E_heat_min0[a]} " \
+                f"> E_heat_max0[{a}] {E_heat_max0[a]}"
 
         self.E_heat_min, self.E_heat_max = [
             np.where(self.own_heat, heat0, 0)
@@ -289,7 +291,7 @@ class Heat:
         if res is None:
             self.T = self.T_next
         elif self.i_step < self.N:
-            self.T = [res['T'][a][self.i_step] for a in range(self.n_agents)]
+            self.T = [res["T"][a][self.i_step] for a in range(self.n_agents)]
 
     def check_constraints(self, a, h, bool_penalty, E_req_only):
         """
@@ -328,7 +330,8 @@ class Heat:
 
             elif self.T_air[a] < self.T_LB[a][h] - 1e-1:
                 print("T_air < T_LB")
-                play_sound()
+                if self.play_sound:
+                    play_sound()
                 bool_penalty[a] = True
 
             # check E_heat_max makes sense
@@ -428,13 +431,13 @@ class Heat:
 
     def _update_passive_active_vars(self, prm):
         # number of agents / households
-        self.n_agents = prm['ntw']['n' + self.p]
+        self.n_agents = prm["ntw"]["n" + self.p]
 
         # current building mass temperatures
-        self.T = [prm['heat']['T0'] for _ in range(self.n_agents)]
+        self.T = [prm["heat"]["T0"] for _ in range(self.n_agents)]
 
         # heating coefficients for recursive description
-        self.T_air_coeff = prm['heat']['T_air_coeff' + self.p]
-        self.T_coeff = prm['heat']['T_coeff' + self.p]
+        self.T_air_coeff = prm["heat"]["T_air_coeff" + self.p]
+        self.T_coeff = prm["heat"]["T_coeff" + self.p]
 
-        self.own_heat = prm['heat']['own_heat' + self.p]
+        self.own_heat = prm["heat"]["own_heat" + self.p]

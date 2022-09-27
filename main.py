@@ -9,11 +9,8 @@ Created on Sat Feb  1 15:14:20 2020.
 # =============================================================================
 # # packages
 # =============================================================================
-import os  # path management
-import sys
 import time  # to record time it takes to run simulations
 import traceback
-from pathlib import Path
 
 import numpy as np  # array management / data handling
 import torch as th
@@ -25,6 +22,7 @@ from post_analysis.plot_summary_no_agents import plot_results_vs_nag
 from post_analysis.post_processing import post_processing
 from simulations.local_elec import LocalElecEnv
 from simulations.runner import Runner
+from utils.userdeftools import play_sound
 
 # %% =========================================================================
 #  Inputs
@@ -69,46 +67,11 @@ LEARN_PLOT = 1
 # no_runs = [504]   # if plotting
 no_runs = [610]   # if plotting
 
-MAIN_DIR_NOT_SERVER = '/Users/floracharbonnier/OneDrive - Nexus365' \
-                      '/DPhil/Python/Phase2'
-
-# =============================================================================
-# # %% paths
-# =============================================================================
-current_path = os.getcwd()
-PERSONAL_PATH = '/Users/floracharbonnier'
-settings['RL']['server'] = 0 if current_path[0: len(
-    PERSONAL_PATH)] == PERSONAL_PATH else 1
-if not settings['RL']['server'] and LEARN_PLOT == 1:
-    settings['save']['EPG_beast'] = False
-
-if not settings['RL']['server']:
-    sys.path.append('/Users/floracharbonnier/Donwloads/dphil')
-    if current_path == '/Users/floracharbonnier/Downloads/dphil':
-        ROOT = current_path
-    else:
-        ROOT = '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/Python'
-        rootdirs = [ROOT,
-                    ROOT + '/Phase2',
-                    ROOT + '/Phase1',
-                    ROOT + '/GettingData']
-        for d in rootdirs:
-            sys.path.append(d)
-
-prm = input_paths(current_path)
-
-if settings['RL']['server']:
-    prm['paths']['main_dir'] = Path(os.getcwd())
-    prm['paths']['input_dir'] = prm['paths']['main_dir'] / 'Inputs'
-else:
-    prm['paths']['main_dir'] = Path(prm['paths']['main_dir'])
-    os.chdir(prm['paths']['main_dir'])
-    # play_sound does not work on server
-    from utils.userdeftools import play_sound
-
 # %%===========================================================================
 # # Learning
 # =============================================================================
+prm = input_paths()
+
 if LEARN_PLOT == 1:
     try:
 
@@ -153,7 +116,6 @@ if LEARN_PLOT == 1:
             env = LocalElecEnv(prm, profiles)
             # second part of initialisation specifying environment
             # with relevant parameters
-            # env.my_init(prm, profiles)
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment()
@@ -162,7 +124,7 @@ if LEARN_PLOT == 1:
                 record, env, prm, start_time=start_time, settings_i=settings_i
             )
             print(f"--- {time.time() - start_time} seconds ---")
-            if not prm['RL']['server']:
+            if prm["syst"]["play_sound"]:
                 play_sound()
     except Exception as ex:
         print(f"ex {ex}")
@@ -177,12 +139,7 @@ elif LEARN_PLOT == 2:
         no_runs = [no_runs]  # the runs need to be in an array
 
     for no_run in no_runs:
-        lp, prm = load_existing_prm(prm, no_run, current_path, settings)
-        # prm["RL"]["type_learning"] = "facmac"
-        # prm["RL"]["n_repeats"] = 5
-        # prm["RL"]["n_epochs"] = 10
-        if not settings['RL']['server']:
-            prm['paths']['main_dir'] = Path(MAIN_DIR_NOT_SERVER)
+        lp, prm = load_existing_prm(prm, no_run)
 
         prm['save']['EPG_beast'] = settings['save']['EPG_beast']
         prm, record, profiles = initialise_objects(prm, no_run=no_run)

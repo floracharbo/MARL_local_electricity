@@ -95,8 +95,7 @@ def play_sound():
     """Play a sound to alert user."""
     import simpleaudio as sa
 
-    filename = '/Users/floracharbonnier/OneDrive - Nexus365/' \
-               'DPhil/Python/beep-24.wav'
+    filename = 'beep-24.wav'
     wave_obj = sa.WaveObject.from_wave_file(filename)
     wave_obj.play()
 

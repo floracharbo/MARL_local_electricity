@@ -43,8 +43,9 @@ class Record():
         self.all_methods = rl["type_eval"] + \
             list(set(rl["type_explo"]) - set(rl["type_eval"]))
         # parameters needed for generating paths string
-        for e in ["n_epochs", "instant_feedback", "opt_res_file", "type_env"]:
+        for e in ["n_epochs", "instant_feedback", "type_env"]:
             self.__dict__[e] = rl[e]
+
         for e in ["gamma", "epsilon_decay"]:
             self.__dict__[e] = rl[rl["type_learning"]]
         self.n_agents = prm["ntw"]["n"]
@@ -59,7 +60,7 @@ class Record():
         self.last_entries = prm["save"]["last_entries"]
         # create folder
         self.paths = prm["paths"]
-
+        self.opt_res_file = prm["paths"]["opt_res_file"]
         prm["paths"]["save_days"] = prm["paths"]["folder_run"] / "save_days"
         for e in ["folder_run", "record_folder", "save_days", "fig_folder"]:
             if not os.path.exists(prm["paths"][e]):

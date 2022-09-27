@@ -69,14 +69,11 @@ class FACMACLearner:
         # self.log_stats_t = -self.args.learner_log_interval - 1
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
-        print("train facmac")
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]
         terminated = batch["terminated"][:, :-1].float()
         mask = batch["filled"][:, :-1].float()
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
-
-        print(f"np.shape(rewards) {np.shape(rewards)}")
 
         # Train the critic batched
         target_actions = []
@@ -122,7 +119,6 @@ class FACMACLearner:
         else:
             q_taken = q_taken.view(batch.batch_size, -1, self.n_agents)
             target_vals = target_vals.view(batch.batch_size, -1, self.n_agents)
-        print(f"np.shape(rewards.expand_as(target_vals)) {np.shape(rewards.expand_as(target_vals))}")
         targets = rewards.expand_as(target_vals) \
             + self.rl['facmac']['gamma'] * \
             (1 - terminated.expand_as(target_vals)) * target_vals
@@ -131,7 +127,6 @@ class FACMACLearner:
         masked_td_error = td_error * mask
         loss = (masked_td_error ** 2).sum() / mask.sum()
 
-        print(f"critic_optimiser.zero_grad()")
         self.critic_optimiser.zero_grad()
         loss.backward()
         self.critic_optimiser.step()
@@ -162,7 +157,6 @@ class FACMACLearner:
         pg_loss = -chosen_action_qvals.mean() + (pi**2).mean() * 1e-3
 
         # Optimise agents
-        print("self.agent_optimiser.zero_grad()")
         self.agent_optimiser.zero_grad()
         pg_loss.backward()
         self.agent_optimiser.step()
@@ -172,7 +166,6 @@ class FACMACLearner:
             self._update_targets()
         elif self.rl['target_update_mode'] in \
                 ["soft", "exponential_moving_average"]:
-            print("soft target update")
             self._update_targets_soft(tau=self.rl['target_update_tau'])
         else:
             raise Exception(f"unknown target update mode: "

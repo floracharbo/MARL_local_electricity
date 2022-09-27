@@ -70,7 +70,6 @@ class Runner():
 
                 # loop through number of explorations for each epoch
                 for i_explore in range(self.rl['n_explore']):
-                    print(f"i_explore {i_explore}")
                     episode += 1
 
                     steps_vals, date0, delta, i0_costs, type_explo \
@@ -90,7 +89,6 @@ class Runner():
                         self.record.__dict__[e][ridx].append(
                             train_steps_vals[-1][e])
 
-                    print(f"self.explorer.t_env {self.explorer.t_env}")
                     if self.rl['save_model'] and (
                             self.explorer.t_env - model_save_time
                             >= self.rl['save_model_interval']
@@ -126,7 +124,6 @@ class Runner():
 
                 # evaluation step
                 # REPLACE HERE
-                print("evaluation step")
                 type_eval = self._check_if_opt_needed(epoch, evaluation=True)
                 assert i_explore + 1 == self.rl['n_explore']
                 self.env.reinitialise_envfactors(
@@ -153,7 +150,6 @@ class Runner():
                 self._end_of_epoch_parameter_updates(ridx, epoch)
 
             # then do evaluation only for one month, no learning
-            print("eval month")
             for epoch_test in \
                     tqdm(range(self.rl['n_epochs'], self.rl['n_all_epochs']),
                          position=0, leave=True):
@@ -349,33 +345,17 @@ class Runner():
         return date0, delta, i0_costs
 
     def _facmac_episode_batch_insert_and_sample(self, episode):
-        print("_facmac_episode_batch_insert_and_sample")
         for t_explo in self.rl['type_explo']:
-            print(f"t_explo {t_explo}")
             t_to_update = [] if t_explo == 'baseline' \
                 else [t_explo] if t_explo[0:3] == 'env' \
                 else [t for t in self.rl['type_Qs']
                       if t.split('_')[0] == 'opt' and t[-1] != '0']
-            print(f"t_to_update {t_to_update}")
             for t in t_to_update:
                 diff = True if t.split('_')[1] == 'd' else False
                 opt = True if t.split('_')[0] == 'opt' else False
                 self.buffer[t].insert_episode_batch(
                     self.episode_batch[t_explo], difference=diff,
                     optimisation=opt)
-                can_sample = self.buffer[t].can_sample(
-                    self.rl['facmac']['batch_size']
-                )
-                print(f"self.buffer[t].can_sample("
-                      f"self.rl['facmac']['batch_size']) "
-                      f"{can_sample}")
-                buffer_warm_up_bool = (
-                    self.buffer[t].episodes_in_buffer
-                    > self.rl['buffer_warmup']
-                )
-                print(f"self.buffer[t].episodes_in_buffer "
-                      f"> self.rl['buffer_warmup'] = "
-                      f"{buffer_warm_up_bool}")
                 if self.buffer[t].can_sample(self.rl['facmac']['batch_size']) \
                         and (self.buffer[t].episodes_in_buffer
                              > self.rl['buffer_warmup']):
@@ -388,7 +368,6 @@ class Runner():
 
                     if episode_sample.device != self.rl['device']:
                         episode_sample.to(self.rl['device'])
-                    print(f"train {t}")
                     self.learner[t].train(episode_sample,
                                           self.explorer.t_env, episode)
 

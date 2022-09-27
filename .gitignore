@@ -5,3 +5,8 @@
 *.ipynb
 *.pyc
 *.pyc
+*.th
+*.pyc
+beep-24.wav
+*.pdf
+results/

@@ -42,14 +42,14 @@ def _post_run_update(prm, record):
     learning.
     """
     min_max_q_saved = sum([os.path.isfile(os.path.join(
-        prm['paths']['main_dir'], str_ + '.npy'))
+        prm['paths']['input_folder'], str_ + '.npy'))
         for str_ in ['minq', 'maxq']]) == 2
 
     # min_max_q_saved=False
     if prm['RL']['type_learning'] == 'q_learning' \
             and min_max_q_saved and record.save_qtables:
         minq, maxq = [np.load(os.path.join(
-            prm['paths']['main_dir'], str_ + '.npy'))
+            prm['paths']['input_folder'], str_ + '.npy'))
             for str_ in ['minq', 'maxq']]
         if len(record.q_tables[0][0].keys()) > 0:
             ridx, epoch = 0, 0
@@ -78,18 +78,13 @@ def _post_run_update(prm, record):
     if prm['RL']['init_len_seeds'][''] < len(
             prm['RL']['seeds']['']) or prm['RL']['init_len_seeds']['P'] < len(
             prm['RL']['seeds']['P']):
-        np.save(prm['paths']['seeds_path'], prm['RL']['seeds'])
+        np.save(prm['paths']['seeds_file'], prm['RL']['seeds'])
 
     # copy inputs to results folder
     prm['paths']['save_inputs'] = prm['paths']['folder_run'] / 'inputData'
     if not os.path.exists(prm['paths']['save_inputs']):
         # make a folder for saving results if it does not yet exist
         os.mkdir(prm['paths']['save_inputs'])
-
-    # save input data in the folder
-    shutil.copyfile(
-        Path(prm['paths']['inputDatafolder']) / 'inputData.py',
-        prm['paths']['save_inputs'] / f'inputData{record.no_run}.txt')
 
     prm_save = get_prm_save(prm)
 
@@ -123,7 +118,7 @@ def _save_reliability(prm, record):
 def _clean_up(prm, no_run):
     """Remove opt_res, batch left in main folder, unnecessary files."""
     # clean up folder
-    opt_res_file = Path(prm['paths']['main_dir']) / 'res.npy'
+    opt_res_file = 'res.npy'
     # remove opt_res and batch that were left in main folder
     if os.path.exists(opt_res_file):
         os.remove(opt_res_file)
@@ -141,7 +136,7 @@ def get_prm_save(prm):
     """Save run parameters for record-keeping."""
     prm_save = {}  # save selected system parameters
     to_save_entries_syst = \
-        np.load(Path(prm['paths']['input_dir']) / 'to_save_entries_syst.npy',
+        np.load(Path(prm['paths']['input_folder']) / 'to_save_entries_syst.npy',
                 allow_pickle=True).item()
     for key in to_save_entries_syst:
         prm_save[key] = {}

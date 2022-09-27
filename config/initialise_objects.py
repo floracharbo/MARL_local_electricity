@@ -8,6 +8,7 @@ Created on Tue Mar  2 14:48:27 2021.
 
 # import python packages
 import os
+from pathlib import Path
 from typing import Tuple
 
 # to turn the input data into an usable format
@@ -56,9 +57,13 @@ def initialise_objects(
     # general input paths and system parameters are in inputs
     # where
     prm = input_params(prm, settings)
+    for folder in ['results', 'opt_res']:
+        if not Path(folder).exists():
+            os.mkdir(folder)
+
     if no_run is None:
         prev_runs = \
-            [r for r in os.listdir(prm['paths']['main_dir'] / 'results')
+            [r for r in os.listdir('results')
              if r[0:3] == 'run']
         no_prev_runs = [int(r[3:]) for r in prev_runs]
         no_run = max(no_prev_runs + [0]) + 1

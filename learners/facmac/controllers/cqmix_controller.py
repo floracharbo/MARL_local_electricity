@@ -130,8 +130,8 @@ class CQMixMAC(BasicMAC):
             for _aid in range(self.n_agents):
                 for _actid in range(action_space[_aid].shape[0]):
                     chosen_actions[:, _aid, _actid].clamp_(
-                        np.asscalar(action_space[_aid].low[_actid]),
-                        np.asscalar(action_space[_aid].high[_actid]))
+                        (action_space[_aid].low[_actid]).item(),
+                        (action_space[_aid].high[_actid]).item())
         elif all([isinstance(act_space, spaces.Tuple)
                   for act_space in action_space]):
             # NOTE: This was added to handle scenarios
