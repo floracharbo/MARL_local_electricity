@@ -43,7 +43,7 @@ settings = {
         'rnn_hidden_dim': [1e2, 1e3, 5e3, 1e4] + [5e4] * 3 + [1e2, 1e3, 5e3],
         'n_hidden_layers': [2] * 7 + [3] * 3,
         'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']] * 10,
-        'n_epochs': [50] * 4 + [20, 30, 50] + [50] * 3,
+        'n_epochs': [20] + [50] * 4 + [20, 30, 50] + [50] * 3,
         'n_repeats': 5,
         'print_learn': False
     },

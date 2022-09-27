@@ -978,13 +978,6 @@ def _plot_results_all_ridx(
     plt.rcParams['font.size'] = '10'
 
     for e in [e for e in eval_entries_plot if e != 'baseline']:
-        print(f"len(mean_eval_rewards_per_hh) = "
-              f"{len(record.mean_eval_rewards_per_hh)} "
-              f"vs prm['RL']['n_repeats'] {prm['RL']['n_repeats']}")
-        print(f"len(mean_eval_rewards_per_hh[0][e]) = "
-              f"{len(record.mean_eval_rewards_per_hh[0][e])} "
-              f"vs prm['RL']['n_all_epochs'] {prm['RL']['n_all_epochs']}")
-
         results = np.array(
             [[None if record.mean_eval_rewards_per_hh[ridx][e][epoch] is None
               else record.mean_eval_rewards_per_hh[ridx][e][epoch]
@@ -1048,7 +1041,6 @@ def _plot_results_all_ridx(
     title = f"moving average n_window = {n_window} " if moving_average else ""
     title += f"med, 25-75th percentile over repeats state comb " \
              f"{prm['RL']['statecomb_str']}"
-    print(f"prm['paths']['fig_folder'] {prm['paths']['fig_folder']}")
     _formatting_figure(
         fig=fig, title=title,
         fig_folder=prm['paths']['fig_folder'],
@@ -1476,8 +1468,16 @@ def _plot_eval_action(record, prm):
             for mu in range(n_mus):
                 fig = plt.figure()
                 for epoch in range(prm["RL"]["n_epochs"]):
+                    if actions_[epoch] is None:
+                        if type_eval != 'opt':
+                            print(f"None in {type_eval}")
+                        continue
                     for step in range(len(actions_[epoch])):
                         for home in range(len(actions_[epoch][step])):
+                            if actions_[epoch][step][home][mu] is None:
+                                if type_eval != 'opt':
+                                    print(f"None in {type_eval} mu {mu} epoch {epoch}")
+                                continue
                             plt.plot(
                                 epoch,
                                 actions_[epoch][step][home][mu],

@@ -61,15 +61,20 @@ The data pre-processing for the home energy data generation **HEDGE** can be fou
 ## Usage
 1. Create virtual environment: 
 ```sh
-python -m venv my_venv
+conda create -n "my_venv" python==3.9.13
 ```
-3. Activate virtual environment: 
+
+2. Install packages
 ```sh
-source my_venv/bin/activate
+conda env update --name my_venv --file environment.yml --prune
 ```
-4. Install requirements: 
+
+3. Obtain Mosek licence and move to adequate folder.
+e.g. https://www.mosek.com/products/academic-licenses/
+
+4. Activate environment:
 ```sh
-make install
+conda activate my_venv
 ```
 
 5. Define user inputs
@@ -90,7 +95,7 @@ If values entered are in a list format, multiple experiments will loop though th
 
 6. Run`main.py`
 
-Alternatively, settings can be enterered through the command line rather than from the .py or .yaml files, e.g.
+Alternatively, settings can be entered through the command line rather than from the .py or .yaml files, e.g.
 
 `python main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC --o avail_EV_step --rnn_hidden_dim 100`
 

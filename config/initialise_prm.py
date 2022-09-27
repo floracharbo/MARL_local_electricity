@@ -146,7 +146,8 @@ def _facmac_initialise(prm):
                       "n_actions": rl['dim_actions'],
                       "n_agents": rl['n_agents'],
                       "episode_limit": rl['episode_limit'],
-                      "actions_dtype": np.float32,
+                      "actions_dtype": np.float32
+                      }
 
     return prm
 
