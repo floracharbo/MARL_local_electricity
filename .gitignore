@@ -11,3 +11,5 @@ beep-24.wav
 *.pdf
 results/
 *.pickle
+*.pyc
+*.pyc

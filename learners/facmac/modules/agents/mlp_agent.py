@@ -18,7 +18,7 @@ class MLPAgent(nn.Module):
             self.fcs[-1].to(device)
 
         self.fc_out = nn.Linear(self.rl['rnn_hidden_dim'], self.rl['dim_actions'])
-
+        self.fc_out.to(device)
         self.agent_return_logits = self.rl["agent_return_logits"]
 
     def init_hidden(self):

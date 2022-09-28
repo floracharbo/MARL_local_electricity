@@ -11,6 +11,8 @@ class QMixer(nn.Module):
         self.rl = rl
         self.n_agents = rl['n_agents']
         self.state_dim = int(np.prod(rl['state_shape']))
+        self.cuda_available = True if th.cuda.is_available() else False
+        device = th.device("cuda") if self.cuda_available else th.device("cpu")
 
         self.embed_dim = rl['mixing_embed_dim']
         self.q_embed_dim = rl['q_embed_dim']
@@ -46,7 +48,6 @@ class QMixer(nn.Module):
 
         # State dependent bias for hidden layer
         self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
-
         # V(s) instead of a bias for the last layers
         self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
                                nn.ReLU(),
@@ -56,7 +57,15 @@ class QMixer(nn.Module):
 
             self.gate = nn.Parameter(th.ones(size=(1,)) * 0.5)
 
+        self.hyper_b_1.to(device)
+        self.hyper_w_1.to(device)
+        self.hyper_w_final.to(device)
+        self.V.to(device)
+
     def forward(self, agent_qs, states):
+        states = states.cuda() if self.cuda_available else states
+        agent_qs = agent_qs.cuda() if self.cuda_available else agent_qs
+
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
         agent_qs = agent_qs.view(-1, 1, self.n_agents * self.q_embed_dim)
@@ -65,6 +74,7 @@ class QMixer(nn.Module):
         b1 = self.hyper_b_1(states)
         w1 = w1.view(- 1, self.n_agents * self.q_embed_dim, self.embed_dim)
         b1 = b1.view(- 1, 1, self.embed_dim)
+
         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
         # Second layer
         w_final = th.abs(self.hyper_w_final(states))

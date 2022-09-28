@@ -21,6 +21,7 @@ class FACMACLearner:
         self.mac = mac
         self.target_mac = copy.deepcopy(self.mac)
         self.agent_params = list(mac.parameters())
+        self.cuda_available = True if th.cuda.is_available() else False
 
         self.critic = FACMACCritic(scheme, rl)
 
@@ -119,11 +120,18 @@ class FACMACLearner:
         else:
             q_taken = q_taken.view(batch.batch_size, -1, self.n_agents)
             target_vals = target_vals.view(batch.batch_size, -1, self.n_agents)
+
+        target_vals = target_vals.cuda() if self.cuda_available else target_vals
+        terminated = terminated.cuda() if self.cuda_available else terminated
+        rewards = rewards.cuda() if self.cuda_available else rewards
+        q_taken = q_taken.cuda() if self.cuda_available else q_taken
+
         targets = rewards.expand_as(target_vals) \
             + self.rl['facmac']['gamma'] * \
             (1 - terminated.expand_as(target_vals)) * target_vals
         td_error = (targets.detach() - q_taken)
         mask = mask.expand_as(td_error)
+        mask = mask.cuda() if self.cuda_available else mask
         masked_td_error = td_error * mask
         loss = (masked_td_error ** 2).sum() / mask.sum()
 
