@@ -18,7 +18,7 @@ def input_paths():
     """Load paths parameters."""
     prm = {}
     # Get the defaults from default.yaml
-    with open("inputs/paths.yaml", "r") as f:
+    with open("input_parameters/paths.yaml", "r") as f:
         prm['paths'] = yaml.safe_load(f)
 
     return prm
@@ -44,12 +44,12 @@ def input_params(prm, settings=None):
                 e_file = settings['heat']['file']
             else:
                 e_file = e
-            path_exists = os.path.exists(f'inputs/{e}.yaml')
+            path_exists = os.path.exists(f'input_parameters/{e}.yaml')
             if path_exists:
-                with open(f"inputs/{e_file}.yaml", "r") as f:
+                with open(f"input_parameters/{e_file}.yaml", "r") as f:
                     prm[e] = yaml.safe_load(f)
             else:
-                print(f"inputs/{e_file}.yaml does not exist")
+                print(f"input_parameters/{e_file}.yaml does not exist")
     else:
         print("'paths' not in prm")
     prm['RL']['RL_to_save'] = list(prm['RL'].keys())
