@@ -143,8 +143,8 @@ class LocalElecEnv():
         else:
             for a in self.agents:
                 self.fs[a] = initialise_dict(
-                    [self.loadse, self.gene, self.bate])
-                self.cluss[a] = initialise_dict([self.loadse, self.bate])
+                    [self.loads_p, self.gen_p, self.EV_p])
+                self.cluss[a] = initialise_dict([self.loads_p, self.EV_p])
 
         # initialise heating and battery objects
         self.heat = Heat(self.prm, self.i0_costs, self.p, E_req_only)
@@ -226,12 +226,13 @@ class LocalElecEnv():
         self.p = 'P' if passive else ''
         for e in ['cap', 'T_LB', 'T_UB', 'T_req', 'store0',
                   'mincharge', 'bat', 'loads', 'gen']:
-            self.__dict__[e + 'e'] = e + self.p
+            # set variables based on whether we are in the passive or active case
+            self.__dict__[e + '_p'] = e + self.p
             self.coeff_T = self.prm['heat']['T_coeff' + self.p]
         self.coeff_Tair = self.prm['heat']['T_air_coeff' + self.p]
         self.n_agents = self.prm['ntw']['n' + self.p]
         self.agents = range(self.n_agents)
-        for e in ['cape', 'store0e', 'minchargee', 'n_agents']:
+        for e in ['cap_p', 'store0_p', 'mincharge_p', 'n_agents']:
             self.mu_manager.__dict__[e] = self.__dict__[e]
             self.spaces.__dict__[e] = self.__dict__[e]
         self.T_air = [self.prm['heat']['T_req' + self.p][a][0]
@@ -251,8 +252,8 @@ class LocalElecEnv():
         """Recompute data for home a that is infeasible."""
         self._seed(self.envseed[0] + its)
         for a in as_:
-            self.fs[a] = initialise_dict([self.loadse, self.gene, self.bate])
-            self.cluss[a] = initialise_dict([self.loadse, self.bate])
+            self.fs[a] = initialise_dict([self.loads_p, self.gen_p, self.EV_p])
+            self.cluss[a] = initialise_dict([self.loads_p, self.EV_p])
             self.batch[a] = initialise_dict(self.batch_entries)
         date_load = self.date0
         while date_load < self.date_end + timedelta(days=2):
@@ -387,7 +388,7 @@ class LocalElecEnv():
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
             netp0, discharge_tot0, charge0 = passive_vars
-        elif self.cape == 'capP':
+        elif self.cap_p == 'capP':
             netp0, discharge_tot0, charge0 = \
                 [[0 for _ in range(self.prm['ntw']['nP'])] for _ in range(3)]
         else:
@@ -557,7 +558,7 @@ class LocalElecEnv():
     def _next_factors(self, p=None, dtt=None, rands=None, as_=None):
         """Compute self-correlated random scaling factors for data profiles."""
         as_ = range(self.prm['ntw']['n' + p]) if as_ is None else as_
-        p = p if p is not None else ['' if self.bate == 'bat' else 'P'][0]
+        p = p if p is not None else ['' if self.EV_p == 'bat' else 'P'][0]
         dtt = dtt if dtt is not None \
             else self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
         dtt_ = dtt[0:2] if dtt not in self.f_prm['loads'] else dtt
@@ -594,27 +595,27 @@ class LocalElecEnv():
             for e in self.labels_clus:
                 # get next cluster
                 dtt_ = dtt[0:2] if dtt not in self.ptrans[e] else dtt
-                ps = self.ptrans[e][dtt_][self.clus[self.__dict__[e + 'e']][a]]
+                ps = self.ptrans[e][dtt_][self.clus[self.__dict__[e + '_p']][a]]
                 cump = [sum(ps[0:i]) for i in range(1, len(ps))] + [1]
                 rdn = self.np_random.rand()
-                self.clus[self.__dict__[e + 'e']][a] = \
+                self.clus[self.__dict__[e + '_p']][a] = \
                     [c > rdn for c in cump].index(True)
 
     def _adjust_EV_cons(self, as_, dt, dtt, day, i_EV, fEV_new_interval):
         dtt_ = dtt[0:2] if dtt not in self.prm['bat']['mid_fs'] else dtt
         for ia in range(len(as_)):
             a = as_[ia]
-            clus = self.clus[self.bate][a]
+            clus = self.clus[self.EV_p][a]
             it = 0
-            while np.max(day['loads_EV'][ia]) > self.prm['bat'][self.cape][a] \
+            while np.max(day['loads_EV'][ia]) > self.prm['bat'][self.cap_p][a] \
                     and it < 100:
                 if fEV_new_interval[ia] > 0:
                     fEV_new_interval[ia] -= 1
                     interval = int(fEV_new_interval[ia])
-                    self.f[self.bate][a] = \
+                    self.f[self.EV_p][a] = \
                         self.prm['bat']['mid_fs'][dtt_][interval]
                     prof = self.prof['bat']['cons'][dt][clus][i_EV[ia]]
-                    day['loads_EV'][ia] = [x * self.f[self.bate][a]
+                    day['loads_EV'][ia] = [x * self.f[self.EV_p][a]
                                            for x in prof]
                 else:
                     i_EV[ia] = self.np_random.choice(
@@ -630,14 +631,14 @@ class LocalElecEnv():
         day = {}
         dt = self.prm['syst']['labels_day'][self.idt]
         dtt = self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
-        loadse = self.loadse if self.loadse in self.fs[0] \
-            else 'lds' + self.loadse[5:]
+        loads_p = self.loads_p if self.loads_p in self.fs[0] \
+            else 'lds' + self.loads_p[5:]
 
         # save fs and cluss at the start of the episode
         for a in as_:
-            for e in [loadse, self.gene, self.bate]:
+            for e in [loads_p, self.gen_p, self.EV_p]:
                 self.fs[a][e].append(self.f[e][a])
-            for e in [self.loadse, self.bate]:
+            for e in [self.loads_p, self.EV_p]:
                 self.cluss[a][e].append(self.clus[e][a])
 
         # get next clusters (for load and EV)
@@ -646,10 +647,10 @@ class LocalElecEnv():
         # get load profile indexes, normalised profile, and scaled profile
         i_prof_load = self._compute_i_profs('loads', dt, as_=as_)
         load_prof = \
-            [self.prof['loads'][dt][self.clus[self.loadse][a]][i_prof_load[ia]]
+            [self.prof['loads'][dt][self.clus[self.loads_p][a]][i_prof_load[ia]]
              for ia, a in enumerate(as_)]
         day['loads'] = \
-            [load_prof[ia] * self.f[self.loadse][a]
+            [load_prof[ia] * self.f[self.loads_p][a]
              if self.prm['loads']['own_loads'][a]
              else [0 for _ in range(self.N)]
              for ia, a in enumerate(as_)]
@@ -660,7 +661,7 @@ class LocalElecEnv():
             month += 1
             month = 1 if month == 12 else month
         i_prof_gen = self._compute_i_profs('gen', idx_month=month - 1, as_=as_)
-        day['gen'] = [[g * self.f[self.gene][a]
+        day['gen'] = [[g * self.f[self.gen_p][a]
                        for g in self.prof['gen'][month - 1][i_prof_gen[ia]]]
                       if self.prm['gen']['own_PV'][a]
                       else [0 for _ in range(self.N)]
@@ -673,10 +674,10 @@ class LocalElecEnv():
                    for _ in range(len(self.labels))],
             as_=as_)
         i_EV = self._compute_i_profs('bat', dt=dt, as_=as_)
-        prof = [self.prof['bat']['cons'][dt][self.clus[self.bate][a]][i_EV[ia]]
+        prof = [self.prof['bat']['cons'][dt][self.clus[self.EV_p][a]][i_EV[ia]]
                 for ia, a in enumerate(as_)]
         day['loads_EV'] = \
-            [[x * self.f[self.bate][a] if self.prm['bat']['own_EV'][a]
+            [[x * self.f[self.EV_p][a] if self.prm['bat']['own_EV'][a]
               else 0 for x in prof[ia]]
              for ia, a in enumerate(as_)]
 
@@ -687,7 +688,7 @@ class LocalElecEnv():
 
         # get EV availability profile
         day['avail_EV'] = \
-            [self.prof['bat']['avail'][dt][self.clus[self.bate][a]][i_EV[ia]]
+            [self.prof['bat']['avail'][dt][self.clus[self.EV_p][a]][i_EV[ia]]
              for ia, a in zip(range(len(as_)), as_)]
         for ia in range(len(as_)):
             if sum(day['loads_EV'][ia]) == 0 and sum(day["avail_EV"][ia]) == 0:
@@ -713,10 +714,10 @@ class LocalElecEnv():
                     self.res_path / f"{e}{self._file_id()}",
                     allow_pickle=True).item()
 
-            loadse = self.loadse \
-                if self.loadse in self.fs[0] \
-                else 'lds' + self.loadse[5:]
-            self.dloaded += len(self.fs[0][loadse])
+            loads_p = self.loads_p \
+                if self.loads_p in self.fs[0] \
+                else 'lds' + self.loads_p[5:]
+            self.dloaded += len(self.fs[0][loads_p])
 
     def _compute_i_profs(self,
                          type_clus: str,
@@ -736,7 +737,7 @@ class LocalElecEnv():
             [[i for i in range(n_prof)] for n_prof in n_profs]
         for a in as_:
             if type_clus in self.labels_clus:
-                clus = self.clus[self.__dict__[type_clus + 'e']][a]
+                clus = self.clus[self.__dict__[type_clus + '_p']][a]
                 avail_prof = available_profiles[clus]
             else:
                 avail_prof = available_profiles[0]
