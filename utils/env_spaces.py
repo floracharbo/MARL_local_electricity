@@ -328,20 +328,21 @@ class EnvSpaces():
             if t != "tryopt" and not (label == "next_state" and done):
                 ind_x = self.get_space_indexes(
                     done=False, all_vals=x, info=None, type_=type_ind)
-                global_ind[label] = [self.indiv_to_global_index(
-                    type_ind, indexes=ind_x,
-                    multipliers=self.global_multipliers[type_ind], done=done)]
+                if t[-2] == 'C':
+                    global_ind[label] = [self.indiv_to_global_index(
+                        type_ind, indexes=ind_x,
+                        multipliers=self.global_multipliers[type_ind], done=done)]
             else:
                 global_ind[label] = None
 
         return global_ind
 
     def _init_brackets(self):
-        if self.type_env == "discrete":
-            return None
-
         brackets = {}
         for typev in ["state", "action"]:
+            if self.type_env == "continuous":
+                brackets[typev] = None
+                continue
             if typev == "state" and self.descriptors["state"] == [None]:
                 brackets[typev] = None
             else:

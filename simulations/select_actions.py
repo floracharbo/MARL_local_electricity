@@ -17,12 +17,13 @@ from utils.userdeftools import granularity_to_multipliers
 class ActionSelector:
     """Select actions for exploration."""
 
-    def __init__(self, prm, learner, episode_batch):
+    def __init__(self, prm, learner, episode_batch, env):
         """Initialise ActionSelector instance."""
         self.prm = prm
         self.learner = learner
         self.n_agents = prm["ntw"]["n"]
         self.rl = prm["RL"]
+        self.env = env
         self.agents = range(prm["ntw"]["n"])
         self.episode_batch = episode_batch
 
@@ -49,7 +50,6 @@ class ActionSelector:
         else:
             tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
                 current_state[a]), 0) for a in self.agents]
-        mu = mus_opt[step] if t == 'tryopt' else None
 
         # action choice for current time step
         if t == 'baseline':
@@ -58,7 +58,7 @@ class ActionSelector:
             action = np.random.random(np.shape(self.rl['default_action']))
 
         elif t == 'tryopt':
-            action = None
+            action = mus_opt[step]
 
         elif rl['type_learning'] in ['DDPG', 'DQN'] and rl['trajectory']:
             action = [actions[a][step]
@@ -103,7 +103,7 @@ class ActionSelector:
                 action_indexes[a_], typev="action")
                 for a_ in self.agents]
 
-        return action, mu, tf_prev_state
+        return action, tf_prev_state
 
     def trajectory_actions(self, t, rdn_eps_greedy_indiv,
                            eps_greedy, rdn_eps_greedy):
@@ -146,7 +146,7 @@ class ActionSelector:
             self, tf_prev_state, eps_greedy, rdn_eps_greedy,
             rdn_eps_greedy_indiv, t
     ):
-        if self.prm["RL"]["distr_learning"] == "decentralised":
+        if self.rl["distr_learning"] == "decentralised":
             action = [
                 self.learner[t][a].sample_action(
                     tf_prev_state[a], eps_greedy=eps_greedy,
@@ -155,7 +155,7 @@ class ActionSelector:
                 )[0]
                 for a in self.agents
             ]
-        elif self.prm["RL"]["distr_learning"] == "centralised":
+        elif self.rl["distr_learning"] == "centralised":
             self.tf_prev_state = tf_prev_state
             action = [
                 self.learner[t].sample_action(
@@ -163,7 +163,7 @@ class ActionSelector:
                     rdn_eps_greedy=rdn_eps_greedy,
                     rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)[
                     0] for a in self.agents]
-        elif self.prm["RL"]["distr_learning"] == 'joint':
+        elif self.rl["distr_learning"] == 'joint':
             action = self.learner[t].sample_action(
                 tf_prev_state[0], eps_greedy=eps_greedy,
                 rdn_eps_greedy=rdn_eps_greedy,
@@ -180,12 +180,12 @@ class ActionSelector:
     ):
         pre_transition_data = {
             "state": [current_state[a] for a in self.agents],
-            "avail_actions": [self.prm["RL"]['avail_actions']],
+            "avail_actions": [self.rl['avail_actions']],
             "obs": [np.reshape(tf_prev_state,
-                               (self.n_agents, self.prm["RL"]['obs_shape']))]
+                               (self.n_agents, self.rl['obs_shape']))]
         }
         self.episode_batch[t].update(pre_transition_data, ts=step)
-        if self.prm["RL"]['action_selector'] == "gumbel":
+        if self.rl['action_selector'] == "gumbel":
             actions = self.mac[t].select_actions(
                 self.episode_batch[t], t_ep=step, t_env=t_env,
                 test_mode=evaluation, explore=(not evaluation))
@@ -196,18 +196,18 @@ class ActionSelector:
                 t_env=t_env, test_mode=evaluation)
 
         action = [[float(action[0][a][i])
-                   for i in range(self.prm["RL"]['dim_actions'])]
+                   for i in range(self.rl['dim_actions'])]
                   for a in self.agents]
 
         return action
 
     def _select_action_DDQN(self, ind_current_state, eps_greedy):
         t = "DDQN"
-        if self.prm["RL"]["distr_learning"] == "decentralised":
+        if self.rl["distr_learning"] == "decentralised":
             ind_action = [self.learner[t][a].sample_action(
                 ind_current_state[a], eps_greedy=eps_greedy)
                 for a in self.agents]
-        elif self.prm["RL"]["distr_learning"] == "centralised":
+        elif self.rl["distr_learning"] == "centralised":
             ind_action = [self.learner[t].sample_action(
                 ind_current_state[a], eps_greedy=eps_greedy)
                 for a in self.agents]
@@ -218,12 +218,12 @@ class ActionSelector:
             self, ind_current_state, eps_greedy, rdn_eps_greedy_indiv
     ):
         t = "DQN"
-        if self.prm["RL"]["distr_learning"] == "decentralised":
+        if self.rl["distr_learning"] == "decentralised":
             ind_action = [self.learner[t][a].sample_action(
                 ind_current_state[a], eps_greedy=eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
                 for a in self.agents]
-        elif self.prm["RL"]["distr_learning"] == "centralised":
+        elif self.rl["distr_learning"] == "centralised":
             ind_action = [self.learner[t].sample_action(
                 ind_current_state[a], eps_greedy=eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
@@ -235,7 +235,7 @@ class ActionSelector:
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
     ):
         t = "DDPG"
-        if self.prm["RL"]['LSTM']:
+        if self.rl['LSTM']:
             tf_prev_states = [tf.expand_dims(tf.convert_to_tensor(
                 np.reshape(states[0: self.N, a],
                            (1, self.rl['dim_states']))), 0)
@@ -245,7 +245,7 @@ class ActionSelector:
                 np.reshape(states[0: self.N, a], self.rl['dim_states'])
             ), 0) for a in self.agents]
 
-        if self.prm["RL"]["distr_learning"] == "decentralised":
+        if self.rl["distr_learning"] == "decentralised":
             actions = [
                 self.learner[t][a].sample_action(
                     tf_prev_states[a],
@@ -254,7 +254,7 @@ class ActionSelector:
                     rdn_eps_greedy_indiv=rdn_eps_greedy_indiv
                 )[0] for a in self.agents
             ]
-        elif self.prm["RL"]["distr_learning"] == "centralised":
+        elif self.rl["distr_learning"] == "centralised":
             self.tf_prev_states = tf_prev_states
             actions = [
                 self.learner[t].sample_action(
@@ -278,7 +278,7 @@ class ActionSelector:
             for current_state in states]
         ind_states_a_step = [[ind_states[i_step][a] for i_step in range(
             self.N)] for a in self.agents]
-        granularity = [self.prm["RL"]["n_other_states"] for _ in range(24)]
+        granularity = [self.rl["n_other_states"] for _ in range(24)]
         multipliers_traj = granularity_to_multipliers(
             granularity)
         traj_ind_state = [self.env.indiv_to_global_index(
@@ -286,13 +286,13 @@ class ActionSelector:
             multipliers=multipliers_traj)
             for a in self.agents]
 
-        if self.prm["RL"]["distr_learning"] == "decentralised":
+        if self.rl["distr_learning"] == "decentralised":
             ind_actions = [self.learner[t][a].sample_action(
                 traj_ind_state[a], eps_greedy=eps_greedy,
                 rdn_eps_greedy=rdn_eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
                 for a in self.agents]
-        elif self.prm["RL"]["distr_learning"] == "centralised":
+        elif self.rl["distr_learning"] == "centralised":
             ind_actions = [self.learner[t].sample_action(
                 ind_states_a_step[a], eps_greedy=eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
@@ -308,11 +308,11 @@ class ActionSelector:
 
     def _trajectory_actions_DDQN(self, eps_greedy):
         t = "DDQN"
-        if self.prm["RL"]["distr_learning"] == "decentralised":
+        if self.rl["distr_learning"] == "decentralised":
             ind_actions = [self.learner[t][a].sample_action(
                 eps_greedy=eps_greedy)
                 for a in self.agents]
-        elif self.prm["RL"]["distr_learning"] == "centralised":
+        elif self.rl["distr_learning"] == "centralised":
             ind_actions = self.learner[t].sample_action(
                 eps_greedy=eps_greedy)
         actions = None

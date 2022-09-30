@@ -47,7 +47,9 @@ class Explorer():
         self.episode_batch = {}
 
         self.data = Data_manager(env, prm, self)
-        self.action_selector = ActionSelector(prm, learner, self.episode_batch)
+        self.action_selector = ActionSelector(
+            prm, learner, self.episode_batch, env
+        )
         self.action_selector.mac = mac
 
         self.learning_manager = LearningManager(
@@ -261,24 +263,24 @@ class Explorer():
                 # or one step if infeasible
                 while not done and sequence_feasible:
                     current_state = state
-                    action, mu, tf_prev_state \
+                    action, tf_prev_state \
                         = self.action_selector.select_action(
                             t, step, actions, mus_opt, evaluation,
                             current_state, eps_greedy, rdn_eps_greedy,
                             rdn_eps_greedy_indiv, self.t_env
                         )
+
                     # interact with environment to get rewards
                     # record last epoch for analysis of results
                     record = epoch == rl["n_epochs"] - 1
                     if action is None \
-                            and mu is None \
                             and step == len(res["grid"]) - 1:
                         # no flexiblity so mu value does not matter
                         if rl["type_env"] == "discrete":
-                            mu = 0.5 if self.rl["aggregate_actions"] \
+                            action = 0.5 if self.rl["aggregate_actions"] \
                                 else [0.5] * self.rl["dim_actions"]
                         else:
-                            mu = None
+                            action = None
 
                     # substract baseline rewards to reward -
                     # for training, not evaluating
@@ -294,7 +296,7 @@ class Explorer():
                         combs_actions = []
                         for a in self.agents:
                             # array of actions = the same as chosen
-                            # except for agent a the default action
+                            # except for agent a which has the default action
                             mu_actions_baseline_a = action.copy()
                             mu_actions_baseline_a[a] = rl["default_action"][a]
                             combs_actions.append(mu_actions_baseline_a)
@@ -340,10 +342,11 @@ class Explorer():
                                     print("rewards_baseline is None")
                                 reward = [reward - baseline
                                           for baseline in rewards_baseline]
-                        if rl["type_env"] == "discrete":
+                        if rl["type_env"] == "discrete" and t[-2] == 'C':
                             global_ind = self.env.spaces.get_global_ind(
                                 current_state, state, action, done, t
                             )
+
                         else:
                             global_ind = {
                                 "state": None,
@@ -401,8 +404,10 @@ class Explorer():
                     assert np.mean(step_vals[t]["reward"]) \
                            < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
                            f"reward {t} better than opt"
+
         if rl["type_learning"] != "facmac":
             self.episode_batch = None
+
         return step_vals, self.episode_batch
 
     def _opt_step_init(
@@ -434,7 +439,10 @@ class Explorer():
 
     def _get_ind_global_state_action(self, step_vals_i):
         mu_action = step_vals_i["action"]
-        if self.prm["RL"]["type_env"] == "discrete":
+        if (
+                self.prm["RL"]["type_env"] == "discrete"
+                and any(t[-2] == 'C' for t in self.prm["RL"]["type_eval"])
+        ):
             ind_state = self.env.spaces.get_space_indexes(
                 all_vals=step_vals_i["state"])
             step_vals_i["ind_global_state"] = \
@@ -512,20 +520,24 @@ class Explorer():
 
         if i_step > 0:
             step_vals[t]["next_state"].append(step_vals_i["state"])
-            if self.prm["RL"]["type_env"] == "discrete":
+            if self.prm["RL"]["type_env"] == "discrete" and t[-2] == 'C':
                 step_vals[t]["ind_next_global_state"].append(
                     step_vals_i["ind_global_state"])
+            else:
+                step_vals[t]["ind_next_global_state"].append(None)
         if i_step == len(res["grid"]) - 1:
             step_vals[t]["next_state"].append(self._opt_step_to_state(
                 res, i_step + 1, cluss, fs, loads_prev,
                 loads_step, batch_avail_EV))
-            if self.prm["RL"]["type_env"] == "discrete":
+            if self.prm["RL"]["type_env"] == "discrete" and t[-2] == 'C':
                 ind_next_state = self.env.spaces.get_space_indexes(
                     all_vals=step_vals[t]["next_state"][-1])
                 step_vals[t]["ind_next_global_state"].append(
                     self.env.spaces.indiv_to_global_index(
                         "state", indexes=ind_next_state,
                         multipliers=self.global_multipliers["state"]))
+            else:
+                step_vals[t]["ind_next_global_state"].append(None)
 
         step_vals[t]["done"].append(
             False if i_step <= len(res["grid"]) - 2 else True)
@@ -571,6 +583,7 @@ class Explorer():
                 and t in rl["type_explo"] \
                 and i_step > 0 \
                 and not rl["trajectory"]:
+
             current_state, actions, reward, state, reward_diffs = [
                 step_vals["opt"][e][-1]
                 for e in ["state", "action", "reward",
@@ -581,6 +594,7 @@ class Explorer():
                     "opt", step_vals[t], i_step - 1
                 )
             elif rl["type_learning"] == "facmac":
+                t_ = 'opt_r_c' if t == 'opt' else t
                 pre_transition_data = {
                     "state": [current_state[a][0]
                               for a in self.agents],
@@ -588,14 +602,15 @@ class Explorer():
                     "obs": [np.reshape(
                         current_state, (self.n_agents, rl["obs_shape"]))]
                 }
-                self.episode_batch[t].update(
+                self.episode_batch[t_].update(
                     pre_transition_data, ts=i_step)
                 post_transition_data = {
                     "actions": actions,
                     "reward": [(reward,)],
                     "terminated": [(i_step == self.prm["syst"]["N"] - 1,)],
                 }
-                self.episode_batch[t].update(
+
+                self.episode_batch[t_].update(
                     post_transition_data, ts=i_step)
 
             elif rl["type_learning"] in ["DDPG", "DQN", "DDQN"]:
@@ -657,7 +672,8 @@ class Explorer():
                 env.mu_manager.netp_to_mu(
                     i_step, date, res["netp"][:, i_step],
                     loads, home, res)
-            self._get_ind_global_state_action(step_vals_i)
+
+            step_vals_i = self._get_ind_global_state_action(step_vals_i)
             feasible = not any(error)
 
             # determine rewards
@@ -1009,8 +1025,11 @@ class Explorer():
     def _init_facmac_mac(self, type_actions, new_episode_batch):
         if self.rl["type_learning"] == "facmac":
             for t in type_actions:
-                self.episode_batch[t] = new_episode_batch()
-                if t not in ["baseline", "opt"]:
-                    self.action_selector.mac[t].init_hidden(
+                t_ = 'opt_r_c' if t == 'opt' else t
+                self.episode_batch[t_] = new_episode_batch()
+                # if t == 'opt':
+                #     self.episode_batch['opt_r_c'] = self.episode_batch['opt']
+                if t not in ["baseline"]:
+                    self.action_selector.mac[t_].init_hidden(
                         batch_size=self.rl["batch_size_run"]
                     )

@@ -333,7 +333,7 @@ class Mu_manager:
 
     def _mu_charge_to_ds(self, a, mu_charge, res):
         if mu_charge is None:
-            assert abs(self.min_charge[a] - self.max_charge[a]) >= 1e-4, \
+            assert abs(self.min_charge[a] - self.max_charge[a]) <= 1e-4, \
                 "mu_charge is None but " \
                 "self.min_charge[a] != self.max_charge[a]"
             res['ds'] = self.min_charge[a]
@@ -353,8 +353,11 @@ class Mu_manager:
             elif self.max_charge[a] >= 0:
                 res['ds'] = self.min_charge[a] + mu_charge \
                     * (self.max_charge[a] - self.min_charge[a])
-        res['l_ch'] = 0 if res['ds'] < 0 \
-            else (1 - self.bat.eta_ch) / self.bat.eta_ch * res['ds']
+        try:
+            res['l_ch'] = 0 if res['ds'] < 0 \
+                else (1 - self.bat.eta_ch) / self.bat.eta_ch * res['ds']
+        except Exception as ex:
+            print(ex)
         res['l_dis'] = - res['ds'] * (1 - self.bat.eta_dis) \
             if res['ds'] < 0 else 0
 
@@ -556,15 +559,31 @@ class Mu_manager:
             self.max_discharge[a], self.min_discharge[a]
         ]
         if (
-                abs(max_charge_a - max_discharge_a) < 1e-3
-                or abs(max_charge_a - min_charge_a) < 1e-3
-                or abs(min_discharge_a - max_discharge_a) < 1e-3):
+            (
+                abs(max_charge_a - min_charge_a) < 1e-3  # or
+                and abs(min_discharge_a - max_discharge_a) < 1e-3
+            )
+            or (
+                abs(min_discharge_a - max_discharge_a) < 1e-3
+                and res['discharge_other'][a, h] > 1e-3
+            )
+            or (
+                abs(max_charge_a - min_charge_a) < 1e-3
+                and res['charge'][a, h] > 1e-3
+            )
+        ):
+            # abs(max_charge_a - max_discharge_a) < 1e-3 or
             # no flexibility in charging
             mu_charge = 0 if self.type_env == 'discrete' else None
-        elif abs(res['discharge_tot'][a, h] < 1e-3
+            assert abs(self.min_charge[a] - self.max_charge[a]) <= 1e-4, \
+                "mu_charge is None but " \
+                "self.min_charge[a] != self.max_charge[a]"
+            if mu_charge is None and abs(res['discharge_other'][a, h]) > 1e-3 and abs(res['charge'][a, h]) > 1e-3:
+                print("mu charge is None")
+        elif abs(res['discharge_other'][a, h] < 1e-3
                  and abs(res['charge'][a, h]) < 1e-3):
             mu_charge = 0
-        elif res['discharge_tot'][a, h] > 0 + 1e-3:
+        elif res['discharge_other'][a, h] > 1e-3:
             mu_charge = \
                 (min_discharge_a - res['charge'][a, h]) \
                 / (min_discharge_a - max_discharge_a)

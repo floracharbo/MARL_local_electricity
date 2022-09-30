@@ -76,4 +76,5 @@ def initialise_objects(
         record = Record(prm, no_run=no_run)
     else:
         record = False
+
     return prm, record, profiles

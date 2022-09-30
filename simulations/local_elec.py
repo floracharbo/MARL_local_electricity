@@ -143,8 +143,8 @@ class LocalElecEnv():
         else:
             for a in self.agents:
                 self.fs[a] = initialise_dict(
-                    [self.loads_p, self.gen_p, self.EV_p])
-                self.cluss[a] = initialise_dict([self.loads_p, self.EV_p])
+                    [self.loads_p, self.gen_p, self.bat_p])
+                self.cluss[a] = initialise_dict([self.loads_p, self.bat_p])
 
         # initialise heating and battery objects
         self.heat = Heat(self.prm, self.i0_costs, self.p, E_req_only)
@@ -166,9 +166,7 @@ class LocalElecEnv():
             self._load_next_day()
         self.bat.add_batch(self.batch)
 
-        if 'bat_dem_agg' in self.spaces.descriptors['state'] \
-                and 'bat_dem_agg' not in self.batch[0]:
-            self.batch = self.bat.compute_bat_dem_agg(self.batch)
+        self.batch = self.bat.compute_bat_dem_agg(self.batch)
 
         self._loads_test()
 
@@ -252,16 +250,15 @@ class LocalElecEnv():
         """Recompute data for home a that is infeasible."""
         self._seed(self.envseed[0] + its)
         for a in as_:
-            self.fs[a] = initialise_dict([self.loads_p, self.gen_p, self.EV_p])
-            self.cluss[a] = initialise_dict([self.loads_p, self.EV_p])
+            self.fs[a] = initialise_dict([self.loads_p, self.gen_p, self.bat_p])
+            self.cluss[a] = initialise_dict([self.loads_p, self.bat_p])
             self.batch[a] = initialise_dict(self.batch_entries)
         date_load = self.date0
         while date_load < self.date_end + timedelta(days=2):
             self._load_next_day(as_=as_)
             date_load += timedelta(days=1)
         self.bat.add_batch(self.batch)
-        if 'bat_dem_agg' in self.spaces.descriptors['state']:
-            self.batch = self.bat.compute_bat_dem_agg(self.batch)
+        self.batch = self.bat.compute_bat_dem_agg(self.batch)
         np.save(self.res_path / f"batch{file_id}", self.batch)
         np.save(self.res_path / f"cluss{file_id}", self.cluss)
         np.save(self.res_path / f"fs{file_id}", self.fs)
@@ -292,7 +289,7 @@ class LocalElecEnv():
             assert remaining_cons <= 1e-2, \
                 f"remaining_cons = {remaining_cons} too large"
 
-            # move what has not be consumed to one step more urgent
+            # move what has not been consumed to one step more urgent
             self._new_flex_tests(batch_flex, new_batch_flex, share_flexs, h, a)
 
         return new_batch_flex
@@ -350,10 +347,11 @@ class LocalElecEnv():
                 self.bat.update_step()
 
             for ih in range(h + 1, h + 30):
-                loads_str = 'loads' if 'loads' in self.batch[a] else 'lds'
-                assert self.batch[a][loads_str][ih] <= \
-                    batch_flex[a][ih][0] + batch_flex[a][ih][-1] + 1e-3,\
-                    f"h {h} ih {ih}"
+                assert all(
+                    self.batch[a]['loads'][ih] <=
+                    batch_flex[a][ih][0] + batch_flex[a][ih][-1] + 1e-3
+                    for a in self.agents
+                ), f"h {h} ih {ih}"
             if record or evaluation:
                 ld_fixed = [sum(batch_flex[a][h][:]) for a in agents] \
                     if self.date == self.date_end - timedelta(hours=2) \
@@ -484,6 +482,7 @@ class LocalElecEnv():
 
         else:
             date, action, gens, loads = other_input
+            gens = np.array(gens)
             self.date = date
             h = self._get_h()
             home = {'gen': gens}
@@ -558,7 +557,7 @@ class LocalElecEnv():
     def _next_factors(self, p=None, dtt=None, rands=None, as_=None):
         """Compute self-correlated random scaling factors for data profiles."""
         as_ = range(self.prm['ntw']['n' + p]) if as_ is None else as_
-        p = p if p is not None else ['' if self.EV_p == 'bat' else 'P'][0]
+        p = p if p is not None else ['' if self.bat_p == 'bat' else 'P'][0]
         dtt = dtt if dtt is not None \
             else self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
         dtt_ = dtt[0:2] if dtt not in self.f_prm['loads'] else dtt
@@ -605,17 +604,17 @@ class LocalElecEnv():
         dtt_ = dtt[0:2] if dtt not in self.prm['bat']['mid_fs'] else dtt
         for ia in range(len(as_)):
             a = as_[ia]
-            clus = self.clus[self.EV_p][a]
+            clus = self.clus[self.bat_p][a]
             it = 0
             while np.max(day['loads_EV'][ia]) > self.prm['bat'][self.cap_p][a] \
                     and it < 100:
                 if fEV_new_interval[ia] > 0:
                     fEV_new_interval[ia] -= 1
                     interval = int(fEV_new_interval[ia])
-                    self.f[self.EV_p][a] = \
+                    self.f[self.bat_p][a] = \
                         self.prm['bat']['mid_fs'][dtt_][interval]
                     prof = self.prof['bat']['cons'][dt][clus][i_EV[ia]]
-                    day['loads_EV'][ia] = [x * self.f[self.EV_p][a]
+                    day['loads_EV'][ia] = [x * self.f[self.bat_p][a]
                                            for x in prof]
                 else:
                     i_EV[ia] = self.np_random.choice(
@@ -636,9 +635,9 @@ class LocalElecEnv():
 
         # save fs and cluss at the start of the episode
         for a in as_:
-            for e in [loads_p, self.gen_p, self.EV_p]:
+            for e in [loads_p, self.gen_p, self.bat_p]:
                 self.fs[a][e].append(self.f[e][a])
-            for e in [self.loads_p, self.EV_p]:
+            for e in [self.loads_p, self.bat_p]:
                 self.cluss[a][e].append(self.clus[e][a])
 
         # get next clusters (for load and EV)
@@ -674,10 +673,10 @@ class LocalElecEnv():
                    for _ in range(len(self.labels))],
             as_=as_)
         i_EV = self._compute_i_profs('bat', dt=dt, as_=as_)
-        prof = [self.prof['bat']['cons'][dt][self.clus[self.EV_p][a]][i_EV[ia]]
+        prof = [self.prof['bat']['cons'][dt][self.clus[self.bat_p][a]][i_EV[ia]]
                 for ia, a in enumerate(as_)]
         day['loads_EV'] = \
-            [[x * self.f[self.EV_p][a] if self.prm['bat']['own_EV'][a]
+            [[x * self.f[self.bat_p][a] if self.prm['bat']['own_EV'][a]
               else 0 for x in prof[ia]]
              for ia, a in enumerate(as_)]
 
@@ -688,7 +687,7 @@ class LocalElecEnv():
 
         # get EV availability profile
         day['avail_EV'] = \
-            [self.prof['bat']['avail'][dt][self.clus[self.EV_p][a]][i_EV[ia]]
+            [self.prof['bat']['avail'][dt][self.clus[self.bat_p][a]][i_EV[ia]]
              for ia, a in zip(range(len(as_)), as_)]
         for ia in range(len(as_)):
             if sum(day['loads_EV'][ia]) == 0 and sum(day["avail_EV"][ia]) == 0:
@@ -831,11 +830,10 @@ class LocalElecEnv():
             if home['tot_cons'][a] < - 1e-2:
                 print(f"negative tot_cons {home['tot_cons'][a]} a = {a}")
                 bool_penalty[a] = True
-            loads_str = 'loads' if 'loads' in self.batch[a] else 'lds'
             share_fixed = (1 - self.prm['loads']['share_flexs'][a])
             if last_step \
                     and home['tot_cons'][a] < \
-                    self.batch[a][loads_str][h] * share_fixed:
+                    self.batch[a]['loads'][h] * share_fixed:
                 print(f"a = {a}, no flex cons at last time step")
                 bool_penalty[a] = True
 
@@ -915,8 +913,7 @@ class LocalElecEnv():
                 for ih in range(0, h + 2)), "batch_flex too large h + 1"
 
             for ih in range(h, h + 30):
-                loads_str = 'loads' if 'loads' in self.batch[a] else 'lds'
-                assert self.batch[a][loads_str][ih] <= \
+                assert self.batch[a]['loads'][ih] <= \
                     batch_flex[a][ih][0] + batch_flex[a][ih][-1] + 1e-3, \
                     "loads larger than with flex"
 
@@ -944,8 +941,7 @@ class LocalElecEnv():
     def _loads_test(self):
         for a in self.agents:
             for ih in range(self.N):
-                loads_str = 'loads' if 'loads' in self.batch[a] else 'lds'
-                assert (self.batch[a][loads_str][ih]
+                assert (self.batch[a]['loads'][ih]
                         <= self.batch[a]['flex'][ih][0]
                         + self.batch[a]['flex'][ih][-1] + 1e-3
                         ), "loads too large"
@@ -981,8 +977,8 @@ class LocalElecEnv():
         while date_load < self.date_end + timedelta(days=2):
             self._load_next_day()
             date_load += timedelta(days=1)
-        if 'bat_dem_agg' in self.spaces.descriptors['state']:
-            self.batch = self.bat.compute_bat_dem_agg(self.batch)
+
+        self.batch = self.bat.compute_bat_dem_agg(self.batch)
 
         for e in ['batch', 'cluss', 'fs']:
             file_id = \

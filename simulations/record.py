@@ -313,10 +313,16 @@ class Record():
             keys_ = self.mean_eval_rewards[ridx].keys()
             for e in eval_entries_plot.copy():
                 if e not in keys_:
-                    if prm["RL"]["type_learning"] == "facmac" \
-                        and any(key[0: len(e[:-2])] == e[:-2] for key in keys_):
+                    if (
+                            prm["RL"]["type_learning"] == "facmac"
+                            and any(
+                                key[0: len(e[:-2])] == e[:-2]
+                                for key in keys_
+                            )
+                    ):
                         new = [
-                            key for key in keys_ if key[0: len(e[:-2])] == e[:-2]
+                            key for key in keys_
+                            if key[0: len(e[:-2])] == e[:-2]
                         ][0]
                         eval_entries_plot.remove(e)
                         eval_entries_plot.append(new)

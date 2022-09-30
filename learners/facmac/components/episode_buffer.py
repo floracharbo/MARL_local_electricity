@@ -131,6 +131,7 @@ class EpisodeBatch:
                 dtype = self.scheme[k].get("dtype", th.float32)
 
                 try:
+                    v = np.array(v, dtype=float)  # you will have np.nan from None
                     v = th.tensor(v, dtype=dtype, device=self.device)
                 except Exception as ex:
                     print(f"ex {ex}")
@@ -140,7 +141,10 @@ class EpisodeBatch:
                 except Exception:
                     pass
 
-                target[k_][_slices] = v.view_as(target[k_][_slices])
+                try:
+                    target[k_][_slices] = v.view_as(target[k_][_slices])
+                except Exception as ex:
+                    print(ex)
 
                 if k_ in self.preprocess:
                     try:

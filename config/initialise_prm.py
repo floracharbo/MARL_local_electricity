@@ -18,11 +18,12 @@ from gym import spaces
 from config.generate_colors import generate_colors
 from config.get_heat_coeffs import get_heat_coeffs
 from learners.facmac.components.transforms import OneHot
-from utils.userdeftools import initialise_dict, str_to_int, play_sound
+from utils.userdeftools import initialise_dict, str_to_int
 
 sys.path.append(
     '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/Python/'
     'Phase2/GettingData')
+
 
 
 def _facmac_initialise(prm):
@@ -78,6 +79,7 @@ def _facmac_initialise(prm):
     rl['actions_min_cpu'] = action_min_tensor.cpu()
     rl['actions_min_numpy'] = action_min_tensor.cpu().numpy()
     rl['avail_actions'] = np.ones((rl['n_agents'], rl['dim_actions']))
+
 
     def _actions_to_unit_box(actions, rl):
         if isinstance(actions, np.ndarray):
@@ -368,11 +370,20 @@ def _update_rl_prm(prm, initialise_all):
                            if t in ['opt', 'baseline']
                            or (t.split('_')[1] != 'A'
                                and t.split('_')[2] != 'c')]
-    rl['eval_action_choice'] = [t for t in rl['type_eval']
-                                if t not in ['baseline', 'opt']]
 
     rl['type_explo'] = [t for t in rl['type_eval']
                         if not (t[0:3] == 'opt' and len(t) > 3)]
+
+    if rl['type_learning'] == 'facmac':
+        # limit available exploration / evaluation: no difference rewards;
+        valid_explo = ['env_r_c', 'env_d_c', 'opt', 'baseline']
+        valid_eval = ['env_r_c', 'env_d_c', 'opt_r_c', 'opt', 'baseline', 'random']
+        rl['type_explo'] = [t for t in rl['type_explo'] if t in valid_explo]
+        rl['type_eval'] = [t for t in rl['type_eval'] if t in valid_eval]
+
+    rl['eval_action_choice'] = [t for t in rl['type_eval']
+                                if t not in ['baseline', 'opt']]
+
     rl['type_Qs'] = rl['eval_action_choice'] \
         + [ac + '0' for ac in rl['eval_action_choice']
            if len(ac.split('_')) >= 3

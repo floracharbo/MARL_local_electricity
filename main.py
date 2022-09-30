@@ -34,31 +34,25 @@ settings = {
     'RL': {
         'type_learning': 'facmac',
         'type_env': 'continuous',
-        'explo_reward_type': [['random', 'env_r_c']],
+        # 'explo_reward_type': [['random', 'env_r_c']],
         'gamma': {'q_learning': 0.99, 'facmac': 0.85},
         'aggregate_actions': False,
         'mixer': 'qmix',
 
         # current experiment
-        'rnn_hidden_dim': [1e2, 1e3, 5e3, 1e4] + [5e4] * 3 + [1e2, 1e3, 5e3],
-        'n_hidden_layers': [2] * 7 + [3] * 3,
-        'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']] * 10,
-        'n_epochs': [20] + [50] * 4 + [20, 30, 50] + [50] * 3,
-        'n_repeats': 5,
-        'print_learn': False
+        # 'rnn_hidden_dim': [1e2, 1e3, 5e3, 1e4] + [5e4] * 3 + [1e2, 1e3, 5e3],
+        # 'n_hidden_layers': [2] * 7 + [3] * 3,
+        # 'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']] * 10,
+        'state_space': 'grdC',
+        'n_epochs': 10,
+        'n_repeats': 2,
+        'lr': 1e-6,
+        'facmac': {'critic_lr': 1e-6}
     },
 
     'ntw': {
-        'n': 30
+        'n': 20
     },
-
-    'save': {
-        # if 0, folder wit h saved files will be deleted at the end of the run
-        'save_run': 1,
-        # if doing post run analysis -
-        # load results from laptop or from beast folder
-        'EPG_beast': False
-    }
 }
 
 # on server check centralised opts false - next lr sensitivity
@@ -141,7 +135,6 @@ elif LEARN_PLOT == 2:
     for no_run in no_runs:
         lp, prm = load_existing_prm(prm, no_run)
 
-        prm['save']['EPG_beast'] = settings['save']['EPG_beast']
         prm, record, profiles = initialise_objects(prm, no_run=no_run)
         # make user defined environment
         env = LocalElecEnv(prm, profiles)

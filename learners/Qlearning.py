@@ -196,10 +196,9 @@ class TabularQLearner:
         return lr
 
     def learn(self, t_explo, step_vals, step=None):
-        print("learn q learning")
         q_to_update = [] if t_explo == 'baseline' \
             else [t_explo] if t_explo[0:3] == 'env' \
-            else [q for q in self.z['type_Qs']
+            else [q for q in self.rl['type_Qs']
                   if q.split('_')[0] == 'opt' and q[-1] != '0']
         rangestep = range(len(step_vals['reward'])) if step is None else [step]
         for step in rangestep:
@@ -282,12 +281,14 @@ class TabularQLearner:
             if data_source == 'opt' and reward_type == 'd' \
             else step_vals['reward'][
             step]
+
         [ind_global_s, ind_global_ac, indiv_s, indiv_ac,
          ind_next_global_s, next_indiv_s, done] = \
             [step_vals[e][step]
              for e in ['ind_global_state', 'ind_global_action',
                        'state', 'action', 'ind_next_global_state',
                        'next_state', 'done']]
+
         ind_indiv_ac = self.get_space_indexes(
             done=done, all_vals=indiv_ac, info=None, type_='action')
         ind_indiv_s, ind_next_indiv_s = \

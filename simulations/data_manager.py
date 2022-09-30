@@ -281,7 +281,8 @@ class Data_manager():
 
     def file_id(self):
         """Generate string to identify the run in saved files."""
-        return f"{int(self.seed[self.p])}{self.p}{self.prm['paths']['opt_res_file']}"
+        return f"{int(self.seed[self.p])}{self.p}" \
+               f"{self.prm['paths']['opt_res_file']}"
 
     def _loop_replace_data(self,
                            data_feasibles: list_bool,
@@ -398,9 +399,8 @@ class Data_manager():
         for e in entries_bat:
             bat['batch_' + e] = np.zeros((ntw['n' + p], syst['N'] + 1))
 
-        if 'bat_dem_agg' in self.rl['state_space']:
-            entries_bat += ['bat_dem_agg']
-            bat['bat_dem_agg'] = np.zeros((ntw['n' + p], syst['N'] + 1))
+        entries_bat += ['bat_dem_agg']
+        bat['bat_dem_agg'] = np.zeros((ntw['n' + p], syst['N'] + 1))
         for a in range(ntw["n" + p]):
             for e in self.env.bat.batch_entries:
                 e_batch = e if e in batch[0] else 'lds_EV'

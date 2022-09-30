@@ -20,7 +20,6 @@ class CQMixMAC(BasicMAC):
 
         # Note batch_size_run is set to be 1 in our experiments
         if self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
-
             chosen_actions = self.forward(
                 ep_batch[bs], t_ep,
                 hidden_states=self.hidden_states[bs],
@@ -175,6 +174,7 @@ class CQMixMAC(BasicMAC):
                     ((1 - self.action_selector.epsilon) * agent_outs
                      + th.ones_like(agent_outs)
                      * self.action_selector.epsilon / agent_outs.size(-1))
+
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), actions
 
     def _build_inputs(self, batch, t, target_mac=False,

@@ -1,4 +1,5 @@
 import copy
+import os.path
 
 import numpy as np
 import torch as th
@@ -14,7 +15,7 @@ from learners.facmac.modules.mixers.vdn import VDNMixer
 
 
 class FACMACLearner:
-    def __init__(self, mac, scheme, rl):
+    def __init__(self, mac, scheme, rl, _check_opt_r_c, _check_critics):
         self.rl = rl
         self.n_agents = rl['n_agents']
         self.n_actions = rl['dim_actions']
@@ -22,7 +23,8 @@ class FACMACLearner:
         self.target_mac = copy.deepcopy(self.mac)
         self.agent_params = list(mac.parameters())
         self.cuda_available = True if th.cuda.is_available() else False
-
+        self._check_opt_r_c = _check_opt_r_c
+        self._check_critics = _check_critics
         self.critic = FACMACCritic(scheme, rl)
 
         self.target_critic = copy.deepcopy(self.critic)
@@ -72,6 +74,7 @@ class FACMACLearner:
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]
+
         terminated = batch["terminated"][:, :-1].float()
         mask = batch["filled"][:, :-1].float()
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
@@ -83,11 +86,21 @@ class FACMACLearner:
             agent_target_outs = self.target_mac.select_actions(
                 batch, t_ep=t, t_env=None, test_mode=True,
                 critic=self.target_critic, target_mac=True)
+            assert not np.isnan(agent_target_outs[0][0][0]), "agent_target_outs nan"
             target_actions.append(agent_target_outs)
         target_actions = th.stack(target_actions, dim=1)  # Concat over time
-
         q_taken = []
+
+        # replace all nan actions with the target action so the gradient will be zero
+        shape_actions = np.shape(actions)
+        for i_batch in range(shape_actions[0]):
+            for i_step in range(shape_actions[1]):
+                for i_agent in range(shape_actions[2]):
+                    for i_action in range(shape_actions[3]):
+                        if th.isnan(actions[i_batch, i_step, i_agent, i_action]):
+                            actions[i_batch, i_step, i_agent, i_action] = target_actions[i_batch, i_step, i_agent, i_action]
         self.critic.init_hidden(batch.batch_size)
+
         for t in range(batch.max_seq_length - 1):
             inputs = self._build_inputs(batch, t=t)
             critic_out, self.critic.hidden_states = self.critic(
@@ -98,6 +111,7 @@ class FACMACLearner:
                     batch.batch_size, -1, 1), batch["state"][:, t: t + 1])
             q_taken.append(critic_out)
         q_taken = th.stack(q_taken, dim=1)
+        self._check_opt_r_c(), self._check_critics()
 
         target_vals = []
         self.target_critic.init_hidden(batch.batch_size)
@@ -138,6 +152,7 @@ class FACMACLearner:
         self.critic_optimiser.zero_grad()
         loss.backward()
         self.critic_optimiser.step()
+        self._check_opt_r_c(), self._check_critics()
 
         # Train the actor
         # Optimize over the entire joint action space
@@ -152,9 +167,11 @@ class FACMACLearner:
             q, self.critic.hidden_states = self.critic(
                 self._build_inputs(batch, t=t), agent_outs,
                 self.critic.hidden_states)
+
             if self.mixer is not None:
                 q = self.mixer(q.view(batch.batch_size, -1, 1),
                                batch["state"][:, t: t + 1])
+
             mac_out.append(agent_outs)
             chosen_action_qvals.append(q)
         mac_out = th.stack(mac_out[:-1], dim=1)
@@ -162,13 +179,11 @@ class FACMACLearner:
         pi = mac_out
 
         # Compute the actor loss
-        pg_loss = -chosen_action_qvals.mean() + (pi**2).mean() * 1e-3
-
+        pg_loss = - chosen_action_qvals.mean() + (pi**2).mean() * 1e-3
         # Optimise agents
         self.agent_optimiser.zero_grad()
         pg_loss.backward()
         self.agent_optimiser.step()
-
         if self.rl['target_update_mode'] == "hard":
             print("hard target update")
             self._update_targets()
@@ -178,6 +193,7 @@ class FACMACLearner:
         else:
             raise Exception(f"unknown target update mode: "
                             f"{self.rl['target_update_mode']}!")
+        self._check_opt_r_c(), self._check_critics()
 
     def _update_targets_soft(self, tau):
         for target_param, param in zip(self.target_mac.parameters(),
