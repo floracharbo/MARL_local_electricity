@@ -1,3 +1,6 @@
+# adapted from
+# https://github.com/oxwhirl/facmac
+
 import copy
 
 import torch as th

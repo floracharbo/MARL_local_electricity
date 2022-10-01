@@ -26,7 +26,8 @@ from learners.facmac.controllers import REGISTRY as mac_REGISTRY
 from learners.facmac.learners import REGISTRY as le_REGISTRY
 from learners.Qlearning import TabularQLearner
 from simulations.explorer import Explorer
-from utils.userdeftools import initialise_dict, set_seeds_rdn
+from utils.userdeftools import (data_source, initialise_dict, reward_type,
+                                set_seeds_rdn)
 
 
 class Runner():
@@ -83,12 +84,10 @@ class Runner():
                         # insert episode batch in buffer, sample, train
                         self._facmac_episode_batch_insert_and_sample(episode)
 
-
                     # append record
                     for e in ['seed', 'n_not_feas', 'not_feas_vars']:
                         self.record.__dict__[e][ridx].append(
                             train_steps_vals[-1][e])
-
 
                     if self.rl['save_model'] and (
                             self.explorer.t_env - model_save_time
@@ -107,8 +106,6 @@ class Runner():
                                 os.makedirs(save_path, exist_ok=True)
                                 self.learner[t_explo].save_models(save_path)
 
-                self._check_opt_r_c(), self._check_critics()
-
                 # learning step at the end of the exploration
                 # if it was not done instantly after each step
                 if not self.rl['instant_feedback'] \
@@ -125,7 +122,6 @@ class Runner():
                                 self.learner[t][a].target_update()
                         else:
                             self.learner[t].target_update()
-
 
                 # evaluation step
                 # REPLACE HERE
@@ -153,8 +149,6 @@ class Runner():
                 if self.rl['deterministic']:
                     converged = self._check_convergence(ridx, epoch, converged)
                 self._end_of_epoch_parameter_updates(ridx, epoch)
-
-            self._check_opt_r_c(), self._check_critics()
 
             # then do evaluation only for one month, no learning
             for epoch_test in \
@@ -206,7 +200,7 @@ class Runner():
                 else False
             self.record.save(end_of='repeat')
             ridx += 1
-            self._check_opt_r_c(), self._check_critics()
+
         for p in ['P', '']:
             if len(self.explorer.data.seeds[p]) > len(self.rl['seeds'][p]):
                 self.rl['seeds'][p] = self.explorer.seeds[p].copy()
@@ -241,7 +235,10 @@ class Runner():
                                 preprocess=self.rl['preprocess'],
                                 device=self.rl['device'])
                     self.learner[t] = le_REGISTRY[self.rl['learner']](
-                        self.mac[t], self.buffer[t].scheme, self.rl, self._check_opt_r_c, self._check_critics)
+                        self.mac[t],
+                        self.buffer[t].scheme,
+                        self.rl,
+                    )
                     if self.rl['use_cuda']:
                         self.learner[t].cuda()
 
@@ -358,10 +355,10 @@ class Runner():
             t_to_update = [] if t_explo == 'baseline' \
                 else [t_explo] if t_explo[0:3] == 'env' \
                 else [t for t in self.rl['type_Qs']
-                      if t.split('_')[0] == 'opt' and t[-1] != '0']
+                      if data_source(t) == 'opt' and t[-1] != '0']
             for t in t_to_update:
-                diff = True if t.split('_')[1] == 'd' else False
-                opt = True if t.split('_')[0] == 'opt' else False
+                diff = True if reward_type(t) == 'd' else False
+                opt = True if data_source(t) == 'opt' else False
 
                 self.buffer[t].insert_episode_batch(
                     self.episode_batch[t], difference=diff,
@@ -381,8 +378,6 @@ class Runner():
                         episode_sample.to(self.rl['device'])
                     self.learner[t].train(episode_sample,
                                           self.explorer.t_env, episode)
-                    self._check_opt_r_c(t='env_r_c')
-                    self._check_opt_r_c(), self._check_critics()
 
     def _train_vals_to_list(self, train_steps_vals, type_explo):
 
@@ -496,30 +491,4 @@ class Runner():
             type_explo, ridx, epoch, i_explore,
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)
 
-        self._check_opt_r_c(), self._check_critics()
-
-
         return steps_vals, date0, delta, i0_costs, type_explo
-
-    def _check_opt_r_c(self, t=None):
-        # check opt_r_c
-        inputs = np.load("select_actions_inputs.npy", allow_pickle=True)
-        if t is not None:
-            inputs[0] = t
-
-        action_test, tf_prev_state_test \
-            = self.explorer.action_selector.select_action(*inputs
-                                                          )
-        assert not np.isnan(action_test[0][0]), "action_test none"
-
-
-    def _check_critics(self):
-        for t in ['env_r_c', 'opt_r_c']:
-            if t in self.rl['type_eval']:
-                _build_inputs_test = th.load(f"checks_data/_build_inputs_{t}")
-                agent_outs_test = th.load(f"checks_data/agent_outs_{t}")
-                hidden_states_test = th.load(f"checks_data/hidden_states_{t}")
-                q_test, hidden_states_test = self.learner[t].critic(
-                    _build_inputs_test, agent_outs_test,
-                    hidden_states_test)
-                assert not np.isnan(q_test[0][0].item()), f"_check_critics fail {t}"

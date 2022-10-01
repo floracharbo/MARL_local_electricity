@@ -1,3 +1,6 @@
+# adapted from
+# https://github.com/oxwhirl/facmac
+
 import torch as th
 from torch.distributions import Categorical
 from torch.distributions.one_hot_categorical import OneHotCategorical
@@ -5,8 +8,6 @@ from torch.distributions.one_hot_categorical import OneHotCategorical
 from .epsilon_schedules import DecayThenFlatSchedule
 
 
-# From
-# https://github.com/mzho7212/LICA/blob/main/src/components/action_selectors.py
 class GumbelSoftmax(OneHotCategorical):
 
     def __init__(self, logits, probs=None, temperature=1):

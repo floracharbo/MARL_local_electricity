@@ -18,12 +18,12 @@ from gym import spaces
 from config.generate_colors import generate_colors
 from config.get_heat_coeffs import get_heat_coeffs
 from learners.facmac.components.transforms import OneHot
-from utils.userdeftools import initialise_dict, str_to_int
+from utils.userdeftools import (distr_learning, initialise_dict, reward_type,
+                                str_to_int)
 
 sys.path.append(
     '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/Python/'
     'Phase2/GettingData')
-
 
 
 def _facmac_initialise(prm):
@@ -79,7 +79,6 @@ def _facmac_initialise(prm):
     rl['actions_min_cpu'] = action_min_tensor.cpu()
     rl['actions_min_numpy'] = action_min_tensor.cpu().numpy()
     rl['avail_actions'] = np.ones((rl['n_agents'], rl['dim_actions']))
-
 
     def _actions_to_unit_box(actions, rl):
         if isinstance(actions, np.ndarray):
@@ -368,8 +367,8 @@ def _update_rl_prm(prm, initialise_all):
     if rl['competitive']:  # there can be no centralised learning
         rl['type_eval'] = [t for t in rl['type_eval']
                            if t in ['opt', 'baseline']
-                           or (t.split('_')[1] != 'A'
-                               and t.split('_')[2] != 'c')]
+                           or (reward_type(t) != 'A'
+                               and distr_learning(t) != 'c')]
 
     rl['type_explo'] = [t for t in rl['type_eval']
                         if not (t[0:3] == 'opt' and len(t) > 3)]
@@ -377,7 +376,8 @@ def _update_rl_prm(prm, initialise_all):
     if rl['type_learning'] == 'facmac':
         # limit available exploration / evaluation: no difference rewards;
         valid_explo = ['env_r_c', 'env_d_c', 'opt', 'baseline']
-        valid_eval = ['env_r_c', 'env_d_c', 'opt_r_c', 'opt', 'baseline', 'random']
+        valid_eval \
+            = ['env_r_c', 'env_d_c', 'opt_r_c', 'opt', 'baseline', 'random']
         rl['type_explo'] = [t for t in rl['type_explo'] if t in valid_explo]
         rl['type_eval'] = [t for t in rl['type_eval'] if t in valid_eval]
 
@@ -387,7 +387,7 @@ def _update_rl_prm(prm, initialise_all):
     rl['type_Qs'] = rl['eval_action_choice'] \
         + [ac + '0' for ac in rl['eval_action_choice']
            if len(ac.split('_')) >= 3
-           and (ac.split('_')[1] == 'A' or ac.split('_')[2][0] == 'C')
+           and (reward_type(ac) == 'A' or distr_learning(ac)[0] == 'C')
            ]
     rl['start_end_eval'] = int(rl['share_epochs_start_end_eval']
                                * rl['n_epochs'])
@@ -442,7 +442,7 @@ def _update_rl_prm(prm, initialise_all):
                     if specified_per_reward_only:
                         for type_eval in rl['eval_action_choice']:
                             rl[type_learning][key][type_eval] = \
-                                rl[type_learning][key][type_eval.split('_')[1]]
+                                rl[type_learning][key][reward_type(type_eval)]
     rl['dim_states'] = len(rl['state_space'])
 
     if 'trajectory' not in rl:
@@ -508,13 +508,13 @@ def _seed_save_paths(prm):
         f"_ntwn{ntw['n']}_nP{ntw['nP']}"
     if 'file' in heat and heat['file'] != 'heat.yaml':
         paths['opt_res_file'] += f"{heat['file']}"
-    paths['seeds_file'] = 'seeds' + paths['opt_res_file']
+    paths['seeds_file'] = 'seeds/seeds' + paths['opt_res_file']
     if rl['deterministic'] == 2:
         for file in ['opt_res_file', 'seeds_file']:
             paths[file] += '_noisy'
     for file in ['opt_res_file', 'seeds_file']:
         paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
-                    f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
+            f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
     if prm['syst']['change_start']:
         paths['opt_res_file'] += '_changestart'
 

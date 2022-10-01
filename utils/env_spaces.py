@@ -329,9 +329,14 @@ class EnvSpaces():
                 ind_x = self.get_space_indexes(
                     done=False, all_vals=x, info=None, type_=type_ind)
                 if t[-2] == 'C':
-                    global_ind[label] = [self.indiv_to_global_index(
-                        type_ind, indexes=ind_x,
-                        multipliers=self.global_multipliers[type_ind], done=done)]
+                    global_ind[label] = [
+                        self.indiv_to_global_index(
+                            type_ind,
+                            indexes=ind_x,
+                            multipliers=self.global_multipliers[type_ind],
+                            done=done
+                        )
+                    ]
             else:
                 global_ind[label] = None
 

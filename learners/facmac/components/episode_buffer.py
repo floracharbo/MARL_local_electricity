@@ -1,3 +1,6 @@
+# adapted from
+# https://github.com/oxwhirl/facmac
+
 import traceback
 from types import SimpleNamespace as SN
 
@@ -131,7 +134,7 @@ class EpisodeBatch:
                 dtype = self.scheme[k].get("dtype", th.float32)
 
                 try:
-                    v = np.array(v, dtype=float)  # you will have np.nan from None
+                    v = np.array(v, dtype=float)  # get np.nan from None
                     v = th.tensor(v, dtype=dtype, device=self.device)
                 except Exception as ex:
                     print(f"ex {ex}")
@@ -469,11 +472,11 @@ class CompressibleBatchTensor():
             * self.chunk_size \
             * len(self._storage.keys()) \
             * (np.prod(np.array(self.shape))
-                          * self.np_dtype.itemsize).item()
+               * self.np_dtype.itemsize).item()
         stats["predicted_full_size_uncompressed"] = \
             self.chunk_size * len(self._storage.keys()) \
             * (np.prod(np.array(self.shape))
-                          * self.np_dtype.itemsize).item()
+               * self.np_dtype.itemsize).item()
         return stats
 
     pass
@@ -553,12 +556,17 @@ class CompressibleEpisodeBatch(EpisodeBatch):
             stats_list_trans[k] = v.get_compression_stats()
 
         stats["fill_level"] = (
-            np.mean([v["fill_level"] for _, v in stats_list_trans.items()])).item()
-        stats["compression_ratio"] = \
-            (np.sum([v["predicted_full_size_compressed"]
-                                for _, v in stats_list_trans.items()])).item() \
-            / (np.sum([v["predicted_full_size_uncompressed"]
-                                  for _, v in stats_list_trans.items()])).item()
+            np.mean([v["fill_level"] for _, v in stats_list_trans.items()])
+        ).item()
+        sum_compressed = np.sum(
+            [v["predicted_full_size_compressed"]
+             for _, v in stats_list_trans.items()])
+        sum_uncompressed = np.sum(
+            [v["predicted_full_size_uncompressed"]
+             for _, v in stats_list_trans.items()]
+        )
+        stats["compression_ratio"] \
+            = sum_compressed.item() / sum_uncompressed.item()
         stats["predicted_full_size_compressed"] = (
             np.sum([v["predicted_full_size_compressed"]
                     for _, v in stats_list_trans.items()])).item()

@@ -1,3 +1,5 @@
+# from https://github.com/oxwhirl/facmac
+
 from collections import namedtuple
 
 

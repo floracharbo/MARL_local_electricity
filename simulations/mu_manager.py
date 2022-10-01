@@ -197,6 +197,9 @@ class Mu_manager:
 
         for a in as_:
             self._compute_k(a, a_dp, b_dp, mu, d)
+            assert self.heat.E_heat_min[a] + loads['l_fixed'][a] \
+                   <= self.k[a]['c'][0][1] + 1e-3,\
+                   "min c smaller than min required"
 
         # these variables are useful in netp_to_mu and apply_step
         # in the case where action variables are not aggregated
@@ -257,7 +260,7 @@ class Mu_manager:
                         + self.k[a][e][ik_][1]
 
                 home['tot_cons'][a] = res['c']
-                home['netp'][a] += res['dp']
+                home['netp'][a] = res['dp']
                 if res['c'] > loads['l_flex'][a] + self.tot_l_fixed[a]:
                     loads['flex_cons'].append(loads['l_flex'][a])
                 else:
@@ -474,7 +477,7 @@ class Mu_manager:
             self.k[a][e] = []
         for z in range(5):
             l1, l2 = letters[z: z + 2]
-            if mu[l2][a] > mu[l1][a] + 1e-4:
+            if mu[l2][a] > mu[l1][a]:
                 self.x[a].append(mu[l2][a])
                 for e in ['ds', 'c', 'losses']:
                     if e == 'losses':
@@ -578,8 +581,6 @@ class Mu_manager:
             assert abs(self.min_charge[a] - self.max_charge[a]) <= 1e-4, \
                 "mu_charge is None but " \
                 "self.min_charge[a] != self.max_charge[a]"
-            if mu_charge is None and abs(res['discharge_other'][a, h]) > 1e-3 and abs(res['charge'][a, h]) > 1e-3:
-                print("mu charge is None")
         elif abs(res['discharge_other'][a, h] < 1e-3
                  and abs(res['charge'][a, h]) < 1e-3):
             mu_charge = 0

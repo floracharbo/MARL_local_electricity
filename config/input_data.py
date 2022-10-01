@@ -8,7 +8,6 @@ Created on Sun Feb  9 11:36:21 2020.
 """
 import datetime
 import os.path
-from pathlib import Path
 
 import numpy as np
 import yaml

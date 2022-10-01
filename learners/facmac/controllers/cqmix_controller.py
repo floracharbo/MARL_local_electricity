@@ -1,3 +1,6 @@
+# adapted from
+# https://github.com/oxwhirl/facmac
+
 import numpy as np
 import torch as th
 import torch.distributions as tdist

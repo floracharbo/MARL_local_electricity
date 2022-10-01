@@ -6,7 +6,7 @@ Created on Wed May 19 10:48:51 2021
 @author: floracharbonnier
 
 doing DQN super simple discrete to see how that works
-from:
+adapted from:
 https://github.com/marload/DeepRL-TensorFlow2/blob/master/DQN/DQN_Discrete.py
 
 """

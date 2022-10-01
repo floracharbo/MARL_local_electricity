@@ -165,3 +165,15 @@ def granularity_to_multipliers(granularity):
     multipliers.append(1)
 
     return multipliers
+
+
+def data_source(q):
+    return q.split('_')[0]
+
+
+def reward_type(q):
+    return q.split('_')[1]
+
+
+def distr_learning(q):
+    return q.split('_')[2]

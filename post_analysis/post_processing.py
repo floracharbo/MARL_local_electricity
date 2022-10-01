@@ -18,12 +18,13 @@ import numpy as np
 
 from post_analysis.plotting import plotting
 from post_analysis.print_results import print_results
+from utils.userdeftools import distr_learning
 
 
 def _max_min_q(q_table, n_states, minq, maxq, prm):
     """Compare min/max q values with saved ones. Update if necessary."""
     for type_q in q_table.keys():
-        n_agents = prm['ntw']['n'] if type_q.split('_')[2] == 'd' else 1
+        n_agents = prm['ntw']['n'] if distr_learning(type_q) == 'd' else 1
         for agent in range(n_agents):
             for state in range(n_states):
                 if min(q_table[type_q][agent][state]) < minq:
@@ -136,8 +137,10 @@ def get_prm_save(prm):
     """Save run parameters for record-keeping."""
     prm_save = {}  # save selected system parameters
     to_save_entries_syst = \
-        np.load(Path(prm['paths']['input_folder']) / 'to_save_entries_syst.npy',
-                allow_pickle=True).item()
+        np.load(
+            Path(prm['paths']['input_folder']) / 'to_save_entries_syst.npy',
+            allow_pickle=True
+        ).item()
     for key in to_save_entries_syst:
         prm_save[key] = {}
         sub_keys = to_save_entries_syst[key] \

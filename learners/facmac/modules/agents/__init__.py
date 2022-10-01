@@ -1,3 +1,6 @@
+# adapted from
+# https://github.com/oxwhirl/facmac
+
 from learners.facmac.modules.agents.comix_agent import (CEMAgent,
                                                         CEMRecurrentAgent)
 from learners.facmac.modules.agents.mlp_agent import MLPAgent

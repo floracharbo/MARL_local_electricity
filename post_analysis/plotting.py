@@ -17,8 +17,9 @@ import seaborn as sns
 import torch as th
 
 from config.generate_colors import generate_colors
-from utils.userdeftools import (get_moving_average, granularity_to_multipliers,
-                                initialise_dict)
+from utils.userdeftools import (data_source, distr_learning,
+                                get_moving_average, granularity_to_multipliers,
+                                initialise_dict, reward_type)
 
 
 def _formatting_figure(
@@ -153,7 +154,8 @@ def _barplot(
     if display_legend:
         if ax0 is None:
             fig.legend(
-                loc='lower center', bbox_to_anchor=(0.57, -0.35), fancybox=True, ncol=2
+                loc='lower center', bbox_to_anchor=(0.57, -0.35),
+                fancybox=True, ncol=2
             )
         else:
             plt.legend(
@@ -173,11 +175,11 @@ def _eval_entries_plot_colors(prm):
     eval_entries = prm['RL']['type_eval']
     if prm['ntw']['n'] == 1:
         eval_entries = [e for e in eval_entries
-                        if e.split('_')[-1] == 'd'
+                        if distr_learning(e) == 'd'
                         or e in ['baseline', 'opt']]
         if len([e for e in eval_entries if len(e.split('_')) > 1]) == 0:
             eval_entries = [e for e in prm['RL']['type_eval']
-                            if e.split('_')[-1] == 'c'
+                            if distr_learning(e) == 'c'
                             or e in ['baseline', 'opt']]
 
     eval_entries_plot = \
@@ -190,22 +192,22 @@ def _eval_entries_plot_colors(prm):
                          if e not in ['baseline', 'opt']]
     eval_entries_distr = [
         e for e in eval_entries
-        if len(e.split('_')) > 1 and e.split('_')[-1] == 'd'
+        if len(e.split('_')) > 1 and distr_learning(e) == 'd'
     ]
     eval_entries_centr = [
         e for e in eval_entries
-        if len(e.split('_')) > 1 and e.split('_')[-1] == 'c'
+        if len(e.split('_')) > 1 and distr_learning(e) == 'c'
     ]
     other_eval_entries = [
         e for e in eval_entries if len(e.split("_")) == 1
     ]
     eval_entries_notCd = [
         e for e in eval_entries_plot
-        if not (len(e.split('_')) > 1 and e.split('_')[-1] == 'Cd')
+        if not (len(e.split('_')) > 1 and distr_learning(e) == 'Cd')
     ]
     eval_entries_plot_indiv = [e for e in eval_entries_plot
                                if len(e.split('_')) > 1
-                               and e.split('_')[2] not in ['Cc0', 'Cd0']]
+                               and distr_learning(e) not in ['Cc0', 'Cd0']]
     colors_barplot = [prm['save']['colorse'][e] for e in eval_entries_bars]
     base_entries = eval_entries_distr if len(eval_entries_distr) > 0 \
         else eval_entries_centr
@@ -342,8 +344,8 @@ def _plotting_res(root, prm, indiv=True, list_ridx=None):
         elif t == 'baseline':
             labels[t] = t
         else:
-            label = reward_labels[t.split('_')[1]]
-            label += experience_labels[t.split('_')[0]]
+            label = reward_labels[reward_type(t)]
+            label += experience_labels[data_source(t)]
             labels[t] = label
 
     if indiv:  # do one figure per agent and per repeat
@@ -672,7 +674,7 @@ def _plot_best_psi(
         if record.save_qtables else q_tables[ridx]
     if prm['RL']['state_space'] == [None]:
         for t in eval_entries_plot_indiv:
-            na = prm['ntw']['n'] if t.split('_')[2] in ['d', 'Cd'] else 1
+            na = prm['ntw']['n'] if distr_learning(t) in ['d', 'Cd'] else 1
             best_theta[t] = initialise_dict(range(na), type_obj='empty_dict')
             for a in range(na):
                 best_theta[t][a] = np.zeros((possible_states,))
@@ -684,7 +686,7 @@ def _plot_best_psi(
                 # plot historgram of best theta per method
                 fig, ax = plt.subplots()
                 y_pos = np.arange(len(eval_entries_plot_indiv))
-                i_tables = [a if t.split('_')[2] == 'd' else 0
+                i_tables = [a if distr_learning(t) == 'd' else 0
                             for t in eval_entries_plot_indiv]
                 best_thetas = \
                     [best_theta[eval_entries_plot_indiv[it]][i_tables[it]][0]
@@ -714,7 +716,7 @@ def _plot_best_psi(
             fig, ax = plt.subplots()
             theta_M = []
             for t in eval_entries_plot_indiv:
-                index_a = a if t.split('_')[2] in ['d', 'Cd'] else 0
+                index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
                 theta_M.append([best_theta[t][index_a][int(s)]
                                 for s in range(possible_states)])
             im = ax.imshow(theta_M, vmin=0, vmax=1)
@@ -739,7 +741,7 @@ def _plot_best_psi(
                 t = eval_entries_plot_indiv[i_t]
                 M = np.zeros((record.granularity_state0,
                               record.granularity_state1))
-                index_a = a if t.split('_')[2] in ['d', 'Cd'] else 0
+                index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
                 for s in range(possible_states):
                     s1, s2 = spaces.global_to_indiv_index(
                         'state', s, multipliers=granularity_to_multipliers(
@@ -777,8 +779,7 @@ def _plot_q_values(
 
             for i_t in range(len(eval_entries_plot_indiv)):
                 t = eval_entries_plot_indiv[i_t]
-                distr_learning = t.split('_')[2]
-                i_table = a if distr_learning == 'd' else 0
+                i_table = a if distr_learning(t) == 'd' else 0
                 qvals = q_tables[ridx][prm['RL']['n_epochs'] - 1][t][i_table][
                     0]  # in final epoch, in 0-th (unique) state
                 M[i_t, :] = qvals
@@ -927,7 +928,7 @@ def _plot_final_explorations(
 ):
     rl = prm['RL']
     for t in q_entries:
-        na = prm['ntw']['n'] if t.split('_')[1] == '1' else 1
+        na = prm['ntw']['n'] if reward_type(t) == '1' else 1
         for a in range(na):
             action_state_space_0[ridx][a], state_space_0[ridx][a] =\
                 [initialise_dict(q_entries) for _ in range(2)]
@@ -1027,8 +1028,10 @@ def _plot_results_all_ridx(
         np.save('upper_bound0', upper_bound)
         print(f'new up lb [{lower_bound}, {upper_bound}]')
 
-    lower_bound, upper_bound = [np.load(prm['paths']['input_folder'] / f"{e}0.npy")
-                                for e in ['lower_bound', 'upper_bound']]
+    lower_bound, upper_bound = [
+        np.load(prm['paths']['input_folder'] / f"{e}0.npy")
+        for e in ['lower_bound', 'upper_bound']
+    ]
     plt.ylim([lower_bound, upper_bound])
     plt.gca().set_yticks(np.arange(-0.25, 0.2, 0.05))
     plt.ylim([lower_bound, upper_bound])
@@ -1122,7 +1125,9 @@ def _barplot_metrics(
             #     eval_entries_bars_.remove('facmac')
             #     base_entries.remove('facmac')
 
-            colors_barplot_ = generate_colors(prm["save"], prm, eval_entries_bars_, colours_only=True)
+            colors_barplot_ = generate_colors(
+                prm["save"], prm, eval_entries_bars_, colours_only=True
+            )
 
             bars, err = [
                 [metrics[m_][s][e] for e in eval_entries_bars_]
@@ -1182,17 +1187,17 @@ def _barplot_metrics(
                              if e in metrics[m_][ave] else None
                              for e in ['baseline', 'opt']]
             for e in eval_entries_notCd:
-                splits = e.split('_')
-                label = splits[0] + '_' + splits[1] if len(splits) > 1 else e
-                if len(splits) < 2:
+                label = data_source(e) + '_' + reward_type(e) \
+                    if len(e.split('_')) > 1 else e
+                if len(e.split('_')) < 2:
                     ls = 'o'
-                elif splits[2] == 'd':
+                elif distr_learning(e) == 'd':
                     ls = 'o'
-                elif splits[2] == 'c':
+                elif distr_learning(e) == 'c':
                     ls = 'x'
-                elif splits[2] == 'Cc':
+                elif distr_learning(e) == 'Cc':
                     ls = '^'
-                legend = splits[2] if len(splits) > 1 else e
+                legend = distr_learning(e) if len(e.split('_')) > 1 else e
                 to_plot = metrics[m_][ave][e] - baseline \
                     if m_ == 'end' else metrics[m_][ave][e]
                 ax.plot(xs[label], to_plot, ls,
@@ -1208,7 +1213,7 @@ def _barplot_metrics(
                         max([metrics[m_][ave][e]
                              for e in metrics[m_][ave].keys()
                              if len(e.split('_')) > 1
-                             and e.split('_')[0] + '_' + e.split('_')[1]
+                             and f"{data_source(e)}_{reward_type(e)}"
                              == label])
                     plottext = maxval[label] - baseline \
                         if m_ == 'end' else maxval[label]
@@ -1253,12 +1258,15 @@ def _heatmap_savings_per_method(metrics, prm):
     all_vals = []
     for e in metrics['end']['ave'].keys():
         if e not in ['opt', 'baseline', 'random']:
-            source, rewardtype, distr = [e.split('_')[i] for i in range(3)]
             i_reward, i_distr = \
-                [[i for i in range(len(arr)) if arr[i] == x][0]
-                 for arr, x in zip([rewards, distrs], [rewardtype, distr])]
+                [
+                    [i for i in range(len(arr)) if arr[i] == x][0]
+                    for arr, x in zip(
+                        [rewards, distrs], [reward_type(e), distr_learning(e)]
+                    )
+                ]
             val = metrics['end']['ave'][e] - metrics['end']['ave']['baseline']
-            M[source][i_distr][i_reward] = val
+            M[data_source(e)][i_distr][i_reward] = val
             all_vals.append(val)
     if len(all_vals) > 0:
         minval, maxval = np.min(all_vals), np.max(all_vals)
@@ -1457,11 +1465,23 @@ def _plot_eval_action(record, prm):
     if len(list(actions.keys())) == 0:
         return
 
+    labels_aggregate = 'Action variable [-]'
+    labels_disaggregate = [
+        'Flexible consumption action [-]',
+        'Flexible heating action [-]',
+        'Flexible EV charge action [-]'
+    ]
+    if prm["RL"]["aggregate_actions"]:
+        n_mus = 1
+        labels = labels_aggregate
+    else:
+        n_mus = 3
+        labels = labels_disaggregate
+
     for type_eval in prm["RL"]["type_eval"]:
         if type_eval == "baseline":
             continue
         for ridx in range(prm["RL"]["n_repeats"]):
-            n_mus = 1 if prm["RL"]["aggregate_actions"] else 3
             if len(actions[ridx]) == 0:
                 continue
             actions_ = actions[ridx][type_eval]
@@ -1476,13 +1496,15 @@ def _plot_eval_action(record, prm):
                         for home in range(len(actions_[epoch][step])):
                             if actions_[epoch][step][home][mu] is None:
                                 if type_eval != 'opt':
-                                    print(f"None in {type_eval} mu {mu} epoch {epoch}")
+                                    print(f"None in {type_eval}")
                                 continue
                             plt.plot(
                                 epoch,
                                 actions_[epoch][step][home][mu],
                                 'o'
                             )
+                plt.ylabel(labels[mu])
+                plt.xlabel("Epoch")
                 title = f"actions {type_eval} mu {mu} {ridx}"
                 _title_and_save(
                     title, fig, prm["paths"]["fig_folder"],
@@ -1664,7 +1686,6 @@ def plotting(record, spaces, prm, f):
         np.save(prm['paths']['fig_folder'] / 'action_state_space_0',
                 action_state_space_0)
         np.save(prm['paths']['fig_folder'] / 'metrics', metrics)
-    np.save('metrics', metrics)
     plt.close('all')
 
     return f, metrics

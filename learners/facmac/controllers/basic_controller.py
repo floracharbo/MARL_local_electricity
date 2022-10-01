@@ -1,3 +1,6 @@
+# adapted from
+# https://github.com/oxwhirl/facmac
+
 import torch as th
 
 from learners.facmac.modules.agents import REGISTRY as agent_REGISTRY

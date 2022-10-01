@@ -1,3 +1,6 @@
+# adapted from
+# https://github.com/oxwhirl/facmac
+
 from .basic_controller import BasicMAC
 from .cqmix_controller import CQMixMAC
 

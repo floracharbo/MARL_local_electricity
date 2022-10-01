@@ -16,7 +16,8 @@ import numpy as np
 import yaml
 
 from config.initialise_objects import initialise_objects
-from utils.userdeftools import initialise_dict
+from utils.userdeftools import (data_source, distr_learning, initialise_dict,
+                                reward_type)
 
 
 def plot_results_vs_nag():
@@ -203,7 +204,7 @@ def plot_results_vs_nag():
         if n_ag == 1:
             prm['RL']['type_eval'] = \
                 [e for e in prm['RL']['type_eval']
-                 if e.split('_')[-1] == 'd' or e in ['baseline', 'opt']]
+                 if distr_learning(e) == 'd' or e in ['baseline', 'opt']]
         metrics = np.load(
             PATH + f'run{run}/figures/metrics.npy',
             allow_pickle=True).item()
@@ -211,26 +212,16 @@ def plot_results_vs_nag():
         if run < 254:
             prm['RL']['type_eval'] = \
                 [t for t in prm['RL']['type_eval']
-                 if t == 'opt' or t.split('_')[0] == 'opt']
+                 if t == 'opt' or data_source[t] == 'opt']
 
         for type_eval in \
                 [type_eval for type_eval in prm['RL']['type_eval']
                  if type_eval != 'baseline']:
-            # if type_eval == 'opt':
-            #     color = prm['save']['colorse'][type_eval]
-            #     line_style = 'o'
-            # else:
-            #     line_styles_distr_learning = {'d': 'o', 'c': 'x', 'Cc': '^'}
-            #     type_eval_color = type_eval.split('_')[0] + '_'
-            #     + type_eval.split('_')[1] + '_d'
-            #     color = prm['save']['colorse'][type_eval_color]
-            #     line_style = line_styles_distr_learning[
-            #     type_eval.split('_')[2]]
             if n_ag > 1 or type_eval == 'opt':
                 type_evals = [type_eval]
             else:
                 type_evals = \
-                    [f"{type_eval.split('_')[0]}_{type_eval.split('_')[1]}_{e}"
+                    [f"{data_source[type_eval]}_{reward_type(type_eval)}_{e}"
                         for e in ['c', 'd']]
 
             for t_ in type_evals:
@@ -265,12 +256,12 @@ def plot_results_vs_nag():
         for key in res_entries:
             res[key][type_eval] = [res[key][type_eval][i] for i in order]
         line_style = 'dotted' if type_eval == 'opt' else (
-            '--' if type_eval.split('_')[2] == 'd' else '-')
+            '--' if distr_learning(type_eval) == 'd' else '-')
         line_style = 'dotted' if type_eval == 'opt' else '-'
         color = prm['save']['colorse'][type_eval] \
             if type_eval == 'opt' \
             else prm['save']['colorse'][
-            f"{type_eval.split('_')[0]}_{type_eval.split('_')[1]}_d"]
+            f"{data_source(type_eval)}_{reward_type(type_eval)}_d"]
         plt.plot(
             res['xs'][type_eval],
             res['p50'][type_eval],

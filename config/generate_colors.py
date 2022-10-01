@@ -11,6 +11,8 @@ import random
 
 import matplotlib.pyplot as plt
 
+from utils.userdeftools import distr_learning
+
 
 def _check_color_diffs(colors, new_color, min_diffs=None):
     """
@@ -68,14 +70,14 @@ def _colors_to_prm(save, prm, colors0, colors, all_type_eval):
     # first allocate the colours to decentralised environment-based learning
     allocate_1 = [type_eval for type_eval in all_type_eval
                   if type_eval not in ['opt', 'baseline']
-                  and type_eval.split('_')[2] == 'd']
+                  and distr_learning(type_eval) == 'd']
     for i, type_eval in enumerate(allocate_1):
         save['colorse'][type_eval] = save['colors'][i + 1]
 
     # then allocate to the other environment-based learning
     allocate_2 = [type_eval for type_eval in all_type_eval
                   if not (type_eval in ['opt', 'baseline']
-                          or type_eval.split('_')[2] == 'd')]
+                          or distr_learning(type_eval) == 'd')]
     for i, type_eval in enumerate(allocate_2):
         save['colorse'][type_eval] = save['colors'][i + 1]
 

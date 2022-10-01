@@ -6,7 +6,8 @@ author: Flora Charbonnier
 
 import numpy as np
 
-from utils.userdeftools import granularity_to_multipliers
+from utils.userdeftools import (data_source, granularity_to_multipliers,
+                                reward_type)
 
 
 class LearningManager():
@@ -68,15 +69,15 @@ class LearningManager():
             t_opts = [t for t in rl["type_eval"]
                       if t[0:3] == "opt" and t != "opt"]
             for t in t_opts:
-                if t.split("_")[1] == "d":
+                if reward_type(t) == "d":
                     reward_diff_e = "reward_diff" \
-                        if t.split("_")[0] == "opt" \
+                        if data_source(t) == "opt" \
                         else "reward"
                     traj_reward_a = sum(
                         [step_vals["opt"][reward_diff_e][i_step][a]
                          for i_step in range(self.N)])
 
-                elif t.split("_")[1] == "r":
+                elif reward_type(t) == "r":
                     traj_reward_a = \
                         sum([step_vals["opt"]["reward"][i_step]
                              for i_step in range(self.N)])
@@ -116,9 +117,9 @@ class LearningManager():
                     current_state[0], actions, reward, state[0])
             else:
                 for a in self.agents:
-                    if t_.split('_')[1] == 'r' and self.rl['competitive']:
+                    if reward_type(t_) == 'r' and self.rl['competitive']:
                         reward = reward[a]
-                    elif t_.split('_')[1] == 'd':
+                    elif reward_type(t_) == 'd':
                         reward = reward_diffs[a]
                     if self.rl['type_learning'] in ['DQN', 'DDQN']:
                         i_current_state, i_action, i_state = [
@@ -157,7 +158,7 @@ class LearningManager():
             next_states_a = [states[i_step][a]
                              for i_step in range(1, self.N + 1)]
             traj_reward_a = traj_reward[a] \
-                if len(t.split('_')) > 1 and t.split('_')[1] == 'd' \
+                if len(t.split('_')) > 1 and reward_type(t) == 'd' \
                 and not evaluation \
                 else traj_reward
             if self.rl["distr_learning"] == "decentralised":

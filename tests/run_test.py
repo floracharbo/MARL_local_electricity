@@ -9,6 +9,7 @@ from config.generate_colors import _check_color_diffs, generate_colors
 def random_True_False(colors, color, min_diffs=None):
     return np.random.random() > 0.5
 
+
 def test_generate_colors(mocker):
     colours_only = True
     all_type_eval = [
@@ -18,7 +19,9 @@ def test_generate_colors(mocker):
     ]
     save, prm = None, None
 
-    patched_check_color_diffs = mocker.patch("config.generate_colors._check_color_diffs", side_effect=random_True_False)
+    patched_check_color_diffs = mocker.patch(
+        "config.generate_colors._check_color_diffs", side_effect=random_True_False
+    )
 
     colors = generate_colors(save, prm, all_type_eval, colours_only)
 
