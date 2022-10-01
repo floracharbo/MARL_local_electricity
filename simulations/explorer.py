@@ -18,7 +18,7 @@ import numpy as np
 from simulations.data_manager import Data_manager
 from simulations.learning import LearningManager
 from simulations.select_actions import ActionSelector
-from utils.userdeftools import initialise_dict, set_seeds_rdn
+from utils.userdeftools import initialise_dict, reward_type, set_seeds_rdn
 
 
 # %% Environment exploration
@@ -256,13 +256,14 @@ class Explorer():
                             eps_greedy, rdn_eps_greedy)
                 traj_reward = [0 for _ in self.agents] \
                     if len(t.split("_")) > 1 \
-                    and t.split("_")[1] == "d" \
+                    and reward_type(t) == "d" \
                     and not evaluation else 0
 
                 # loop through steps until either end of sequence
                 # or one step if infeasible
                 while not done and sequence_feasible:
                     current_state = state
+
                     action, tf_prev_state \
                         = self.action_selector.select_action(
                             t, step, actions, mus_opt, evaluation,
@@ -285,7 +286,7 @@ class Explorer():
                     # substract baseline rewards to reward -
                     # for training, not evaluating
                     if len(t.split("_")) > 1 \
-                            and t.split("_")[1] == "d" \
+                            and reward_type(t) == "d" \
                             and not evaluation:
                         # for each agent, get rewards
                         # if they acted in the default way
@@ -332,7 +333,7 @@ class Explorer():
                         reward = self._apply_reward_penalty(evaluation, reward)
                     else:
                         if len(t.split("_")) > 1 \
-                                and t.split("_")[1] == "d" \
+                                and reward_type(t) == "d" \
                                 and not evaluation:
                             if rl["competitive"]:
                                 reward = [reward[a] - rewards_baseline[a][a]
@@ -479,7 +480,7 @@ class Explorer():
     ):
         obtain_diff_reward = any(
             len(q.split("_")) >= 2
-            and q.split("_")[1] == "d"
+            and reward_type(q) == "d"
             for q in self.prm["RL"]["type_Qs"]
         )
         if obtain_diff_reward and not evaluation:

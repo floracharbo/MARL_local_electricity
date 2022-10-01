@@ -32,14 +32,15 @@ settings = {
     'heat': {'file': 'heat2'},
 
     'RL': {
-        'type_learning': 'facmac',
+        'type_learning': 'q_learning',
         'type_env': 'continuous',
         # 'explo_reward_type': [['random', 'env_r_c']],
         'gamma': {'q_learning': 0.99, 'facmac': 0.85},
-        'aggregate_actions': False,
+        'aggregate_actions': True,
         'mixer': 'qmix',
 
         # current experiment
+        'rnn_hidden_dim': 1e2,
         # 'rnn_hidden_dim': [1e2, 1e3, 5e3, 1e4] + [5e4] * 3 + [1e2, 1e3, 5e3],
         # 'n_hidden_layers': [2] * 7 + [3] * 3,
         # 'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']] * 10,

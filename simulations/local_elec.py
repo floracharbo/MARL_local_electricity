@@ -224,7 +224,7 @@ class LocalElecEnv():
         self.p = 'P' if passive else ''
         for e in ['cap', 'T_LB', 'T_UB', 'T_req', 'store0',
                   'mincharge', 'bat', 'loads', 'gen']:
-            # set variables based on whether we are in the passive or active case
+            # set variables for passive or active case
             self.__dict__[e + '_p'] = e + self.p
             self.coeff_T = self.prm['heat']['T_coeff' + self.p]
         self.coeff_Tair = self.prm['heat']['T_air_coeff' + self.p]
@@ -250,7 +250,9 @@ class LocalElecEnv():
         """Recompute data for home a that is infeasible."""
         self._seed(self.envseed[0] + its)
         for a in as_:
-            self.fs[a] = initialise_dict([self.loads_p, self.gen_p, self.bat_p])
+            self.fs[a] = initialise_dict(
+                [self.loads_p, self.gen_p, self.bat_p]
+            )
             self.cluss[a] = initialise_dict([self.loads_p, self.bat_p])
             self.batch[a] = initialise_dict(self.batch_entries)
         date_load = self.date0
@@ -348,8 +350,8 @@ class LocalElecEnv():
 
             for ih in range(h + 1, h + 30):
                 assert all(
-                    self.batch[a]['loads'][ih] <=
-                    batch_flex[a][ih][0] + batch_flex[a][ih][-1] + 1e-3
+                    self.batch[a]['loads'][ih]
+                    <= batch_flex[a][ih][0] + batch_flex[a][ih][-1] + 1e-3
                     for a in self.agents
                 ), f"h {h} ih {ih}"
             if record or evaluation:
@@ -594,7 +596,8 @@ class LocalElecEnv():
             for e in self.labels_clus:
                 # get next cluster
                 dtt_ = dtt[0:2] if dtt not in self.ptrans[e] else dtt
-                ps = self.ptrans[e][dtt_][self.clus[self.__dict__[e + '_p']][a]]
+                clus_a = self.clus[self.__dict__[e + '_p']][a]
+                ps = self.ptrans[e][dtt_][clus_a]
                 cump = [sum(ps[0:i]) for i in range(1, len(ps))] + [1]
                 rdn = self.np_random.rand()
                 self.clus[self.__dict__[e + '_p']][a] = \
@@ -606,8 +609,10 @@ class LocalElecEnv():
             a = as_[ia]
             clus = self.clus[self.bat_p][a]
             it = 0
-            while np.max(day['loads_EV'][ia]) > self.prm['bat'][self.cap_p][a] \
-                    and it < 100:
+            while (
+                    np.max(day['loads_EV'][ia]) > self.prm['bat'][self.cap_p][a]
+                    and it < 100
+            ):
                 if fEV_new_interval[ia] > 0:
                     fEV_new_interval[ia] -= 1
                     interval = int(fEV_new_interval[ia])
@@ -645,9 +650,10 @@ class LocalElecEnv():
 
         # get load profile indexes, normalised profile, and scaled profile
         i_prof_load = self._compute_i_profs('loads', dt, as_=as_)
-        load_prof = \
-            [self.prof['loads'][dt][self.clus[self.loads_p][a]][i_prof_load[ia]]
-             for ia, a in enumerate(as_)]
+        load_prof = [
+            self.prof['loads'][dt][self.clus[self.loads_p][a]][i_prof_load[ia]]
+            for ia, a in enumerate(as_)
+        ]
         day['loads'] = \
             [load_prof[ia] * self.f[self.loads_p][a]
              if self.prm['loads']['own_loads'][a]
@@ -673,8 +679,10 @@ class LocalElecEnv():
                    for _ in range(len(self.labels))],
             as_=as_)
         i_EV = self._compute_i_profs('bat', dt=dt, as_=as_)
-        prof = [self.prof['bat']['cons'][dt][self.clus[self.bat_p][a]][i_EV[ia]]
-                for ia, a in enumerate(as_)]
+        prof = [
+            self.prof['bat']['cons'][dt][self.clus[self.bat_p][a]][i_EV[ia]]
+            for ia, a in enumerate(as_)
+        ]
         day['loads_EV'] = \
             [[x * self.f[self.bat_p][a] if self.prm['bat']['own_EV'][a]
               else 0 for x in prof[ia]]

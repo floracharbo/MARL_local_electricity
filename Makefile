@@ -7,7 +7,7 @@ install:
 
 lint:
 	isort .
-	flake8 --ignore=W605,W503 --exclude learners .
+	flake8 --ignore=W605,W503 --exclude learners --exclude tests .
 	pylama --skip learners .
 	pylint *.py
 	mypy .
@@ -17,7 +17,10 @@ quick_run:
 
 
 q_learning:
-	python main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --aggregate_actions True
+	python main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.01
+
+facmac:
+	python main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.000001
 
 test:
 	pytest tests
