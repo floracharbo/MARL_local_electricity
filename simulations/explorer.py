@@ -1026,11 +1026,9 @@ class Explorer():
     def _init_facmac_mac(self, type_actions, new_episode_batch):
         if self.rl["type_learning"] == "facmac":
             for t in type_actions:
-                t_ = 'opt_r_c' if t == 'opt' else t
+                t_ = 'opt_r_c' if t == 'opt' and 'opt_r_c' in self.rl['type_eval'] else t
                 self.episode_batch[t_] = new_episode_batch()
-                # if t == 'opt':
-                #     self.episode_batch['opt_r_c'] = self.episode_batch['opt']
-                if t not in ["baseline"]:
+                if t_ not in ["baseline", "opt"]:
                     self.action_selector.mac[t_].init_hidden(
                         batch_size=self.rl["batch_size_run"]
                     )
