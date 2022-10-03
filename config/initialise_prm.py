@@ -356,6 +356,7 @@ def _update_rl_prm(prm, initialise_all):
         if rl['parallel'] else rl['n_epochs']
     for key in ["n_epochs", "n_repeats"]:
         rl[key] = int(rl[key])
+    rl['lr'] = float(rl['lr'])
     if isinstance(rl['default_action'], (int, float)):
         for p in ["P", ""]:
             rl['default_action' + p] = [
