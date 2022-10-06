@@ -1,4 +1,4 @@
-name: test_julie
+name: env_linux
 channels:
   - conda-forge
   - defaults
