@@ -133,6 +133,34 @@ def _clean_up(prm, no_run):
         shutil.rmtree(prm['paths']['folder_run'])
 
 
+def add_prm_save_list(val, dict_, key):
+    if isinstance(val, list):
+        dict_[key] = []
+        for item in val:
+            if isinstance(item, (int, float, bool)):
+                dict_[key].append(item)
+
+    return dict_
+
+
+def get_prm_save_RL(prm_save, prm):
+    prm_save['RL'] = {}
+    for e, val in prm['RL'].items():
+        prm_save['RL'] = add_prm_save_list(val, prm_save['RL'], e)
+        if isinstance(val, dict):
+            prm_save['RL'][e] = {}
+            for key in val.keys():
+                prm_save['RL'][e] = add_prm_save_list(
+                    val[key], prm_save['RL'][e], key
+                )
+                if isinstance(val[key], (int, float, bool)):
+                    prm_save['RL'][e][key] = val[key]
+        elif isinstance(val, (int, float, bool)):
+            prm_save['RL'][e] = val
+
+    return prm_save
+
+
 def get_prm_save(prm):
     """Save run parameters for record-keeping."""
     prm_save = {}  # save selected system parameters
@@ -160,25 +188,7 @@ def get_prm_save(prm):
             else:
                 print(f"{sub_key} not in prm[{key}]")
 
-    prm_save['RL'] = {}
-    for e, val in prm['RL'].items():
-        if isinstance(val, list):
-            prm_save['RL'][e] = []
-            for item in val:
-                if isinstance(item, (int, float, bool)):
-                    prm_save['RL'][e].append(item)
-        elif isinstance(val, dict):
-            prm_save['RL'][e] = {}
-            for key in val.keys():
-                if isinstance(val[key], list):
-                    prm_save['RL'][e][key] = []
-                    for item in val[key]:
-                        if isinstance(item, (int, float, bool)):
-                            prm_save['RL'][e][key].append(item)
-                elif isinstance(item, (int, float, bool)):
-                    prm_save['RL'][e][key] = item
-        elif isinstance(val, (int, float, bool)):
-            prm_save['RL'][e] = val
+    prm_save = get_prm_save_RL(prm_save, prm)
 
     return prm_save
 

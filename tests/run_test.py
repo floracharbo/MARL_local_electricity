@@ -20,10 +20,12 @@ def test_generate_colors(mocker):
     save, prm = None, None
 
     patched_check_color_diffs = mocker.patch(
-        "config.generate_colors._check_color_diffs", side_effect=random_True_False
+        "config.generate_colors._check_color_diffs",
+        side_effect=random_True_False
     )
 
     colors = generate_colors(save, prm, all_type_eval, colours_only)
 
     assert len(colors) == len(all_type_eval), \
-        f"generate colours lengths do not match {len(colors)} != {len(all_type_eval)}"
+        "generate colours lengths do not match " \
+        f"{len(colors)} != {len(all_type_eval)}"

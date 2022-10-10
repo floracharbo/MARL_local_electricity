@@ -146,7 +146,7 @@ DDPG:
         buffer_capacity: 1000 # 100000 Number of "experiences" to store at max
         gamma: 0.85
 
-#DDQN DDPG DQN
+# DDQN DDPG DQN
 
 # facmac
 # fixed
@@ -202,6 +202,7 @@ batch_size_run: 1
 runner_scope: 'episodic'
 optim_alpha: 0.99 # RMSProp alpha
 optim_eps: 0.00001 # RMSProp
+explo_reward_type:
 
 facmac:
         # varied
@@ -211,3 +212,10 @@ facmac:
         gamma: 0.85
 
 aggregate_actions: True
+
+type_learn_to_space:
+        q_learning: 'discrete',
+        DQN: 'discrete',
+        DDQN: 'discrete',
+        facmac: 'continuous',
+        DDPG: 'continuous'

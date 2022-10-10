@@ -28,7 +28,7 @@ from typing import List, Tuple
 import numpy as np
 
 from simulations.problem import Solver
-from utils.userdeftools import play_sound, set_seeds_rdn
+from utils.userdeftools import set_seeds_rdn
 
 list_bool = List[bool]
 
@@ -63,7 +63,6 @@ class Data_manager():
 
     def _passive_find_feasible_data(self):
         passive = True
-        data_feasible = True
 
         file_id_path = self.paths['res_path'] / f"batch{self.file_id()}"
         if file_id_path.is_file():
@@ -79,14 +78,12 @@ class Data_manager():
         # turn input data into usable format for optimisation problem
         data_feasibles = self._format_data_optimiser(
             batch, passive=passive)
-        if not all(data_feasibles):
-            fs, cluss, batch, data_feasibles = self._loop_replace_data(
-                data_feasibles, passive, self.file_id())
-        if not all(data_feasibles):
-            data_feasible = False
+        fs, cluss, batch, data_feasibles = self._loop_replace_data(
+            data_feasibles, passive, self.file_id(), fs, cluss)
+
+        data_feasible = all(data_feasibles)
         res = None
         new_res = False
-
         seed_data = res, fs, cluss, batch
 
         return seed_data, new_res, data_feasible
@@ -104,13 +101,16 @@ class Data_manager():
         data_feasible = True
         new_res = False
         res = None
+
         opt_needed = 'opt' in type_actions \
             or (not feasibility_checked and self.check_feasibility_with_opt)
+
         if opt_needed:
             file_exists = (self.paths['res_path'] / self.res_name).is_file()
         else:
             file_exists = (self.paths['res_path'] / f"batch{self.file_id()}"
                            ).is_file()
+
         just_load_data = not self.rl['deterministic'] == 2 and file_exists
 
         # check if data is feasible by solving optimisation problem
@@ -134,11 +134,12 @@ class Data_manager():
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(
             batch, passive=passive)
+
         if not all(data_feasibles):
             fs, cluss, batch, data_feasibles = \
                 self._loop_replace_data(
                     data_feasibles, passive,
-                    self.file_id())
+                    self.file_id(), fs, cluss)
             feasibility_checked = False
 
         if all(data_feasibles) and opt_needed:
@@ -148,8 +149,6 @@ class Data_manager():
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())
                     print(f'ex.args {ex.args}')
-                    if self.prm["syst"]["play_sound"]:
-                        play_sound()
                 data_feasible = False
             new_res = True
 
@@ -202,6 +201,8 @@ class Data_manager():
             self.res_name = \
                 f"res_P{int(self.seed['P'])}_" \
                 f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
+            if self.prm['ntw']['manage_agg_power']:
+                self.res_name += "_manage_power"
 
             if passive:
                 seed_data, new_res, data_feasible \
@@ -287,7 +288,9 @@ class Data_manager():
     def _loop_replace_data(self,
                            data_feasibles: list_bool,
                            passive: bool,
-                           file_id: str
+                           file_id: str,
+                           fs: list,
+                           cluss: list
                            ) -> [dict, dict, dict, list_bool]:
         """Replace the data for infeasible homes."""
         its = 0

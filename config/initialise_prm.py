@@ -667,8 +667,8 @@ def initialise(prm, no_run, initialise_all=True):
 
     if rl['type_learning'] == 'facmac':
         prm = _facmac_initialise(prm)
-    if rl['type_learning'] in ["q_learning", "DQN"]:
-        prm['RL']['type_env'] = 'discrete'
+
+    prm['RL']['type_env'] = rl['type_learn_to_space'][rl['type_learning']]
 
     # calculate heating coefficients for recursive expression
     # based on input data
@@ -723,8 +723,34 @@ def load_existing_prm(prm, no_run):
     return lp, prm
 
 
+def _command_line_parameters(settings_i):
+    obs = []
+    args = sys.argv[1:]
+    # o is observation, l is learning type,
+    # n is number of agents - applied to all repetitions
+    for i in range(int(len(args) / 2)):
+        key, val = args[i * 2], args[i * 2 + 1]
+        if key == '-o':
+            obs.append(val)
+        elif key == '-l':
+            settings_i['RL']['type_learning'] = val
+        elif key == '-n':
+            settings_i['ntw']['n'] = int(val)
+        elif key[2:].split('_')[0] == 'facmac':
+            key_ = key[2 + len('facmac') + 1:]
+            settings_i['RL']['facmac'][key_] = val
+        else:
+            settings_i['RL'][key[2:]] = val
+            print(f"RL['{key[2:]}'] = {val}")
+    if len(obs) > 0:
+        settings_i['RL']['state_space'] = obs
+
+    return settings_i
+
+
 def get_settings_i(settings, i):
     """Get run-specific settings from general settings dictionary."""
+    # first, get settings from the main.py file
     settings_i = {}
     for key, sub_dict in settings.items():
         settings_i[key] = {}
@@ -740,22 +766,7 @@ def get_settings_i(settings, i):
             else:
                 settings_i[key][sub_key] = val
 
-    obs = []
-    args = sys.argv[1:]
-    # o is observation, l is learning type,
-    # n is number of agents - applied to all repetitions
-    for i in range(int(len(args) / 2)):
-        key, val = args[i * 2], args[i * 2 + 1]
-        if key == '-o':
-            obs.append(val)
-        elif key == '-l':
-            settings_i['RL']['type_learning'] = val
-        elif key == '-n':
-            settings_i['ntw']['n'] = int(val)
-        else:
-            settings_i['RL'][key[2:]] = val
-            print(f"RL['{key[2:]}'] = {val}")
-    if len(obs) > 0:
-        settings_i['RL']['state_space'] = obs
+    # then, override with command line parameters
+    settings_i = _command_line_parameters(settings_i)
 
     return settings_i

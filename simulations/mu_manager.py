@@ -102,7 +102,6 @@ class Mu_manager:
         g_to_add0 = np.minimum(home['gen'], s_add_0 / eta_dis)
 
         # gen left after contributing to reaching min charge
-
         g_net_add0 = home['gen'] - g_to_add0
 
         # required addition to storage for min charge left
@@ -184,7 +183,6 @@ class Mu_manager:
             mu[i] = np.zeros(self.n_agents)
             mask = a_dp > 1e-3
             mu[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
-            # mu[i] = np.where(a_dp > 1e-3, (d['dp'][i] - b_dp) / a_dp, 0)
             for a in as_:
                 assert mu[i][a] > - 1e-4, f"mu[{i}][{a}] {mu[i][a]} < 0"
                 assert mu[i][a] < 1 + 1e-4, f"mu[{i}][{a}] {mu[i][a]} > 1"
@@ -204,7 +202,7 @@ class Mu_manager:
         # these variables are useful in netp_to_mu and apply_step
         # in the case where action variables are not aggregated
         self.max_discharge = np.array(
-            [self.k[a]['ds'][0][0] * 0 + self.k[a]['ds'][0][1] for a in as_]
+            [(self.k[a]['ds'][0][0] * 0 + self.k[a]['ds'][0][1]) for a in as_]
         )
         self.max_charge = np.array(
             [self.k[a]['ds'][-1][0] * 1 + self.k[a]['ds'][-1][1] for a in as_]
@@ -212,7 +210,12 @@ class Mu_manager:
         self.min_charge = np.where(
             self.max_discharge > 0, self.max_discharge, 0
         )
-        self.min_discharge = np.where(self.max_charge < 0, self.max_charge, 0)
+        self.min_discharge = np.where(
+            self.max_charge < 0, self.max_charge, 0
+        )
+        self.max_discharge = np.where(
+            self.max_discharge > 0, 0, self.max_discharge
+        )
 
     def apply_step(self, loads, home, mu_action, date, h):
         """Update variables after non flexible consumption is met."""
@@ -356,11 +359,8 @@ class Mu_manager:
             elif self.max_charge[a] >= 0:
                 res['ds'] = self.min_charge[a] + mu_charge \
                     * (self.max_charge[a] - self.min_charge[a])
-        try:
-            res['l_ch'] = 0 if res['ds'] < 0 \
-                else (1 - self.bat.eta_ch) / self.bat.eta_ch * res['ds']
-        except Exception as ex:
-            print(ex)
+        res['l_ch'] = 0 if res['ds'] < 0 \
+            else (1 - self.bat.eta_ch) / self.bat.eta_ch * res['ds']
         res['l_dis'] = - res['ds'] * (1 - self.bat.eta_dis) \
             if res['ds'] < 0 else 0
 
@@ -545,7 +545,7 @@ class Mu_manager:
         if loads['l_flex'][a] > 0:
             mu_flex_cons = flex_cons / loads['l_flex'][a]
         else:
-            mu_flex_cons = 0.5 if self.type_env == 'discrete' else None
+            mu_flex_cons = None
 
         E_heat \
             = 0 if res['E_heat'][a][h] < 1e-3 else res['E_heat'][a][h]
@@ -554,13 +554,23 @@ class Mu_manager:
                 (E_heat - self.heat.E_heat_min[a]) / \
                 (self.heat.E_heat_max[a] - self.heat.E_heat_min[a])
         else:
-            mu_flex_heat = 0.5 if self.type_env == 'discrete' else None
+            mu_flex_heat = None
         max_charge_a, min_charge_a = [
             self.max_charge[a], self.min_charge[a]
         ]
         max_discharge_a, min_discharge_a = [
             self.max_discharge[a], self.min_discharge[a]
         ]
+        assert min_charge_a - 1e-3 <= res['charge'][a, h] \
+               <= max_charge_a + 1e-3, \
+               f"res charge {res['charge'][a, h]} " \
+               f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
+        assert max_discharge_a - 1e-3 <= - res['discharge_other'][a, h] \
+               <= min_discharge_a + 1e-3, \
+               f"res discharge_other {res['discharge_other'][a, h]} " \
+               f"min_discharge_a {min_discharge_a} " \
+               f"max_discharge_a {max_discharge_a}"
+
         if (
             (
                 abs(max_charge_a - min_charge_a) < 1e-3  # or

@@ -1,7 +1,5 @@
 """This file containts the EnvSpaces class."""
 
-import traceback
-
 import numpy as np
 import pandas as pd
 
@@ -14,16 +12,23 @@ class EnvSpaces():
     def __init__(self, env):
         """Initialise EnvSpaces class, add properties."""
         self.n_agents = env.n_agents
-        self.n_actions = env.prm["RL"]["n_discrete_actions"] \
-            if "n_discrete_actions" in env.prm["RL"].keys() \
-            else env.prm["RL"]["n_actions"]
-        self.list_factors = {}
-        for e, obj in \
-                zip(["gen", "loads", "bat"],
-                    [env.prm["gen"], env.prm["loads"], env.prm["bat"]]):
-            self.list_factors[e] = obj["listfactors"]
+        self.n_actions = env.prm["RL"]["n_discrete_actions"]
         self.get_state_vals = env.get_state_vals
+        self.c_max = env.prm["bat"]["c_max"]
+        self.type_eval = env.prm["RL"]["type_eval"]
+        prm = env.prm
+        self._get_space_info(env)
+        self.list_factors = {}
+        for key in ["gen", "loads", "bat"]:
+            self.list_factors[key] = env.prm[key]["listfactors"]
+        self.perc = {}
+        for e in ["loads", "gen", "bat", "grd"]:
+            self.perc[e] = prm[e]["perc"]
+        for e in ["dim_actions", "aggregate_actions", "type_env"]:
+            self.__dict__[e] = prm["RL"][e]
 
+    def _get_space_info(self, env):
+        prm = env.prm
         # info on state and action spaces
         maxEVcons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
         for dt in ["wd", "we"]:
@@ -37,10 +42,6 @@ class EnvSpaces():
                 if len(env.prof["gen"][m]) > 0 \
                         and np.max(env.prof["gen"][m]) > max_normgen_hour:
                     max_normgen_hour = np.max(env.prof["gen"][m])
-
-        self.c_max = env.prm["bat"]["c_max"]
-        self.type_eval = env.prm["RL"]["type_eval"]
-        prm = env.prm
 
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
@@ -102,12 +103,6 @@ class EnvSpaces():
                 ["mu_charge", -1, 1, rl["n_discrete_actions"], 0]]
 
         self.space_info = pd.DataFrame(info, columns=columns)
-        self.perc = {}
-        for e in ["loads", "gen", "bat", "grd"]:
-            self.perc[e] = prm[e]["perc"]
-
-        for e in ["dim_actions", "aggregate_actions", "type_env"]:
-            self.__dict__[e] = rl[e]
 
     def new_state_space(self, state_space):
         """Initialise current indicators info for state and action spaces."""
@@ -178,7 +173,7 @@ class EnvSpaces():
         """From discrete space indexes, get global combined index."""
         if indexes is None and type_descriptor == "state":
             if done:
-                indexes = [None for a in range(self.n_agents)]
+                indexes = [None for _ in range(self.n_agents)]
             else:
                 indexes = self.get_space_indexes(
                     done=done, all_vals=self.get_state_vals())
@@ -217,7 +212,7 @@ class EnvSpaces():
 
         return val
 
-    def get_space_indexes(self, done=False, all_vals=None, info=None,
+    def get_space_indexes(self, done=False, all_vals=None,
                           type_="state", indiv_indexes=False):
         """
         Return array of indexes of current agents' states/actions.
@@ -233,90 +228,55 @@ class EnvSpaces():
         t = type_
         type_ = "state" if type_ in ["state", "next_state"] else "action"
 
-        # if info  not inputted, first obtain them
-        if info is not None:
-            discrete, brackets, n_agents, descriptors, multipliers = info
-        else:
-            [discrete, brackets, n_agents, descriptors, multipliers] = \
-                [self.discrete[type_], self.brackets[type_],
-                 self.n_agents, self.descriptors[type_],
-                 self.multipliers[type_]]
         if type_ == "state":
             if t == "next_state" and done:
                 # if the sequence is over, return None
-                return [None for a in range(self.n_agents)]
+                return [None for _ in range(self.n_agents)]
             if self.descriptors["state"] == [None]:
                 # if the state space is None, return 0
-                return [0 for a in range(self.n_agents)]
-            if all_vals is None:
-                print("input all_vals = self.get_state_vals() from env")
-
-        elif type_ == "action":  # for action mu, input values
-            mu_action = all_vals
+                return [0 for _ in range(self.n_agents)]
 
         # translate values into indexes
         index = []  # one global index per agent
-        for a in range(n_agents):
-            if type_ == "state":
-                vals_a = all_vals[a]
-                for descriptor, val in zip(descriptors, all_vals[a]):
-                    # correct negative values
-                    if descriptor == "gen_prod_prev" and val < 0:
-                        print("gen = {}, correct to 0".format(val))
-                        val = 0
-            elif type_ == "action":
-                vals_a = mu_action[a]
+        for a in range(self.n_agents):
+            vals_a = all_vals[a]
 
             indexes = []  # one index per value - for current agent
-            try:
-                for v in range(len(vals_a)):
-                    if discrete[v] == 1:
-                        try:
-                            indexes.append(int(vals_a[v]))
-                        except Exception as ex:
-                            print(f"ex {ex} vals_a {vals_a} v {v}")
-
-                    else:
-                        # correct if value is smaller than smallest bracket
-                        if vals_a[v] is None:
-                            indexes.append(None)
-                        else:
-                            brackets_v = brackets[v] \
-                                if len(np.shape(brackets[v])) == 1 \
-                                else brackets[v][a]
-                            try:
-                                if vals_a[v] < brackets_v[0]:
-                                    if abs(vals_a[v] - brackets_v[0]) > 1e-2:
-                                        print(f"brackets_v0 = {brackets_v[0]}"
-                                              f"vals_a[v] = {vals_a[v]}")
-                                    vals_a[v] = brackets_v[0]
-                            except Exception as ex:
-                                print(f"ex {ex}")
-                                print(traceback.format_exc())
-                            interval = [i for i in range(len(brackets_v) - 1)
-                                        if vals_a[v] >= brackets_v[i]][-1]
-                            indexes.append(interval)
-            except Exception as ex:
-                print(f"ex {ex}")
-                print(traceback.format_exc())
-            if len(indexes) == 1 and indexes[0] is None and type_ == "action":
-                index.append(None)
-            else:
-                if indiv_indexes:
-                    index.append(indexes)
+            for v in range(len(vals_a)):
+                if self.discrete[type_][v] == 1:
+                    indexes.append(int(vals_a[v]))
                 else:
-                    try:
-                        # global index for all values of current agent a
-                        index_a = sum([a * b for a, b in
-                                       zip(indexes, multipliers)])
-                    except Exception as ex:
-                        print(f"ex {ex}")
-                        print(traceback.format_exc())
-                    if index_a >= self.n[type_]:
-                        print("index larger than total size of space")
-                        return 0
+                    # correct if value is smaller than smallest bracket
+                    if vals_a[v] is None:
+                        indexes.append(None)
                     else:
-                        index.append(index_a)
+                        brackets = self.brackets[type_][v]
+                        brackets_v = brackets \
+                            if len(np.shape(brackets)) == 1 \
+                            else brackets[a]
+                        assert vals_a[v] > brackets_v[0] - 1e-2, \
+                            f"brackets_v0 = {brackets_v[0]} " \
+                            f"vals_a[v] = {vals_a[v]}"
+                        if vals_a[v] < brackets_v[0]:
+                            vals_a[v] = 0
+                        mask = vals_a[v] >= np.array(brackets_v[:-1])
+                        interval = np.where(mask)[0][-1]
+                        indexes.append(interval)
+
+            if indiv_indexes:
+                index.append(indexes)
+            else:
+                # global index for all values of current agent a
+                index.append(
+                    self.indiv_to_global_index(
+                        type_, indexes=indexes,
+                        multipliers=self.multipliers[type_]
+                    )
+                )
+                assert not (
+                    index[-1] is not None and index[-1] >= self.n[type_]
+                ), f"index larger than total size of space agent {a}"
+
         return index
 
     def get_global_ind(self, current_state, state, action, done, t):
@@ -327,7 +287,7 @@ class EnvSpaces():
                                       [current_state, state, action]):
             if t != "tryopt" and not (label == "next_state" and done):
                 ind_x = self.get_space_indexes(
-                    done=False, all_vals=x, info=None, type_=type_ind)
+                    done=False, all_vals=x, type_=type_ind)
                 if t[-2] == 'C':
                     global_ind[label] = [
                         self.indiv_to_global_index(
@@ -345,60 +305,58 @@ class EnvSpaces():
     def _init_brackets(self):
         brackets = {}
         for typev in ["state", "action"]:
-            if self.type_env == "continuous":
+            if (
+                    self.type_env == "continuous"
+                    or (typev == "state"
+                        and self.descriptors["state"] == [None])
+            ):
                 brackets[typev] = None
                 continue
-            if typev == "state" and self.descriptors["state"] == [None]:
-                brackets[typev] = None
-            else:
-                brackets[typev] = []
-                for s in range(len(self.descriptors[typev])):
-                    ind_str = self.descriptors[typev][s]
-                    n_bins = self.granularity[typev][s]
-                    if self.discrete[typev][s] == 1:
-                        brackets[typev].append([0])
-                    elif ind_str[-1] == "f":
+            perc_dict = {
+                'loads_cons_step': 'loads',
+                'gen_prod_step': 'gen',
+                'EV_cons_step': 'bat',
+                'grdC': 'grd'
+            }
+            brackets[typev] = []
+            for s in range(len(self.descriptors[typev])):
+                ind_str = self.descriptors[typev][s]
+                n_bins = self.granularity[typev][s]
+                if self.discrete[typev][s] == 1:
+                    brackets[typev].append([0])
+                elif ind_str[-1] == "f":
+                    brackets[typev].append(
+                        [np.percentile(
+                            self.list_factors[ind_str[0:3]],
+                            1 / n_bins * 100 * i) for i in range(n_bins)])
+                elif ind_str in perc_dict:
+                    brackets[typev].append(
+                        [self.perc[perc_dict[ind_str]][
+                            int(1 / n_bins * 100 * i)]
+                         for i in range(n_bins + 1)]
+                    )
+                elif ind_str == "EV_tau":
+                    brackets[typev].append([-75, 0, 10, self.c_max])
+                elif type(self.maxval[typev][s]) in [int, float]:
+                    brackets[typev].append(
+                        [self.minval[typev][s]
+                         + (self.maxval[typev][s] - self.minval[typev][s])
+                         / n_bins * i
+                         for i in range(n_bins + 1)])
+                else:
+                    if type(self.maxval[typev][s]) is list:
                         brackets[typev].append(
-                            [np.percentile(
-                                self.list_factors[ind_str[0:3]],
-                                1 / n_bins * 100 * i) for i in range(n_bins)])
-                    elif ind_str == "loads_cons_step":
-                        brackets[typev].append(
-                            [self.perc["loads"][int(1 / n_bins * 100 * i)]
-                             for i in range(n_bins + 1)])
-                    elif ind_str == "gen_prod_step":
-                        brackets[typev].append(
-                            [self.perc["gen"][int(1 / n_bins * 100 * i)]
-                             for i in range(n_bins + 1)])
-                    elif ind_str == "EV_cons_step":
-                        brackets[typev].append(
-                            [self.perc["bat"][int(1 / n_bins * 100 * i)]
-                             for i in range(n_bins + 1)])
-                    elif ind_str == "grdC":
-                        brackets[typev].append(
-                            [self.perc["grd"][int(1 / n_bins * 100 * i)]
-                             for i in range(n_bins + 1)])
-                    elif ind_str == "EV_tau":
-                        brackets[typev].append([-75, 0, 10, self.c_max])
-                    elif type(self.maxval[typev][s]) in [int, float]:
-                        brackets[typev].append(
-                            [self.minval[typev][s]
-                             + (self.maxval[typev][s] - self.minval[typev][s])
-                             / n_bins * i
-                             for i in range(n_bins + 1)])
+                            [[self.minval[typev][s]
+                              + (self.maxval[typev][s][a]
+                                 - self.minval[typev][s]) / n_bins * i
+                              for i in range(n_bins + 1)]
+                             for a in range(self.n_agents)])
                     else:
-                        if type(self.maxval[typev][s]) is list:
-                            brackets[typev].append(
-                                [[self.minval[typev][s]
-                                  + (self.maxval[typev][s][a]
-                                     - self.minval[typev][s]) / n_bins * i
-                                  for i in range(n_bins + 1)]
-                                 for a in range(self.n_agents)])
-                        else:
-                            brackets[typev].append(
-                                [[self.minval[typev][s]
-                                  + (self.maxval[typev][s]
-                                     - self.minval[typev][s]) / n_bins * i
-                                  for i in range(n_bins + 1)]
-                                 for _ in range(self.n_agents)])
+                        brackets[typev].append(
+                            [[self.minval[typev][s]
+                              + (self.maxval[typev][s]
+                                 - self.minval[typev][s]) / n_bins * i
+                              for i in range(n_bins + 1)]
+                             for _ in range(self.n_agents)])
+
         return brackets

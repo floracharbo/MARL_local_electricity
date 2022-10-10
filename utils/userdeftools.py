@@ -73,20 +73,22 @@ def str_to_int(listarr):
     return obj
 
 
-def initialise_dict(entries, type_obj='empty_list', n=1):
+def initialise_dict(
+        entries, type_obj='empty_list', n=1,
+        second_level_entries=[], second_type='empty_list'):
     """Initialise a dictionary with keys 'entries'."""
+    obj_dict = {
+        'empty_list': [],
+        'empty_dict': {},
+        'zeros': np.zeros(n),
+        'zero': 0,
+        'Nones': [None] * n
+    }
     obj = {}
     for e in entries:
-        if type_obj == 'empty_list':
-            obj[e] = []
-        elif type_obj == 'zeros':
-            obj[e] = np.zeros(n)
-        elif type_obj == 'empty_dict':
-            obj[e] = {}
-        elif type_obj == 'zero':
-            obj[e] = 0
-        elif type_obj == 'Nones':
-            obj[e] = [None] * n
+        obj[e] = obj_dict[type_obj].copy()
+        for e2 in second_level_entries:
+            obj[e][e2] = obj_dict[second_type].copy()
 
     return obj
 
@@ -104,35 +106,21 @@ def get_moving_average(array, n_window, Nones=True):
     """Get moving average of array over window n_window."""
     x = max(int(n_window / 2 - 0.5), 1)
     n = len(array)
-    mova = []
+    mova = [None for _ in range(n)]
     for j in range(x):
-        if Nones:
-            mova.append(None)
-        else:
-            if j == 0:
-                mova.append(array[j])
-            else:
-                if sum(a is None for a in array[0: j * 2 + 1]) == 0:
-                    mova.append(np.mean(array[0: j * 2 + 1]))
-                else:
-                    mova.append(None)
+        if not Nones:
+            if sum(a is None for a in array[0: j * 2 + 1]) == 0:
+                mova[j] = np.mean(array[0: j * 2 + 1])
+
     for j in range(x, n - x):
         if sum(a is None for a in array[j - x: j + x]) == 0:
-            mova.append(np.mean(array[j - x: j + x]))
-        else:
-            mova.append(None)
+            mova[j] = np.mean(array[j - x: j + x])
+
     for j in range(n - x, n):
-        if Nones:
-            mova.append(None)
-        else:
-            if j == len(array) - 1:
-                mova.append(array[j])
-            else:
-                n_to_end = len(array) - j
-                if sum(a is None for a in array[j - n_to_end: -1]) == 0:
-                    mova.append(np.mean(array[j - n_to_end: -1]))
-                else:
-                    mova.append(None)
+        if not Nones:
+            n_to_end = len(array) - j
+            if sum(a is None for a in array[j - n_to_end: -1]) == 0:
+                mova[j] = np.mean(array[j - n_to_end: -1])
 
     return mova
 

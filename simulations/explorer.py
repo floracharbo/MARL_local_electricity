@@ -94,108 +94,236 @@ class Explorer():
 
         return seed_ind, t, done, sequence_feasible, record, evaluation
 
-    def get_steps(self, type_actions, ridx, epoch, i_explore,
-                  evaluation=False, new_episode_batch=None, parallel=False):
-        """Get episode steps interacting with environment.
+    def _init_passive_data(self):
+        for e in ["netp0", "discharge_tot0", "charge0"]:
+            self.prm["loads"][e] = []
 
-        For all inputted types of explorations.
-        """
-        eval0 = evaluation
-        self.data.seed_ind = {}
-        self.data.seed = {"P": 0, "": 0}
-        # create link to objects/data needed in method
+    def _passive_get_steps(
+            self, env, ridx, epoch, i_explore, type_actions, step_vals
+    ):
+        self.data.p = "P"
+        self._init_passive_data()
+        if self.prm["ntw"]["nP"] == 0:
+            return step_vals
+
+        # initialise variables for passive case
+        seed_ind, t, done, sequence_feasible, record, evaluation \
+            = self._initialise_passive_vars(env, ridx, epoch, i_explore)
+
+        # find feasible data
+        _, step_vals, mus_opt = \
+            self.data.find_feasible_data(
+                seed_ind, type_actions, step_vals, evaluation,
+                epoch, passive=True)
+
+        # reset environment
+        env.reset(seed=self.data.seed[self.data.p],
+                  load_data=True, passive=True)
+
+        # interact with environment in a passive way for each step
+        while sequence_feasible and not done:
+            action = self.rl["default_actionP"]
+            state, done, reward, _, _, sequence_feasible, [
+                netp, discharge_tot, charge] = env.step(
+                action, record=record,
+                evaluation=evaluation, netp_storeout=True)
+            for e, val in zip(["netp0", "discharge_tot0", "charge0"],
+                              [netp, discharge_tot, charge]):
+                self.prm["loads"][e].append(val)
+            if not sequence_feasible:
+                # if data is not feasible, make new data
+                if seed_ind < len(self.data.seeds[self.data.p]):
+                    self.data.d_ind_seed[self.data.p] += 1
+                    seed_ind += 1
+                else:
+                    for e in ["fs", "cluss", "batch"]:
+                        files = glob.glob(self.paths["res_path"]
+                                          / f"{e}{self.data.file_id()}")
+                        for filename in files:
+                            os.remove(filename)
+                    self.data.d_seed[self.data.p] += 1
+
+                print("infeasible in loop passive")
+
+                self.data.seeds[self.data.p] = np.delete(
+                    self.data.seeds[self.data.p],
+                    len(self.data.seeds[self.data.p]) - 1)
+                self.data.d_ind_seed[self.data.p] += 1
+                seed_ind += 1
+                self.deterministic_created = False
+
+                _, step_vals, mus_opt = \
+                    self.data.find_feasible_data(
+                        seed_ind, type_actions, step_vals,
+                        evaluation, epoch, passive=True)
+
+                self._init_passive_data()
+
+                env.reset(seed=self.data.seed[self.data.p],
+                          load_data=True, passive=True)
+
+                inputs_state_val = \
+                    [0, env.date, False,
+                     [[env.batch[a]["flex"][ih] for ih in range(0, 2)]
+                      for a in self.agents],
+                     env.bat.store]
+                env.get_state_vals(inputs=inputs_state_val)
+                sequence_feasible = True
+        for e in ["netp0", "discharge_tot0", "charge0"]:
+            self.prm["loads"][e] = \
+                [[self.prm["loads"][e][t][a] for t in range(self.N)]
+                 for a in self.agents]
+
+        return step_vals
+
+    def _baseline_rewards(self, t, evaluation, action, env):
+        sequence_feasible = True
+        # substract baseline rewards to reward -
+        # for training, not evaluating
+        if evaluation or len(t.split("_")) == 1 or reward_type(t) != "d":
+            return None, sequence_feasible
+
+        # for each agent, get rewards
+        # if they acted in the default way
+        # and the others acted the chosen way
+        # without implementing in the environment -
+        # for training, not evaluating
+        rewards_baseline = []
+        combs_actions = []
+        for a in self.agents:
+            # array of actions = the same as chosen
+            # except for agent a which has the default action
+            mu_actions_baseline_a = action.copy()
+            mu_actions_baseline_a[a] = self.rl["default_action"][a]
+            combs_actions.append(mu_actions_baseline_a)
+        combs_actions.append(self.rl["default_action"])
+        for ca in combs_actions:
+            # get outp d
+            [_, _, reward_a, _, _, constraint_ok, _] = \
+                env.step(ca, implement=False,
+                         record=False,
+                         E_req_only=t == "baseline")
+
+            # add penalty if the constraints are violated
+            if not constraint_ok:
+                sequence_feasible = False
+                reward_a = self._apply_reward_penalty(
+                    evaluation, reward_a)
+            rewards_baseline.append(reward_a)
+            if reward_a is None:
+                print(f"reward_a {reward_a}")
+
+        return rewards_baseline, sequence_feasible
+
+    def _get_one_episode(
+            self, t, epoch, actions, state,
+            mus_opt, evaluation, env, batch, step_vals
+    ):
+        step, done = 0, 0
+        sequence_feasible = True
+        if (
+            len(t.split("_")) > 1
+            and reward_type(t) == "d"
+            and not evaluation
+        ):
+            traj_reward = [0 for _ in self.agents]
+        else:
+            traj_reward = 0
+        # loop through steps until either end of sequence
+        # or one step if infeasible
+        eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv \
+            = self._set_eps_greedy_vars(self.rl, epoch, evaluation)
+
+        while not done and sequence_feasible:
+            current_state = state
+
+            action, tf_prev_state \
+                = self.action_selector.select_action(
+                    t, step, actions, mus_opt, evaluation,
+                    current_state, eps_greedy, rdn_eps_greedy,
+                    rdn_eps_greedy_indiv, self.t_env
+                )
+
+            # interact with environment to get rewards
+            # record last epoch for analysis of results
+            record = epoch == self.rl["n_epochs"] - 1
+
+            rewards_baseline, sequence_feasible = self._baseline_rewards(
+                t, evaluation, action, env
+            )
+
+            [state, done, reward, break_down_rewards, bool_flex,
+             constraint_ok, record_output] = env.step(
+                action, record=record,
+                evaluation=evaluation, E_req_only=t == "baseline")
+
+            if record:
+                self.last_epoch(
+                    evaluation, t, record_output, batch, done)
+            if not constraint_ok:
+                sequence_feasible = False
+                reward = self._apply_reward_penalty(evaluation, reward)
+            else:
+                traj_reward = self.learning_manager.learning(
+                    current_state, state, action, reward,
+                    done, t, step, evaluation, traj_reward)
+
+                if len(t.split("_")) > 1 \
+                        and reward_type(t) == "d" \
+                        and not evaluation:
+                    if self.rl["competitive"]:
+                        reward = [reward[a] - rewards_baseline[a][a]
+                                  for a in self.agents]
+                    else:
+                        if rewards_baseline is None:
+                            print("rewards_baseline is None")
+                        reward = [reward - baseline
+                                  for baseline in rewards_baseline]
+                if self.rl["type_env"] == "discrete" and t[-2] == 'C':
+                    global_ind = self.env.spaces.get_global_ind(
+                        current_state, state, action, done, t
+                    )
+
+                else:
+                    global_ind = {
+                        "state": None,
+                        "action": None,
+                        "next_state": None
+                    }
+
+                step_vals_ = \
+                    [current_state, global_ind["state"], action,
+                     global_ind["action"], reward, state,
+                     global_ind["next_state"], done, bool_flex,
+                     constraint_ok, *break_down_rewards]
+
+                for e, var in zip(self.step_vals_entries, step_vals_):
+                    step_vals[t][e].append(var)
+
+                # if instant feedback,
+                # learn right away at the end of the step
+                self.learning_manager.q_learning_instant_feedback(
+                    evaluation, t, step_vals, step
+                )
+
+                step += 1
+
+        return step_vals, traj_reward, sequence_feasible
+
+    def _active_get_steps(
+            self, env, ridx, epoch, i_explore, type_actions,
+            step_vals, evaluation
+    ):
         rl = self.rl
-        env = copy.deepcopy(self.env) if parallel else self.env
-
+        self.data.p = ""
+        self.n_agents = self.prm["ntw"]["n"]
+        self.agents = range(self.n_agents)
         # initialise data
         type_actions_nonopt = [t for t in type_actions if t != "opt"]
         t0 = type_actions_nonopt[0]
         initt0 = 0
-
         eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv \
             = self._set_eps_greedy_vars(rl, epoch, evaluation)
-
-        # initialise output
-        step_vals = initialise_dict(type_actions)
-        self._init_facmac_mac(type_actions, new_episode_batch)
-
-        # passive consumers
-        self.data.p = "P"
-        for e in ["netp0", "discharge_tot0", "charge0"]:
-            self.prm["loads"][e] = []
-        if self.prm["ntw"]["nP"] > 0:
-            # initialise variables for passive case
-            seed_ind, t, done, sequence_feasible, record, evaluation \
-                = self._initialise_passive_vars(env, ridx, epoch, i_explore)
-
-            # find feasible data
-            _, step_vals, mus_opt = \
-                self.data.find_feasible_data(
-                    seed_ind, type_actions, step_vals, evaluation,
-                    epoch, passive=True)
-
-            # reset environment
-            env.reset(seed=self.data.seed[self.data.p],
-                      load_data=True, passive=True)
-
-            # interact with environment in a passive way for each step
-            while not done:
-                action = rl["default_actionP"]
-                state, done, reward, _, _, constraint_ok, [
-                    netp, discharge_tot, charge] = env.step(
-                    action, record=record,
-                    evaluation=evaluation, netp_storeout=True)
-                for e, val in zip(["netp0", "discharge_tot0", "charge0"],
-                                  [netp, discharge_tot, charge]):
-                    self.prm["loads"][e].append(val)
-                if not constraint_ok:
-                    sequence_feasible = False
-                if not sequence_feasible:
-                    # if data is not feasible, make new data
-                    if seed_ind < len(self.data.seeds[self.data.p]):
-                        self.data.d_ind_seed[self.data.p] += 1
-                        seed_ind += 1
-                    else:
-                        for e in ["fs", "cluss", "batch"]:
-                            files = glob.glob(self.paths["res_path"]
-                                              / f"{e}{self.data.file_id()}")
-                            for filename in files:
-                                os.remove(filename)
-                        self.data.d_seed[self.data.p] += 1
-
-                    print("infeasible in loop passive")
-                    self.data.seeds[self.data.p] = np.delete(
-                        self.data.seeds[self.data.p],
-                        len(self.data.seeds[self.data.p]) - 1)
-                    self.data.d_ind_seed[self.data.p] += 1
-                    seed_ind += 1
-                    self.deterministic_created = False
-
-                    _, step_vals, mus_opt = \
-                        self.data.find_feasible_data(
-                            seed_ind, type_actions, step_vals,
-                            evaluation, epoch, passive=True)
-                    for e in ["netp0", "discharge_tot0", "charge0"]:
-                        self.prm["loads"][e] = []
-                    env.reset(seed=self.data.seed[self.data.p],
-                              load_data=True, passive=True)
-                    inputs_state_val = \
-                        [0, env.date, False,
-                         [[env.batch[a]["flex"][ih] for ih in range(0, 2)]
-                          for a in self.agents],
-                         env.bat.store]
-                    env.get_state_vals(inputs=inputs_state_val)
-                    sequence_feasible = True
-            for e in ["netp0", "discharge_tot0", "charge0"]:
-                self.prm["loads"][e] = \
-                    [[self.prm["loads"][e][t][a] for t in range(self.N)]
-                     for a in self.agents]
-
-        evaluation = eval0
-
-        self.data.p = ""
-        self.n_agents = self.prm["ntw"]["n"]
-        self.agents = range(self.n_agents)
         # make data for optimisation
         # seed_mult = 1 # for initial passive consumers
         seed_ind = self.ind_seed_deterministic \
@@ -229,15 +357,13 @@ class Explorer():
                 set_seeds_rdn(self.data.seed[self.data.p])
 
                 # reset environment with adequate data
-                E_req_only = True if t == "baseline" else False
                 env.reset(seed=self.data.seed[self.data.p],
-                          load_data=True, E_req_only=E_req_only)
+                          load_data=True, E_req_only=t == "baseline")
                 # get data from environment
                 inputs_state_val = \
                     [0, env.date, False,
                      [[env.batch[a]["flex"][ih] for ih in range(0, 2)]
                       for a in self.agents], env.bat.store]
-                state = env.get_state_vals(inputs=inputs_state_val)
 
                 # initialise data for current method
                 if t == t0:
@@ -245,131 +371,20 @@ class Explorer():
                 step_vals[t] = initialise_dict(
                     self.step_vals_entries + self.method_vals_entries)
                 vars_env[t] = initialise_dict(self.prm["save"]["last_entries"])
-                step, done = 0, 0
-                actions = None
 
+                actions = None
                 if rl["type_learning"] in ["DDPG", "DQN"] \
                         and rl["trajectory"]:
                     actions, ind_actions, states = \
                         self.action_selector.trajectory_actions(
                             t, rdn_eps_greedy_indiv,
                             eps_greedy, rdn_eps_greedy)
-                traj_reward = [0 for _ in self.agents] \
-                    if len(t.split("_")) > 1 \
-                    and reward_type(t) == "d" \
-                    and not evaluation else 0
-
-                # loop through steps until either end of sequence
-                # or one step if infeasible
-                while not done and sequence_feasible:
-                    current_state = state
-
-                    action, tf_prev_state \
-                        = self.action_selector.select_action(
-                            t, step, actions, mus_opt, evaluation,
-                            current_state, eps_greedy, rdn_eps_greedy,
-                            rdn_eps_greedy_indiv, self.t_env
-                        )
-
-                    # interact with environment to get rewards
-                    # record last epoch for analysis of results
-                    record = epoch == rl["n_epochs"] - 1
-                    if action is None \
-                            and step == len(res["grid"]) - 1:
-                        # no flexiblity so mu value does not matter
-                        if rl["type_env"] == "discrete":
-                            action = 0.5 if self.rl["aggregate_actions"] \
-                                else [0.5] * self.rl["dim_actions"]
-                        else:
-                            action = None
-
-                    # substract baseline rewards to reward -
-                    # for training, not evaluating
-                    if len(t.split("_")) > 1 \
-                            and reward_type(t) == "d" \
-                            and not evaluation:
-                        # for each agent, get rewards
-                        # if they acted in the default way
-                        # and the others acted the chosen way
-                        # without implementing in the environment -
-                        # for training, not evaluating
-                        rewards_baseline = []
-                        combs_actions = []
-                        for a in self.agents:
-                            # array of actions = the same as chosen
-                            # except for agent a which has the default action
-                            mu_actions_baseline_a = action.copy()
-                            mu_actions_baseline_a[a] = rl["default_action"][a]
-                            combs_actions.append(mu_actions_baseline_a)
-                        combs_actions.append(rl["default_action"])
-                        for ca in combs_actions:
-                            # get outp d
-                            [_, _, reward_a, _, _, constraint_ok, _] = \
-                                env.step(ca, implement=False,
-                                         record=False,
-                                         E_req_only=E_req_only)
-
-                            # add penalty if the constraints are violated
-                            if not constraint_ok:
-                                sequence_feasible = False
-                                reward = self._apply_reward_penalty(
-                                    evaluation, reward)
-                            rewards_baseline.append(reward_a)
-                            if reward_a is None:
-                                print(f"reward_a {reward_a}")
-                    [state, done, reward, break_down_rewards, bool_flex,
-                     constraint_ok, record_output] = env.step(
-                        action, record=record,
-                        evaluation=evaluation, E_req_only=E_req_only)
-                    if constraint_ok:
-                        traj_reward = self.learning_manager.learning(
-                            current_state, state, action, reward,
-                            done, t, step, evaluation, traj_reward)
-                    if record:
-                        self.last_epoch(
-                            evaluation, t, record_output, batch, done)
-                    if not constraint_ok:
-                        sequence_feasible = False
-                        reward = self._apply_reward_penalty(evaluation, reward)
-                    else:
-                        if len(t.split("_")) > 1 \
-                                and reward_type(t) == "d" \
-                                and not evaluation:
-                            if rl["competitive"]:
-                                reward = [reward[a] - rewards_baseline[a][a]
-                                          for a in self.agents]
-                            else:
-                                if rewards_baseline is None:
-                                    print("rewards_baseline is None")
-                                reward = [reward - baseline
-                                          for baseline in rewards_baseline]
-                        if rl["type_env"] == "discrete" and t[-2] == 'C':
-                            global_ind = self.env.spaces.get_global_ind(
-                                current_state, state, action, done, t
-                            )
-
-                        else:
-                            global_ind = {
-                                "state": None,
-                                "action": None,
-                                "next_state": None
-                            }
-
-                        step_vals_ = \
-                            [current_state, global_ind["state"], action,
-                             global_ind["action"], reward, state,
-                             global_ind["next_state"], done, bool_flex,
-                             constraint_ok, *break_down_rewards]
-                        for e, var in zip(self.step_vals_entries, step_vals_):
-                            step_vals[t][e].append(var)
-
-                        # if instant feedback,
-                        # learn right away at the end of the step
-                        self.learning_manager.q_learning_instant_feedback(
-                            evaluation, t, step_vals, step
-                        )
-
-                        step += 1
+                state = env.get_state_vals(inputs=inputs_state_val)
+                step_vals, traj_reward, sequence_feasible \
+                    = self._get_one_episode(
+                        t, epoch, actions, state,
+                        mus_opt, evaluation, env, batch, step_vals
+                    )
 
                 if rl["type_learning"] in ["DDPG", "DQN"] \
                         and rl["trajectory"] \
@@ -396,8 +411,44 @@ class Explorer():
         step_vals["not_feas_vars"] = not_feas_vars
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
-            self.t_env += step
+            self.t_env += self.prm['syst']['N']
 
+        return step_vals
+
+    def get_steps(self, type_actions, ridx, epoch, i_explore,
+                  evaluation=False, new_episode_batch=None, parallel=False):
+        """Get episode steps interacting with environment.
+
+        For all inputted types of explorations.
+        """
+        eval0 = evaluation
+        self.data.seed_ind = {}
+        self.data.seed = {"P": 0, "": 0}
+        # create link to objects/data needed in method
+        env = copy.deepcopy(self.env) if parallel else self.env
+
+        # initialise output
+        step_vals = initialise_dict(type_actions)
+        self._init_facmac_mac(type_actions, new_episode_batch)
+
+        # passive consumers
+        step_vals = self._passive_get_steps(
+            env, ridx, epoch, i_explore, type_actions, step_vals
+        )
+        evaluation = eval0
+
+        step_vals = self._active_get_steps(
+            env, ridx, epoch, i_explore, type_actions, step_vals, evaluation
+        )
+
+        self._check_rewards_match(type_actions, evaluation, step_vals)
+
+        if self.rl["type_learning"] != "facmac":
+            self.episode_batch = None
+
+        return step_vals, self.episode_batch
+
+    def _check_rewards_match(self, type_actions, evaluation, step_vals):
         if "opt" in type_actions and evaluation:
             for t in [t for t in type_actions if t != "opt"]:
                 if step_vals[t]["reward"][-1] is not None:
@@ -405,11 +456,6 @@ class Explorer():
                     assert np.mean(step_vals[t]["reward"]) \
                            < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
                            f"reward {t} better than opt"
-
-        if rl["type_learning"] != "facmac":
-            self.episode_batch = None
-
-        return step_vals, self.episode_batch
 
     def _opt_step_init(
             self, i_step, batchflex_opt, cluss, fs, batch_avail_EV, res
@@ -634,12 +680,12 @@ class Explorer():
 
         return batchflex_opt
 
-    def _test_total_rewards_match(self, evaluation, res, sum_rewards):
+    def _test_total_rewards_match(self, evaluation, res, sum_RL_rewards):
         sum_res_rewards = (- (res["gc"] + res["sc"] + res["dc"]))
         if not (self.prm["RL"]["competitive"] and not evaluation):
-            assert abs(sum_rewards - sum_res_rewards) < 5e-3, \
+            assert abs(sum_RL_rewards - sum_res_rewards) < 5e-3, \
                 "tot rewards dont match: "\
-                f"sum_rewards = {sum_rewards}, "
+                f"sum_RL_rewards = {sum_RL_rewards}, "
             f"sum costs opt = {- (res['gc'] + res['sc'] + res['dc'])}"
 
     def get_steps_opt(self, res, step_vals, evaluation, cluss,
@@ -648,7 +694,7 @@ class Explorer():
         env, rl = self.env, self.prm["RL"]
         feasible = True
         t = "opt"
-        sum_rewards = 0
+        sum_RL_rewards = 0
         all_mus = []
         step_vals[t] = initialise_dict(
             self.step_vals_entries + ["reward_diff"])
@@ -697,7 +743,7 @@ class Explorer():
                 step_vals_i["reward"] = self._apply_reward_penalty(
                     evaluation, step_vals_i["reward"])
             if not (rl["competitive"] and not evaluation):
-                sum_rewards += step_vals_i["reward"]
+                sum_RL_rewards += step_vals_i["reward"]
 
             # append experience dictionaries
             step_vals = self._append_step_vals(
@@ -726,7 +772,7 @@ class Explorer():
                 last_epoch, step_vals_i, batch, evaluation
             )
 
-        self._test_total_rewards_match(evaluation, res, sum_rewards)
+        self._test_total_rewards_match(evaluation, res, sum_RL_rewards)
 
         if not evaluation \
                 and rl["type_learning"] in ["DDPG", "DQN"] \
@@ -1026,7 +1072,9 @@ class Explorer():
     def _init_facmac_mac(self, type_actions, new_episode_batch):
         if self.rl["type_learning"] == "facmac":
             for t in type_actions:
-                t_ = 'opt_r_c' if t == 'opt' and 'opt_r_c' in self.rl['type_eval'] else t
+                t_ = 'opt_r_c' \
+                    if t == 'opt' and 'opt_r_c' in self.rl['type_eval'] \
+                    else t
                 self.episode_batch[t_] = new_episode_batch()
                 if t_ not in ["baseline", "opt"]:
                     self.action_selector.mac[t_].init_hidden(
