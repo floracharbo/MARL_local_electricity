@@ -72,13 +72,14 @@ def _add_settings_to_prm(settings, prm):
 
 
 def _make_type_eval_list(prm, largeQ_bool):
+    type_eval_list = ["baseline"]
     if prm["RL"]["explo_reward_type"] is not None:
-        type_eval_list = prm["RL"]["explo_reward_type"] \
+        input_explo_reward_type = prm["RL"]["explo_reward_type"] \
             if type(prm["RL"]["explo_reward_type"]) is list \
             else [prm["RL"]["explo_reward_type"]]
+        type_eval_list += input_explo_reward_type
     else:
         data_sources = ["env_"]
-        type_eval_list = ["baseline"]
         if prm["RL"]["opt_bool"]:
             data_sources += ["opt_"]
             type_eval_list += ["opt"]

@@ -1,6 +1,6 @@
 saveresdata: 1
-plot_type: 1     # if 0 only plot learning curves, if 1 if also smoothing, 2 if all plots
-high_res: True # printing figures in high resolution
+plot_type: 1  # if 0 only plot learning curves, if 1 if also smoothing, 2 if all plots
+high_res: False  # printing figures in high resolution
 make_video: False # make vidoe of state space exploration
 plot_profiles: False
 max_n_profiles_plot: 3
@@ -17,5 +17,4 @@ repeat_entries: ['train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rew
              'train_states', 'q_tables', 'counter']
 stateind_entries: ['possible_states', 'granularity_state0',
                                  'granularity_state1', 'multipliers_state']
-
 save_nns: True

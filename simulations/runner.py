@@ -8,7 +8,7 @@ Created on Fri Mar 20 14:49:57 2020.
 import datetime
 import os
 import random
-import time
+import time  # to record time it takes to run simulations
 from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
@@ -17,6 +17,9 @@ import numpy as np
 import torch as th
 from tqdm import tqdm
 
+from config.initialise_objects import initialise_objects
+from config.initialise_prm import get_settings_i, load_existing_prm
+from config.input_data import input_paths
 from learners.DDPG import Learner_DDPG
 from learners.DDQN import Agent_DDQN
 from learners.DQN import Agent_DQN
@@ -25,9 +28,12 @@ from learners.facmac.components.episode_buffer import (EpisodeBatch,
 from learners.facmac.controllers import REGISTRY as mac_REGISTRY
 from learners.facmac.learners import REGISTRY as le_REGISTRY
 from learners.Qlearning import TabularQLearner
+from post_analysis.plot_summary_no_agents import plot_results_vs_nag
+from post_analysis.post_processing import post_processing
 from simulations.explorer import Explorer
-from utils.userdeftools import (data_source, initialise_dict, reward_type,
-                                set_seeds_rdn)
+from simulations.local_elec import LocalElecEnv
+from utils.userdeftools import (data_source, initialise_dict, play_sound,
+                                reward_type, set_seeds_rdn)
 
 
 class Runner():
@@ -510,3 +516,77 @@ class Runner():
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)
 
         return steps_vals, date0, delta, i0_costs, type_explo
+
+
+def run(run_mode, settings, no_runs=None):
+    prm = input_paths()
+
+    if run_mode == 1:
+        # obtain the number of runs from the longest settings entry
+        N_RUNS = 1
+
+        for sub_dict in settings.values():
+            for val in list(sub_dict.values()):
+                if isinstance(val, dict):
+                    for val_ in list(val.values()):
+                        if isinstance(val_, list) and len(val_) > N_RUNS:
+                            N_RUNS = len(val_)
+                elif isinstance(val, list) and len(val) > N_RUNS:
+                    N_RUNS = len(val)
+
+        # loop through runs
+        for i in range(N_RUNS):
+            remove_old_prms = [e for e in prm if e != 'paths']
+            for e in remove_old_prms:
+                del prm[e]
+
+            start_time = time.time()  # start recording time
+            # obtain run-specific settings
+
+            settings_i = get_settings_i(settings, i)
+            # initialise learning parameters, system parameters and recording
+            prm, record, profiles = initialise_objects(
+                prm, settings=settings_i)
+
+            DESCRIPTION_RUN = 'current code '
+            for e in ['type_learning', 'n_repeats', 'n_epochs',
+                      'server', 'state_space']:
+                DESCRIPTION_RUN += f"prm['RL'][{e}] {prm['RL'][e]} "
+            print(DESCRIPTION_RUN)
+            prm['save']['description_run'] = DESCRIPTION_RUN
+
+            if prm['RL']['type_learning'] == 'facmac':
+                # Setting the random seed throughout the modules
+                np.random.seed(prm['syst']["seed"])
+                th.manual_seed(prm['syst']["seed"])
+
+            env = LocalElecEnv(prm, profiles)
+            # second part of initialisation specifying environment
+            # with relevant parameters
+            record.init_env(env)  # record progress as we train
+            runner = Runner(env, prm, record)
+            runner.run_experiment()
+            record.save(end_of='end')  # save progress at end
+            post_processing(
+                record, env, prm, start_time=start_time, settings_i=settings_i
+            )
+            print(f"--- {time.time() - start_time} seconds ---")
+            if prm["syst"]["play_sound"]:
+                play_sound()
+
+    # post learning analysis / plotting
+    elif run_mode == 2:
+        if isinstance(no_runs, int):
+            no_runs = [no_runs]  # the runs need to be in an array
+
+        for no_run in no_runs:
+            lp, prm = load_existing_prm(prm, no_run)
+
+            prm, record, profiles = initialise_objects(prm, no_run=no_run)
+            # make user defined environment
+            env = LocalElecEnv(prm, profiles)
+            record.init_env(env)  # record progress as we train
+            post_processing(record, env, prm, no_run=no_run)
+
+    elif run_mode == 3:
+        plot_results_vs_nag()

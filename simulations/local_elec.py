@@ -632,6 +632,7 @@ class LocalElecEnv():
     def _generate_new_day(self, as_: list):
         """If new day of data was not presaved, load here."""
         # intialise variables
+        print("_generate_new_day")
         as_ = self.agents if as_ is None else as_
         day = {}
         dt = self.prm['syst']['labels_day'][self.idt]
@@ -937,13 +938,13 @@ class LocalElecEnv():
                 i_flex > 0
                 and i_flex < 4
                 and new_batch_flex[a][1][i_flex] + loads_next_flex
-                > np.sum(batch_flex[a][ih][0] for ih in range(0, h + 1))
+                > np.sum([batch_flex[a][ih][0] for ih in range(0, h + 1)])
                 / (1 - share_flexs[a]) * share_flexs[a] + 1e-3
             ), "loads_next_flex error"
             new_batch_flex[a][1][i_flex] += loads_next_flex
             assert not (
                 loads_next_flex
-                > np.sum(batch_flex[a][ih][0] for ih in range(0, h + 1))
+                > np.sum([batch_flex[a][ih][0] for ih in range(0, h + 1)])
             ), "loads_next_flex too large"
 
     def _loads_test(self):

@@ -384,6 +384,8 @@ def _update_rl_prm(prm, initialise_all):
 
     rl['eval_action_choice'] = [t for t in rl['type_eval']
                                 if t not in ['baseline', 'opt']]
+    assert len(rl['eval_action_choice']) > 0, \
+        "not valid eval_type with action_choice"
 
     rl['type_Qs'] = rl['eval_action_choice'] \
         + [ac + '0' for ac in rl['eval_action_choice']
