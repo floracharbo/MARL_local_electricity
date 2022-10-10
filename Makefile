@@ -1,6 +1,9 @@
 .PHONY: all install lint test format
 
-all: test lint
+check: lint test
+
+developer_env:
+	pip install -r developer_requirements.txt
 
 install:
 	pip install -r requirements.txt
