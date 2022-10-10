@@ -23,7 +23,7 @@ save_model_interval: 2
 n_other_states: 3
 n_grdC_level: 3
 n_discrete_actions: 10
-state_space: ['grdC_level']
+state_space: ['grdC']
 # grdC_level, hour, EV_tau, store0, grdC
 # avail_EV_step, loads_clus_step, loads_fact_step
 # gen_fact_step, bat_fact_step, loads_cons_step, gen_prod_step
@@ -214,8 +214,8 @@ facmac:
 aggregate_actions: True
 
 type_learn_to_space:
-        q_learning: 'discrete',
-        DQN: 'discrete',
-        DDQN: 'discrete',
-        facmac: 'continuous',
+        q_learning: 'discrete'
+        DQN: 'discrete'
+        DDQN: 'discrete'
+        facmac: 'continuous'
         DDPG: 'continuous'

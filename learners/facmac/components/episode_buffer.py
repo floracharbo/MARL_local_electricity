@@ -133,7 +133,6 @@ class EpisodeBatch:
                 dtype = self.scheme[k].get("dtype", th.float32)
                 v = np.array(v, dtype=float)  # get np.nan from None
                 v = th.tensor(v, dtype=dtype, device=self.device)
-                self._check_safe_view(v, target[k_][_slices])
 
                 target[k_][_slices] = v.view_as(target[k_][_slices])
 
@@ -144,16 +143,6 @@ class EpisodeBatch:
                         v = transform.transform(v)
                         target[new_k][_slices] = \
                             v.view_as(target[new_k][_slices])
-
-    def _check_safe_view(self, v, dest):
-        idx = len(v.shape) - 1
-        for s in dest.shape[::-1]:
-            if v.shape[idx] != s:
-                if s != 1:
-                    raise ValueError(f"Unsafe reshape of {v.shape} "
-                                     f"to {dest.shape}")
-            else:
-                idx -= 1
 
     def __getitem__(self, item):
         if isinstance(item, str):

@@ -65,10 +65,8 @@ class Explorer():
             + self.break_down_rewards_entries
         self.method_vals_entries = ["seeds", "n_not_feas", "not_feas_vars"]
 
-        self.i0_costs = 0
-        self.prm["grd"]["C"] = \
-            prm["grd"]["Call"][self.i0_costs: self.i0_costs + prm["syst"]["N"]]
-        env.update_date(self.i0_costs)
+        self._init_i0_costs()
+
         self.paths = prm["paths"]
         self.state_funcs = {
             "store0": self._get_store,
@@ -77,6 +75,14 @@ class Explorer():
             "EV_tau": self._get_EV_tau,
             "bat_dem_agg": self._get_bat_dem_agg
         }
+
+    def _init_i0_costs(self):
+        self.i0_costs = 0
+        self.prm["grd"]["C"] = \
+            self.prm["grd"]["Call"][
+            self.i0_costs: self.i0_costs + self.prm["syst"]["N"]
+        ]
+        self.env.update_date(self.i0_costs)
 
     def _initialise_passive_vars(self, env, ridx, epoch, i_explore):
         self.n_agents = self.prm["ntw"]["nP"]
@@ -591,18 +597,44 @@ class Explorer():
 
         return step_vals
 
-    def _tests_res(self, res, i_step, batchflex_opt, reward):
+    def _tests_res(self, res, i_step, batch, reward):
+        prm = self.prm
+        flex, dem, gen = [np.array(
+            [batch[a][e] for a in range(len(batch))])
+            for e in ["flex", "loads", "gen"]
+        ]
         # check tot cons
         for a in self.agents:
             assert res["totcons"][a][i_step] <= \
-                   sum(batchflex_opt[a][i_step]) \
+                   sum(flex[a][i_step]) \
                    + self.env.heat.E_heat_min[a] \
                    + self.env.heat.potential_E_flex()[a] + 1e-3, \
                    f"cons more than sum fixed + flex!, " \
                    f"a = {a}, i_step = {i_step}"
 
+        # check loads and consumption match
+        sum_consa = 0
+        for load_type in range(2):
+            sum_consa += np.sum(res[f'consa({load_type})'])
+        assert abs(np.sum(dem[:, 0: prm['syst']['N']]) - sum_consa) < 1e-3, \
+            f"res cons {sum_consa} does not match input demand {np.sum(dem)}"
+
+        # check environment uses the same grid coefficients
+        assert self.env.grdC[i_step] == prm["grd"]["C"][i_step], \
+            f"env grdC {self.env.grdC[i_step]} " \
+            f"!= explorer {prm['grd']['C'][i_step]}"
+
+        # check we can replicate res['gc']
+        sumgc = np.sum(
+            [prm["grd"]["C"][i_step_] * (
+                res['grid'][i_step_][0]
+                + prm["grd"]['loss'] * res['grid2'][i_step_][0]
+            ) for i_step_ in range(24)]
+        )
+        assert abs(res['gc'] - sumgc) < 1e-3, \
+            f"we cannot replicate res['gc'] {res['gc']} vs {sumgc}"
+
         # check reward from environment and res variables match
-        prm = self.prm
         res_reward_t = \
             - (prm["grd"]["C"][i_step]
                * (res["grid"][i_step][0]
@@ -643,8 +675,8 @@ class Explorer():
             elif rl["type_learning"] == "facmac":
                 t_ = 'opt_r_c' if t == 'opt' else t
                 pre_transition_data = {
-                    "state": [current_state[a][0]
-                              for a in self.agents],
+                    "state": np.reshape(
+                        current_state, (self.n_agents, rl["obs_shape"])),
                     "avail_actions": [rl["avail_actions"]],
                     "obs": [np.reshape(
                         current_state, (self.n_agents, rl["obs_shape"]))]
@@ -732,7 +764,7 @@ class Explorer():
                 passive_vars=self._get_passive_vars(i_step),
                 evaluation=evaluation
             )
-            self._tests_res(res, i_step, batchflex_opt, step_vals_i["reward"])
+            self._tests_res(res, i_step, batch, step_vals_i["reward"])
 
             # substract baseline rewards to reward -
             # for training, not evaluating

@@ -8,3 +8,4 @@ beep-24.wav
 results/
 *.pickle
 *.txt
+.github/workflows

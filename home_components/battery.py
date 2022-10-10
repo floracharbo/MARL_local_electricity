@@ -186,7 +186,7 @@ class Battery:
             # load during trip larger than whole
             bool_penalty[a] = True
             if print_error:
-                print(f"a = {a}, "
+                print(f"a = {a}, h = {h} deltaT {deltaT} "
                       f"load EV trip {loads_T} larger than"
                       f" cap, self.batch['loads_EV'][{a}] "
                       f"= {self.batch['loads_EV'][a]}")
@@ -209,7 +209,7 @@ class Battery:
         while not end:
             loads_T, deltaT, i_endtrip = self.next_trip_details(
                 h_trip, date_a, a)
-            if loads_T is None:
+            if loads_T is None or h_trip + deltaT > self.N:
                 end = True
             else:
                 self._check_trip_feasible(
