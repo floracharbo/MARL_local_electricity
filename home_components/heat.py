@@ -63,8 +63,6 @@ class Heat:
         # number of hours (time intervals) in episode
         self.N = prm["syst"]['N']
 
-        # whether to play sound on errors
-        self.play_sound = prm["syst"]["play_sound"]
         # amount of energy consumed at time step that was optional
         # / could have been delayed
         self.E_flex = None

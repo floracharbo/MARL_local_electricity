@@ -18,9 +18,9 @@ settings = {
 
     'RL': {
         'type_learning': 'facmac',
-        # 'explo_reward_type':
+        # 'explo_reward_type': 'env_r_d',
         'gamma': {'q_learning': 0.99, 'facmac': 0.99},
-        'aggregate_actions': False,
+        'aggregate_actions': True,
         'mixer': 'qmix',
 
         # current experiment

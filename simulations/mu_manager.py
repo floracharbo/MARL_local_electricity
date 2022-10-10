@@ -13,7 +13,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import gridspec
 
-from utils.userdeftools import initialise_dict, play_sound
+from utils.userdeftools import initialise_dict
 
 
 class Mu_manager:
@@ -34,7 +34,6 @@ class Mu_manager:
         self.entries = ['dp', 'ds', 'l_ch', 'l_dis', 'c']
         self.plotting = prm['RL']['plotting_mu']
         self.server = prm['RL']['server']
-        self.play_sound = prm["syst"]["play_sound"]
         self.colors = [(0, 0, 0)] + prm['save']['colors']
         self.n_agents = env.n_agents
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
@@ -613,8 +612,6 @@ class Mu_manager:
             if mu_action[a][i] is not None \
                     and mu_action[a][i] < self.low_action[i]:
                 if mu_action[a][i] < self.low_action[i] - 1e-2:
-                    if self.play_sound:
-                        play_sound()
                     error[a] = True
                 else:
                     mu_action[a][i] = 0
@@ -622,8 +619,6 @@ class Mu_manager:
             if mu_action[a][i] is not None \
                     and mu_action[a][i] > self.high_action[i]:
                 if mu_action[a][i] > self.high_action[i] + 1e-2:
-                    if self.play_sound:
-                        play_sound()
                     error[a] = True
                 else:
                     mu_action[a][i] = self.high_action[i]
