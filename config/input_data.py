@@ -8,9 +8,36 @@ Created on Sun Feb  9 11:36:21 2020.
 """
 import datetime
 import os.path
+import sys
+from pathlib import Path
 
 import numpy as np
 import yaml
+
+
+def _command_line_parameters(settings_i):
+    obs = []
+    args = sys.argv[1:]
+    # o is observation, l is learning type,
+    # n is number of agents - applied to all repetitions
+    for i in range(int(len(args) / 2)):
+        key, val = args[i * 2], args[i * 2 + 1]
+        if key == '-o':
+            obs.append(val)
+        elif key == '-l':
+            settings_i['RL']['type_learning'] = val
+        elif key == '-n':
+            settings_i['ntw']['n'] = int(val)
+        elif key[2:].split('_')[0] == 'facmac':
+            key_ = key[2 + len('facmac') + 1:]
+            settings_i['RL']['facmac'][key_] = val
+        else:
+            settings_i['RL'][key[2:]] = val
+            print(f"RL['{key[2:]}'] = {val}")
+    if len(obs) > 0:
+        settings_i['RL']['state_space'] = obs
+
+    return settings_i
 
 
 def input_paths():
@@ -71,47 +98,28 @@ def _add_settings_to_prm(settings, prm):
     return prm
 
 
-def _make_type_eval_list(prm, largeQ_bool):
-    type_eval_list = ["baseline"]
-    if prm["RL"]["explo_reward_type"] is not None:
-        input_explo_reward_type = prm["RL"]["explo_reward_type"] \
-            if type(prm["RL"]["explo_reward_type"]) is list \
-            else [prm["RL"]["explo_reward_type"]]
-        type_eval_list += input_explo_reward_type
-    else:
-        data_sources = ["env_"]
-        if prm["RL"]["opt_bool"]:
-            data_sources += ["opt_"]
-            type_eval_list += ["opt"]
-
-        if prm["RL"]["type_learning"] == "facmac":
-            methods_combs = ["r_c", "d_c"]
-        elif prm["RL"]["type_learning"] == "q_learning":
-            methods_combs = ["r_c", "r_d", "A_Cc", "A_c", "A_d"] \
-                if largeQ_bool else ["r_c", "r_d", "A_c", "A_d"]
-            if prm["RL"]["difference_bool"]:
-                add_difference = ["d_Cc", "d_c", "d_d"] \
-                    if largeQ_bool else ["d_c", "d_d"]
-                methods_combs += add_difference
-            methods_combs_opt = ["n_c", "n_d"]
-            if "opt_" in data_sources:
-                type_eval_list += ["opt_" + m for m in methods_combs_opt]
-
-        elif prm["RL"]["type_learning"] in ["DDPG", "DQN", "DDQN"]:
-            if prm["RL"]["distr_learning"] == "decentralised":
-                methods_combs = ["d_d"] \
-                    if prm["RL"]["difference_bool"] else ["r_d"]
+def get_settings_i(settings, i):
+    """Get run-specific settings from general settings dictionary."""
+    # first, get settings from the main.py file
+    settings_i = {}
+    for key, sub_dict in settings.items():
+        settings_i[key] = {}
+        for sub_key, val in sub_dict.items():
+            if isinstance(val, list):
+                settings_i[key][sub_key] = val[i]
+            elif isinstance(val, dict):
+                for subsubkey in val.keys():
+                    settings_i[key][sub_key] = {}
+                    if isinstance(val[subsubkey], list):
+                        settings_i[key][sub_key][subsubkey] = \
+                            val[subsubkey][i]
             else:
-                methods_combs = ["d_c"] \
-                    if prm["RL"]["difference_bool"] else ["r_c"]
+                settings_i[key][sub_key] = val
 
-        for d in data_sources:
-            type_eval_list += [d + mc for mc in methods_combs]
+    # then, override with command line parameters
+    settings_i = _command_line_parameters(settings_i)
 
-    prm["RL"]["type_eval"] = type_eval_list
-    print(f"type_eval_list {type_eval_list}")
-
-    return prm
+    return settings_i
 
 
 def input_params(prm, settings=None):
@@ -141,20 +149,9 @@ def input_params(prm, settings=None):
 
     prm = _add_settings_to_prm(settings, prm)
 
-    if type(prm["RL"]["state_space"]) is str:
-        prm["RL"]["state_space"] = [prm["RL"]["state_space"]]
-
-    for e in ["instant_feedback", "n_epochs"]:
-        # has to be 0 or 1 rather than True or False
-        # as it will be converted to string later
-        prm["RL"][e] = int(prm["RL"][e])
-
     # learning parameters
-    largeQ_bool = False
     if prm["RL"]["distr_learning"] == "joint":
         prm["RL"]["difference_bool"] = False
-
-    prm = _make_type_eval_list(prm, largeQ_bool)
 
     # revert to pre set entries if there were pre set entries
     for key in prm_preset_entries.keys():
@@ -163,3 +160,37 @@ def input_params(prm, settings=None):
                 prm[key][subkey] = prm_preset_entries[key][subkey]
 
     return prm
+
+
+def load_existing_prm(prm, no_run):
+    """Load input data for the previous run no_run."""
+    prev_paths = prm['paths'].copy()
+    input_folder = Path('results') / f'run{no_run}' / 'inputData'
+
+    # if input data was saved, load input data
+    if os.path.exists(input_folder):
+        if os.path.exists(input_folder / 'lp.npy'):
+            lp = np.load(input_folder / 'lp.npy',
+                         allow_pickle=True).item()
+            if 'n_action' in lp and 'n_acitons' not in lp:
+                lp['n_actions'] = lp['n_action']
+            existing_paths = prm['paths'].copy()
+            prm = np.load(input_folder / 'syst.npy',
+                          allow_pickle=True).item()
+            prm['RL'] = lp
+            prm['paths'] = existing_paths
+            prm['save'] = {}
+        else:
+            prm = np.load(input_folder / 'prm.npy',
+                          allow_pickle=True).item()
+            lp = None
+        if 'repeats' in prm['RL']:
+            prm['RL']['n_repeats'] = prm['RL']['repeats']
+        for path in prev_paths:
+            if path not in prm['paths']:
+                prm['paths'][path] = prev_paths[path]
+    else:  # else use current input data
+        lp, prm = None, None
+        print(f"not os.path.exists({input_folder})")
+
+    return lp, prm

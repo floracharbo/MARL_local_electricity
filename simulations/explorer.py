@@ -18,7 +18,8 @@ import numpy as np
 from simulations.data_manager import Data_manager
 from simulations.learning import LearningManager
 from simulations.select_actions import ActionSelector
-from utils.userdeftools import initialise_dict, reward_type, set_seeds_rdn
+from utils.userdeftools import (data_source, initialise_dict, reward_type,
+                                set_seeds_rdn)
 
 
 # %% Environment exploration
@@ -673,7 +674,6 @@ class Explorer():
                     "opt", step_vals[t], i_step - 1
                 )
             elif rl["type_learning"] == "facmac":
-                t_ = 'opt_r_c' if t == 'opt' else t
                 pre_transition_data = {
                     "state": np.reshape(
                         current_state, (self.n_agents, rl["obs_shape"])),
@@ -681,16 +681,17 @@ class Explorer():
                     "obs": [np.reshape(
                         current_state, (self.n_agents, rl["obs_shape"]))]
                 }
-                self.episode_batch[t_].update(
-                    pre_transition_data, ts=i_step)
                 post_transition_data = {
                     "actions": actions,
                     "reward": [(reward,)],
                     "terminated": [(i_step == self.prm["syst"]["N"] - 1,)],
                 }
-
-                self.episode_batch[t_].update(
-                    post_transition_data, ts=i_step)
+                ts = self.types_that_learn_from_t(t)
+                for t_ in ts:
+                    self.episode_batch[t_].update(
+                        pre_transition_data, ts=i_step)
+                    self.episode_batch[t_].update(
+                        post_transition_data, ts=i_step)
 
             elif rl["type_learning"] in ["DDPG", "DQN", "DDQN"]:
                 self.learning_manager.independent_deep_learning(
@@ -1101,14 +1102,24 @@ class Explorer():
 
         return val
 
+    def types_that_learn_from_t(self, t):
+        if t == 'opt':
+            ts = [
+                t_ for t_ in self.rl['type_Qs']
+                if data_source(t_) == "opt" and t_ in self.rl['type_eval']
+            ]
+        else:
+            ts = [t]
+
+        return ts
+
     def _init_facmac_mac(self, type_actions, new_episode_batch):
         if self.rl["type_learning"] == "facmac":
             for t in type_actions:
-                t_ = 'opt_r_c' \
-                    if t == 'opt' and 'opt_r_c' in self.rl['type_eval'] \
-                    else t
-                self.episode_batch[t_] = new_episode_batch()
-                if t_ not in ["baseline", "opt"]:
-                    self.action_selector.mac[t_].init_hidden(
-                        batch_size=self.rl["batch_size_run"]
-                    )
+                ts = self.types_that_learn_from_t(t)
+                for t_ in ts:
+                    self.episode_batch[t_] = new_episode_batch()
+                    if t_ not in ["baseline", "opt"]:
+                        self.action_selector.mac[t_].init_hidden(
+                            batch_size=self.rl["batch_size_run"]
+                        )

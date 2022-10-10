@@ -39,7 +39,6 @@ ind_seed_deterministic: 0
 
 # plotting
 plotting_mu: False  # used for plotting mu position on graph
-plotting_batch: True
 
 # reward
 penalty: 10 # if avail_EV :: 0 and l_EV > store:apply penalty to reward (for training, not evaluation)

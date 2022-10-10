@@ -165,3 +165,26 @@ def reward_type(q):
 
 def distr_learning(q):
     return q.split('_')[2]
+
+
+def _actions_to_unit_box(actions, rl):
+    if isinstance(actions, np.ndarray):
+        return rl["actions2unit_coef_numpy"] * actions \
+            + rl["actions_min_numpy"]
+    elif actions.is_cuda:
+        return rl["actions2unit_coef"] * actions + rl["actions_min"]
+    else:
+        return rl["actions2unit_coef_cpu"] * actions \
+            + rl["actions_min_cpu"]
+
+
+def _actions_from_unit_box(actions, rl):
+    if isinstance(actions, np.ndarray):
+        return th.div((actions - rl["actions_min_numpy"]),
+                      rl["actions2unit_coef_numpy"])
+    elif actions.is_cuda:
+        return th.div((actions - rl["actions_min"]),
+                      rl["actions2unit_coef"])
+    else:
+        return th.div((actions - rl["actions_min_cpu"]),
+                      rl["actions2unit_coef_cpu"])
