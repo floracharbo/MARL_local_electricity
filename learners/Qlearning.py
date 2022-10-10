@@ -123,13 +123,8 @@ class TabularQLearner:
                           for v in values_positive] \
                     if sum(values_positive) != 0 \
                     else [1 / len(actions) for _ in actions]
-                try:
-                    sum_exp = sum(math.exp(values[a] / self.T[q])
-                                  for a in actions)
-                except Exception as ex:
-                    print(f'ex = {ex}')
-                    print(f'values = {values}')
-                    print(f'self.T[q] = {self.T[q]}')
+                sum_exp = sum(math.exp(values[a] / self.T[q]) for a in actions)
+
                 pAs = [math.exp(values[a] / self.T[q]) / sum_exp
                        for a in actions]
                 cumps = [sum(pAs[0:i]) for i in range(n_action)]
@@ -163,21 +158,22 @@ class TabularQLearner:
         value = reward + (not done) * self.rl['q_learning']['gamma'] * val_q
         if type(value) in [list, np.ndarray]:
             print(f'value {value}')
-        td_error = value \
-            - self.q_tables[q_table_name][i_table][ind_state][ind_action]
-        if type(td_error) in [list, np.ndarray]:
-            print(f'td_error {td_error}')
-        try:
-            lr = self.get_lr(td_error, q_table_name)
-        except Exception as ex:
-            print(f'ex = {ex}')
-            print(f'td_error = {td_error}')
-            print(f'type(td_error) = {type(td_error)}')
-            print(f'value = {value}')
-            print(f"ind_action = {ind_action}")
-        self.q_tables[q_table_name][i_table][ind_state][ind_action] \
-            += lr * td_error
-        self.counter[q_table_name][i_table][ind_state][ind_action] += 1
+        if ind_action is not None:
+            td_error = value \
+                - self.q_tables[q_table_name][i_table][ind_state][ind_action]
+            if type(td_error) in [list, np.ndarray]:
+                print(f'td_error {td_error}')
+            try:
+                lr = self.get_lr(td_error, q_table_name)
+            except Exception as ex:
+                print(f'ex = {ex}')
+                print(f'td_error = {td_error}')
+                print(f'type(td_error) = {type(td_error)}')
+                print(f'value = {value}')
+                print(f"ind_action = {ind_action}")
+            self.q_tables[q_table_name][i_table][ind_state][ind_action] \
+                += lr * td_error
+            self.counter[q_table_name][i_table][ind_state][ind_action] += 1
 
     def get_lr(self, td_error, q):
         if type(self.alpha) is float:
@@ -205,45 +201,67 @@ class TabularQLearner:
             for q in q_to_update:
                 self.update_q_step(q, step, step_vals)
 
+    def _control_decrease_eps(self, t, epoch, mean_eval_rewards, decrease_eps):
+        n_window \
+            = self.rl['control_window_eps'][t] * self.rl['n_explore']
+        if epoch >= self.rl['control_window_eps'][t]:
+            baseline_last = sum(mean_eval_rewards['baseline'][
+                                - n_window:])
+            baseline_prev = \
+                sum(mean_eval_rewards['baseline']
+                    [- 2 * self.rl['control_window_eps'][t]
+                     * self.rl['n_explore']: - n_window])
+            t_eval = t
+            reward_last = sum(mean_eval_rewards[t_eval][- n_window:])
+            reward_prev = sum(mean_eval_rewards[t_eval]
+                              [- 2 * n_window: - n_window])
+            decrease_eps[t] = (
+                True
+                if (reward_last - baseline_last)
+                >= (reward_prev - baseline_prev)
+                else False
+            )
+        else:
+            decrease_eps[t] = True
+
+        return decrease_eps
+
+    def _reward_based_eps_control(self, mean_eval_rewards):
+        # XU et al. 2018 Reward-Based Exploration
+        k = {}
+        for t in self.rl['eval_action_choice']:
+            self.rMT = self.rMT / self.rl['tauMT'][t] + np.mean(
+                mean_eval_rewards[t][- self.rl['n_explore']:])
+            self.rLT = self.rLT / self.rl['tauLT'][t] + self.rMT
+            sum_exp = np.exp(self.rMT / self.rl['q_learning']['T'][t]) \
+                + np.exp(self.rLT / self.rl['q_learning']['T'][t])
+            k[t] = (np.exp(self.rMT / self.rl['q_learning']['T'][t])
+                    - np.exp(self.rLT / self.rl['q_learning']['T'][t])) \
+                / sum_exp
+
+        assert not (type(self.eps) is float or type(self.eps) is int), \
+            "have eps per method"
+        for t in self.rl['eval_action_choice']:
+            eps = self.rl['lambda'] * k[t] \
+                + (1 - self.rl['lambda']) * self.eps[t]
+            self.eps[t] = min(1, max(0, eps))
+
     def epsilon_decay(self, ridx, epoch, mean_eval_rewards):
         mean_eval_rewards = mean_eval_rewards[ridx]
         decrease_eps = {}
-        k = {}
-        for t in self.rl['eval_action_choice']:
-            n_window = self.rl['control_window_eps'][t] * self.rl['n_explore']
+        if self.rl['control_eps'] == 2:
+            self._reward_based_eps_control(mean_eval_rewards)
 
-            if self.rl['control_eps'] == 1:
-                if epoch >= self.rl['control_window_eps'][t]:
-                    baseline_last = sum(mean_eval_rewards['baseline'][
-                        - n_window:])
-                    baseline_prev = \
-                        sum(mean_eval_rewards['baseline']
-                            [- 2 * self.rl['control_window_eps'][t]
-                             * self.rl['n_explore']: - n_window])
-                    t_eval = t
-                    t_last = sum(mean_eval_rewards[t_eval][- n_window:])
-                    t_prev = sum(mean_eval_rewards[t_eval]
-                                 [- 2 * n_window: - n_window])
-                    decrease_eps[t] = True \
-                        if (t_last - baseline_last) \
-                        >= (t_prev - baseline_prev) \
-                        else False
+        else:
+            for t in self.rl['eval_action_choice']:
+                if self.rl['control_eps'] == 1:
+                    decrease_eps = self._control_decrease_eps(
+                        t, epoch, mean_eval_rewards, decrease_eps
+                    )
                 else:
                     decrease_eps[t] = True
-            elif self.rl['control_eps'] == 2:
-                self.rMT = self.rMT / self.rl['tauMT'][t] + np.mean(
-                    mean_eval_rewards[t][- self.rl['n_explore']:])
-                self.rLT = self.rLT / self.rl['tauLT'][t] + self.rMT
-                sum_exp = np.exp(self.rMT / self.rl['q_learning']['T'][t]) + \
-                    np.exp(self.rLT / self.rl['q_learning']['T'][t])
-                k[t] = (np.exp(self.rMT / self.rl['q_learning']['T'][t])
-                        - np.exp(self.rLT / self.rl['q_learning']['T'][t])) \
-                    / sum_exp
-            else:
-                decrease_eps[t] = True
 
-        if type(self.eps) is float or type(self.eps) is int:
-            if self.rl['control_eps'] < 2:
+            if type(self.eps) is float or type(self.eps) is int:
                 decrease_eps = True \
                     if sum(1 for t in self.rl['eval_action_choice']
                            if decrease_eps[t]) > 0 \
@@ -256,23 +274,16 @@ class TabularQLearner:
                 if epoch >= self.rl['q_learning']['end_decay']:
                     self.eps = 0
             else:
-                print('have eps per method')
-        else:
-            for t in self.rl['eval_action_choice']:
-                if self.rl['control_eps'] == 2:
-                    eps = self.rl['lambda'] * k[t] \
-                        + (1 - self.rl['lambda']) * self.eps[t]
-                    self.eps[t] = min(1, max(0, eps))
-                else:
+                for t in self.rl['eval_action_choice']:
                     factor = self.rl['epsilon_decay_param'][t] \
                         if decrease_eps[t] \
                         else (1 / self.rl['epsilon_decay_param'][t])
                     self.eps[t] = min(
                         max(0, self.eps[t] * factor), 1)
-                if epoch < self.rl['q_learning']['start_decay']:
-                    self.eps[t] = 1
-                if epoch >= self.rl['q_learning']['end_decay']:
-                    self.eps[t] = 0
+                    if epoch < self.rl['q_learning']['start_decay']:
+                        self.eps[t] = 1
+                    if epoch >= self.rl['q_learning']['end_decay']:
+                        self.eps[t] = 0
 
     def update_q_step(self, q, step, step_vals):
         reward = step_vals['reward_diff'][step] \
@@ -288,10 +299,10 @@ class TabularQLearner:
                        'next_state', 'done']]
 
         ind_indiv_ac = self.get_space_indexes(
-            done=done, all_vals=indiv_ac, info=None, type_='action')
+            done=done, all_vals=indiv_ac, type_='action')
         ind_indiv_s, ind_next_indiv_s = \
             [self.get_space_indexes(
-                done=done, all_vals=vals, info=None, type_=types)
+                done=done, all_vals=vals, type_=types)
                 for vals, types in zip([indiv_s, next_indiv_s],
                                        ['state', 'next_state'])]
 
@@ -315,14 +326,12 @@ class TabularQLearner:
                 # this is env_d_C or opt_d_C
                 # difference to global baseline
                 if ind_global_ac[0] is not None:
-                    try:
-                        self.update_q(reward[-1], done,
-                                      ind_next_global_s[0],
-                                      ind_global_ac[0],
-                                      ind_next_global_s[0],
-                                      i_table=0, q_table_name=q + '0')
-                    except Exception as ex:
-                        print(f'l215 q learning ex {ex}')
+                    self.update_q(reward[-1], done,
+                                  ind_next_global_s[0],
+                                  ind_global_ac[0],
+                                  ind_next_global_s[0],
+                                  i_table=0, q_table_name=q + '0')
+
                     for a in range(self.n_agents):
                         i_table = 0 if distr_learning == 'Cc' else a
                         local_q_val = self.q_tables[q][i_table][
@@ -412,7 +421,7 @@ class TabularQLearner:
             ind_next_indiv_s, indiv_ac, q
     ):
         for a in range(self.n_agents):
-            if indiv_ac[a] is not None:
+            if ind_indiv_ac[a] is not None:
                 self.update_q(reward, done, ind_indiv_s[a],
                               ind_indiv_ac[a], ind_next_indiv_s[a],
                               i_table=0, q_table_name=q + '0')
@@ -433,7 +442,7 @@ class TabularQLearner:
             ind_next_indiv_s, indiv_ac, q
     ):
         for a in range(self.n_agents):
-            if indiv_ac[a] is not None:
+            if ind_indiv_ac[a] is not None:
                 self.update_q(
                     reward, done, ind_indiv_s[a], ind_indiv_ac[a],
                     ind_next_indiv_s[a], i_table=a, q_table_name=q + '0')

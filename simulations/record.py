@@ -148,13 +148,14 @@ class Record():
                   end_test: bool = False
                   ):
         """At the end of each epoch, append training or evaluation record."""
-        for t in rl["type_explo"]:
-            self.train_rewards[self.ridx][t].append(
-                list_train_stepvals[t]["reward"])
-            self.train_actions[self.ridx][t].append(
-                list_train_stepvals[t]["action"])
-            self.train_states[self.ridx][t].append(
-                list_train_stepvals[t]["state"])
+        if list_train_stepvals is not None:
+            for t in rl["type_explo"]:
+                self.train_rewards[self.ridx][t].append(
+                    list_train_stepvals[t]["reward"])
+                self.train_actions[self.ridx][t].append(
+                    list_train_stepvals[t]["action"])
+                self.train_states[self.ridx][t].append(
+                    list_train_stepvals[t]["state"])
         for t in rl["type_eval"]:
             self._append_eval(eval_steps, t, epoch, end_test)
 
@@ -399,11 +400,11 @@ class Record():
         n_repeats = prm["RL"]["n_repeats"]
         metric_entries = ["end", "end_test", "end_bl", "end_test_bl",
                           "mean", "DT", "SRT", "LRT", "DR", "RR"]
-        metrics = initialise_dict(metric_entries, "empty_dict")
-        for m in metric_entries:
-            subentries = ["ave", "std", "p25", "p75", "p50"]
-            for s in subentries:
-                metrics[m][s] = {}
+        subentries = ["ave", "std", "p25", "p75", "p50"]
+        metrics = initialise_dict(
+            metric_entries, "empty_dict",
+            second_level_entries=subentries, second_type="empty_dict"
+        )
 
         end_bl_rewards = [
             self.mean_end_rewards[ridx]["baseline"]

@@ -7,8 +7,6 @@ Created on Tue Dec  7 14:39:04 2021.
 """
 import numpy as np
 
-from utils.userdeftools import play_sound
-
 
 class Heat:
     """
@@ -293,7 +291,7 @@ class Heat:
         elif self.i_step < self.N:
             self.T = [res["T"][a][self.i_step] for a in range(self.n_agents)]
 
-    def check_constraints(self, a, h, bool_penalty, E_req_only):
+    def check_constraints(self, a, h, E_req_only):
         """
         From env.policy_to_rewardvar, check heat constraints.
 
@@ -312,67 +310,36 @@ class Heat:
         updated bool_penalty
         """
         # whether there is already an error at the start of the method
-        error0 = sum(bool_penalty) > 0
 
         # check E_heat_min calculation was correct; resulting
         # in a temperature larger than the minimum temperature
-        if self.own_heat[a] \
-                and self.next_T(self.T, self.E_heat_min, self.T_out[h])[1][a] \
-                < self.T_LB_t[a] - 1e-2:
-            print("next_T < T_LB")
-            bool_penalty[a] = True
+        if self.own_heat[a]:
+            assert self.next_T(
+                self.T, self.E_heat_min, self.T_out[h]
+            )[1][a] >= self.T_LB_t[a] - 1e-2, "next_T < T_LB"
 
         # check if target temperature is met
         if not E_req_only:
-            if self.T_air[a] > self.T_UB[a][h] + 1e-1:
-                print("T_air > T_UB")
-                bool_penalty[a] = True
+            assert self.T_air[a] <= self.T_UB[a][h] + 1e-1, "T_air > T_UB"
 
-            elif self.T_air[a] < self.T_LB[a][h] - 1e-1:
-                print("T_air < T_LB")
-                if self.play_sound:
-                    play_sound()
-                bool_penalty[a] = True
+            assert self.T_air[a] >= self.T_LB[a][h] - 1e-1, "T_air < T_LB"
 
             # check E_heat_max makes sense
-            try:
-                if self.next_T([self.T[a]], [self.E_heat_max[a]],
-                               self.T_out[h])[1][0] > self.T_UB[a][h] + 0.05:
-                    print("next_T > T_UB")
-                    bool_penalty[a] = True
-            except Exception as ex:
-                print(f"ex {ex}")
+            assert self.next_T(
+                [self.T[a]], [self.E_heat_max[a]], self.T_out[h]
+            )[1][0] <= self.T_UB[a][h] + 0.05, "next_T > T_UB"
 
         else:
             # E_req_only is for baseline where we do not use the
             # flexibility and only target the middle temperature requirement
-            if self.own_heat[a] \
-                    and (self.T_air[a] > self.T_UB[a][h] + self.dT + 1e-1
-                         or self.T_air[a] < self.T_LB[a][h] - 1e-1 - self.dT):
-                print("T_air > T_UB + dT or T_air < T_LB - dT")
-                bool_penalty[a] = True
+            if self.own_heat[a]:
+                assert not (
+                    self.T_air[a] > self.T_UB[a][h] + self.dT + 1e-1
+                    or self.T_air[a] < self.T_LB[a][h] - 1e-1 - self.dT), \
+                    "T_air > T_UB + dT or T_air < T_LB - dT"
 
         # positivity
-        if self.potential_E_flex()[a] < 0:
-            print("potential_E_flex < 0")
-            bool_penalty[a] = True
-
-        error = sum(bool_penalty) > 0
-        if not error0 and error:
-            print(f"a {a}, h {h}")
-            print(f"E_req_only = {E_req_only}")
-            print(f"T_air[a] {self.T_air[a]}")
-            print(f"T_LB[a][h] {self.T_LB[a][h]}")
-            print(f"T_UB[a][h] {self.T_UB[a][h]}")
-            print(f"tot_E[a] = {self.tot_E[a]}")
-            print(f"self.E_heat_min[a] {self.E_heat_min[a]}")
-            print(f"self.E_heat_max[a] {self.E_heat_max[a]}")
-            print(f"self.E_flex = {self.E_flex}")
-            print(f"self.potential_E_flex()[a] = {self.potential_E_flex()[a]}")
-            print(f"self.T_out[h] {self.T_out[h]}")
-            print(f"self.next_T()[1] = {self.next_T()[1]}")
-
-        return bool_penalty
+        assert self.potential_E_flex()[a] >= 0, "potential_E_flex < 0"
 
     def apply_step(self, res, l_flex, tot_l_fixed, E_flex=None):
         """Get fixed/flexible heat consumption from current actions."""

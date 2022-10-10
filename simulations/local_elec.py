@@ -610,7 +610,8 @@ class LocalElecEnv():
             clus = self.clus[self.bat_p][a]
             it = 0
             while (
-                    np.max(day['loads_EV'][ia]) > self.prm['bat'][self.cap_p][a]
+                    np.max(day['loads_EV'][ia])
+                    > self.prm['bat'][self.cap_p][a]
                     and it < 100
             ):
                 if fEV_new_interval[ia] > 0:
@@ -811,9 +812,8 @@ class LocalElecEnv():
                            ) -> list:
         """Given result of the step action, check environment constraints."""
         for a in [a for a, bool in enumerate(bool_penalty) if not bool]:
-            bool_penalty = self.bat.check_constraints(a, date, h, bool_penalty)
-            bool_penalty = self.heat.check_constraints(
-                a, h, bool_penalty, E_req_only)
+            self.bat.check_constraints(a, date, h)
+            self.heat.check_constraints(a, h, E_req_only)
             bool_penalty = self._check_loads(a, date, h, loads, bool_penalty)
 
             # prosumer balance

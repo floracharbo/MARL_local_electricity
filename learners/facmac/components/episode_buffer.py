@@ -1,7 +1,6 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-import traceback
 from types import SimpleNamespace as SN
 
 import blosc
@@ -132,34 +131,19 @@ class EpisodeBatch:
                                    f"or episode data")
 
                 dtype = self.scheme[k].get("dtype", th.float32)
+                v = np.array(v, dtype=float)  # get np.nan from None
+                v = th.tensor(v, dtype=dtype, device=self.device)
+                self._check_safe_view(v, target[k_][_slices])
 
-                try:
-                    v = np.array(v, dtype=float)  # get np.nan from None
-                    v = th.tensor(v, dtype=dtype, device=self.device)
-                except Exception as ex:
-                    print(f"ex {ex}")
-                    print(traceback.format_exc())
-                try:
-                    self._check_safe_view(v, target[k_][_slices])
-                except Exception:
-                    pass
-
-                try:
-                    target[k_][_slices] = v.view_as(target[k_][_slices])
-                except Exception as ex:
-                    print(ex)
+                target[k_][_slices] = v.view_as(target[k_][_slices])
 
                 if k_ in self.preprocess:
-                    try:
-                        new_k = self.preprocess[k][0]
-                    except Exception:
-                        pass
+                    new_k = self.preprocess[k][0]
                     v = target[k_][_slices]
                     for transform in self.preprocess[k_][1]:
                         v = transform.transform(v)
                         target[new_k][_slices] = \
                             v.view_as(target[new_k][_slices])
-                pass
 
     def _check_safe_view(self, v, dest):
         idx = len(v.shape) - 1

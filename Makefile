@@ -8,7 +8,7 @@ install:
 lint:
 	isort .
 	flake8 --ignore=W605,W503 --exclude learners --exclude tests .
-	pylama --skip learners .
+	pylama --skip tests/run_test.py,learners/facmac/learners/facmac_learner_discrete.py,learners/facmac/learners/facmac_learner.py .
 	pylint *.py
 	mypy .
 

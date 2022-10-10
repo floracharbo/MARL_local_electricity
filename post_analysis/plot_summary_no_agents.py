@@ -20,6 +20,70 @@ from utils.userdeftools import (data_source, distr_learning, initialise_dict,
                                 reward_type)
 
 
+def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):
+    if os.path.exists(PATH + f'run{run}/inputData/prm.npy'):
+        prm = np.load(
+            PATH + f'run{run}/inputData/prm.npy',
+            allow_pickle=True).item()
+    else:
+        prm = np.load(PATH + f'run{run}/inputData/syst.npy',
+                      allow_pickle=True).item()
+        prm['RL'] = np.load(PATH + f'run{run}/inputData/lp.npy',
+                            allow_pickle=True).item()
+        prm['syst'] = prm['prm']
+    if 'paths' not in prm:
+        with open("/Users/floracharbonnier/Documents/GitHub/dphil/"
+                  "inputs/paths.yaml", "r") as f:
+            prm['paths'] = yaml.safe_load(f)
+    if not server:
+        prm['paths']['main_dir'] = Path(MAIN_DIR_NOT_SERVER)
+    prm['paths']['current_path'] = \
+        Path('/Users/floracharbonnier/Documents/GitHub/dphil')
+    prm['paths']['input_folder'] = 'Inputs'
+    prm, _, _ = initialise_objects(
+        prm, no_run=run, initialise_record=False)
+    if n_ag == 1:
+        prm['RL']['type_eval'] = \
+            [e for e in prm['RL']['type_eval']
+             if distr_learning(e) == 'd' or e in ['baseline', 'opt']]
+    metrics = np.load(
+        PATH + f'run{run}/figures/metrics.npy',
+        allow_pickle=True).item()
+
+    if run < 254:
+        prm['RL']['type_eval'] = \
+            [t for t in prm['RL']['type_eval']
+             if t == 'opt' or data_source[t] == 'opt']
+
+    return prm, metrics
+
+
+def _metrics_to_results(prm, n_ag, to_plot, res, res_entries, metrics):
+    for type_eval in \
+            [type_eval for type_eval in prm['RL']['type_eval']
+             if type_eval != 'baseline']:
+        if n_ag > 1 or type_eval == 'opt':
+            type_evals = [type_eval]
+        else:
+            type_evals = \
+                [f"{data_source[type_eval]}_{reward_type(type_eval)}_{e}"
+                 for e in ['c', 'd']]
+
+        for t_ in type_evals:
+            if t_ in to_plot:
+                if t_ in res['xs'].keys():
+                    res['xs'][t_].append(n_ag)
+                    for key in res_entries[1:]:
+                        res[key][t_].append(
+                            metrics['end_bl'][key][type_eval])
+                else:
+                    res['xs'][t_] = [n_ag]
+                    for key in res_entries[1:]:
+                        res[key][t_] = [metrics['end_bl'][key][type_eval]]
+
+    return res
+
+
 def plot_results_vs_nag():
     """
     Plot comparison results across runs.
@@ -36,7 +100,6 @@ def plot_results_vs_nag():
     server = 0 if current_path[0: len(PERSONAL_PATH)] == PERSONAL_PATH else 1
     PATH0 = '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/Python/Phase2/'
     PATH = PATH0 + 'results/results_EPGbeast/'
-    didlabel = []
     res_entries = ['xs', 'ave', 'std', 'p25', 'p50', 'p75']
     res = initialise_dict(res_entries, 'empty_dict')
 
@@ -179,65 +242,10 @@ def plot_results_vs_nag():
     else:
         fig = plt.figure(figsize=(5.023, 2.953))
     for n_ag, run in zip(n_ags, runs):
-        if os.path.exists(PATH + f'run{run}/inputData/prm.npy'):
-            prm = np.load(
-                PATH + f'run{run}/inputData/prm.npy',
-                allow_pickle=True).item()
-        else:
-            prm = np.load(PATH + f'run{run}/inputData/syst.npy',
-                          allow_pickle=True).item()
-            prm['RL'] = np.load(PATH + f'run{run}/inputData/lp.npy',
-                                allow_pickle=True).item()
-            prm['syst'] = prm['prm']
-        print(f"l183 plot summary server {server}")
-        if 'paths' not in prm:
-            with open("/Users/floracharbonnier/Documents/GitHub/dphil/"
-                      "inputs/paths.yaml", "r") as f:
-                prm['paths'] = yaml.safe_load(f)
-        if not server:
-            prm['paths']['main_dir'] = Path(MAIN_DIR_NOT_SERVER)
-        prm['paths']['current_path'] = \
-            Path('/Users/floracharbonnier/Documents/GitHub/dphil')
-        prm['paths']['input_folder'] = 'Inputs'
-        prm, _, _ = initialise_objects(
-            prm, no_run=run, initialise_record=False)
-        if n_ag == 1:
-            prm['RL']['type_eval'] = \
-                [e for e in prm['RL']['type_eval']
-                 if distr_learning(e) == 'd' or e in ['baseline', 'opt']]
-        metrics = np.load(
-            PATH + f'run{run}/figures/metrics.npy',
-            allow_pickle=True).item()
-
-        if run < 254:
-            prm['RL']['type_eval'] = \
-                [t for t in prm['RL']['type_eval']
-                 if t == 'opt' or data_source[t] == 'opt']
-
-        for type_eval in \
-                [type_eval for type_eval in prm['RL']['type_eval']
-                 if type_eval != 'baseline']:
-            if n_ag > 1 or type_eval == 'opt':
-                type_evals = [type_eval]
-            else:
-                type_evals = \
-                    [f"{data_source[type_eval]}_{reward_type(type_eval)}_{e}"
-                        for e in ['c', 'd']]
-
-            for t_ in type_evals:
-                if t_ in to_plot:
-                    if t_ in res['xs'].keys():
-                        res['xs'][t_].append(n_ag)
-                        for key in res_entries[1:]:
-                            res[key][t_].append(
-                                metrics['end_bl'][key][type_eval])
-                    else:
-                        res['xs'][t_] = [n_ag]
-                        for key in res_entries[1:]:
-                            res[key][t_] = [metrics['end_bl'][key][type_eval]]
-
-                    if not (t_ in didlabel or n_ag == 1):
-                        didlabel.append(t_)
+        prm, metrics = _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag)
+        res = _metrics_to_results(
+            prm, n_ag, to_plot, res, res_entries, metrics
+        )
 
     # 3 too shallow, 3.3 too deep, 3.15 slightly too deep
     # fig = plt.figure(figsize=(5.25*0.95**2*0.98*0.99*0.8*0.9*1.39,5.25*0.8))
@@ -255,8 +263,6 @@ def plot_results_vs_nag():
         order = np.argsort(res['xs'][type_eval])
         for key in res_entries:
             res[key][type_eval] = [res[key][type_eval][i] for i in order]
-        line_style = 'dotted' if type_eval == 'opt' else (
-            '--' if distr_learning(type_eval) == 'd' else '-')
         line_style = 'dotted' if type_eval == 'opt' else '-'
         color = prm['save']['colorse'][type_eval] \
             if type_eval == 'opt' \

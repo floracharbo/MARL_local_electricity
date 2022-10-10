@@ -104,6 +104,31 @@ def _title_and_save(
     return fig
 
 
+def _barplot_text_labels(ax, text_labels):
+    if text_labels:
+        rects = ax.patches
+        for rect in rects:
+            height = rect.get_height()
+            label_height = height
+            ax.text(rect.get_x() + rect.get_width() / 2, height,
+                    '%.3f' % float(label_height),
+                    ha='center', va='bottom', fontsize=9)
+
+    return ax
+
+
+def _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm):
+    if baseline is not None:
+        drawbsl = 0 if title[0:7] == 'Average' else baseline
+        ax.axhline(drawbsl, linestyle='--', color="k")
+    if opt is not None:
+        drawopt = opt - baseline if title[0:7] == 'Average' else opt
+        ax.axhline(drawopt, linestyle='--',
+                   color=prm['save']['colorse']['opt'])
+
+    return ax
+
+
 def _barplot(
         bars, eval_types, prm, baseline=None, opt=None, text_labels=True,
         colors=None, error=None, title=None, display_title=True,
@@ -119,6 +144,7 @@ def _barplot(
         fig, ax = plt.subplots(figsize=(3.25, 7 * 0.75))
     else:
         ax = ax0
+
     for ind_e in range(n_evaltype):
         rsir = rs[ind_e]
         err = None if error is None else error[ind_e]
@@ -126,30 +152,23 @@ def _barplot(
         barplot = barplot - baseline if title[0:7] == 'Average' else barplot
         ax.bar(rsir, barplot, yerr=err, capsize=10, width=barWidth,
                edgecolor='white', label=eval_types[ind_e], color=colors[ind_e])
-    if baseline is not None:
-        drawbsl = 0 if title[0:7] == 'Average' else baseline
-        ax.axhline(drawbsl, linestyle='--', color="k")
+
+    ax = _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm)
+
     if title[0:7] == 'Average' \
             and lower_bound is not None \
             and upper_bound is not None:
         plt.ylim([lower_bound, upper_bound])
-    if opt is not None:
-        drawopt = opt - baseline if title[0:7] == 'Average' else opt
-        ax.axhline(drawopt, linestyle='--',
-                   color=prm['save']['colorse']['opt'])
 
-    if text_labels:
-        rects = ax.patches
-        for rect in rects:
-            height = rect.get_height()
-            label_height = height
-            ax.text(rect.get_x() + rect.get_width() / 2, height,
-                    '%.3f' % float(label_height),
-                    ha='center', va='bottom', fontsize=9)
+    ax = _barplot_text_labels(ax, text_labels)
+
     if not display_ticks:
         plt.gca().set_yticks([])
 
     plt.gca().set_xticks([])
+
+    if title is not None and display_title:
+        ax.set_title(title)
 
     if display_legend:
         if ax0 is None:
@@ -162,13 +181,10 @@ def _barplot(
                 loc='center right', bbox_to_anchor=(1.2, 0.5), fancybox=True
             )
 
-    if title is not None and display_title:
-        ax.set_title(title)
-
-    if ax0 is None:
-        return fig
-    else:
+    if ax0 is not None:
         return ax
+    else:
+        return fig
 
 
 def _eval_entries_plot_colors(prm):
@@ -299,7 +315,256 @@ def _plot_grid_price(
     ax2.set_ylim([ylim[0], ylim[1] * 1.15])
 
 
-def _plotting_res(root, prm, indiv=True, list_ridx=None):
+def _get_bands_EV_availability(bEV, a):
+    bands_bEV = []
+    non_avail = [i for i in range(24) if bEV[a][i] == 0]
+    if len(non_avail) > 0:
+        current_band = [non_avail[0]]
+        if len(non_avail) > 1:
+            for i in range(1, len(non_avail)):
+                if non_avail[i] != non_avail[i - 1] + 1:
+                    current_band.append(non_avail[i - 1] + 0.99)
+                    bands_bEV.append(current_band)
+                    current_band = [non_avail[i]]
+        current_band.append(non_avail[-1] + 0.999)
+        bands_bEV.append(current_band)
+
+    return bands_bEV
+
+
+def _plot_indiv_agent_res(
+        prm, all_methods_to_plot, root, title_ylabel_dict,
+        colors_non_methods, lw_indiv, labels
+):
+    # Grid price / intensity
+    # Heating E
+    # Action variable
+    # Indoor temperature
+    # Total consumption
+    # EV load / availability
+    # Cumulative rewards
+    # Battery level
+    for ridx in range(prm['RL']['n_repeats']):
+        last, cintensity_kg, methods_to_plot = \
+            _get_ridx_data(ridx, all_methods_to_plot, root)
+
+        # plot EV availability + EV cons on same plot
+        lEV, bEV = [[last['batch'][a][e]
+                     for a in range(prm['ntw']['n'])]
+                    for e in ['loads_EV', 'avail_EV']]
+
+        for a in range(min(prm['ntw']['n'],
+                           prm['save']['max_n_profiles_plot'])):
+            xs = range(len(lEV[a]))
+            bands_bEV = _get_bands_EV_availability(bEV, a)
+
+            fig, axs = plt.subplots(4, 2, figsize=(13, 13))
+
+            # carbon intensity, wholesale price and grid cost coefficient
+            _plot_grid_price(
+                title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
+                row=0, col=0, last=last,
+                colors_non_methods=colors_non_methods, lw=lw_indiv)
+
+            # EV loads and availability
+            ax = axs[2, 1]
+            ax.step(xs[0:24], lEV[a][0:24], color='k', where='post')
+            for band in bands_bEV:
+                ax.axvspan(band[0], band[1], alpha=0.3, color='grey')
+            ax.set_ylabel('EV load [kWh]')
+            grey_patch = matplotlib.patches.Patch(
+                alpha=0.3, color='grey', label='EV unavailable')
+            ax.legend(handles=[grey_patch], fancybox=True)
+
+            # cum rewards
+            _plot_cum_rewards(
+                axs, last, methods_to_plot, labels, prm,
+                row=3, col=0, lw=lw_indiv)
+
+            # indoor air temp
+            _plot_indoor_air_temp(
+                axs, methods_to_plot, last,
+                title_ylabel_dict, prm, a,
+                row=1, col=1, lw=lw_indiv
+            )
+
+            rows = [1, 2, 0, 3]
+            columns = [0, 0, 1, 1]
+            entries = ['action', 'totcons', 'tot_E_heat', 'store']
+            for r, c, e in zip(rows, columns, entries):
+                ax = axs[r, c]
+                for t in methods_to_plot:
+                    xs = [-0.01] + list(range(24))
+                    ys = last[e][t]
+                    ys = [ys[step][a] for step in range(len(ys))]
+                    if e == 'store' and t == 'opt':
+                        ys = ys + [prm['bat']['store0'][a]]
+                    elif e == 'store':
+                        ys = [prm['bat']['store0'][a]] + ys
+
+                    ax.step(xs, ys, where='post', label=t,
+                            color=prm['save']['colorse'][t],
+                            lw=lw_indiv)
+                axs[r, c].set_ylabel(
+                    f'{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}')
+                axs[3, c].set_xlabel('Time [h]')
+
+            fig.tight_layout()
+            title = f'subplots example day repeat {ridx} a {a}'
+            title_display = 'subplots example day'
+            subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+            for r in range(4):
+                for c in range(2):
+                    axs[r, c].set_title(subtitles[r + c * 4])
+            _formatting_figure(
+                fig=fig, title=title,
+                fig_folder=prm['paths']['fig_folder'],
+                save_run=prm['save']['save_run'], legend=False,
+                high_res=prm['save']['high_res'], display_title=False,
+                title_display=title_display)
+
+
+def _plot_all_agents_all_ridx_res(
+        list_ridx, all_methods_to_plot, root, title_ylabel_dict,
+        axs, colors_non_methods, lw_indiv, labels,
+        alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
+        rows, columns, entries, all_vals
+):
+    for ridx in list_ridx:
+        last, cintensity_kg, methods_to_plot = _get_ridx_data(
+            ridx, all_methods_to_plot, root)
+        _plot_grid_price(
+            title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
+            row=0, col=0, last=last,
+            colors_non_methods=colors_non_methods, lw=lw_indiv)
+
+        cum_rewards_ridx = _plot_cum_rewards(
+            axs, last, methods_to_plot, labels, prm, row=3,
+            col=0, alpha=alpha_not_indiv, lw=lw_all,
+            display_labels=False)
+        for t in all_methods_to_plot:
+            all_cum_rewards[t].append(cum_rewards_ridx[t])
+        for a in range(prm['ntw']['n']):
+            T_air_a = _plot_indoor_air_temp(
+                axs, methods_to_plot, last, title_ylabel_dict,
+                prm, a, row=1, col=1, alpha=alpha_not_indiv,
+                display_labels=False, lw=lw_all)
+            # returned is a dictionary per method of
+            # 24 h profie for that last epoch
+            for t in methods_to_plot:
+                all_T_air[t].append(T_air_a[t])
+
+        for r, c, e in zip(rows, columns, entries):
+            for a in range(prm['ntw']['n']):
+                for t in methods_to_plot:
+                    xs, ys = list(range(24)), last[e][t]
+                    ys = [ys[step][a] for step in range(len(ys))]
+                    if e == 'store':
+                        xs = [-0.01] + xs
+                        ys = [prm['bat']['store0'][a]] + ys
+                    axs[r, c].step(xs, ys, where='post',
+                                   color=prm['save']['colorse'][t],
+                                   lw=lw_all, alpha=alpha_not_indiv)
+                    all_vals[e][t].append(ys)
+                axs[r, c].set_ylabel(
+                    f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
+                if r == 2:
+                    axs[r, c].set_xlabel('Time [h]')
+
+    return axs
+
+
+def _plot_all_agents_mean_res(
+        entries, all_methods_to_plot, axs, all_T_air,
+        prm, lw_mean, all_cum_rewards, labels,
+        rows, columns, all_vals
+):
+    means = initialise_dict(['T_air', 'cum_rewards'] + entries,
+                            'empty_dict')
+    for t in all_methods_to_plot:
+        axs[1, 1].step(range(24), np.mean(all_T_air[t], axis=0),
+                       where='post', label=t,
+                       color=prm['save']['colorse'][t],
+                       lw=lw_mean, alpha=1)
+        means['T_air'][t] = np.mean(all_T_air[t], axis=0)
+
+        axs[3, 0].plot([- 0.01] + list(range(24)),
+                       [0] + list(np.mean(all_cum_rewards[t], axis=0)),
+                       label=labels[t],
+                       color=prm['save']['colorse'][t],
+                       lw=lw_mean, alpha=1)
+        means['cum_rewards'][t] = np.mean(all_T_air[t], axis=0)
+        for r, c, e in zip(rows, columns, entries):
+            xs = list(range(24))
+            if e == 'store':
+                xs = [-0.01] + xs
+            axs[r, c].step(xs, np.mean(all_vals[e][t], axis=0),
+                           where='post', label=t,
+                           color=prm['save']['colorse'][t],
+                           lw=lw_mean, alpha=1)
+            means[e][t] = np.mean(all_vals[e][t], axis=0)
+
+    return axs
+
+
+def _plot_all_agents_res(
+        list_ridx, lw_all, prm, lw_all_list_ridx, all_methods_to_plot,
+        root, title_ylabel_dict, colors_non_methods, labels,
+        lw_indiv, alpha_not_indiv, lw_mean
+):
+    # do one figure with all agents and repeats
+    title_ridx = 'all_ridx' if list_ridx is None \
+        else f'ridx_{list_ridx}'
+    lw_all = lw_all if list_ridx is None else lw_all_list_ridx
+    list_ridx = range(prm['RL']['n_repeats']) \
+        if list_ridx is None else list_ridx
+
+    # Action variable
+    # Heating E
+    # Total consumption
+    # Indoor temperature
+    # Cumulative rewards
+    # Battery level
+    fig, axs = plt.subplots(4, 2, figsize=(13, 13))
+    all_cum_rewards = initialise_dict(all_methods_to_plot)
+    all_T_air = initialise_dict(all_methods_to_plot)
+    rows = [1, 2, 0, 2]
+    columns = [0, 0, 1, 1]
+    entries = ['action', 'totcons', 'tot_E_heat', 'store']
+    all_vals = initialise_dict(
+        entries, second_level_entries=all_methods_to_plot
+    )
+
+    axs = _plot_all_agents_all_ridx_res(
+        list_ridx, all_methods_to_plot, root, title_ylabel_dict,
+        axs, colors_non_methods, lw_indiv, labels,
+        alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
+        rows, columns, entries, all_vals
+    )
+    axs = _plot_all_agents_mean_res(
+        entries, all_methods_to_plot, axs, all_T_air,
+        prm, lw_mean, all_cum_rewards, labels,
+        rows, columns, all_vals
+    )
+
+    fig.tight_layout()
+    title = f'subplots example day all agents {title_ridx}'
+    title_display = 'subplots example day'
+    subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    for r in range(4):
+        for c in range(2):
+            axs[r, c].set_title(subtitles[r + c * 4])
+    _formatting_figure(
+        fig=fig, title=title,
+        fig_folder=prm['paths']['fig_folder'],
+        save_run=prm['save']['save_run'], legend=False,
+        high_res=prm['save']['high_res'],
+        display_title=False,
+        title_display=title_display
+    )
+
+
+def _plot_res(root, prm, indiv=True, list_ridx=None):
     # indiv = plot figure for one agent at a time
     # if false, do all the lines on the same plot in light
     # with one thick line average
@@ -322,7 +587,7 @@ def _plotting_res(root, prm, indiv=True, list_ridx=None):
         'store': ['Battery level', '[kWh]'],
         'store_outs': ['Discharge', '[kWh]'],
         'netp': ['Total household imports', '[kWh]'],
-        'action': ['Action variable', '$\psi$ [-]']
+        'action': ['Action variable', r"$\psi$ [-]"]
     }
 
     lw_indiv = 2
@@ -349,220 +614,15 @@ def _plotting_res(root, prm, indiv=True, list_ridx=None):
             labels[t] = label
 
     if indiv:  # do one figure per agent and per repeat
-        # Grid price / intensity
-        # Heating E
-        # Action variable
-        # Indoor temperature
-        # Total consumption
-        # EV load / availability
-        # Cumulative rewards
-        # Battery level
-        for ridx in range(prm['RL']['n_repeats']):
-            last, cintensity_kg, methods_to_plot = \
-                _get_ridx_data(ridx, all_methods_to_plot, root)
-
-            # plot EV availability + EV cons on same plot
-            lEV, bEV = [[last['batch'][a][e]
-                         for a in range(prm['ntw']['n'])]
-                        for e in ['loads_EV', 'avail_EV']]
-            if ridx == 14:
-                print(f"lEV {lEV}")
-            for a in range(min(prm['ntw']['n'],
-                               prm['save']['max_n_profiles_plot'])):
-                lEVa = [load for load in lEV[a]]
-                xs = [i for i in range(len(lEV[a]))]
-                bands_bEV = []
-                non_avail = [i for i in range(24) if bEV[a][i] == 0]
-                if len(non_avail) > 0:
-                    current_band = [non_avail[0]]
-                    if len(non_avail) > 1:
-                        for i in range(1, len(non_avail)):
-                            if non_avail[i] != non_avail[i - 1] + 1:
-                                current_band.append(non_avail[i - 1] + 0.99)
-                                bands_bEV.append(current_band)
-                                current_band = [non_avail[i]]
-                    current_band.append(non_avail[-1] + 0.999)
-                    bands_bEV.append(current_band)
-
-                fig, axs = plt.subplots(4, 2, figsize=(13, 13))
-
-                # carbon intensity, wholesale price and grid cost coefficient
-                _plot_grid_price(
-                    title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
-                    row=0, col=0, last=last,
-                    colors_non_methods=colors_non_methods, lw=lw_indiv)
-
-                # EV loads and availability
-                ax = axs[2, 1]
-                ax.step(xs[0:24], lEVa[0:24], color='k', where='post')
-                for band in bands_bEV:
-                    ax.axvspan(band[0], band[1], alpha=0.3, color='grey')
-                ax.set_ylabel('EV load [kWh]')
-                grey_patch = matplotlib.patches.Patch(
-                    alpha=0.3, color='grey', label='EV unavailable')
-                ax.legend(handles=[grey_patch], fancybox=True)
-
-                # cum rewards
-                cumrewards = _plot_cum_rewards(
-                    axs, last, methods_to_plot, labels, prm,
-                    row=3, col=0, lw=lw_indiv)
-                if ridx == 14 and a == 0:
-                    print(f"ridx {ridx} a {a} ")
-                    for t in cumrewards.keys():
-                        print(f"final cumrewards[{t}] = {cumrewards[t][-1]}")
-                # indoor air temp
-                _plot_indoor_air_temp(
-                    axs, methods_to_plot, last,
-                    title_ylabel_dict, prm, a,
-                    row=1, col=1, lw=lw_indiv
-                )
-
-                rows = [1, 2, 0, 3]
-                columns = [0, 0, 1, 1]
-                entries = ['action', 'totcons', 'tot_E_heat', 'store']
-                for r, c, e in zip(rows, columns, entries):
-                    ax = axs[r, c]
-                    for t in methods_to_plot:
-                        xs = [-0.01] + list(range(24))
-                        ys = last[e][t]
-                        ys = [ys[step][a] for step in range(len(ys))]
-                        if e == 'store' and t == 'opt':
-                            ys = ys + [prm['bat']['store0'][a]]
-                        elif e == 'store':
-                            ys = [prm['bat']['store0'][a]] + ys
-
-                        if e == 'totcons' \
-                                and ridx == 14 \
-                                and a == 0 \
-                                and t in ['opt_d_d', 'baseline']:
-                            print(f"totcons ridx {ridx} a {a} "
-                                  f"sum(ys) {sum(ys)} t {t}")
-                        ax.step(xs, ys, where='post', label=t,
-                                color=prm['save']['colorse'][t],
-                                lw=lw_indiv)
-                    axs[r, c].set_ylabel(
-                        f'{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}')
-                    if r == 3:
-                        axs[r, c].set_xlabel('Time [h]')
-
-                fig.tight_layout()
-                title = f'subplots example day repeat {ridx} a {a}'
-                title_display = 'subplots example day'
-                subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-                for r in range(4):
-                    for c in range(2):
-                        axs[r, c].set_title(subtitles[r + c * 4])
-                _formatting_figure(
-                    fig=fig, title=title,
-                    fig_folder=prm['paths']['fig_folder'],
-                    save_run=prm['save']['save_run'], legend=False,
-                    high_res=prm['save']['high_res'], display_title=False,
-                    title_display=title_display)
-
+        _plot_indiv_agent_res(
+            prm, all_methods_to_plot, root, title_ylabel_dict,
+            colors_non_methods, lw_indiv, labels
+        )
     elif not indiv:
-        # do one figure with all agents and repeats
-        title_ridx = 'all_ridx' if list_ridx is None \
-            else f'ridx_{list_ridx}'
-        lw_all = lw_all if list_ridx is None else lw_all_list_ridx
-        list_ridx = range(prm['RL']['n_repeats']) \
-            if list_ridx is None else list_ridx
-
-        # Action variable
-        # Heating E
-        # Total consumption
-        # Indoor temperature
-        # Cumulative rewards
-        # Battery level
-        fig, axs = plt.subplots(4, 2, figsize=(13, 13))
-        all_cum_rewards = initialise_dict(all_methods_to_plot)
-        all_T_air = initialise_dict(all_methods_to_plot)
-        rows = [1, 2, 0, 2]
-        columns = [0, 0, 1, 1]
-        entries = ['action', 'totcons', 'tot_E_heat', 'store']
-        all_vals = initialise_dict(entries)
-        for e in entries:
-            all_vals[e] = initialise_dict(all_methods_to_plot)
-
-        for ridx in list_ridx:
-            last, cintensity_kg, methods_to_plot = _get_ridx_data(
-                ridx, all_methods_to_plot, root)
-            _plot_grid_price(
-                title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
-                row=0, col=0, last=last,
-                colors_non_methods=colors_non_methods, lw=lw_indiv)
-
-            cum_rewards_ridx = _plot_cum_rewards(
-                axs, last, methods_to_plot, labels, prm, row=3,
-                col=0, alpha=alpha_not_indiv, lw=lw_all,
-                display_labels=False)
-            for t in all_methods_to_plot:
-                all_cum_rewards[t].append(cum_rewards_ridx[t])
-            for a in range(prm['ntw']['n']):
-                T_air_a = _plot_indoor_air_temp(
-                    axs, methods_to_plot, last, title_ylabel_dict,
-                    prm, a, row=1, col=1, alpha=alpha_not_indiv,
-                    display_labels=False, lw=lw_all)
-                # returned is a dictionary per method of
-                # 24 h profie for that last epoch
-                for t in methods_to_plot:
-                    all_T_air[t].append(T_air_a[t])
-
-            for r, c, e in zip(rows, columns, entries):
-                for a in range(prm['ntw']['n']):
-                    for t in methods_to_plot:
-                        xs, ys = list(range(24)), last[e][t]
-                        ys = [ys[step][a] for step in range(len(ys))]
-                        if e == 'store':
-                            xs = [-0.01] + xs
-                            ys = [prm['bat']['store0'][a]] + ys
-                        axs[r, c].step(xs, ys, where='post',
-                                       color=prm['save']['colorse'][t],
-                                       lw=lw_all, alpha=alpha_not_indiv)
-                        all_vals[e][t].append(ys)
-                    axs[r, c].set_ylabel(
-                        f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
-                    if r == 2:
-                        axs[r, c].set_xlabel('Time [h]')
-
-        means = initialise_dict(['T_air', 'cum_rewards'] + entries,
-                                'empty_dict')
-        for t in all_methods_to_plot:
-            axs[1, 1].step(range(24), np.mean(all_T_air[t], axis=0),
-                           where='post', label=t,
-                           color=prm['save']['colorse'][t],
-                           lw=lw_mean, alpha=1)
-            means['T_air'][t] = np.mean(all_T_air[t], axis=0)
-
-            axs[3, 0].plot([- 0.01] + list(range(24)),
-                           [0] + list(np.mean(all_cum_rewards[t], axis=0)),
-                           label=labels[t],
-                           color=prm['save']['colorse'][t],
-                           lw=lw_mean, alpha=1)
-            means['cum_rewards'][t] = np.mean(all_T_air[t], axis=0)
-            for r, c, e in zip(rows, columns, entries):
-                xs = list(range(24))
-                if e == 'store':
-                    xs = [-0.01] + xs
-                axs[r, c].step(xs, np.mean(all_vals[e][t], axis=0),
-                               where='post', label=t,
-                               color=prm['save']['colorse'][t],
-                               lw=lw_mean, alpha=1)
-                means[e][t] = np.mean(all_vals[e][t], axis=0)
-
-        fig.tight_layout()
-        title = f'subplots example day all agents {title_ridx}'
-        title_display = 'subplots example day'
-        subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-        for r in range(4):
-            for c in range(2):
-                axs[r, c].set_title(subtitles[r + c * 4])
-        _formatting_figure(
-            fig=fig, title=title,
-            fig_folder=prm['paths']['fig_folder'],
-            save_run=prm['save']['save_run'], legend=False,
-            high_res=prm['save']['high_res'],
-            display_title=False,
-            title_display=title_display
+        _plot_all_agents_res(
+            list_ridx, lw_all, prm, lw_all_list_ridx, all_methods_to_plot,
+            root, title_ylabel_dict, colors_non_methods, labels,
+            lw_indiv, alpha_not_indiv, lw_mean
         )
 
 
@@ -605,6 +665,8 @@ def _initialise_variables(prm, spaces, record, f):
 def _plot_mova_eval_per_ridx(
         ridx, eval_rewards, prm, n_window, eval_entries_plot
 ):
+    if not prm['save']['plot_indiv_repeats_rewards']:
+        return
     fig = plt.figure()
     mova_baseline = get_moving_average(
         [eval_rewards[ridx]['baseline']
@@ -631,7 +693,7 @@ def _plot_mova_eval_per_ridx(
 
 
 def _plot_epsilon(ridx, prm, record):
-    if record.eps != {}:
+    if 'eps' in record.__dict__.keys() and record.eps != {}:
         if type(record.eps[ridx][0]) is dict:
             fig = plt.figure()
             for t in prm['RL']['eval_action_choice']:
@@ -665,111 +727,147 @@ def _plot_epsilon(ridx, prm, record):
             plt.close('all')
 
 
-def _plot_best_psi(
-        ridx, q_tables, prm, record, possible_states,
-        index_to_val, eval_entries_plot_indiv, spaces
+def _plot_unique_state_best_psi(
+        prm, eval_entries_plot_indiv, best_theta, index_to_val,
+        possible_states, q, ridx
 ):
-    best_theta = initialise_dict(eval_entries_plot_indiv)
-    q = q_tables[ridx][prm['RL']['n_epochs'] - 1] \
-        if record.save_qtables else q_tables[ridx]
-    if prm['RL']['state_space'] == [None]:
-        for t in eval_entries_plot_indiv:
-            na = prm['ntw']['n'] if distr_learning(t) in ['d', 'Cd'] else 1
-            best_theta[t] = initialise_dict(range(na), type_obj='empty_dict')
-            for a in range(na):
-                best_theta[t][a] = np.zeros((possible_states,))
-                for s in range(possible_states):
-                    indmax = np.argmax(q[t][a][s])
-                    best_theta[t][a][s] = \
-                        index_to_val([indmax], typev='action')[0]
+    for t in eval_entries_plot_indiv:
+        na = prm['ntw']['n'] if distr_learning(t) in ['d', 'Cd'] else 1
+        best_theta[t] = initialise_dict(range(na), type_obj='empty_dict')
+        for a in range(na):
+            best_theta[t][a] = np.zeros((possible_states,))
+            for s in range(possible_states):
+                indmax = np.argmax(q[t][a][s])
+                best_theta[t][a][s] = \
+                    index_to_val([indmax], typev='action')[0]
 
-                # plot historgram of best theta per method
-                fig, ax = plt.subplots()
-                y_pos = np.arange(len(eval_entries_plot_indiv))
-                i_tables = [a if distr_learning(t) == 'd' else 0
-                            for t in eval_entries_plot_indiv]
-                best_thetas = \
-                    [best_theta[eval_entries_plot_indiv[it]][i_tables[it]][0]
-                        for it in range(len(eval_entries_plot_indiv))]
-                colors_bars = [prm['save']['colorse'][t]
-                               for t in eval_entries_plot_indiv
-                               if t[-1] != '0']
-                ax.bar(y_pos, best_thetas, align='center',
-                       alpha=0.5, color=colors_bars)
-                plt.ylim([0, 1])
-                title = f'best theta per method state None ' \
-                        f'repeat {ridx} a {a}'
-
-                ax.set_ylabel(r'best $\theta$ [-]')
-                _formatting_ticks(
-                    ax, fig, ys=eval_entries_plot_indiv,
-                    title=title,
-                    fig_folder=prm['paths']['fig_folder'],
-                    save_run=prm['save']['save_run'],
-                    high_res=prm['save']['high_res'],
-                    display_title=False
-                )
-
-    # if one dimensional state space - best theta[method, state]
-    elif prm['RL']['dim_states'] == 1:
-        for a in range(prm['ntw']['n']):
+            # plot historgram of best theta per method
             fig, ax = plt.subplots()
-            theta_M = []
-            for t in eval_entries_plot_indiv:
-                index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
-                theta_M.append([best_theta[t][index_a][int(s)]
-                                for s in range(possible_states)])
-            im = ax.imshow(theta_M, vmin=0, vmax=1)
-            title = f"best theta per method and per state state space " \
-                    f"{prm['RL']['statecomb_str']} repeat {ridx} a {a}"
+            y_pos = np.arange(len(eval_entries_plot_indiv))
+            i_tables = [a if distr_learning(t) == 'd' else 0
+                        for t in eval_entries_plot_indiv]
+            best_thetas = \
+                [best_theta[eval_entries_plot_indiv[it]][i_tables[it]][0]
+                 for it in range(len(eval_entries_plot_indiv))]
+            colors_bars = [prm['save']['colorse'][t]
+                           for t in eval_entries_plot_indiv
+                           if t[-1] != '0']
+            ax.bar(y_pos, best_thetas, align='center',
+                   alpha=0.5, color=colors_bars)
+            plt.ylim([0, 1])
+            title = f'best theta per method state None ' \
+                    f'repeat {ridx} a {a}'
+
+            ax.set_ylabel(r'best $\theta$ [-]')
             _formatting_ticks(
-                ax, fig, xs=eval_entries_plot_indiv,
-                ys=range(possible_states),
-                title=title, im=im,
-                grid=False,
+                ax, fig, ys=eval_entries_plot_indiv,
+                title=title,
                 fig_folder=prm['paths']['fig_folder'],
                 save_run=prm['save']['save_run'],
                 high_res=prm['save']['high_res'],
                 display_title=False
             )
 
+
+def _plot_1d_state_space_best_psi(
+        prm, eval_entries_plot_indiv, best_theta, possible_states, ridx
+):
+    for a in range(prm['ntw']['n']):
+        fig, ax = plt.subplots()
+        theta_M = []
+        for t in eval_entries_plot_indiv:
+            index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
+            theta_M.append([best_theta[t][index_a][int(s)]
+                            for s in range(possible_states)])
+        im = ax.imshow(theta_M, vmin=0, vmax=1)
+        title = f"best theta per method and per state state space " \
+                f"{prm['RL']['statecomb_str']} repeat {ridx} a {a}"
+        _formatting_ticks(
+            ax, fig, xs=eval_entries_plot_indiv,
+            ys=range(possible_states),
+            title=title, im=im,
+            grid=False,
+            fig_folder=prm['paths']['fig_folder'],
+            save_run=prm['save']['save_run'],
+            high_res=prm['save']['high_res'],
+            display_title=False
+        )
+
+
+def _plot_2d_state_space_best_psi(
+        prm, eval_entries_plot_indiv, record, possible_states,
+        spaces, best_theta, ridx
+):
+    for a in range(prm['ntw']['n']):
+        for i_t in range(len(eval_entries_plot_indiv)):
+            t = eval_entries_plot_indiv[i_t]
+            M = np.zeros((record.granularity_state0,
+                          record.granularity_state1))
+            index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
+            for s in range(possible_states):
+                s1, s2 = spaces.global_to_indiv_index(
+                    'state', s, multipliers=granularity_to_multipliers(
+                        [record.granularity_state0,
+                         record.granularity_state1]))
+                M[s1, s2] = best_theta[t][index_a][s]
+
+            fig, ax = plt.subplots()
+            plt.xlabel(prm['RL']['state_space'][1])
+            plt.ylabel(prm['RL']['state_space'][0])
+            im = ax.imshow(M, vmin=0, vmax=1)
+            title = f"best theta per state combination state space " \
+                    f"{prm['RL']['state_space']} repeat {ridx} a {a}"
+            _formatting_ticks(
+                ax, fig, ys=record.granularity_state1,
+                xs=record.granularity_state0,
+                title=title, im=im, grid=False,
+                fig_folder=prm['paths']['fig_folder'],
+                save_run=prm['save']['save_run'],
+                high_res=prm['save']['high_res'],
+                display_title=False
+            )
+
+
+def _plot_best_psi(
+        ridx, q_tables, prm, record, possible_states,
+        index_to_val, eval_entries_plot_indiv, spaces
+):
+    if not (
+            prm['RL']['type_learning'] == 'q_learning'
+            and prm['ntw']['n'] < 4
+    ):
+        return
+
+    best_theta = initialise_dict(eval_entries_plot_indiv)
+    q = q_tables[ridx][prm['RL']['n_epochs'] - 1] \
+        if record.save_qtables else q_tables[ridx]
+    if prm['RL']['state_space'] == [None]:
+        _plot_unique_state_best_psi(
+            prm, eval_entries_plot_indiv, best_theta, index_to_val,
+            possible_states, q, ridx
+        )
+
+    # if one dimensional state space - best theta[method, state]
+    elif prm['RL']['dim_states'] == 1:
+        _plot_1d_state_space_best_psi(
+            prm, eval_entries_plot_indiv, best_theta, possible_states, ridx
+        )
+
     # if two dimensional state space heatmap for each method
     # besttheta[state1, state2]
     elif prm['RL']['dim_states'] == 2:
-        for a in range(prm['ntw']['n']):
-            for i_t in range(len(eval_entries_plot_indiv)):
-                t = eval_entries_plot_indiv[i_t]
-                M = np.zeros((record.granularity_state0,
-                              record.granularity_state1))
-                index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
-                for s in range(possible_states):
-                    s1, s2 = spaces.global_to_indiv_index(
-                        'state', s, multipliers=granularity_to_multipliers(
-                            [record.granularity_state0,
-                             record.granularity_state1]))
-                    M[s1, s2] = best_theta[t][index_a][s]
-
-                fig, ax = plt.subplots()
-                plt.xlabel(prm['RL']['state_space'][1])
-                plt.ylabel(prm['RL']['state_space'][0])
-                im = ax.imshow(M, vmin=0, vmax=1)
-                title = f"best theta per state combination state space " \
-                        f"{prm['RL']['state_space']} repeat {ridx} a {a}"
-                _formatting_ticks(
-                    ax, fig, ys=record.granularity_state1,
-                    xs=record.granularity_state0,
-                    title=title, im=im, grid=False,
-                    fig_folder=prm['paths']['fig_folder'],
-                    save_run=prm['save']['save_run'],
-                    high_res=prm['save']['high_res'],
-                    display_title=False
-                )
+        _plot_2d_state_space_best_psi(
+            prm, eval_entries_plot_indiv, record, possible_states,
+            spaces, best_theta, ridx
+        )
 
 
 def _plot_q_values(
         q_tables, ridx, prm, eval_entries_plot_indiv,
         index_to_val, q_entries
 ):
+    if prm['RL']['type_learning'] != 'q_learning':
+        return
     # plot all values in one figure if there is only one state
     if prm['RL']['state_space'] == [None] and prm['ntw']['n'] < 4:
         for a in range(prm['ntw']['n']):
@@ -798,40 +896,52 @@ def _plot_q_values(
                 high_res=prm['save']['high_res'], display_title=False)
 
 
+def _plot_noisy_deterministic_inputs(prm, batch_entries, record, ridx):
+    seeds = np.load(prm['paths']['seeds_path'])
+    heatavail = {}
+    for e in batch_entries:
+        fig, axs = plt.subplots(prm['ntw']['n'], 1, squeeze=0)
+        axs = axs.ravel()
+        for a in range(prm['ntw']['n']):
+            n = len(np.load(f'batch_{int(seeds[0] + 1)}_a0_lds.npy',
+                            mmap_mode='c'))
+            heatavail[a] = np.zeros((n,))
+            for seed in record.seed[ridx]:
+                str_seed = str(int(seed)) if seed > seeds[0] + 1 else \
+                    f'deterministic_{record.ind_seed_deterministic[ridx]}'
+                str_batch = f'batch_{str_seed}_a{a}_{e}.npy'
+                if os.path.exists(str_batch):
+                    batch_a_e = np.load(str_batch, mmap_mode='c')
+                    if e == 'avail_EV':
+                        heatavail[a] += batch_a_e
+                    else:
+                        axs[a].plot(
+                            batch_a_e, alpha=1 / prm['RL']['n_epochs'])
+            if e == 'avail_EV':
+                heatavail_plot = np.reshape(heatavail[a], (1, n))
+                sns.heatmap(heatavail_plot, cmap="YlGn",
+                            cbar=True, ax=axs[a])
+        title = f"noisy repeat {ridx} {e}"
+        _title_and_save(
+            title, fig, prm['paths']['fig_folder'],
+            prm['save']['save_run']
+        )
+        fig.show()
+        fig.savefig(e)
+
+
 def _plot_env_input(ridx, prm, record):
+    if prm['RL']['deterministic'] is None \
+            or prm['RL']['deterministic'] == 0 \
+            or not prm['save']['plotting_batch']:
+        return
+
     batch_entries = ['loads', 'gen', 'lds_EV', 'avail_EV']
     if prm['RL']['deterministic'] == 2:
-        seeds = np.load(prm['paths']['seeds_path'])
-        heatavail = {}
-        for e in batch_entries:
-            fig, axs = plt.subplots(prm['ntw']['n'], 1, squeeze=0)
-            axs = axs.ravel()
-            for a in range(prm['ntw']['n']):
-                n = len(np.load(f'batch_{int(seeds[0] + 1)}_a0_lds.npy',
-                                mmap_mode='c'))
-                heatavail[a] = np.zeros((n,))
-                for seed in record.seed[ridx]:
-                    str_seed = str(int(seed)) if seed > seeds[0] + 1 else \
-                        f'deterministic_{record.ind_seed_deterministic[ridx]}'
-                    str_batch = f'batch_{str_seed}_a{a}_{e}.npy'
-                    if os.path.exists(str_batch):
-                        batch_a_e = np.load(str_batch, mmap_mode='c')
-                        if e == 'avail_EV':
-                            heatavail[a] += batch_a_e
-                        else:
-                            axs[a].plot(
-                                batch_a_e, alpha=1 / prm['RL']['n_epochs'])
-                if e == 'avail_EV':
-                    heatavail_plot = np.reshape(heatavail[a], (1, n))
-                    sns.heatmap(heatavail_plot, cmap="YlGn",
-                                cbar=True, ax=axs[a])
-            title = f"noisy repeat {ridx} {e}"
-            _title_and_save(
-                title, fig, prm['paths']['fig_folder'],
-                prm['save']['save_run']
-            )
-            fig.show()
-            fig.savefig(e)
+        # 0 is indeterministic, 1 is deterministic, 2 is deterministic noisy
+        _plot_noisy_deterministic_inputs(
+            prm, batch_entries, record, ridx
+        )
 
     else:
         if prm['RL']['deterministic'] == 1 \
@@ -860,6 +970,13 @@ def _video_visit_states(
         ridx, q_entries, counters, possible_states,
         prm, record, spaces
 ):
+    if prm['RL']['type_learning'] != 'q_learning' \
+            or not prm['save']['make_video'] \
+            or len(counters[0]) == 0 \
+            or prm['RL']['server'] \
+            or prm['RL']['state_space'] == [None]:
+        return
+
     import cv2
     counters = counters[ridx]
     rl = prm['RL']
@@ -882,6 +999,8 @@ def _video_visit_states(
                             [record.granularity_state0,
                              record.granularity_state1]))
                     counters_per_state[s1, s2] = sum(counters[epoch][t][s])
+                plt.ylabel(rl['state_space'][1])
+
             elif rl['dim_states'] == 1:
                 counters_per_state = \
                     np.zeros((record.granularity_state0, rl['n_action']))
@@ -891,14 +1010,12 @@ def _video_visit_states(
                     for a in range(rl['n_action']):
                         counters_per_state[s, a] = counters[epoch][t][s][a]
             else:
-                counters_per_state = np.zeros((possible_states, 1))
-                for s in range(possible_states):
-                    counters_per_state[s] = sum(counters[epoch][t][s])
+                counters_per_state = [
+                    sum(counters[epoch][t][s]) for s in range(possible_states)
+                ]
                 plt.xlabel(rl['state_space'][0])
             plt.imshow(counters_per_state, vmin=0, vmax=maxval)
 
-            if rl['dim_states'] == 2:
-                plt.ylabel(rl['state_space'][1])
             plt.colorbar()
             plt.close('all')
             if epoch == 0:  # initialise video
@@ -913,7 +1030,7 @@ def _video_visit_states(
                 out = cv2.VideoWriter(title, fourcc, 40.0, (width, height))
                 os.remove('fig.png')
             else:
-                figname = 'fig{}'.format(epoch)
+                figname = f'fig{epoch}'
                 fig.savefig(figname)
                 plt.close()
                 frame = cv2.imread(figname + '.png', 1)
@@ -926,6 +1043,10 @@ def _plot_final_explorations(
         ridx, prm, q_entries, action_state_space_0,
         state_space_0, record, counters
 ):
+    if prm['RL']['type_learning'] != 'q_learning' \
+            or len(counters[0]) == 0:
+        return
+
     rl = prm['RL']
     for t in q_entries:
         na = prm['ntw']['n'] if reward_type(t) == '1' else 1
@@ -1055,6 +1176,76 @@ def _plot_results_all_ridx(
     return lower_bound, upper_bound
 
 
+def _plot_compare_all_signs(
+        base_entries, colors_barplot_baseentries, metrics, m_, ave,
+        eval_entries_notCd, prm, lower_bound, upper_bound, m
+):
+    fig2 = plt.figure(figsize=(3.25, 7 * 0.75))
+    ax = plt.gca()
+    xs, colors_plot_end = {}, {}
+    for i in range(len(base_entries)):
+        splits = base_entries[i].split('_')
+        label = f"{splits[0]}_{splits[1]}" if len(splits) > 1 \
+            else base_entries[i]
+        xs[label] = i
+        colors_plot_end[label] = colors_barplot_baseentries[i]
+    baseline, opt = [metrics[m_][ave][e]
+                     if e in metrics[m_][ave] else None
+                     for e in ['baseline', 'opt']]
+    for e in eval_entries_notCd:
+        label = data_source(e) + '_' + reward_type(e) \
+            if len(e.split('_')) > 1 else e
+        distr_learning_to_ls = {
+            'd': 'o',
+            'c': 'x',
+            'Cc': '^'
+        }
+        if len(e.split('_')) < 2:
+            ls = 'o'
+        else:
+            ls = distr_learning_to_ls[distr_learning(e)]
+        legend = distr_learning(e) if len(e.split('_')) > 1 else e
+        to_plot = metrics[m_][ave][e] - baseline \
+            if m_ == 'end' else metrics[m_][ave][e]
+        ax.plot(xs[label], to_plot, ls,
+                color=colors_plot_end[label],
+                markeredgewidth=2, markerfacecolor="None",
+                label=legend, linewidth=2)
+    maxval = {}
+    for label in ['env_r', 'env_d', 'env_A', 'opt_r',
+                  'opt_d', 'opt_A', 'opt_n']:
+        if sum([label_[0: len(label)] == label
+                for label_ in metrics[m_]['ave'].keys()]) > 0:
+            maxval[label] = \
+                max([metrics[m_][ave][e]
+                     for e in metrics[m_][ave].keys()
+                     if len(e.split('_')) > 1
+                     and f"{data_source(e)}_{reward_type(e)}"
+                     == label])
+            plottext = maxval[label] - baseline \
+                if m_ == 'end' else maxval[label]
+            ax.text(xs[label], plottext + 0.01,
+                    s='%.3f' % float(plottext),
+                    ha='center', va='bottom', fontsize=9)
+    plotbaseline = 0 if m_ == 'end' else baseline
+    ax.axhline(plotbaseline, linestyle='--', color="k")
+    if opt is not None:
+        plotopt = opt - baseline if m_ == 'end' else opt
+        ax.axhline(plotopt, linestyle='--',
+                   color=prm['save']['colorse']['opt'])
+    title = 'compare all median 25-75th percentile' + m
+    if m_ == 'end':
+        plt.ylim([lower_bound, upper_bound])
+
+    ax = plt.gca()
+    ax.set_yticks([])
+    ax.set_xticks([])
+    _title_and_save(
+        title, fig2, prm['paths']['fig_folder'],
+        prm['save']['save_run'], high_res=prm['save']['high_res'],
+        display_title=False)
+
+
 def _barplot_metrics(
         prm, metrics, metric_entries, base_entries, colors_barplot_baseentries,
         eval_entries_notCd, eval_entries_bars, colors_barplot, lower_bound,
@@ -1101,29 +1292,11 @@ def _barplot_metrics(
             fig, axs = plt.subplots(2, 3)
         for m in metric_entries + [m + '_p50' for m in metric_entries[0:4]]:
             eval_entries_bars_ = eval_entries_bars
-            colors_barplot_ = [prm['save']['colorse'][e]
-                               for e in eval_entries_bars_]
             ave = 'ave'
             m_ = m
             if m[-3:] == 'p50':
                 ave = 'p50'
                 m_ = m[0:-4]
-
-            # if m == 'end_test_bl':
-            #     # add comparison with laptop run 504 (good facmac run)
-            #     metrics[m_][ave]['facmac'] = 0.10876560799027099
-            #     metrics[m_]['std']['facmac'] = 0.009784742346438599
-            #     eval_entries_bars_ += ["facmac"]
-            #     base_entries += ['facmac']
-            #     # colors_barplot_ += ['k']
-            #     colors_barplot_baseentries += ['k']
-            #     prm['save']['colorse']['facmac'] = 'k'
-            #
-            #     metrics[m_]['std']['facmac'] = 0
-            #
-            # elif 'facmac' in eval_entries_bars_:
-            #     eval_entries_bars_.remove('facmac')
-            #     base_entries.remove('facmac')
 
             colors_barplot_ = generate_colors(
                 prm["save"], prm, eval_entries_bars_, colours_only=True
@@ -1172,71 +1345,12 @@ def _barplot_metrics(
                         ax0=axs[i, j])
                     if j == 0:
                         axs[i, j].set_ylabel('£/home/h')
+
             # do end for with signs for each
-            fig2 = plt.figure(figsize=(3.25, 7 * 0.75))
-            ax = plt.gca()
-
-            xs, colors_plot_end = {}, {}
-            for i in range(len(base_entries)):
-                splits = base_entries[i].split('_')
-                label = f"{splits[0]}_{splits[1]}" if len(splits) > 1 \
-                    else base_entries[i]
-                xs[label] = i
-                colors_plot_end[label] = colors_barplot_baseentries[i]
-            baseline, opt = [metrics[m_][ave][e]
-                             if e in metrics[m_][ave] else None
-                             for e in ['baseline', 'opt']]
-            for e in eval_entries_notCd:
-                label = data_source(e) + '_' + reward_type(e) \
-                    if len(e.split('_')) > 1 else e
-                if len(e.split('_')) < 2:
-                    ls = 'o'
-                elif distr_learning(e) == 'd':
-                    ls = 'o'
-                elif distr_learning(e) == 'c':
-                    ls = 'x'
-                elif distr_learning(e) == 'Cc':
-                    ls = '^'
-                legend = distr_learning(e) if len(e.split('_')) > 1 else e
-                to_plot = metrics[m_][ave][e] - baseline \
-                    if m_ == 'end' else metrics[m_][ave][e]
-                ax.plot(xs[label], to_plot, ls,
-                        color=colors_plot_end[label],
-                        markeredgewidth=2, markerfacecolor="None",
-                        label=legend, linewidth=2)
-            maxval = {}
-            for label in ['env_r', 'env_d', 'env_A', 'opt_r',
-                          'opt_d', 'opt_A', 'opt_n']:
-                if sum([label_[0: len(label)] == label
-                        for label_ in metrics[m_]['ave'].keys()]) > 0:
-                    maxval[label] = \
-                        max([metrics[m_][ave][e]
-                             for e in metrics[m_][ave].keys()
-                             if len(e.split('_')) > 1
-                             and f"{data_source(e)}_{reward_type(e)}"
-                             == label])
-                    plottext = maxval[label] - baseline \
-                        if m_ == 'end' else maxval[label]
-                    ax.text(xs[label], plottext + 0.01,
-                            s='%.3f' % float(plottext),
-                            ha='center', va='bottom', fontsize=9)
-            plotbaseline = 0 if m_ == 'end' else baseline
-            ax.axhline(plotbaseline, linestyle='--', color="k")
-            if opt is not None:
-                plotopt = opt - baseline if m_ == 'end' else opt
-                ax.axhline(plotopt, linestyle='--',
-                           color=prm['save']['colorse']['opt'])
-            title = 'compare all median 25-75th percentile' + m
-            if m_ == 'end':
-                plt.ylim([lower_bound, upper_bound])
-
-            ax = plt.gca()
-            ax.set_yticks([])
-            ax.set_xticks([])
-            _title_and_save(
-                title, fig2, prm['paths']['fig_folder'],
-                prm['save']['save_run'], high_res=prm['save']['high_res'],
-                display_title=False)
+            _plot_compare_all_signs(
+                base_entries, colors_barplot_baseentries, metrics, m_, ave,
+                eval_entries_notCd, prm, lower_bound, upper_bound, m
+            )
 
     _formatting_figure(
         fig=fig, title='subplots_all_metrics',
@@ -1460,6 +1574,33 @@ def _distribution_savings(mean_eval_rewards_per_hh, prm, aggregate='daily'):
     )
 
 
+def _plot_eval_action_type_ridx(actions_, prm, type_eval, labels, mu, ridx):
+    fig = plt.figure()
+    for epoch in range(prm["RL"]["n_epochs"]):
+        if actions_[epoch] is None:
+            if type_eval != 'opt':
+                print(f"None in {type_eval}")
+            continue
+        for step in range(len(actions_[epoch])):
+            for home in range(len(actions_[epoch][step])):
+                if actions_[epoch][step][home][mu] is None:
+                    if type_eval != 'opt':
+                        print(f"None in {type_eval}")
+                    continue
+                plt.plot(
+                    epoch,
+                    actions_[epoch][step][home][mu],
+                    'o'
+                )
+    plt.ylabel(labels[mu])
+    plt.xlabel("Epoch")
+    title = f"actions {type_eval} mu {mu} {ridx}"
+    _title_and_save(
+        title, fig, prm["paths"]["fig_folder"],
+        prm["save"]["save_run"]
+    )
+
+
 def _plot_eval_action(record, prm):
     actions = record.eval_actions
     if len(list(actions.keys())) == 0:
@@ -1479,36 +1620,15 @@ def _plot_eval_action(record, prm):
         labels = labels_disaggregate
 
     for type_eval in prm["RL"]["type_eval"]:
-        if type_eval == "baseline":
+        if type_eval == "baseline" \
+                or any(len(actions[ridx]) == 0
+                       for ridx in range(prm["RL"]["n_repeats"])):
             continue
         for ridx in range(prm["RL"]["n_repeats"]):
-            if len(actions[ridx]) == 0:
-                continue
             actions_ = actions[ridx][type_eval]
             for mu in range(n_mus):
-                fig = plt.figure()
-                for epoch in range(prm["RL"]["n_epochs"]):
-                    if actions_[epoch] is None:
-                        if type_eval != 'opt':
-                            print(f"None in {type_eval}")
-                        continue
-                    for step in range(len(actions_[epoch])):
-                        for home in range(len(actions_[epoch][step])):
-                            if actions_[epoch][step][home][mu] is None:
-                                if type_eval != 'opt':
-                                    print(f"None in {type_eval}")
-                                continue
-                            plt.plot(
-                                epoch,
-                                actions_[epoch][step][home][mu],
-                                'o'
-                            )
-                plt.ylabel(labels[mu])
-                plt.xlabel("Epoch")
-                title = f"actions {type_eval} mu {mu} {ridx}"
-                _title_and_save(
-                    title, fig, prm["paths"]["fig_folder"],
-                    prm["save"]["save_run"]
+                _plot_eval_action_type_ridx(
+                    actions_, prm, type_eval, labels, mu, ridx
                 )
 
 
@@ -1617,59 +1737,44 @@ def plotting(record, spaces, prm, f):
     # 7 - plotting results example day household variables
     if prm['save']['plot_profiles']:
         root = prm['paths']['folder_run']
-        _plotting_res(root, prm, indiv=False)
-        _plotting_res(root, prm, indiv=True)
+        _plot_res(root, prm, indiv=False)
+        _plot_res(root, prm, indiv=True)
         for ridx in range(prm['RL']['n_repeats']):
-            _plotting_res(root, prm, indiv=False, list_ridx=[ridx])
+            _plot_res(root, prm, indiv=False, list_ridx=[ridx])
 
     # other repeat-specific plots:
     for ridx in range(prm['RL']['n_repeats']):
         if prm['save']['plot_type'] > 0:
             # 10 - plot moving average of all evaluation rewards
             # for each repeat
-            if prm['save']['plot_type'] > 0 \
-                    and prm['save']['plot_indiv_repeats_rewards']:
-                _plot_mova_eval_per_ridx(
-                    ridx, eval_rewards, prm, n_window, eval_entries_plot)
+            _plot_mova_eval_per_ridx(
+                ridx, eval_rewards, prm, n_window, eval_entries_plot)
         if prm['save']['plot_type'] > 1:
             # 11 - plot epsilon over time for each repeat
-            if prm['save']['plot_type'] > 1 \
-                    and 'eps' in record.__dict__.keys():
-                _plot_epsilon(ridx, prm, record)
+            _plot_epsilon(ridx, prm, record)
 
             # 12 - plot best psi action value per state
-            if prm['RL']['type_learning'] == 'q_learning' \
-                    and prm['ntw']['n'] < 4:
-                _plot_best_psi(
-                    ridx, q_tables, prm, record, possible_states,
-                    spaces.index_to_val, eval_entries_plot_indiv, spaces)
+            _plot_best_psi(
+                ridx, q_tables, prm, record, possible_states,
+                spaces.index_to_val, eval_entries_plot_indiv, spaces)
 
             # 13 - plot q values
-            if prm['RL']['type_learning'] == 'q_learning':
-                _plot_q_values(q_tables, ridx)
-
+            _plot_q_values(
+                q_tables, ridx, prm, eval_entries_plot_indiv,
+                spaces.index_to_val, q_entries
+            )
             # 14 - plot environment input
-            if prm['RL']['deterministic'] is not None \
-                    and prm['RL']['deterministic'] > 0 \
-                    and prm['save']['plotting_batch']:
-                _plot_env_input(ridx, prm, record)
+            _plot_env_input(ridx, prm, record)
 
             # 15 - make video of visits to each state
-            if prm['RL']['type_learning'] == 'q_learning' \
-                    and prm['save']['make_video'] \
-                    and len(counters[0]) > 0 \
-                    and not prm['RL']['server'] \
-                    and prm['RL']['state_space'] != [None]:
-                _video_visit_states(
-                    ridx, q_entries, counters, possible_states,
-                    prm, record, spaces)
+            _video_visit_states(
+                ridx, q_entries, counters, possible_states,
+                prm, record, spaces)
 
             # 16 -  final number of exploration of actions in each state
-            if prm['RL']['type_learning'] == 'q_learning' \
-                    and len(counters[0]) > 0:
-                _plot_final_explorations(
-                    ridx, prm, q_entries, action_state_space_0,
-                    state_space_0, record, counters)
+            _plot_final_explorations(
+                ridx, prm, q_entries, action_state_space_0,
+                state_space_0, record, counters)
 
             # 17 - n not feas vs variables vs time step
             _plot_unfeasible_attempts(ridx, record, prm)

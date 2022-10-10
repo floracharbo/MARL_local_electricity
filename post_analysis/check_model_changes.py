@@ -20,6 +20,22 @@ import torch as th
 # 611 lr / critic lr 1e-2 from 1e-6 and batch size 2;
 # random -0.0125053596241545, env_r_c -0.005191469272441462
 
+
+def plot_actions(actions, path):
+    for type_train in ["random", "env_r_c"]:
+        for ridx in nos:
+            actions_ = actions[ridx][type_train]
+            for mu in range(3):
+                fig = plt.figure()
+                for epoch in range(len(actions_)):
+                    for t in range(len(actions_[epoch])):
+                        for home in range(len(actions_[epoch][t])):
+                            plt.plot(epoch, actions_[epoch][t][home][mu], 'o')
+                title = f"actions {type_train} mu {mu} {ridx}"
+                plt.title(title)
+                fig.savefig(path / title)
+
+
 for run in range(608, 611):
     path = Path(
         '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/'
@@ -68,15 +84,4 @@ for run in range(608, 611):
             ).item()
         )
 
-    for type_train in ["random", "env_r_c"]:
-        for ridx in nos:
-            actions_ = actions[ridx][type_train]
-            for mu in range(3):
-                fig = plt.figure()
-                for epoch in range(len(actions_)):
-                    for t in range(len(actions_[epoch])):
-                        for home in range(len(actions_[epoch][t])):
-                            plt.plot(epoch, actions_[epoch][t][home][mu], 'o')
-                title = f"actions {type_train} mu {mu} {ridx}"
-                plt.title(title)
-                fig.savefig(path / title)
+    plot_actions(actions, path)

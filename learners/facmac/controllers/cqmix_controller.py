@@ -12,6 +12,79 @@ from .basic_controller import BasicMAC
 # This multi-agent controller shares parameters between agents
 class CQMixMAC(BasicMAC):
 
+    def _exploration_noising(
+            self, test_mode, chosen_actions, t_env,
+            explore_agent_ids, action_space, ep_batch, bs
+    ):
+        if not test_mode:  # do exploration
+            if self.rl["exploration_mode"] == "ornstein_uhlenbeck":
+                x = getattr(self, "ou_noise_state",
+                            chosen_actions.clone().zero_())
+                mu = 0
+                theta = self.rl['ou_theta']
+                sigma = self.rl['ou_sigma']
+
+                noise_scale = self.rl['ou_noise_scale'] \
+                    if t_env < self.rl["episode_limit"] \
+                    * self.rl["ou_stop_episode"] \
+                    else 0.0
+
+                dx = theta * (mu - x) + sigma * x.clone().normal_()
+                self.ou_noise_state = x + dx
+                ou_noise = self.ou_noise_state * noise_scale
+                chosen_actions = chosen_actions + ou_noise
+            elif self.rl["exploration_mode"] == "gaussian":
+                start_steps = self.rl["start_steps"]
+                act_noise = self.rl["act_noise"]
+
+                if t_env >= start_steps:
+                    if explore_agent_ids is None:
+                        x = chosen_actions.clone().zero_()
+                        chosen_actions += act_noise * x.clone().normal_()
+                    else:
+                        for idx in explore_agent_ids:
+                            x = chosen_actions[:, idx].clone().zero_()
+                            chosen_actions[:, idx] \
+                                += act_noise * x.clone().normal_()
+                else:
+                    chosen_actions = th.from_numpy(
+                        np.array([[action_space[i].sample()
+                                   for i in range(self.rl['n_agents'])]
+                                  for _ in range(ep_batch[bs].batch_size)])
+                    ).float().to(device=ep_batch.device)
+
+        return chosen_actions
+
+    def _clamp_actions(self, action_space, chosen_actions):
+        if all([isinstance(act_space, spaces.Box)
+                for act_space in action_space]):
+            for _aid in range(self.n_agents):
+                for _actid in range(action_space[_aid].shape[0]):
+                    chosen_actions[:, _aid, _actid].clamp_(
+                        (action_space[_aid].low[_actid]).item(),
+                        (action_space[_aid].high[_actid]).item())
+        elif all([isinstance(act_space, spaces.Tuple)
+                  for act_space in action_space]):
+            # NOTE: This was added to handle scenarios
+            # like simple_reference since action space is Tuple
+            for _aid in range(self.n_agents):
+                n = action_space[_aid].spaces[0].shape[0]
+                for _actid in range(n):
+                    chosen_actions[:, _aid, _actid].clamp_(
+                        action_space[_aid].spaces[0].low[_actid],
+                        action_space[_aid].spaces[0].high[_actid])
+
+                n = action_space[_aid].spaces[1].shape[0]
+                for _actid in range(n):
+                    tmp_idx = \
+                        _actid\
+                        + action_space[_aid].spaces[0].shape[0]
+                    chosen_actions[:, _aid, tmp_idx].clamp_(
+                        action_space[_aid].spaces[1].low[_actid],
+                        action_space[_aid].spaces[1].high[_actid])
+
+        return chosen_actions
+
     def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None),
                        test_mode=False, critic=None,
                        target_mac=False, explore_agent_ids=None):
@@ -88,71 +161,14 @@ class CQMixMAC(BasicMAC):
 
         # Now do appropriate noising
         # Ornstein-Uhlenbeck:
-        if not test_mode:  # do exploration
-            if self.rl["exploration_mode"] == "ornstein_uhlenbeck":
-                x = getattr(self, "ou_noise_state",
-                            chosen_actions.clone().zero_())
-                mu = 0
-                theta = self.rl['ou_theta']
-                sigma = self.rl['ou_sigma']
-
-                noise_scale = self.rl['ou_noise_scale'] \
-                    if t_env < self.rl["episode_limit"] \
-                    * self.rl["ou_stop_episode"] \
-                    else 0.0
-
-                dx = theta * (mu - x) + sigma * x.clone().normal_()
-                self.ou_noise_state = x + dx
-                ou_noise = self.ou_noise_state * noise_scale
-                chosen_actions = chosen_actions + ou_noise
-            elif self.rl["exploration_mode"] == "gaussian":
-                start_steps = self.rl["start_steps"]
-                act_noise = self.rl["act_noise"]
-
-                if t_env >= start_steps:
-                    if explore_agent_ids is None:
-                        x = chosen_actions.clone().zero_()
-                        chosen_actions += act_noise * x.clone().normal_()
-                    else:
-                        for idx in explore_agent_ids:
-                            x = chosen_actions[:, idx].clone().zero_()
-                            chosen_actions[:, idx] \
-                                += act_noise * x.clone().normal_()
-                else:
-                    chosen_actions = th.from_numpy(
-                        np.array([[action_space[i].sample()
-                                   for i in range(self.rl['n_agents'])]
-                                  for _ in range(ep_batch[bs].batch_size)])
-                    ).float().to(device=ep_batch.device)
+        chosen_actions = self._exploration_noising(
+            test_mode, chosen_actions, t_env,
+            explore_agent_ids, action_space, ep_batch, bs
+        )
 
         # For continuous actions, clamp actions to permissible action range
         # (necessary after exploration)
-        if all([isinstance(act_space, spaces.Box)
-                for act_space in action_space]):
-            for _aid in range(self.n_agents):
-                for _actid in range(action_space[_aid].shape[0]):
-                    chosen_actions[:, _aid, _actid].clamp_(
-                        (action_space[_aid].low[_actid]).item(),
-                        (action_space[_aid].high[_actid]).item())
-        elif all([isinstance(act_space, spaces.Tuple)
-                  for act_space in action_space]):
-            # NOTE: This was added to handle scenarios
-            # like simple_reference since action space is Tuple
-            for _aid in range(self.n_agents):
-                n = action_space[_aid].spaces[0].shape[0]
-                for _actid in range(n):
-                    chosen_actions[:, _aid, _actid].clamp_(
-                        action_space[_aid].spaces[0].low[_actid],
-                        action_space[_aid].spaces[0].high[_actid])
-
-                n = action_space[_aid].spaces[1].shape[0]
-                for _actid in range(n):
-                    tmp_idx = \
-                        _actid\
-                        + action_space[_aid].spaces[0].shape[0]
-                    chosen_actions[:, _aid, tmp_idx].clamp_(
-                        action_space[_aid].spaces[1].low[_actid],
-                        action_space[_aid].spaces[1].high[_actid])
+        chosen_actions = self._clamp_actions(action_space, chosen_actions)
 
         return chosen_actions
 

@@ -46,6 +46,86 @@ class Runner():
         # which will interact with the environment
         self.explorer = Explorer(env, prm, self.learner, record, self.mac)
 
+    def _save_nn_model(self, model_save_time):
+        if self.rl['save_model'] and (
+                self.explorer.t_env - model_save_time
+                >= self.rl['save_model_interval']
+                or model_save_time == 0):
+            model_save_time = self.explorer.t_env
+
+            if self.prm['RL']['type_learning'] == 'facmac' \
+                    and self.prm["save"]["save_nns"]:
+                for t_explo in self.rl['type_explo']:
+                    if t_explo not in self.learner:
+                        continue
+                    save_path \
+                        = self.prm["paths"]["record_folder"] \
+                        / f"models_{t_explo}_{self.explorer.t_env}"
+                    os.makedirs(save_path, exist_ok=True)
+                    self.learner[t_explo].save_models(save_path)
+        return model_save_time
+
+    def _end_evaluation(
+            self, ridx, new_env, type_eval, i0_costs, delta, date0
+    ):
+        i_explore = 0
+        for epoch_test in \
+                tqdm(range(self.rl['n_epochs'], self.rl['n_all_epochs']),
+                     position=0, leave=True):
+            t_start = time.time()  # start recording time
+            date0, delta, i0_costs = \
+                self._set_date(
+                    ridx, epoch_test, i_explore, date0,
+                    delta, i0_costs, new_env
+                )
+            self.env.reinitialise_envfactors(
+                date0, epoch_test, i_explore, evaluation_add1=True)
+            eval_steps, _ = self.explorer.get_steps(
+                type_eval, ridx, epoch_test, self.rl['n_explore'],
+                evaluation=True, new_episode_batch=self.new_episode_batch)
+            duration_epoch = time.time() - t_start
+
+            self.record.end_epoch(
+                epoch_test, eval_steps, None,
+                self.rl, self.learner, duration_epoch, end_test=True
+            )
+
+            # episode += 1
+
+            # date0, delta, i0_costs = self._set_date(
+            #     ridx, epoch, i_explore, date0, delta,
+            #     i0_costs, new_env)
+            #
+            # # initialise environment cluster, scaling factors, etc.
+            # self.env.reinitialise_envfactors(
+            #     date0, epoch, i_explore, evaluation_add1=False)
+            #
+            # # exploration - obtain experience
+            # type_explo = self._check_if_opt_needed(
+            #     epoch, evaluation=False)
+            #
+            # steps_vals, self.episode_batch = self.explorer.get_steps(
+            #     type_explo, ridx, epoch, i_explore,
+            #     new_episode_batch=self.new_episode_batch)
+            #
+            # train_steps_vals.append(steps_vals)
+
+    def _post_exploration_learning(self, epoch, train_steps_vals):
+        if not self.rl['instant_feedback'] \
+                and self.rl['type_learning'] == 'q_learning' \
+                and epoch > 0:
+            # if we did not learn instantly after each step,
+            # learn here after exploration
+            self.learner.learn_from_explorations(train_steps_vals)
+
+        elif self.rl['type_learning'] == 'DQN':
+            for t in self.rl['type_Qs']:
+                if self.rl['distr_learning'] == 'decentralised':
+                    for a in range(self.n):
+                        self.learner[t][a].target_update()
+                else:
+                    self.learner[t].target_update()
+
     def run_experiment(self):
         """For a given state space, explore and learn from the environment."""
         ridx = 0  # initialise repetition number
@@ -89,42 +169,13 @@ class Runner():
                         self.record.__dict__[e][ridx].append(
                             train_steps_vals[-1][e])
 
-                    if self.rl['save_model'] and (
-                            self.explorer.t_env - model_save_time
-                            >= self.rl['save_model_interval']
-                            or model_save_time == 0):
-                        model_save_time = self.explorer.t_env
-
-                        if self.prm['RL']['type_learning'] == 'facmac' \
-                                and self.prm["save"]["save_nns"]:
-                            for t_explo in self.rl['type_explo']:
-                                if t_explo not in self.learner:
-                                    continue
-                                save_path \
-                                    = self.prm["paths"]["record_folder"] \
-                                    / f"models_{t_explo}_{self.explorer.t_env}"
-                                os.makedirs(save_path, exist_ok=True)
-                                self.learner[t_explo].save_models(save_path)
+                    model_save_time = self._save_nn_model(model_save_time)
 
                 # learning step at the end of the exploration
                 # if it was not done instantly after each step
-                if not self.rl['instant_feedback'] \
-                        and self.rl['type_learning'] == 'q_learning' \
-                        and epoch > 0:
-                    # if we did not learn instantly after each step,
-                    # learn here after exploration
-                    self.learner.learn_from_explorations(train_steps_vals)
-
-                elif self.rl['type_learning'] == 'DQN':
-                    for t in self.rl['type_Qs']:
-                        if self.rl['distr_learning'] == 'decentralised':
-                            for a in range(self.n):
-                                self.learner[t][a].target_update()
-                        else:
-                            self.learner[t].target_update()
+                self._post_exploration_learning(epoch, train_steps_vals)
 
                 # evaluation step
-                # REPLACE HERE
                 type_eval = self._check_if_opt_needed(epoch, evaluation=True)
                 assert i_explore + 1 == self.rl['n_explore']
 
@@ -151,48 +202,9 @@ class Runner():
                 self._end_of_epoch_parameter_updates(ridx, epoch)
 
             # then do evaluation only for one month, no learning
-            for epoch_test in \
-                    tqdm(range(self.rl['n_epochs'], self.rl['n_all_epochs']),
-                         position=0, leave=True):
-                t_start = time.time()  # start recording time
-                i_explore = 0
-                episode += 1
-                date0, delta, i0_costs = \
-                    self._set_date(
-                        ridx, epoch_test, i_explore, date0,
-                        delta, i0_costs, new_env
-                    )
-                self.env.reinitialise_envfactors(
-                    date0, epoch_test, i_explore, evaluation_add1=True)
-                eval_steps, _ = self.explorer.get_steps(
-                    type_eval, ridx, epoch_test, self.rl['n_explore'],
-                    evaluation=True, new_episode_batch=self.new_episode_batch)
-                duration_epoch = time.time() - t_start
-
-                self.record.end_epoch(
-                    epoch_test, eval_steps, list_train_stepvals,
-                    self.rl, self.learner, duration_epoch, end_test=True
-                )
-
-                episode += 1
-
-                # date0, delta, i0_costs = self._set_date(
-                #     ridx, epoch, i_explore, date0, delta,
-                #     i0_costs, new_env)
-                #
-                # # initialise environment cluster, scaling factors, etc.
-                # self.env.reinitialise_envfactors(
-                #     date0, epoch, i_explore, evaluation_add1=False)
-                #
-                # # exploration - obtain experience
-                # type_explo = self._check_if_opt_needed(
-                #     epoch, evaluation=False)
-                #
-                # steps_vals, self.episode_batch = self.explorer.get_steps(
-                #     type_explo, ridx, epoch, i_explore,
-                #     new_episode_batch=self.new_episode_batch)
-                #
-                # train_steps_vals.append(steps_vals)
+            self._end_evaluation(
+                ridx, new_env, type_eval, i0_costs, delta, date0
+            )
 
             new_env = True \
                 if ((ridx + 1) % self.rl['n_init_same_env'] == 0
@@ -205,72 +217,78 @@ class Runner():
             if len(self.explorer.data.seeds[p]) > len(self.rl['seeds'][p]):
                 self.rl['seeds'][p] = self.explorer.seeds[p].copy()
 
+    def _initialise_buffer_learner_mac_facmac(self, t):
+        if 'buffer' not in self.__dict__.keys():
+            self.buffer = {}
+            self.mac = {}
+
+        self.buffer[t] = ReplayBuffer(
+            self.rl['scheme'], self.rl['groups'],
+            self.rl['buffer_size'],
+            self.rl['env_info']["episode_limit"] + 1
+            if self.rl['runner_scope'] == "episodic" else 2,
+            preprocess=self.rl['preprocess'],
+            device="cpu" if self.rl['buffer_cpu_only']
+            else self.rl['device'])
+        # Setup multiagent controller here
+        self.mac[t] = mac_REGISTRY[self.rl['mac']](
+            self.buffer[t].scheme, self.rl['groups'],
+            self.rl)
+        self.new_episode_batch = \
+            partial(EpisodeBatch, self.rl['scheme'],
+                    self.rl['groups'],
+                    self.rl['batch_size_run'],
+                    self.rl['episode_limit'] + 1,
+                    preprocess=self.rl['preprocess'],
+                    device=self.rl['device'])
+        self.learner[t] = le_REGISTRY[self.rl['learner']](
+            self.mac[t],
+            self.buffer[t].scheme,
+            self.rl,
+        )
+        if self.rl['use_cuda']:
+            self.learner[t].cuda()
+
+    def _initialise_buffer_learner_mac_deep_learning(self, t):
+        if self.rl['distr_learning'] == 'decentralised':
+            if t in self.learner.keys():
+                # the learner as already been intialised; simply reset
+                for a in range(self.n):
+                    self.learner[t][a].reset()
+            else:
+                if self.rl['type_learning'] == 'DDPG':
+                    self.learner[t] = [Learner_DDPG(
+                        self.rl, t + f'_{a}') for a in range(self.n)]
+                elif self.rl['type_learning'] == 'DDQN':
+                    self.learner[t] = [Agent_DDQN(
+                        self.env, self.rl, t) for _ in range(self.n)]
+                else:
+                    self.learner[t] = [Agent_DQN(
+                        self.rl, t + f'_{a}', t, self.prm['syst']['N'])
+                        for a in range(self.n)]
+        else:
+            if t in self.learner.keys():
+                # the learner as already been intialised;
+                # simply reset
+                self.learner[t].reset()  # reset learner
+            else:  # initialise objects
+                if self.rl['type_learning'] == 'DDPG':
+                    self.learner[t] = Learner_DDPG(self.rl, t)
+                elif self.rl['type_learning'] == 'DQN':
+                    self.learner[t] = Agent_DQN(
+                        self.rl, t, t, self.prm['syst']['N'])
+                elif self.rl['type_learning'] == 'DDQN':
+                    self.learner[t] = Agent_DDQN(self.env, self.rl, t)
+
     def _initialise_buffer_learner_mac(self, ridx=0):
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN', 'facmac']:
             if 'learner' not in self.__dict__.keys():
                 self.learner = {}
             for t in self.rl['type_Qs']:
                 if self.rl['type_learning'] == 'facmac':
-                    if 'buffer' not in self.__dict__.keys():
-                        self.buffer = {}
-                        self.mac = {}
-
-                    self.buffer[t] = ReplayBuffer(
-                        self.rl['scheme'], self.rl['groups'],
-                        self.rl['buffer_size'],
-                        self.rl['env_info']["episode_limit"] + 1
-                        if self.rl['runner_scope'] == "episodic" else 2,
-                        preprocess=self.rl['preprocess'],
-                        device="cpu" if self.rl['buffer_cpu_only']
-                        else self.rl['device'])
-                    # Setup multiagent controller here
-                    self.mac[t] = mac_REGISTRY[self.rl['mac']](
-                        self.buffer[t].scheme, self.rl['groups'],
-                        self.rl)
-                    self.new_episode_batch = \
-                        partial(EpisodeBatch, self.rl['scheme'],
-                                self.rl['groups'],
-                                self.rl['batch_size_run'],
-                                self.rl['episode_limit'] + 1,
-                                preprocess=self.rl['preprocess'],
-                                device=self.rl['device'])
-                    self.learner[t] = le_REGISTRY[self.rl['learner']](
-                        self.mac[t],
-                        self.buffer[t].scheme,
-                        self.rl,
-                    )
-                    if self.rl['use_cuda']:
-                        self.learner[t].cuda()
-
-                elif self.rl['distr_learning'] == 'decentralised':
-                    if t in self.learner.keys():
-                        # the learner as already been intialised; simply reset
-                        for a in range(self.n):
-                            self.learner[t][a].reset()
-                    else:
-                        if self.rl['type_learning'] == 'DDPG':
-                            self.learner[t] = [Learner_DDPG(
-                                self.rl, t + f'_{a}') for a in range(self.n)]
-                        elif self.rl['type_learning'] == 'DDQN':
-                            self.learner[t] = [Agent_DDQN(
-                                self.env, self.rl, t) for _ in range(self.n)]
-                        else:
-                            self.learner[t] = [Agent_DQN(
-                                self.rl, t + f'_{a}', t, self.prm['syst']['N'])
-                                for a in range(self.n)]
+                    self._initialise_buffer_learner_mac_facmac(t)
                 else:
-                    if t in self.learner.keys():
-                        # the learner as already been intialised;
-                        # simply reset
-                        self.learner[t].reset()  # reset learner
-                    else:  # initialise objects
-                        if self.rl['type_learning'] == 'DDPG':
-                            self.learner[t] = Learner_DDPG(self.rl, t)
-                        elif self.rl['type_learning'] == 'DQN':
-                            self.learner[t] = Agent_DQN(
-                                self.rl, t, t, self.prm['syst']['N'])
-                        elif self.rl['type_learning'] == 'DDQN':
-                            self.learner[t] = Agent_DDQN(self.env, self.rl, t)
+                    self._initialise_buffer_learner_mac_deep_learning(t)
 
         elif self.rl['type_learning'] == 'q_learning':
             if 'learner' in self.__dict__.keys():

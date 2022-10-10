@@ -27,6 +27,18 @@ class ActionSelector:
         self.agents = range(prm["ntw"]["n"])
         self.episode_batch = episode_batch
 
+    def _format_tf_prev_state(self, current_state):
+        if self.rl['LSTM']:
+            tf_prev_state = [tf.expand_dims(
+                tf.convert_to_tensor(np.reshape(
+                    current_state[a], (1, 1))), 0)
+                for a in self.agents]
+        else:
+            tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
+                current_state[a]), 0) for a in self.agents]
+
+        return tf_prev_state
+
     def select_action(self,
                       t: str,
                       step: int,
@@ -41,25 +53,15 @@ class ActionSelector:
                       ) -> Tuple[list, list, list]:
         """Select exploration action."""
         rl = self.rl
-        # if rl['type_learning'] in ['DDPG', 'facmac']:
-        if rl['LSTM']:
-            tf_prev_state = [tf.expand_dims(
-                tf.convert_to_tensor(np.reshape(
-                    current_state[a], (1, 1))), 0)
-                for a in self.agents]
-        else:
-            tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
-                current_state[a]), 0) for a in self.agents]
+        tf_prev_state = self._format_tf_prev_state(current_state)
 
         # action choice for current time step
         if t == 'baseline':
             action = self.rl['default_action']
         elif t == 'random':
             action = np.random.random(np.shape(self.rl['default_action']))
-
         elif t == 'tryopt':
             action = mus_opt[step]
-
         elif rl['type_learning'] in ['DDPG', 'DQN'] and rl['trajectory']:
             action = [actions[a][step]
                       for a in self.agents]

@@ -303,7 +303,7 @@ class Battery:
 
         return bool_penalty
 
-    def check_constraints(self, a, date, h, bool_penalty):
+    def check_constraints(self, a, date, h):
         """
         From env.policy_to_rewardvar, check battery constraints.
 
@@ -324,93 +324,80 @@ class Battery:
         bat_e_balance = self.charge[a] - self.discharge[a] \
             - self.loads_EV[a] - self.loss_dis[a] \
             - (self.store[a] - self.start_store[a])
-        if abs(bat_e_balance) > 1e-2:
-            print(f"a = {a}, battery energy balance sum = {bat_e_balance}")
-            bool_penalty[a] = True
+        assert abs(bat_e_balance) < 1e-2, \
+            f"a = {a}, battery energy balance sum = {bat_e_balance}"
 
         # initial and final storage level
-        if date == self.date0 and self.start_store[a] != self.store0[a]:
-            print(f'start_store[{a}] {self.start_store[a]} not store0')
-            bool_penalty[a] = True
+        if date == self.date0:
+            assert self.start_store[a] == self.store0[a], \
+                f'start_store[{a}] {self.start_store[a]} not store0'
 
         if date == self.date_end - datetime.timedelta(hours=1) \
-                and self.store[a] < self.store0[a] - 1e-2 \
                 and self.avail_EV[a]:
-            print(f"a = {a}, store end {self.store[a]} "
-                  f"smaller than store0 {self.store0[a]}")
-            bool_penalty[a] = True
+            assert self.store[a] >= self.store0[a] - 1e-2, \
+                f"a = {a}, store end {self.store[a]} " \
+                f"smaller than store0 {self.store0[a]}"
 
         # max storage level
-        if self.store[a] > self.cap[a] + 1e-2:
-            print(f'store[{a}] {self.store[a]} larger than cap')
-            bool_penalty[a] = True
+        assert self.store[a] <= self.cap[a] + 1e-2, \
+            f'store[{a}] {self.store[a]} larger than cap'
 
         if self.max_charge_t[a] is not None \
-                and self.avail_EV[a] \
-                and self.store[a] > self.max_charge_t[a] + 1e-2:
-            print(f'store[{a}] {self.store[a]} > max_charge_t[a] '
-                  f'{self.max_charge_t[a]} after flex, '
-                  f'last_step = {last_step}')
-            bool_penalty[a] = True
+                and self.avail_EV[a]:
+            assert self.store[a] <= self.max_charge_t[a] + 1e-2, \
+                f'store[{a}] {self.store[a]} > max_charge_t[a] ' \
+                f'{self.max_charge_t[a]} after flex, ' \
+                f'last_step = {last_step}'
 
         # minimum storage level
-        if self.store[a] < self.SoCmin * self.cap[a] * self.avail_EV[a] - 1e-2:
-            print(f"store[{a}] {self.store[a]} "
-                  f"smaller than SoCmin and no bool_penalty, "
-                  f"availEV[a] = {self.avail_EV[a]}, "
-                  f"charge[a] = {self.charge[a]}, "
-                  f"c_max = {self.c_max}")
-            bool_penalty[a] = True
+        assert self.store[a] \
+               >= self.SoCmin * self.cap[a] * self.avail_EV[a] - 1e-2, \
+               f"store[{a}] {self.store[a]} " \
+               f"smaller than SoCmin and no bool_penalty, " \
+               f"availEV[a] = {self.avail_EV[a]}, " \
+               f"charge[a] = {self.charge[a]}, " \
+               f"c_max = {self.c_max}"
 
-        if self.store[a] < self.min_charge_t[a] * self.avail_EV[a] - 1e-2:
-            print(f'store[{a}] {self.store[a]} '
-                  f'smaller than min_charge_t[a] {self.min_charge_t[a]} '
-                  f'avail_EV[a] {self.avail_EV[a]}')
-            bool_penalty[a] = True
+        assert \
+            self.store[a] >= self.min_charge_t[a] * self.avail_EV[a] - 1e-2, \
+            f'store[{a}] {self.store[a]} ' \
+            f'smaller than min_charge_t[a] {self.min_charge_t[a]} ' \
+            f'avail_EV[a] {self.avail_EV[a]}'
 
         # charge and discharge losses
         abs_loss_charge = \
             self.loss_ch[a] - ((self.charge[a] + self.loss_ch[a])
                                * (1 - self.eta_ch))
-        if abs(abs_loss_charge) > 1e-2:
-            print(f"self.cap = {self.cap}, h = {h}, a = {a} "
-                  f"sum loss charge = {abs_loss_charge}")
-            bool_penalty[a] = True
+        assert abs(abs_loss_charge) <= 1e-2, \
+            f"self.cap = {self.cap}, h = {h}, a = {a} " \
+            f"sum loss charge = {abs_loss_charge}"
 
         abs_loss_charge = \
             self.loss_dis[a] - ((self.discharge[a] + self.loss_dis[a])
                                 * (1 - self.eta_dis))
-        if abs(abs_loss_charge) > 1e-2:
-            print(f"h = {h}, a = {a} sum loss charge = {abs_loss_charge}")
-            bool_penalty[a] = True
+        assert abs(abs_loss_charge) <= 1e-2, \
+            f"h = {h}, a = {a} sum loss charge = {abs_loss_charge}"
 
         # only charge and discharge if EV is available
-        if self.charge[a] > self.avail_EV[a] * self.M:
-            print('charge but EV not available and no bool_penalty')
-            bool_penalty[a] = True
-        if self.discharge[a] > self.avail_EV[a] * self.M:
-            print(f'a = {a} discharge (else than EV cons) but '
-                  f'EV not available')
-            bool_penalty[a] = True
+        assert self.charge[a] <= self.avail_EV[a] * self.M, \
+            'charge but EV not available and no bool_penalty'
+        assert self.discharge[a] <= self.avail_EV[a] * self.M, \
+            f'a = {a} discharge (else than EV cons) but ' \
+            f'EV not available'
 
         # max charge rate
-        if self.charge[a] > self.c_max + 1e-2:
-            print(f"charge {self.charge} > c_max {self.c_max}")
-            bool_penalty[a] = True
+        assert self.charge[a] <= self.c_max + 1e-2, \
+            f"charge {self.charge} > c_max {self.c_max}"
 
         # max discharge rate
-        if self.discharge[a] + self.loss_dis[a] + self.loads_EV[a] \
-                > self.d_max + 1e-2:
-            print(f'a = {a}, discharge[a] {self.discharge[a]} > self.d_max')
-            bool_penalty[a] = True
+        assert self.discharge[a] + self.loss_dis[a] + self.loads_EV[a] \
+               <= self.d_max + 1e-2, \
+               f'a = {a}, discharge[a] {self.discharge[a]} > self.d_max'
 
         # positivity
         for e in ['store', 'charge', 'discharge', 'loss_ch', 'loss_dis']:
-            if self.__dict__[e][a] < - 1e-2:
-                print(f'a = {a} negative {e}[a] {self.__dic__[e][a]}')
-                bool_penalty[a] = True
-
-        return bool_penalty
+            assert self.__dict__[e][a] >= - 1e-2, \
+                f'a = {a} negative {e}[a] {self.__dic__[e][a]}'
 
     def apply_step(self, res):
         """Update battery state for current actions."""
@@ -545,28 +532,30 @@ class Battery:
     def _last_step(self, date):
         return date == self.date_end - datetime.timedelta(hours=1)
 
-    def _check_min_charge_t_feasible(
-            self, min_charge_t, h, date, bool_penalty, print_error, simulation
+    def _check_first_time_step_feasibility(
+            self, h, date, bool_penalty, print_error
     ):
         for a in range(self.n_agents):
             # check if opportunity to charge before trip > 37.5
-            if h == 0 and self.batch['avail_EV'][a][0] == 0:
+            if h == 0 and not self.batch['avail_EV'][a][0]:
                 loads_T, deltaT, i_endtrip = self.next_trip_details(h, date, a)
                 if loads_T > self.store0[a]:
                     # trip larger than initial charge and straight
                     # away not available
                     bool_penalty[a] = True
-                    if print_error:
-                        print(f'a = {a}, trip {loads_T} larger than '
-                              f'initial charge - straight away not available')
+                    error_message = \
+                        f'a = {a}, trip {loads_T} larger than ' \
+                        f'initial charge - straight away not available'
+                    self._print_error(error_message, print_error)
                 if sum(self.batch['avail_EV'][a][0:23]) == 0 \
                         and sum(self.batch['loads_EV'][a][0:23]) \
                         > self.c_max + 1e-2:
-                    bool_penalty[a] = True  #
-                    if print_error:
-                        print(f'a = {a}, only last step available, '
-                              f'not enough to go back to initial charge '
-                              f'at the last time step')
+                    bool_penalty[a] = True
+                    error_message = \
+                        f'a = {a}, only last step available, ' \
+                        'not enough to go back to initial charge ' \
+                        'at the last time step'
+                    self._print_error(error_message, print_error)
                 loads_T_next, deltaT_next, i_endtrip_next = \
                     self.next_trip_details(
                         deltaT, date + datetime.timedelta(hours=deltaT), a)
@@ -576,42 +565,54 @@ class Battery:
                     # trip larger than initial charge and straight
                     # away not available
                     bool_penalty[a] = True
-                    if print_error:
-                        print(f'a = {a}, directly initial trip '
-                              f'{loads_T} then {loads_T_next} '
-                              f'with only {deltaT_next} to charge')
+                    error_message = f'a = {a}, directly initial trip ' \
+                                    f'{loads_T} then {loads_T_next} ' \
+                                    f'with only {deltaT_next} to charge'
+                    self._print_error(error_message, print_error)
 
+        return bool_penalty
+
+    def _check_min_charge_t_feasible(
+            self, min_charge_t, h, date, bool_penalty, print_error, simulation
+    ):
+        bool_penalty = self._check_first_time_step_feasibility(
+            h, date, bool_penalty, print_error
+        )
+
+        for a in range(self.n_agents):
             # check if any hourly load is larger than d_max
-            if sum(1 for h in range(self.N) if
-                   self.batch['loads_EV'][a][h] > self.d_max + 1e-2) > 0:
+            if any(self.batch['loads_EV'][a][h] > self.d_max + 1e-2
+                   for h in range(self.N)):
                 # you would have to break constraints to meet demand
                 bool_penalty[a] = True
-                if print_error:
-                    print(f'a = {a}, load EV larger than d_max')
+                self._print_error(
+                    f'a = {a}, load EV larger than d_max',
+                    print_error
+                )
 
             if min_charge_t[a] > self.cap[a] + 1e-2:
                 bool_penalty[a] = True  # min_charge_t larger than total cap
-                if print_error:
-                    print(f'a = {a}, '
-                          f'min_charge_t {min_charge_t[a]} '
-                          f'larger than cap')
+                error_message = f'a = {a}, min_charge_t {min_charge_t[a]} ' \
+                    'larger than cap'
+                self._print_error(error_message, print_error)
             if min_charge_t[a] > self.store0[a] \
                     - sum(self.batch['loads_EV'][a][0:h]) + (
                     sum(self.batch['loads_EV'][a][0:h]) + 1) \
                     * self.c_max + 1e-3:
                 bool_penalty[a] = True
-                if print_error:
-                    print(f'a = {a}, min_charge_t {min_charge_t[a]} '
-                          f'larger what car can be charged to')
+                error_message = f'a = {a}, min_charge_t {min_charge_t[a]} ' \
+                    'larger what car can be charged to'
+                self._print_error(error_message, print_error)
 
             if simulation \
                     and min_charge_t[a] > self.store[a] + self.c_max + 1e-3:
                 bool_penalty[a] = True
-                if print_error:
-                    print(f"date {date} h {h} "
-                          f"min_charge_t[{a}] {min_charge_t[a]} "
-                          f"> self.store[{a}] {self.store[a]} "
-                          f"+ self.c_max {self.c_max}")
+                error_message = \
+                    f"date {date} h {h} " \
+                    f"min_charge_t[{a}] {min_charge_t[a]} " \
+                    f"> self.store[{a}] {self.store[a]} " \
+                    f"+ self.c_max {self.c_max}"
+                self._print_error(error_message, print_error)
 
             elif not simulation \
                     and h > 0 \
@@ -621,6 +622,10 @@ class Battery:
                     - sum(self.batch['loads_EV'][a][0: h])
                 if min_charge_t[a] > store_t_a + self.c_max + 1e-3:
                     bool_penalty[a] = True
+
+    def _print_error(self, error_message, print_error):
+        if print_error:
+            print(error_message)
 
     def check_feasible_bat(self, prm, ntw, p, bat, syst):
         """Check charging constraints for proposed data batch."""
