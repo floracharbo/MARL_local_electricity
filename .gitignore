@@ -7,5 +7,6 @@ beep-24.wav
 *.pdf
 results/
 *.pickle
-*.txt
 .github/workflows
+Jan2020.txt
+octopus_20220101.txt
