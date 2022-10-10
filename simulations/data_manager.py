@@ -374,7 +374,7 @@ class Data_manager():
 
         new_batch_file = 'batch_file' in self.__dict__.keys() \
                          and batch_file != self.batch_file
-        if not self.rl['plotting_batch'] \
+        if not self.prm['save']['plotting_batch'] \
                 and self.rl['deterministic'] == 0 \
                 and new_batch_file:
             files = os.listdir(os.getcwd())

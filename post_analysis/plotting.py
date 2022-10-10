@@ -1299,7 +1299,7 @@ def _barplot_metrics(
                 m_ = m[0:-4]
 
             colors_barplot_ = generate_colors(
-                prm["save"], prm, eval_entries_bars_, colours_only=True
+                prm["save"], prm, colours_only=True, entries=eval_entries_bars_
             )
 
             bars, err = [

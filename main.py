@@ -17,10 +17,10 @@ settings = {
     'heat': {'file': 'heat2'},
 
     'RL': {
-        'type_learning': 'facmac',
+        'type_learning': 'q_learning',
         # 'explo_reward_type': 'env_r_d',
         'gamma': {'q_learning': 0.99, 'facmac': 0.99},
-        'aggregate_actions': True,
+        'aggregate_actions': False,
         'mixer': 'qmix',
 
         # current experiment

@@ -18,3 +18,4 @@ repeat_entries: ['train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rew
 stateind_entries: ['possible_states', 'granularity_state0',
                                  'granularity_state1', 'multipliers_state']
 save_nns: True
+plotting_batch: True

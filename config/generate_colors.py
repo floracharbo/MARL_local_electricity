@@ -84,7 +84,7 @@ def _colors_to_prm(save, prm, colors0, colors, all_type_eval):
     return save, prm
 
 
-def generate_colors(save, prm, all_type_eval, colours_only=False):
+def generate_colors(save, prm, colours_only=False, entries=None):
     """
     Generate a list of colors for plotting the results.
 
@@ -111,6 +111,18 @@ def generate_colors(save, prm, all_type_eval, colours_only=False):
     prm:
         the updated dictionary of parameters
     """
+    # list all possible for consistent colors ordering
+    if entries is None:
+        all_type_eval = []
+        reward_structure_combs = \
+            ['r_c', 'r_d', 'A_Cc', 'A_c', 'A_d', 'd_Cc', 'd_c', 'd_d']
+        for experience_source in ['env_', 'opt_']:
+            all_type_eval += [experience_source + rs_comb
+                              for rs_comb in reward_structure_combs]
+        all_type_eval += ['opt', 'opt_n_c', 'opt_n_d']
+    else:
+        all_type_eval = entries
+
     n_colors = len(all_type_eval)
     n_added = 0
     colors = []

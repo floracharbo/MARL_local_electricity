@@ -18,8 +18,7 @@ import torch as th
 from tqdm import tqdm
 
 from config.initialise_objects import initialise_objects
-from config.initialise_prm import get_settings_i, load_existing_prm
-from config.input_data import input_paths
+from config.input_data import get_settings_i, input_paths, load_existing_prm
 from learners.DDPG import Learner_DDPG
 from learners.DDQN import Agent_DDQN
 from learners.DQN import Agent_DQN
