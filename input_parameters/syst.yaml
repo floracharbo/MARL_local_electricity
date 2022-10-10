@@ -19,5 +19,4 @@ f0: {'loads' : 9, 'gen' : 8, 'bat' : 8} # demand / generation factor initialisat
 clus0: {'loads' : 0, 'bat' : 0} # demand / generation cluster initialisation for RL data generation
 n_loads_clus: 4
 seed: 0
-play_sound: False
 sound_file: 'beep-24.wav'

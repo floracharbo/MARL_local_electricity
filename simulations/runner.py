@@ -32,8 +32,8 @@ from post_analysis.plot_summary_no_agents import plot_results_vs_nag
 from post_analysis.post_processing import post_processing
 from simulations.explorer import Explorer
 from simulations.local_elec import LocalElecEnv
-from utils.userdeftools import (data_source, initialise_dict, play_sound,
-                                reward_type, set_seeds_rdn)
+from utils.userdeftools import (data_source, initialise_dict, reward_type,
+                                set_seeds_rdn)
 
 
 class Runner():
@@ -518,24 +518,30 @@ class Runner():
         return steps_vals, date0, delta, i0_costs, type_explo
 
 
+def get_number_runs(settings):
+    n_runs = 1
+
+    for sub_dict in settings.values():
+        for val in list(sub_dict.values()):
+            if isinstance(val, dict):
+                for val_ in list(val.values()):
+                    if isinstance(val_, list) and len(val_) > n_runs:
+                        n_runs = len(val_)
+            elif isinstance(val, list) and len(val) > n_runs:
+                n_runs = len(val)
+
+    return n_runs
+
+
 def run(run_mode, settings, no_runs=None):
     prm = input_paths()
 
     if run_mode == 1:
         # obtain the number of runs from the longest settings entry
-        N_RUNS = 1
-
-        for sub_dict in settings.values():
-            for val in list(sub_dict.values()):
-                if isinstance(val, dict):
-                    for val_ in list(val.values()):
-                        if isinstance(val_, list) and len(val_) > N_RUNS:
-                            N_RUNS = len(val_)
-                elif isinstance(val, list) and len(val) > N_RUNS:
-                    N_RUNS = len(val)
+        n_runs = get_number_runs(settings)
 
         # loop through runs
-        for i in range(N_RUNS):
+        for i in range(n_runs):
             remove_old_prms = [e for e in prm if e != 'paths']
             for e in remove_old_prms:
                 del prm[e]
@@ -571,8 +577,6 @@ def run(run_mode, settings, no_runs=None):
                 record, env, prm, start_time=start_time, settings_i=settings_i
             )
             print(f"--- {time.time() - start_time} seconds ---")
-            if prm["syst"]["play_sound"]:
-                play_sound()
 
     # post learning analysis / plotting
     elif run_mode == 2:

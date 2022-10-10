@@ -327,6 +327,23 @@ def _update_bat_prm(prm):
     return bat
 
 
+def correct_facmac_explo_eval_types(rl):
+    valid_types = {
+        'explo': ['env_r_c', 'env_d_c', 'opt', 'baseline'],
+        'eval': ['env_r_c', 'env_d_c', 'opt_r_c', 'opt', 'baseline', 'random']
+    }
+    for stage in ['eval', 'explo']:
+        new_ts = []
+        for t in rl[f'type_{stage}']:
+            new_t = t
+            if len(t.split("_")) == 3:
+                if distr_learning(t) == "d":
+                    new_t = f"{t.split('_')[0]}_{t.split('_')[1]}_c"
+            new_ts.append(new_t)
+        rl[f'type_{stage}'] = [t for t in new_ts if t in valid_types[stage]]
+
+    return rl
+
 def _update_rl_prm(prm, initialise_all):
     """
     Compute parameters relating to RL experiments.
@@ -376,11 +393,7 @@ def _update_rl_prm(prm, initialise_all):
 
     if rl['type_learning'] == 'facmac':
         # limit available exploration / evaluation: no difference rewards;
-        valid_explo = ['env_r_c', 'env_d_c', 'opt', 'baseline']
-        valid_eval \
-            = ['env_r_c', 'env_d_c', 'opt_r_c', 'opt', 'baseline', 'random']
-        rl['type_explo'] = [t for t in rl['type_explo'] if t in valid_explo]
-        rl['type_eval'] = [t for t in rl['type_eval'] if t in valid_eval]
+        rl = correct_facmac_explo_eval_types(rl)
 
     rl['eval_action_choice'] = [t for t in rl['type_eval']
                                 if t not in ['baseline', 'opt']]
@@ -599,14 +612,12 @@ def initialise(prm, no_run, initialise_all=True):
                    'gen', 'save', 'heat']
     [paths, syst, grd, bat, ntw, loads, gen, save, heat] = \
         [prm[key] if key in prm else None for key in prm_entries]
+
     if 'H' not in syst:
         syst['H'] = 24
     syst['N'] = syst['D'] * syst['H']
     syst['duration'] = datetime.timedelta(days=syst['D'])
     ntw['n_all'] = ntw['n'] + ntw['nP']
-    if syst['play_sound']:
-        if syst["play_sound"] and os.file.exist(syst["sound_file"]):
-            syst["play_sound"] = False
 
     for p in ["", "P"]:
         if 'own_PV' + p in gen:
