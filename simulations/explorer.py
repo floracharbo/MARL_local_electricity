@@ -18,8 +18,8 @@ import numpy as np
 from simulations.data_manager import Data_manager
 from simulations.learning import LearningManager
 from simulations.select_actions import ActionSelector
-from utils.userdeftools import (data_source, initialise_dict, reward_type,
-                                set_seeds_rdn)
+from utilities.userdeftools import (data_source, initialise_dict, reward_type,
+                                    set_seeds_rdn)
 
 
 # %% Environment exploration
@@ -59,11 +59,11 @@ class Explorer():
 
         self.break_down_rewards_entries = \
             prm["syst"]["break_down_rewards_entries"]
-        self.step_vals_entries = \
-            ["state", "ind_global_state", "action", "ind_global_action",
-             "reward", "next_state", "ind_next_global_state",
-             "done", "bool_flex", "constraint_ok"] \
-            + self.break_down_rewards_entries
+        self.step_vals_entries = [
+            "state", "ind_global_state", "action", "ind_global_action",
+            "reward", "diff_rewards", "indiv_rewards", "next_state",
+            "ind_next_global_state", "done", "bool_flex", "constraint_ok"
+        ] + self.break_down_rewards_entries
         self.method_vals_entries = ["seeds", "n_not_feas", "not_feas_vars"]
 
         self._init_i0_costs()
@@ -157,7 +157,7 @@ class Explorer():
                     len(self.data.seeds[self.data.p]) - 1)
                 self.data.d_ind_seed[self.data.p] += 1
                 seed_ind += 1
-                self.deterministic_created = False
+                self.data.deterministic_created = False
 
                 _, step_vals, mus_opt = \
                     self.data.find_feasible_data(
@@ -279,18 +279,23 @@ class Explorer():
                         and reward_type(t) == "d" \
                         and not evaluation:
                     if self.rl["competitive"]:
-                        reward = [reward[a] - rewards_baseline[a][a]
-                                  for a in self.agents]
+                        indiv_rewards = break_down_rewards[-1]
+                        diff_rewards = [
+                            indiv_rewards[a] - rewards_baseline[a][a]
+                            for a in self.agents
+                        ]
                     else:
                         if rewards_baseline is None:
                             print("rewards_baseline is None")
-                        reward = [reward - baseline
-                                  for baseline in rewards_baseline]
+                        diff_rewards = [
+                            reward - baseline for baseline in rewards_baseline
+                        ]
+                else:
+                    diff_rewards = None
                 if self.rl["type_env"] == "discrete" and t[-2] == 'C':
                     global_ind = self.env.spaces.get_global_ind(
                         current_state, state, action, done, t
                     )
-
                 else:
                     global_ind = {
                         "state": None,
@@ -300,7 +305,7 @@ class Explorer():
 
                 step_vals_ = \
                     [current_state, global_ind["state"], action,
-                     global_ind["action"], reward, state,
+                     global_ind["action"], reward, diff_rewards, state,
                      global_ind["next_state"], done, bool_flex,
                      constraint_ok, *break_down_rewards]
 
@@ -407,7 +412,7 @@ class Explorer():
 
                 print("infeasible in loop active")
 
-                self.deterministic_created = False
+                self.data.deterministic_created = False
                 print("find feas opt data again!")
                 [res, _, _, batch], step_vals, mus_opt = \
                     self.data.find_feasible_data(
@@ -529,7 +534,7 @@ class Explorer():
 
     def _get_diff_rewards(
             self, evaluation, i_step, mu_action, date,
-            loads, res, feasible, reward
+            loads, res, feasible, reward, indiv_rewards
     ):
         obtain_diff_reward = any(
             len(q.split("_")) >= 2
@@ -544,17 +549,19 @@ class Explorer():
             if not feasible_getting_baseline:
                 feasible = False
             if self.prm["RL"]["competitive"]:
-                reward_diff = \
-                    [reward[a] - rewards_baseline[a][a]
-                     for a in self.agents]
+                diff_rewards = [
+                    indiv_rewards[a] - rewards_baseline[a][a]
+                    for a in self.agents
+                ]
             else:
-                reward_diff = \
-                    [reward - reward_baseline
-                     for reward_baseline in rewards_baseline]
+                diff_rewards = [
+                    reward - reward_baseline
+                    for reward_baseline in rewards_baseline
+                ]
         else:
-            reward_diff = None
+            diff_rewards = None
 
-        return reward_diff, feasible
+        return diff_rewards, feasible
 
     def _append_step_vals(
             self, t, step_vals_i, res, i_step, cluss, fs,
@@ -566,9 +573,11 @@ class Explorer():
         for key_, var in zip(keys, vars):
             step_vals_i[key_] = var
 
-        keys = ["state", "action", "reward", "reward_diff", "bool_flex",
-                "constraint_ok", "ind_global_action",
-                "ind_global_state"]
+        keys = [
+            "state", "action", "reward", "indiv_rewards", "diff_rewards",
+            "bool_flex", "constraint_ok",
+            "ind_global_action", "ind_global_state"
+        ]
         for key_ in keys:
             step_vals[t][key_].append(step_vals_i[key_])
 
@@ -664,10 +673,16 @@ class Explorer():
                 and i_step > 0 \
                 and not rl["trajectory"]:
 
-            current_state, actions, reward, state, reward_diffs = [
+            [
+                current_state, actions, reward, state,
+                reward_diffs, indiv_rewards
+            ] = [
                 step_vals["opt"][e][-1]
-                for e in ["state", "action", "reward",
-                          "next_state", "reward_diff"]]
+                for e in [
+                    "state", "action", "reward", "next_state",
+                    "diff_rewards", "indiv_rewards"
+                ]
+            ]
             if rl["type_learning"] == "q_learning":
                 # learner agent learns from this step
                 self.learning_manager.learner.learn(
@@ -695,7 +710,9 @@ class Explorer():
 
             elif rl["type_learning"] in ["DDPG", "DQN", "DDQN"]:
                 self.learning_manager.independent_deep_learning(
-                    current_state, actions, reward, state, reward_diffs)
+                    current_state, actions, reward, indiv_rewards,
+                    state, reward_diffs
+                )
 
     def _update_flexibility_opt(self, batchflex_opt, res, i_step):
         cons_flex_opt = \
@@ -730,7 +747,7 @@ class Explorer():
         sum_RL_rewards = 0
         all_mus = []
         step_vals[t] = initialise_dict(
-            self.step_vals_entries + ["reward_diff"])
+            self.step_vals_entries)
         batchflex_opt, batch_avail_EV = \
             [[batch[a][e] for a in range(len(batch))]
              for e in ["flex", "avail_EV"]]
@@ -765,16 +782,21 @@ class Explorer():
                 passive_vars=self._get_passive_vars(i_step),
                 evaluation=evaluation
             )
+            step_vals_i["indiv_rewards"] = break_down_rewards[-1]
             self._tests_res(res, i_step, batch, step_vals_i["reward"])
 
             # substract baseline rewards to reward -
             # for training, not evaluating
-            step_vals_i["reward_diff"], feasible = self._get_diff_rewards(
+            indiv_rewards = break_down_rewards[-1]
+            step_vals_i["diff_rewards"], feasible = self._get_diff_rewards(
                 evaluation, i_step, step_vals_i["action"], date,
-                loads, res, feasible, step_vals_i["reward"])
+                loads, res, feasible, step_vals_i["reward"], indiv_rewards
+            )
             if not feasible:
                 step_vals_i["reward"] = self._apply_reward_penalty(
-                    evaluation, step_vals_i["reward"])
+                    evaluation, step_vals_i["reward"],
+                    step_vals_i["diff_rewards"]
+                )
             if not (rl["competitive"] and not evaluation):
                 sum_RL_rewards += step_vals_i["reward"]
 
@@ -850,14 +872,16 @@ class Explorer():
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
 
-    def _apply_reward_penalty(self, evaluation, reward):
+    def _apply_reward_penalty(self, evaluation, reward, diff_rewards=None):
         if self.rl["apply_penalty"] and not evaluation:
             if self.rl["competitive"]:
-                for a in self.agents:
-                    reward[a] -= self.rl["penalty"]
+                assert diff_rewards is not None
+            for a in self.agents:
+                diff_rewards[a] -= self.rl["penalty"]
             else:
                 reward -= self.rl["penalty"]
-        return reward
+
+        return reward, diff_rewards
 
     def _fixed_flex_loads(self, i_step, batchflex_opt):
         """

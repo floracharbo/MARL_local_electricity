@@ -17,9 +17,10 @@ import seaborn as sns
 import torch as th
 
 from config.generate_colors import generate_colors
-from utils.userdeftools import (data_source, distr_learning,
-                                get_moving_average, granularity_to_multipliers,
-                                initialise_dict, reward_type)
+from utilities.userdeftools import (data_source, distr_learning,
+                                    get_moving_average,
+                                    granularity_to_multipliers,
+                                    initialise_dict, reward_type)
 
 
 def _formatting_figure(

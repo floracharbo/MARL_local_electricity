@@ -22,9 +22,9 @@ from config.get_heat_coeffs import get_heat_coeffs
 from config.input_data import input_params
 from learners.facmac.components.transforms import OneHot
 from simulations.record import Record
-from utils.userdeftools import (_actions_from_unit_box, _actions_to_unit_box,
-                                distr_learning, initialise_dict, reward_type,
-                                str_to_int)
+from utilities.userdeftools import (_actions_from_unit_box,
+                                    _actions_to_unit_box, distr_learning,
+                                    initialise_dict, reward_type, str_to_int)
 
 
 def initialise_objects(

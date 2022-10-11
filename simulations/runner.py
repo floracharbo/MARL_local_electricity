@@ -31,8 +31,8 @@ from post_analysis.plot_summary_no_agents import plot_results_vs_nag
 from post_analysis.post_processing import post_processing
 from simulations.explorer import Explorer
 from simulations.local_elec import LocalElecEnv
-from utils.userdeftools import (data_source, initialise_dict, reward_type,
-                                set_seeds_rdn)
+from utilities.userdeftools import (data_source, initialise_dict, reward_type,
+                                    set_seeds_rdn)
 
 
 class Runner():
@@ -321,7 +321,7 @@ class Runner():
         #  according to clus0 probabilities
         if new_env:  # need to create a new environment
             # data for this environment's deterministic runs not yet generated
-            self.explorer.deterministic_created = False
+            self.explorer.data.deterministic_created = False
             self.explorer.ind_seed_deterministic += 1
         # record current environment creation seed
         self.record.ind_seed_deterministic[ridx] = \

@@ -10,8 +10,8 @@ import math
 
 import numpy as np
 
-from utils.userdeftools import (data_source, distr_learning, initialise_dict,
-                                reward_type)
+from utilities.userdeftools import (data_source, distr_learning,
+                                    initialise_dict, reward_type)
 
 
 # %% TabularQLearner
@@ -285,11 +285,21 @@ class TabularQLearner:
                     if epoch >= self.rl['q_learning']['end_decay']:
                         self.eps[t] = 0
 
+    def _get_reward_a(self, diff_rewards, indiv_rewards, reward, q, a):
+        if reward_type(q) == 'd':
+            reward_a = diff_rewards[a]
+        elif self.rl['competitive']:
+            reward_a = indiv_rewards[a]
+        else:
+            reward_a = reward
+
+        return reward_a
+
     def update_q_step(self, q, step, step_vals):
-        reward = step_vals['reward_diff'][step] \
-            if data_source(q) == 'opt' and reward_type(q) == 'd' \
-            else step_vals['reward'][
-            step]
+        reward, diff_rewards, indiv_rewards = [
+            step_vals[key][step]
+            for key in ["reward", "diff_rewards", "indiv_rewards"]
+        ]
 
         [ind_global_s, ind_global_ac, indiv_s, indiv_ac,
          ind_next_global_s, next_indiv_s, done] = \
@@ -348,12 +358,11 @@ class TabularQLearner:
                 for a in range(self.n_agents):
                     if indiv_ac[a] is not None:
                         i_table = 0 if distr_learning(q) == 'c' else a
-                        rewarda = reward[a] \
-                            if reward_type(q) == 'd' \
-                            or self.rl['competitive'] \
-                            else reward
+                        reward_a = self._get_reward_a(
+                            diff_rewards, indiv_rewards, reward, q, a
+                        )
                         self.update_q(
-                            rewarda, done, ind_indiv_s[a],
+                            reward_a, done, ind_indiv_s[a],
                             ind_indiv_ac[a], ind_next_indiv_s[a],
                             i_table=i_table, q_table_name=q)
 

@@ -113,7 +113,10 @@ class Battery:
                           for a in range(self.n_agents)]
         self.start_store = self.store.copy()
 
-    def compute_bat_dem_agg(self, batch):
+    def compute_bat_dem_agg(
+            self,
+            batch: dict
+    ) -> dict:
         """Compute bat_dem_agg, i.e. having all demand at start of trip."""
         for a in range(self.n_agents):
             batch[a]['bat_dem_agg'] = \

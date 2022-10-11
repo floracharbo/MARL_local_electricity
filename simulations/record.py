@@ -16,7 +16,7 @@ from typing import Tuple
 import numpy as np
 import scipy as sp
 
-from utils.userdeftools import get_moving_average, initialise_dict
+from utilities.userdeftools import get_moving_average, initialise_dict
 
 
 class Record():
@@ -198,9 +198,10 @@ class Record():
                 else labels + ["q_tables", "counter"]
         ridx = self.ridx if end_of == "repeat" else None
         for label in labels:
-            str_ = f"{label}" if ridx is None else f"{label}_ridx{ridx}"
-            save_path = str_ if self.paths["record_folder"] is None \
-                else Path(self.paths["record_folder"]) / str_
+            save_path \
+                = Path(f"{label}" if ridx is None else f"{label}_ridx{ridx}")
+            if self.paths["record_folder"] is not None:
+                save_path = Path(self.paths["record_folder"]) / save_path
             to_save = self.__dict__[label] if end_of == "end" \
                 else self.__dict__[label][self.ridx]
             np.save(save_path, to_save)

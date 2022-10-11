@@ -9,6 +9,7 @@ Created on Mon Feb  3 10:47:57 2020.
 
 import copy
 from datetime import datetime, timedelta
+from typing import List, Tuple
 
 import numpy as np
 from gym import spaces
@@ -19,8 +20,8 @@ from six import integer_types
 from home_components.battery import Battery
 from home_components.heat import Heat
 from simulations.mu_manager import Mu_manager
-from utils.env_spaces import EnvSpaces
-from utils.userdeftools import initialise_dict
+from utilities.env_spaces import EnvSpaces
+from utilities.userdeftools import initialise_dict
 
 
 class LocalElecEnv():
@@ -44,7 +45,6 @@ class LocalElecEnv():
         self.labels = ['loads', 'bat', 'gen']
         self.labels_clus = ['loads', 'bat']
 
-    # def my_init(self, ):
         self.prm = prm
         self.rl = prm['RL']
         self.labels_day_trans = prm['syst']['labels_day_trans']
@@ -88,6 +88,7 @@ class LocalElecEnv():
         self.res_path = prm['paths']['res_path']
         self.i0_costs = 0
         self.bat = Battery(prm)
+        self.slid_day = False
 
         if self.rl['type_learning'] == 'facmac':
             self.action_space = self.rl['action_space']
@@ -100,8 +101,13 @@ class LocalElecEnv():
 
         self.max_delay = self.prm['loads']['max_delay']
 
-    def reset(self, seed=None, load_data=False,
-              passive=False, E_req_only=False):
+    def reset(
+            self,
+            seed: int = 0,
+            load_data: bool = False,
+            passive: bool = False,
+            E_req_only: bool = False
+    ) -> Tuple[str, dict]:
         """Reset environment for new day with new data."""
         if seed is not None:
             self.envseed = self._seed(seed)
@@ -265,7 +271,11 @@ class LocalElecEnv():
         np.save(self.res_path / f"cluss{file_id}", self.cluss)
         np.save(self.res_path / f"fs{file_id}", self.fs)
 
-    def update_flex(self, cons_flex: list, opts: list = None) -> dict:
+    def update_flex(
+            self,
+            cons_flex: list,
+            opts: list = None
+    ) -> np.ndarray:
         """Given step flexible consumption, update remaining flexibility."""
         if opts is None:
             h = self._get_h()
@@ -274,9 +284,15 @@ class LocalElecEnv():
         else:
             h, batch_flex, max_delay, n_agents = opts
         share_flexs = self.prm['loads']['share_flexs']
-        new_batch_flex = [[copy.deepcopy(batch_flex[a][ih])
-                           for ih in range(h, h + 2)]
-                          for a in range(n_agents)]
+        new_batch_flex = np.array(
+            [
+                [
+                    copy.deepcopy(batch_flex[a][ih])
+                    for ih in range(h, h + 2)
+                ]
+                for a in range(n_agents)
+            ]
+        )
 
         for a in range(n_agents):
             remaining_cons = max(cons_flex[a], 0)
@@ -285,9 +301,9 @@ class LocalElecEnv():
 
             # remove what has been consumed
             for i_flex in range(1, self.max_delay + 1):
-                delta_cons = min(new_batch_flex[a][0][i_flex], remaining_cons)
+                delta_cons = min(new_batch_flex[a, 0, i_flex], remaining_cons)
                 remaining_cons -= delta_cons
-                new_batch_flex[a][0][i_flex] -= delta_cons
+                new_batch_flex[a, 0, i_flex] -= delta_cons
             assert remaining_cons <= 1e-2, \
                 f"remaining_cons = {remaining_cons} too large"
 
@@ -322,7 +338,7 @@ class LocalElecEnv():
             action, E_req_only=E_req_only)
         if not constraint_ok:
             print('constraint false not returning to original values')
-            return None, None, None, None, None, constraint_ok, None
+            return [None, None, None, None, None, constraint_ok, None]
 
         else:
             reward, break_down_rewards = self.get_reward(
@@ -381,10 +397,15 @@ class LocalElecEnv():
                 return [next_state, self.done, reward, break_down_rewards,
                         home['bool_flex'], constraint_ok, None]
 
-    def get_reward(self, netp: list, discharge_tot: list = None,
-                   charge: list = None, passive_vars: list = None,
-                   i_step: int = None, evaluation: bool = False) \
-            -> [list, list]:
+    def get_reward(
+            self,
+            netp: list,
+            discharge_tot: list = None,
+            charge: list = None,
+            passive_vars: list = None,
+            i_step: int = None,
+            evaluation: bool = False
+    ) -> Tuple[list, list]:
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
             netp0, discharge_tot0, charge0 = passive_vars
@@ -441,10 +462,6 @@ class LocalElecEnv():
 
         if self.offset_reward:
             reward -= self.delta_reward
-
-        if not evaluation and self.competitive:
-            # cost per agent (bill + battery degradation)
-            reward = c_a
 
         return reward, break_down_rewards
 
@@ -509,25 +526,40 @@ class LocalElecEnv():
 
         return home, loads, constraint_ok
 
-    def get_state_vals(self, descriptors: list = None, inputs: list = None)\
-            -> float:
+    def get_state_vals(
+            self,
+            descriptors: list = None,
+            inputs: list = None
+    ) -> np.ndarray:
         """
         Get values corresponding to array of descriptors inputted.
 
         (before translation into index)
         """
-        t, date, done, batch_flex_h, store = inputs
+        if inputs is None:
+            t, date, done, store = [
+                self.t, self.date, self.done, self.bat.store
+            ]
+            batch_flex_h = [
+                self.batch[a]['flex'][self.step] for a in self.agents
+            ]
+        else:
+            date = inputs[1]
+
+        inputs_ = [t, date, done, batch_flex_h, store] if inputs is None \
+            else inputs
+
         idt = 0 if date.weekday() < 5 else 1
         descriptors = descriptors if descriptors is not None \
             else self.spaces.descriptors['state']
-        vals = []
+        vals = np.zeros((self.n_agents, len(descriptors)))
         hour = self._get_h(date)
         for a in self.agents:
-            vals_a = []
-            for descriptor in descriptors:
-                vals_a.append(self._descriptor_to_val(
-                    descriptor, inputs, hour, idt, a))
-            vals.append(vals_a)
+            for i, descriptor in enumerate(descriptors):
+                vals[a, i] = self._descriptor_to_val(
+                    descriptor, inputs_, hour, idt, a
+                )
+
         return vals
 
     def _seed(self, seed=None):
@@ -632,7 +664,6 @@ class LocalElecEnv():
     def _generate_new_day(self, as_: list):
         """If new day of data was not presaved, load here."""
         # intialise variables
-        print("_generate_new_day")
         as_ = self.agents if as_ is None else as_
         day = {}
         dt = self.prm['syst']['labels_day'][self.idt]
@@ -708,14 +739,14 @@ class LocalElecEnv():
         self._loads_to_flex(as_)
         self.dloaded += 1
 
-    def _load_next_day(self, as_: list = None):
+    def _load_next_day(self, as_: list = []):
         """
         Load next day of data.
 
         Either it is not presaved and needs to be generated,
         or it can just be loaded
         """
-        if not self.load_data or as_ is not None:
+        if not self.load_data or len(as_) > 0:
             self._generate_new_day(as_)
         else:
             for e in ['batch', 'cluss', 'fs']:
@@ -762,16 +793,17 @@ class LocalElecEnv():
         """Apply share of flexible loads to new day loads data."""
         as_ = self.agents if as_ is None else as_
         for a in as_:
-            dayflex_a = [None for _ in range(24)]
+            dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for t in range(24):
-                dayflex_a[t] = [0 for _ in range(self.max_delay + 1)]
-                dayflex_a[t][0] = \
+                dayflex_a[t, 0] = \
                     (1 - self.prm['loads']['share_flexs'][a]) \
                     * self.batch[a]['loads'][self.dloaded * 24 + t]
-                dayflex_a[t][self.max_delay] = \
+                dayflex_a[t, self.max_delay] = \
                     self.prm['loads']['share_flexs'][a] \
                     * self.batch[a]['loads'][self.dloaded * 24 + t]
-            self.batch[a]['flex'] = self.batch[a]['flex'] + dayflex_a
+            self.batch[a]['flex'] = np.concatenate(
+                (self.batch[a]['flex'], dayflex_a)
+            )
 
     def _get_h(self, date: datetime = None) -> int:
         """Given date, obtain hour."""
@@ -781,13 +813,14 @@ class LocalElecEnv():
 
         return h
 
-    def _check_loads(self,
-                     a: int,
-                     date: datetime,
-                     h: int,
-                     loads: dict,
-                     bool_penalty: list
-                     ) -> list:
+    def _check_loads(
+        self,
+        a: int,
+        date: datetime,
+        h: int,
+        loads: dict,
+        bool_penalty: List[bool]
+    ) -> List[bool]:
         """Check load-related constraints for given home after step."""
         flex_cons, l_fixed = [loads[e] for e in ['flex_cons', 'l_fixed']]
 
@@ -802,15 +835,16 @@ class LocalElecEnv():
 
         return bool_penalty
 
-    def _check_constraints(self,
-                           bool_penalty: bool,
-                           date: datetime,
-                           loads: dict,
-                           E_req_only: bool,
-                           h: int,
-                           last_step: bool,
-                           home: dict
-                           ) -> list:
+    def _check_constraints(
+            self,
+            bool_penalty: List[bool],
+            date: datetime,
+            loads: dict,
+            E_req_only: bool,
+            h: int,
+            last_step: bool,
+            home: dict
+    ) -> List[bool]:
         """Given result of the step action, check environment constraints."""
         for a in [a for a, bool in enumerate(bool_penalty) if not bool]:
             self.bat.check_constraints(a, date, h)
@@ -848,12 +882,14 @@ class LocalElecEnv():
 
         return bool_penalty
 
-    def _descriptor_to_val(self,
-                           descriptor: str,
-                           inputs: list,
-                           hour: int,
-                           idt: int,
-                           a: int):
+    def _descriptor_to_val(
+            self,
+            descriptor: str,
+            inputs: list,
+            hour: int,
+            idt: int,
+            a: int
+    ):
         """Given state of action space descriptor, get value."""
         t, date, done, batch_flex_h, store = inputs
 

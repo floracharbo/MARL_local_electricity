@@ -16,8 +16,8 @@ import numpy as np
 import yaml
 
 from config.initialise_objects import initialise_objects
-from utils.userdeftools import (data_source, distr_learning, initialise_dict,
-                                reward_type)
+from utilities.userdeftools import (data_source, distr_learning,
+                                    initialise_dict, reward_type)
 
 
 def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):
