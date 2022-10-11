@@ -23,14 +23,12 @@ import copy
 import glob
 import os
 import traceback
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
 from simulations.problem import Solver
-from utils.userdeftools import set_seeds_rdn
-
-list_bool = List[bool]
+from utilities.userdeftools import set_seeds_rdn
 
 
 class Data_manager():
@@ -46,6 +44,7 @@ class Data_manager():
         self.paths = prm['paths']
         self.rl = prm['RL']
         self.check_feasibility_with_opt = self.rl['check_feasibility_with_opt']
+        self.deterministic_created = False
 
         self.seeds = prm['RL']['seeds']
         # d_seed is the difference between the rank of the n-th seed (n)
@@ -66,7 +65,7 @@ class Data_manager():
 
         file_id_path = self.paths['res_path'] / f"batch{self.file_id()}"
         if file_id_path.is_file():
-            fs, cluss = self._load_res()
+            [fs, cluss] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.p], load_data=True,
                 passive=passive)
@@ -95,8 +94,8 @@ class Data_manager():
             step_vals: dict,
             evaluation: bool,
             epoch: int,
-            mus_opt: list
-    ) -> Tuple[list, bool, bool, dict, list]:
+            mus_opt: Optional[list]
+    ) -> Tuple[list, bool, bool, dict, Optional[list], bool]:
         passive = False
         data_feasible = True
         new_res = False
@@ -119,7 +118,7 @@ class Data_manager():
                 res = np.load(self.paths['res_path']
                               / self.res_name,
                               allow_pickle=True).item()
-            fs, cluss = self._load_res()
+            [fs, cluss] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.p],
                 load_data=True, passive=passive)
@@ -159,19 +158,20 @@ class Data_manager():
                 fs, batch, self.seed[self.p],
                 last_epoch=epoch == self.prm['RL']['n_epochs'] - 1)
 
-        seed_data = res, fs, cluss, batch
+        seed_data = [res, fs, cluss, batch]
 
-        return [seed_data, new_res, data_feasible, step_vals,
-                mus_opt, feasibility_checked]
+        return (seed_data, new_res, data_feasible, step_vals,
+                mus_opt, feasibility_checked)
 
-    def find_feasible_data(self,
-                           seed_ind: int,
-                           type_actions: list,
-                           step_vals: dict,
-                           evaluation: bool,
-                           epoch: int,
-                           passive: bool = False
-                           ) -> [dict, dict, dict, dict, dict, list]:
+    def find_feasible_data(
+            self,
+            seed_ind: int,
+            type_actions: list,
+            step_vals: dict,
+            evaluation: bool,
+            epoch: int,
+            passive: bool = False
+    ) -> Tuple[list, dict, Optional[list]]:
         """
         For a new day of exploration or evaluation, generate feasible data.
 
@@ -285,13 +285,14 @@ class Data_manager():
         return f"{int(self.seed[self.p])}{self.p}" \
                f"{self.prm['paths']['opt_res_file']}"
 
-    def _loop_replace_data(self,
-                           data_feasibles: list_bool,
-                           passive: bool,
-                           file_id: str,
-                           fs: list,
-                           cluss: list
-                           ) -> [dict, dict, dict, list_bool]:
+    def _loop_replace_data(
+            self,
+            data_feasibles: np.ndarray,
+            passive: bool,
+            file_id: str,
+            fs: dict,
+            cluss: dict
+    ) -> Tuple[dict, dict, dict, np.ndarray]:
         """Replace the data for infeasible homes."""
         its = 0
         as_0 = [i for i, ok in enumerate(data_feasibles) if not ok]
@@ -300,7 +301,7 @@ class Data_manager():
         while not all(data_feasibles) and its < 24:
             self.env.dloaded = 0
             self.env.fix_data_a(as_, file_id, its=its)
-            fs, cluss = self._load_res()
+            [fs, cluss] = self._load_res()
 
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.p], load_data=True, passive=passive)
@@ -319,7 +320,7 @@ class Data_manager():
 
         return fs, cluss, batch, data_feasibles
 
-    def _load_res(self, labels: list = ['fs', 'cluss']) -> dict:
+    def _load_res(self, labels: list = ['fs', 'cluss']) -> List[dict]:
         """Load pre-saved day data."""
         x = [np.load(self.paths['res_path']
                      / f"{label}{self.file_id()}",
@@ -328,7 +329,11 @@ class Data_manager():
 
         return x
 
-    def _env_make_data(self, seed: int, passive: bool = False) -> [dict, dict]:
+    def _env_make_data(
+            self,
+            seed: int,
+            passive: bool = False
+    ) -> List[dict]:
         """
         Instruct env to load/ make data given deterministic. Save and clean up.
 
@@ -370,7 +375,7 @@ class Data_manager():
 
         # for subsequent methods, on reinitialisation, it will use this data
         # obtain data needed saved in batchfile
-        batch, fs, cluss = self._load_res(labels=['batch', 'fs', 'cluss'])
+        [batch, fs, cluss] = self._load_res(labels=['batch', 'fs', 'cluss'])
 
         new_batch_file = 'batch_file' in self.__dict__.keys() \
                          and batch_file != self.batch_file
@@ -389,7 +394,7 @@ class Data_manager():
             self,
             batch: dict,
             passive: bool = False
-    ) -> bool:
+    ) -> np.ndarray:
         """Turn input data into usable format for optimisation problem."""
         # initialise dicts
         ntw, loads, grd, syst, bat, heat = \

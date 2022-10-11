@@ -11,7 +11,7 @@ import random
 
 import matplotlib.pyplot as plt
 
-from utils.userdeftools import distr_learning
+from utilities.userdeftools import distr_learning
 
 
 def _check_color_diffs(colors, new_color, min_diffs=None):

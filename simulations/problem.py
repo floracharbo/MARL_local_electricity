@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
 
-from utils.userdeftools import comb
+from utilities.userdeftools import comb
 
 
 class Solver():

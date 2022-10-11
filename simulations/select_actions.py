@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 import torch as th
 
-from utils.userdeftools import granularity_to_multipliers
+from utilities.userdeftools import granularity_to_multipliers
 
 
 class ActionSelector:
@@ -27,7 +27,10 @@ class ActionSelector:
         self.agents = range(prm["ntw"]["n"])
         self.episode_batch = episode_batch
 
-    def _format_tf_prev_state(self, current_state):
+    def _format_tf_prev_state(
+            self,
+            current_state: list
+    ) -> list:
         if self.rl['LSTM']:
             tf_prev_state = [tf.expand_dims(
                 tf.convert_to_tensor(np.reshape(
@@ -39,18 +42,19 @@ class ActionSelector:
 
         return tf_prev_state
 
-    def select_action(self,
-                      t: str,
-                      step: int,
-                      actions: list,
-                      mus_opt: list,
-                      evaluation: bool,
-                      current_state: list,
-                      eps_greedy: bool,
-                      rdn_eps_greedy: bool,
-                      rdn_eps_greedy_indiv: bool,
-                      t_env
-                      ) -> Tuple[list, list, list]:
+    def select_action(
+            self,
+            t: str,
+            step: int,
+            actions: list,
+            mus_opt: list,
+            evaluation: bool,
+            current_state: list,
+            eps_greedy: bool,
+            rdn_eps_greedy: bool,
+            rdn_eps_greedy_indiv: bool,
+            t_env
+    ) -> Tuple[list, list]:
         """Select exploration action."""
         rl = self.rl
         tf_prev_state = self._format_tf_prev_state(current_state)

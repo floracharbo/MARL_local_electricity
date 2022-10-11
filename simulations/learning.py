@@ -4,10 +4,12 @@ This file contains the Learner class.
 author: Flora Charbonnier
 """
 
+from typing import List
+
 import numpy as np
 
-from utils.userdeftools import (data_source, granularity_to_multipliers,
-                                reward_type)
+from utilities.userdeftools import (data_source, granularity_to_multipliers,
+                                    reward_type)
 
 
 class LearningManager():
@@ -103,6 +105,7 @@ class LearningManager():
                                   current_state: list,
                                   actions: list,
                                   reward: float,
+                                  indiv_rewards: List[float],
                                   state: list,
                                   reward_diffs: list
                                   ):
@@ -118,7 +121,7 @@ class LearningManager():
             else:
                 for a in self.agents:
                     if reward_type(t_) == 'r' and self.rl['competitive']:
-                        reward = reward[a]
+                        reward = indiv_rewards[a]
                     elif reward_type(t_) == 'd':
                         reward = reward_diffs[a]
                     if self.rl['type_learning'] in ['DQN', 'DDQN']:

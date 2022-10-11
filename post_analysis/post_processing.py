@@ -18,7 +18,7 @@ import numpy as np
 
 from post_analysis.plotting import plotting
 from post_analysis.print_results import print_results
-from utils.userdeftools import distr_learning
+from utilities.userdeftools import distr_learning
 
 
 def _max_min_q(q_table, n_states, minq, maxq, prm):

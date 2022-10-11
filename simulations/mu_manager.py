@@ -13,7 +13,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import gridspec
 
-from utils.userdeftools import initialise_dict
+from utilities.userdeftools import initialise_dict
 
 
 class Mu_manager:

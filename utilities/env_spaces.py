@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from utils.userdeftools import granularity_to_multipliers
+from utilities.userdeftools import granularity_to_multipliers
 
 
 class EnvSpaces():

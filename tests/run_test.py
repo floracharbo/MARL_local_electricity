@@ -6,7 +6,7 @@ import pytest
 
 from config.generate_colors import _check_color_diffs, generate_colors
 from simulations.runner import run
-from utils.userdeftools import set_seeds_rdn
+from utilities.userdeftools import set_seeds_rdn
 
 
 def random_True_False(colors, color, min_diffs=None):
