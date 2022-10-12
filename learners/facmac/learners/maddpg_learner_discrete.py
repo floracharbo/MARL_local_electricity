@@ -7,11 +7,12 @@ import torch as th
 from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
+from learners.facmac.learners.learner import Learner
 from learners.facmac.modules.critics.maddpg import MADDPGCritic
 from learners.facmac.utils.rl_utils import build_td_lambda_targets
 
 
-class MADDPGDiscreteLearner:
+class MADDPGDiscreteLearner(Learner):
     def __init__(self, mac, scheme, logger, args):
         self.args = args
         self.n_agents = args.n_agents
@@ -61,13 +62,7 @@ class MADDPGDiscreteLearner:
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
 
         # Train the critic batched
-        target_mac_out = []
-        self.target_mac.init_hidden(batch.batch_size)
-        for t in range(batch.max_seq_length):
-            target_agent_outs = self.target_mac.select_actions(
-                batch, t_ep=t, t_env=t_env, test_mode=True)
-            target_mac_out.append(target_agent_outs)
-        target_mac_out = th.stack(target_mac_out, dim=1)  # Concat over time
+        target_mac_out = self._get_target_actions_batch(batch, t_env)
 
         q_taken, _ = self.critic(batch["state"][:, :-1], actions[:, :-1])
         target_vals, _ = self.target_critic(
@@ -97,14 +92,10 @@ class MADDPGDiscreteLearner:
             agent_outs = self.mac.select_actions(
                 batch, t_ep=t, t_env=t_env, test_mode=False, explore=False)
 
-            for idx in range(self.n_agents):
-                tem_joint_act = \
-                    actions[:, t: t + 1].detach().clone().view(
-                        batch.batch_size, -1, self.n_actions)
-                tem_joint_act[:, idx] = agent_outs[:, idx]
-                q, _ = self.critic(self._build_inputs(batch, t=t),
-                                   tem_joint_act)
-                chosen_action_qvals.append(q.view(batch.batch_size, -1, 1))
+            chosen_action_qvals = self._append_chosen_action_qvals(
+                actions, batch, agent_outs, chosen_action_qvals, t
+            )
+
         chosen_action_qvals = th.stack(chosen_action_qvals, dim=1)
 
         # Compute the actor loss
@@ -147,21 +138,6 @@ class MADDPGDiscreteLearner:
             self.logger.log_stat("agent_grad_norm", agent_grad_norm, t_env)
             self.log_stats_t = t_env
 
-    def _update_targets_soft(self, tau):
-        for target_param, param in zip(self.target_mac.parameters(),
-                                       self.mac.parameters()):
-            target_param.data.copy_(target_param.data * (1.0 - tau)
-                                    + param.data * tau)
-
-        for target_param, param in zip(self.target_critic.parameters(),
-                                       self.critic.parameters()):
-            target_param.data.copy_(target_param.data * (1.0 - tau)
-                                    + param.data * tau)
-
-        if self.args.verbose:
-            self.logger.console_logger.info(
-                f"Updated all target networks (soft update tau={tau})")
-
     def _build_inputs(self, batch, t):
         bs = batch.batch_size
         inputs = []
@@ -183,12 +159,6 @@ class MADDPGDiscreteLearner:
         self.target_mac.load_state(self.mac)
         self.target_critic.load_state_dict(self.critic.state_dict())
         self.logger.console_logger.info("Updated all target networks")
-
-    def cuda(self, device="cuda:0"):
-        self.mac.cuda(device=device)
-        self.target_mac.cuda(device=device)
-        self.critic.cuda(device=device)
-        self.target_critic.cuda(device=device)
 
     def save_models(self, path):
         self.mac.save_models(path)

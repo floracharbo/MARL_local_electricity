@@ -7,6 +7,7 @@ import torch.distributions as tdist
 from gym import spaces
 
 from .basic_controller import BasicMAC
+from learners.facmac.utils.rl_utils import input_last_action
 
 
 # This multi-agent controller shares parameters between agents
@@ -87,7 +88,7 @@ class CQMixMAC(BasicMAC):
 
     def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None),
                        test_mode=False, critic=None,
-                       target_mac=False, explore_agent_ids=None):
+                       explore_agent_ids=None):
 
         if self.rl['agent_facmac'] == "cqmix":
             raise Exception("No CQMIX agent selected (naf, icnn, qtopt)!")
@@ -201,15 +202,11 @@ class CQMixMAC(BasicMAC):
         # Assumes homogenous agents with flat observations.
         # Other MACs might want to e.g. delegate building inputs to each agent
         bs = batch.batch_size
-        inputs = []
-        inputs.append(batch["obs"][:, t])  # b1av
+        inputs = [batch["obs"][:, t]]  # b1av
 
-        if self.rl['obs_last_action']:
-
-            if t == 0:
-                inputs.append(th.zeros_like(batch["actions"][:, t]))
-            else:
-                inputs.append(batch["actions"][:, t - 1])
+        inputs = input_last_action(
+            self.rl['obs_last_action'], inputs, batch, t
+        )
         if self.rl['obs_agent_id']:
 
             inputs.append(th.eye(

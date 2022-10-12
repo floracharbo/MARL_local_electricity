@@ -7,10 +7,11 @@ import torch as th
 from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
+from learners.facmac.learners.learner import Learner
 from learners.facmac.modules.critics.maddpg import MADDPGCritic
+from learners.facmac.utils.rl_utils import input_last_action
 
-
-class MADDPGLearner:
+class MADDPGLearner(Learner):
     def __init__(self, mac, scheme, rl):
         self.rl = rl
         self.n_agents = rl['n_agents']
@@ -108,13 +109,10 @@ class MADDPGLearner:
                 batch, t=t, select_actions=True)["actions"].view(
                 batch.batch_size, self.n_agents, self.n_actions)
 
-            for idx in range(self.n_agents):
-                tem_joint_act = actions[:, t: t + 1].detach().clone().view(
-                    batch.batch_size, -1, self.n_actions)
-                tem_joint_act[:, idx] = agent_outs[:, idx]
-                q, _ = self.critic(self._build_inputs(batch, t=t),
-                                   tem_joint_act)
-                chosen_action_qvals.append(q.view(batch.batch_size, -1, 1))
+            chosen_action_qvals = self._append_chosen_action_qvals(
+                actions, batch, agent_outs, chosen_action_qvals, t
+            )
+
             mac_out.append(agent_outs)
         mac_out = th.stack(mac_out, dim=1)
         chosen_action_qvals = th.stack(chosen_action_qvals, dim=1)
@@ -137,30 +135,16 @@ class MADDPGLearner:
             raise Exception(
                 f"unknown target update mode: {self.rl['target_update_mode']}")
 
-    def _update_targets_soft(self, tau):
-        for target_param, param in zip(self.target_mac.parameters(),
-                                       self.mac.parameters()):
-            target_param.data.copy_(target_param.data * (1.0 - tau)
-                                    + param.data * tau)
-
-        for target_param, param in zip(self.target_critic.parameters(),
-                                       self.critic.parameters()):
-            target_param.data.copy_(target_param.data * (1.0 - tau)
-                                    + param.data * tau)
-
     def _build_inputs(self, batch, t):
         bs = batch.batch_size
-        inputs = []
 
         # The centralized critic takes the state input, not observation
-        inputs.append(batch["state"][:, t])
+        inputs = [batch["state"][:, t]]
 
         if self.rl['recurrent_critic']:
-            if self.rl['obs_last_action']:
-                if t == 0:
-                    inputs.append(th.zeros_like(batch["actions"][:, t]))
-                else:
-                    inputs.append(batch["actions"][:, t - 1])
+            inputs = input_last_action(
+                self.rl['obs_last_action'], inputs, batch, t
+            )
 
         inputs = th.cat([x.reshape(bs, -1) for x in inputs], dim=1)
         return inputs

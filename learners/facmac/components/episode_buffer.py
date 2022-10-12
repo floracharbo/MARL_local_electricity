@@ -7,6 +7,8 @@ import blosc
 import numpy as np
 import torch as th
 
+from learners.facmac.utils.rl_utils import preprocess_scheme
+
 
 class EpisodeBatch:
 
@@ -40,26 +42,7 @@ class EpisodeBatch:
 
     def _setup_data(self, scheme, groups, batch_size,
                     max_seq_length, preprocess):
-        if preprocess is not None:
-            for k in preprocess:
-                assert k in scheme
-                new_k = preprocess[k][0]
-                transforms = preprocess[k][1]
-
-                vshape = self.scheme[k]["vshape"]
-                dtype = self.scheme[k]["dtype"]
-                for transform in transforms:
-                    vshape, dtype = transform.infer_output_info(vshape, dtype)
-
-                self.scheme[new_k] = {
-                    "vshape": vshape,
-                    "dtype": dtype
-                }
-                if "group" in self.scheme[k]:
-                    self.scheme[new_k]["group"] = self.scheme[k]["group"]
-                if "episode_const" in self.scheme[k]:
-                    self.scheme[new_k]["episode_const"] = \
-                        self.scheme[k]["episode_const"]
+        self.scheme = preprocess_scheme(scheme, preprocess)
 
         assert "filled" not in scheme, \
             '"filled" is a reserved key for masking.'
