@@ -2,24 +2,20 @@
 # https://github.com/oxwhirl/facmac
 
 import torch as th
-import torch.nn as nn
 import torch.nn.functional as F
 
+from learners.facmac.modules.critics.critic import Critic
 
-class MADDPGCritic(nn.Module):
+class MADDPGCritic(Critic):
     def __init__(self, scheme, rl):
-        super(MADDPGCritic, self).__init__()
-        self.rl = rl
-        self.n_actions = rl['dim_actions']
-        self.n_agents = rl['n_agents']
+        super().__init__(rl)
+
+        # The centralized critic takes the state input, not observation
         self.input_shape = \
-            self._get_input_shape(scheme) + self.n_actions * self.n_agents
-        self.output_type = "q"
+            scheme["state"]["vshape"] + self.n_actions * self.n_agents
 
         # Set up network layers
-        self.fc1 = nn.Linear(self.input_shape, rl['rnn_hidden_dim'])
-        self.fc2 = nn.Linear(rl['rnn_hidden_dim'], rl['rnn_hidden_dim'])
-        self.fc3 = nn.Linear(rl['rnn_hidden_dim'], 1)
+        self.set_up_network_layers(rl)
 
     def forward(self, inputs, actions, hidden_state=None):
         if actions is not None:
@@ -30,9 +26,5 @@ class MADDPGCritic(nn.Module):
         x = F.relu(self.fc1(inputs))
         x = F.relu(self.fc2(x))
         q = self.fc3(x)
-        return q, hidden_state
 
-    def _get_input_shape(self, scheme):
-        # The centralized critic takes the state input, not observation
-        input_shape = scheme["state"]["vshape"]
-        return input_shape
+        return q, hidden_state

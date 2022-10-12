@@ -8,6 +8,7 @@ import torch as th
 from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
+from learners.facmac.learners.learner import Learner
 from learners.facmac.modules.critics.facmac import FACMACCritic
 from learners.facmac.modules.mixers.qmix import QMixer
 from learners.facmac.modules.mixers.vdn import VDNMixer
@@ -16,7 +17,7 @@ from learners.facmac.modules.mixers.vdn import VDNMixer
 # import VDNState, QMixerNonmonotonic
 
 
-class FACMACLearner:
+class FACMACLearner(Learner):
     def __init__(self, mac, scheme, rl):
         self.rl = rl
         self.n_agents = rl['n_agents']
@@ -85,7 +86,7 @@ class FACMACLearner:
         for t in range(batch.max_seq_length):
             agent_target_outs = self.target_mac.select_actions(
                 batch, t_ep=t, t_env=None, test_mode=True,
-                critic=self.target_critic, target_mac=True)
+                critic=self.target_critic)
             assert not th.isnan(agent_target_outs[0][0][0]), \
                 "agent_target_outs nan"
             target_actions.append(agent_target_outs)
@@ -200,23 +201,6 @@ class FACMACLearner:
             raise Exception(f"unknown target update mode: "
                             f"{self.rl['target_update_mode']}!")
 
-    def _update_targets_soft(self, tau):
-        for target_param, param in zip(self.target_mac.parameters(),
-                                       self.mac.parameters()):
-            target_param.data.copy_(
-                target_param.data * (1.0 - tau) + param.data * tau)
-
-        for target_param, param in zip(self.target_critic.parameters(),
-                                       self.critic.parameters()):
-            target_param.data.copy_(
-                target_param.data * (1.0 - tau) + param.data * tau)
-
-        if self.mixer is not None:
-            for target_param, param in zip(self.target_mixer.parameters(),
-                                           self.mixer.parameters()):
-                target_param.data.copy_(
-                    target_param.data * (1.0 - tau) + param.data * tau)
-
     def _build_inputs(self, batch, t):
         bs = batch.batch_size
         inputs = []
@@ -244,22 +228,6 @@ class FACMACLearner:
         inputs = th.cat([x.reshape(bs * self.n_agents, -1)
                          for x in inputs], dim=1)
         return inputs
-
-    def _update_targets(self):
-        self.target_mac.load_state(self.mac)
-        self.target_critic.load_state_dict(self.critic.state_dict())
-        if self.mixer is not None:
-            self.target_mixer.load_state_dict(self.mixer.state_dict())
-        # self.logger.console_logger.info("Updated all target networks")
-
-    def cuda(self, device="cuda:0"):
-        self.mac.cuda(device=device)
-        self.target_mac.cuda(device=device)
-        self.critic.cuda(device=device)
-        self.target_critic.cuda(device=device)
-        if self.mixer is not None:
-            self.mixer.cuda(device=device)
-            self.target_mixer.cuda(device=device)
 
     def save_models(self, path):
         self.mac.save_models(path)

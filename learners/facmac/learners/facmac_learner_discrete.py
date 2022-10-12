@@ -7,6 +7,7 @@ import torch as th
 from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
+from learners.facmac.learners.learner import Learner
 from learners.facmac.modules.critics.facmac import FACMACDiscreteCritic
 from learners.facmac.modules.mixers.qmix import QMixer
 from learners.facmac.modules.mixers.qmix_ablations import (QMixerNonmonotonic,
@@ -15,7 +16,7 @@ from learners.facmac.modules.mixers.vdn import VDNMixer
 from learners.facmac.utils.rl_utils import build_td_lambda_targets
 
 
-class FACMACDiscreteLearner:
+class FACMACDiscreteLearner(Learner):
     def __init__(self, mac, scheme, logger, args):
         self.args = args
         self.n_agents = args.n_agents
@@ -80,13 +81,7 @@ class FACMACDiscreteLearner:
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
 
         # Train the critic batched
-        target_mac_out = []
-        self.target_mac.init_hidden(batch.batch_size)
-        for t in range(batch.max_seq_length):
-            target_act_outs = self.target_mac.select_actions(
-                batch, t_ep=t, t_env=t_env, test_mode=True)
-            target_mac_out.append(target_act_outs)
-        target_mac_out = th.stack(target_mac_out, dim=1)  # Concat over time
+        target_mac_out = self._get_target_actions_batch(batch, t_env)
 
         q_taken, _ = self.critic(batch["obs"][:, :-1], actions[:, :-1])
         if self.mixer is not None:
@@ -175,7 +170,8 @@ class FACMACDiscreteLearner:
         elif target_update_mode \
                 in ["soft", "exponential_moving_average"]:
             self._update_targets_soft(
-                tau=getattr(self.args, "target_update_tau", 0.001))
+                tau=getattr(self.args, "target_update_tau", 0.001)
+            )
         else:
             raise Exception(f"unknown target update mode {target_update_mode}")
 
@@ -192,34 +188,6 @@ class FACMACDiscreteLearner:
                                  / (mask_elems * self.args.n_agents),
                                  t_env)
             self.log_stats_t = t_env
-
-    def _update_targets_soft(self, tau):
-        for target_param, param in zip(self.target_mac.parameters(),
-                                       self.mac.parameters()):
-            target_param.data.copy_(target_param.data * (1.0 - tau)
-                                    + param.data * tau)
-
-        for target_param, param in zip(self.target_critic.parameters(),
-                                       self.critic.parameters()):
-            target_param.data.copy_(target_param.data * (1.0 - tau)
-                                    + param.data * tau)
-
-        if self.mixer is not None:
-            for target_param, param in zip(self.target_mixer.parameters(),
-                                           self.mixer.parameters()):
-                target_param.data.copy_(target_param.data * (1.0 - tau)
-                                        + param.data * tau)
-
-        if self.args.verbose:
-            self.logger.console_logger.info(
-                f"Updated all target networks (soft update tau={tau})")
-
-    def _update_targets(self):
-        self.target_mac.load_state(self.mac)
-        self.target_critic.load_state_dict(self.critic.state_dict())
-        if self.mixer is not None:
-            self.target_mixer.load_state_dict(self.mixer.state_dict())
-        self.logger.console_logger.info("Updated all target networks")
 
     def cuda(self, device="cuda:0"):
         self.mac.cuda(device=device)

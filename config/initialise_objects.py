@@ -11,7 +11,7 @@ import datetime
 import multiprocessing as mp
 import os
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import torch as th
@@ -32,7 +32,7 @@ def initialise_objects(
         settings: dict = None,
         no_run: int = None,
         initialise_record: bool = True
-) -> Tuple[dict, object, dict]:
+) -> Tuple[dict, Optional[object], dict]:
     """
     Set up parameters dictionary, load data, initialise recording object.
 
@@ -84,7 +84,7 @@ def initialise_objects(
         # initialise recording of progress - rewards, counters, etc.
         record = Record(prm, no_run=no_run)
     else:
-        record = False
+        record = None
 
     return prm, record, profiles
 

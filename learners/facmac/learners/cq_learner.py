@@ -7,11 +7,12 @@ import torch as th
 from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
+from learners.facmac.learners.learner import Learner
 from learners.facmac.modules.mixers.qmix import QMixer
 from learners.facmac.modules.mixers.vdn import VDNMixer
 
 
-class CQLearner:
+class CQLearner(Learner):
     def __init__(self, mac, scheme, rl):
         self.rl = rl
         self.mac = mac
@@ -66,15 +67,8 @@ class CQLearner:
         # Concat over time
         chosen_action_qvals = th.stack(chosen_action_qvals[:-1], dim=1)
 
-        best_target_actions = []
-        self.target_mac.init_hidden(batch.batch_size)
-        for t in range(batch.max_seq_length):
-            action_outs = self.target_mac.select_actions(
-                batch, t_ep=t, t_env=None, test_mode=True)
-            best_target_actions.append(action_outs)
+        best_target_actions = self._get_target_actions_batch(batch, t_env=None)
 
-        # Concat over time
-        best_target_actions = th.stack(best_target_actions, dim=1)
         target_max_qvals = []
         self.target_mac.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
@@ -136,19 +130,6 @@ class CQLearner:
             target_update_mode = self.rl["target_update_mode"], "hard"
             raise Exception(f"unknown target update mode: "
                             f"{target_update_mode}!")
-
-    def _update_targets_soft(self, tau):
-
-        for target_param, param in zip(self.target_mac.parameters(),
-                                       self.mac.parameters()):
-            target_param.data.copy_(
-                target_param.data * (1.0 - tau) + param.data * tau)
-
-        if self.mixer is not None:
-            for target_param, param in zip(self.target_mixer.parameters(),
-                                           self.mixer.parameters()):
-                target_param.data.copy_(
-                    target_param.data * (1.0 - tau) + param.data * tau)
 
     def _update_targets(self):
         self.target_mac.load_state(self.mac)
