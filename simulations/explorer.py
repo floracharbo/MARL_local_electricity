@@ -279,7 +279,7 @@ class Explorer():
                         and reward_type(t) == "d" \
                         and not evaluation:
                     if self.rl["competitive"]:
-                        indiv_rewards = break_down_rewards[-1]
+                        indiv_rewards = - break_down_rewards[-1]
                         diff_rewards = [
                             indiv_rewards[a] - rewards_baseline[a][a]
                             for a in self.agents
@@ -302,11 +302,11 @@ class Explorer():
                         "action": None,
                         "next_state": None
                     }
-
+                indiv_rewards = - np.array(break_down_rewards[-1])
                 step_vals_ = \
                     [current_state, global_ind["state"], action,
-                     global_ind["action"], reward, diff_rewards, state,
-                     global_ind["next_state"], done, bool_flex,
+                     global_ind["action"], reward, diff_rewards, indiv_rewards,
+                     state, global_ind["next_state"], done, bool_flex,
                      constraint_ok, *break_down_rewards]
 
                 for e, var in zip(self.step_vals_entries, step_vals_):
@@ -782,15 +782,14 @@ class Explorer():
                 passive_vars=self._get_passive_vars(i_step),
                 evaluation=evaluation
             )
-            step_vals_i["indiv_rewards"] = break_down_rewards[-1]
+            step_vals_i["indiv_rewards"] = - np.array(break_down_rewards[-1])
             self._tests_res(res, i_step, batch, step_vals_i["reward"])
 
             # substract baseline rewards to reward -
             # for training, not evaluating
-            indiv_rewards = break_down_rewards[-1]
             step_vals_i["diff_rewards"], feasible = self._get_diff_rewards(
-                evaluation, i_step, step_vals_i["action"], date,
-                loads, res, feasible, step_vals_i["reward"], indiv_rewards
+                evaluation, i_step, step_vals_i["action"], date, loads, res,
+                feasible, step_vals_i["reward"], step_vals_i["indiv_rewards"]
             )
             if not feasible:
                 step_vals_i["reward"] = self._apply_reward_penalty(
