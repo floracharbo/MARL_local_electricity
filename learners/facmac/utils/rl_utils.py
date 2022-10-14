@@ -66,6 +66,7 @@ def preprocess_scheme(scheme, preprocess):
 
     return scheme
 
+
 def input_last_action(obs_last_action, inputs, batch, t):
     if obs_last_action:
         if t == 0:

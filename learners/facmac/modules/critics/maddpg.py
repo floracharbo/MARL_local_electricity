@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from learners.facmac.modules.critics.critic import Critic
 
+
 class MADDPGCritic(Critic):
     def __init__(self, scheme, rl):
         super().__init__(rl)

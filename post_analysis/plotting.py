@@ -282,6 +282,7 @@ def _plot_indoor_air_temp(
 
 
 def _get_ridx_data(ridx, all_methods_to_plot, root):
+    # last = last epoch of each repeat
     last = np.load(root / 'record' / f'last_ridx{ridx}.npy',
                    allow_pickle=True).item()
     cintensity_kg = [c * 1e3 for c in last['cintensity']['baseline']]
@@ -335,7 +336,7 @@ def _get_bands_EV_availability(bEV, a):
 
 def _plot_indiv_agent_res(
         prm, all_methods_to_plot, root, title_ylabel_dict,
-        colors_non_methods, lw_indiv, labels
+        colors_non_methods, lw_indiv, labels, linestyles
 ):
     # Grid price / intensity
     # Heating E
@@ -398,14 +399,27 @@ def _plot_indiv_agent_res(
                     xs = [-0.01] + list(range(24))
                     ys = last[e][t]
                     ys = [ys[step][a] for step in range(len(ys))]
-                    if e == 'store' and t == 'opt':
-                        ys = ys + [prm['bat']['store0'][a]]
-                    elif e == 'store':
-                        ys = [prm['bat']['store0'][a]] + ys
+                    if e == 'action':
+                        for action in range(prm['RL']['dim_actions']):
+                            ys_ = [0] + [
+                                ys[step][action]
+                                for step in range(prm['syst']['N'])
+                            ]
+                            ax.step(xs, ys_, where='post',
+                                    label=f"t_action{action}",
+                                    color=prm['save']['colorse'][t],
+                                    lw=lw_indiv, linestyle=linestyles[action])
 
-                    ax.step(xs, ys, where='post', label=t,
-                            color=prm['save']['colorse'][t],
-                            lw=lw_indiv)
+                    else:
+                        if e == 'store' and t == 'opt':
+                            ys = ys + [prm['bat']['store0'][a]]
+                        elif e == 'store':
+                            ys = [prm['bat']['store0'][a]] + ys
+                        else:
+                            ys = [0] + ys
+                        ax.step(xs, ys, where='post', label=t,
+                                color=prm['save']['colorse'][t],
+                                lw=lw_indiv)
                 axs[r, c].set_ylabel(
                     f'{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}')
                 axs[3, c].set_xlabel('Time [h]')
@@ -414,6 +428,7 @@ def _plot_indiv_agent_res(
             title = f'subplots example day repeat {ridx} a {a}'
             title_display = 'subplots example day'
             subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+
             for r in range(4):
                 for c in range(2):
                     axs[r, c].set_title(subtitles[r + c * 4])
@@ -466,7 +481,7 @@ def _plot_all_agents_all_ridx_res(
                     axs[r, c].step(xs, ys, where='post',
                                    color=prm['save']['colorse'][t],
                                    lw=lw_all, alpha=alpha_not_indiv)
-                    all_vals[e][t].append(ys)
+                    all_vals[e][t][ridx].append(ys)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
                 if r == 2:
@@ -475,10 +490,47 @@ def _plot_all_agents_all_ridx_res(
     return axs
 
 
+def _plot_last_epochs_actions(
+        list_ridx, means, e, t, prm, all_vals, ax, xs, lw_mean, linestyles
+):
+    means[e][t] = []
+
+    for action in range(prm['RL']['dim_actions']):
+        all_vals_e_t_step_mean = np.zeros(prm['syst']['N'])
+        for step in range(prm['syst']['N']):
+            all_vals_e_t_step = np.array(
+                [[all_vals[e][t][ridx][home][step][action]
+                  for ridx in list_ridx]
+                 for home in range(prm['ntw']['n'])]
+            )
+            if all(
+                    [[all_vals[e][t][ridx][home][step][action] is None
+                      for ridx in list_ridx]
+                     for home in range(prm['ntw']['n'])]
+            ):
+                all_vals_e_t_step = None
+
+            all_vals_e_t_step_mean[step] = None \
+                if all_vals_e_t_step is None \
+                else np.nanmean(
+                np.nanmean(all_vals_e_t_step)
+            )
+
+        ax.step(
+            xs, all_vals_e_t_step_mean,
+            where='post', label=t,
+            color=prm['save']['colorse'][t],
+            lw=lw_mean, alpha=1, linestyle=linestyles[action]
+        )
+        means[e][t].append(all_vals_e_t_step)
+
+    return ax
+
+
 def _plot_all_agents_mean_res(
         entries, all_methods_to_plot, axs, all_T_air,
         prm, lw_mean, all_cum_rewards, labels,
-        rows, columns, all_vals
+        rows, columns, all_vals, list_ridx, linestyles
 ):
     means = initialise_dict(['T_air', 'cum_rewards'] + entries,
                             'empty_dict')
@@ -499,19 +551,36 @@ def _plot_all_agents_mean_res(
             xs = list(range(24))
             if e == 'store':
                 xs = [-0.01] + xs
-            axs[r, c].step(xs, np.mean(all_vals[e][t], axis=0),
-                           where='post', label=t,
-                           color=prm['save']['colorse'][t],
-                           lw=lw_mean, alpha=1)
-            means[e][t] = np.mean(all_vals[e][t], axis=0)
+            if e == 'action':
+                axs[r, c] = _plot_last_epochs_actions(
+                    list_ridx, means, e, t, prm, all_vals,
+                    axs[r, c], xs, lw_mean, linestyles
+                )
 
+            else:
+                n = len(all_vals[e][t][list_ridx[0]][0])
+                all_vals_e_t_step_mean = np.zeros(n)
+                for step in range(n):
+                    all_vals_e_t_step = np.array(
+                        [[all_vals[e][t][ridx][home][step]
+                          for ridx in list_ridx]
+                         for home in range(prm['ntw']['n'])]
+                    )
+                    all_vals_e_t_step_mean[step] = np.mean(
+                        np.mean(all_vals_e_t_step)
+                    )
+                axs[r, c].step(xs, all_vals_e_t_step_mean,
+                               where='post', label=t,
+                               color=prm['save']['colorse'][t],
+                               lw=lw_mean, alpha=1)
+                means[e][t] = all_vals_e_t_step_mean
     return axs
 
 
 def _plot_all_agents_res(
         list_ridx, lw_all, prm, lw_all_list_ridx, all_methods_to_plot,
         root, title_ylabel_dict, colors_non_methods, labels,
-        lw_indiv, alpha_not_indiv, lw_mean
+        lw_indiv, alpha_not_indiv, lw_mean, linestyles
 ):
     # do one figure with all agents and repeats
     title_ridx = 'all_ridx' if list_ridx is None \
@@ -519,7 +588,6 @@ def _plot_all_agents_res(
     lw_all = lw_all if list_ridx is None else lw_all_list_ridx
     list_ridx = range(prm['RL']['n_repeats']) \
         if list_ridx is None else list_ridx
-
     # Action variable
     # Heating E
     # Total consumption
@@ -535,6 +603,9 @@ def _plot_all_agents_res(
     all_vals = initialise_dict(
         entries, second_level_entries=all_methods_to_plot
     )
+    for e in entries:
+        for t in all_methods_to_plot:
+            all_vals[e][t] = initialise_dict(range(prm['RL']['n_repeats']))
 
     axs = _plot_all_agents_all_ridx_res(
         list_ridx, all_methods_to_plot, root, title_ylabel_dict,
@@ -545,7 +616,7 @@ def _plot_all_agents_res(
     axs = _plot_all_agents_mean_res(
         entries, all_methods_to_plot, axs, all_T_air,
         prm, lw_mean, all_cum_rewards, labels,
-        rows, columns, all_vals
+        rows, columns, all_vals, list_ridx, linestyles
     )
 
     fig.tight_layout()
@@ -590,6 +661,11 @@ def _plot_res(root, prm, indiv=True, list_ridx=None):
         'netp': ['Total household imports', '[kWh]'],
         'action': ['Action variable', r"$\psi$ [-]"]
     }
+    linestyles = {
+        0: '-',
+        1: '--',
+        2: ':'
+    }
 
     lw_indiv = 2
     lw_all = 0.4
@@ -602,7 +678,12 @@ def _plot_res(root, prm, indiv=True, list_ridx=None):
                           if c not in colors_methods]
     prm['save']['colorse']['opt_n_c'] = prm['save']['colorse']['opt_n_d']
     labels = {}
-    reward_labels = {'c': 'C', 'd': 'M', 'r': 'T'}
+    reward_labels = {
+        'd': 'M',
+        'r': 'T',
+        'n': 'N',
+        'A': 'A'
+    }
     experience_labels = {'opt': 'O', 'env': 'E'}
     for t in prm['RL']['type_eval']:
         if t == 'opt':
@@ -617,13 +698,13 @@ def _plot_res(root, prm, indiv=True, list_ridx=None):
     if indiv:  # do one figure per agent and per repeat
         _plot_indiv_agent_res(
             prm, all_methods_to_plot, root, title_ylabel_dict,
-            colors_non_methods, lw_indiv, labels
+            colors_non_methods, lw_indiv, labels, linestyles
         )
     elif not indiv:
         _plot_all_agents_res(
             list_ridx, lw_all, prm, lw_all_list_ridx, all_methods_to_plot,
             root, title_ylabel_dict, colors_non_methods, labels,
-            lw_indiv, alpha_not_indiv, lw_mean
+            lw_indiv, alpha_not_indiv, lw_mean, linestyles
         )
 
 

@@ -1,55 +1,18 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-import copy
 
 import torch as th
-from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
 from learners.facmac.learners.learner import Learner
-from learners.facmac.modules.critics.maddpg import MADDPGCritic
 from learners.facmac.utils.rl_utils import input_last_action
+
 
 class MADDPGLearner(Learner):
     def __init__(self, mac, scheme, rl):
-        self.rl = rl
-        self.n_agents = rl['n_agents']
-        self.n_actions = rl['dim_actions']
-
-        self.mac = mac
-        self.target_mac = copy.deepcopy(self.mac)
-        self.agent_params = list(mac.parameters())
-
-        self.critic = MADDPGCritic(scheme, rl)
-        self.target_critic = copy.deepcopy(self.critic)
-        self.critic_params = list(self.critic.parameters())
-
-        if self.rl['optimizer'] == "rmsprop":
-            self.agent_optimiser = RMSprop(params=self.agent_params,
-                                           lr=rl['lr'],
-                                           alpha=self.rl['optim_alpha'],
-                                           eps=self.rl['optim_eps'])
-        elif self.rl['optimizer'] == "adam":
-            self.agent_optimiser = Adam(params=self.agent_params,
-                                        lr=rl['lr'],
-                                        eps=self.rl['optimizer_epsilon'])
-        else:
-            raise Exception(f"unknown optimizer {self.rl['optimizer']}")
-
-        if self.rl['optimizer'] == "rmsprop":
-            self.critic_optimiser = RMSprop(params=self.critic_params,
-                                            lr=self.rl['facmac']['critic_lr'],
-                                            alpha=self.rl['optim_alpha'],
-                                            eps=self.rl['optim_eps'])
-        elif self.rl['optimizer'] == "adam":
-            self.critic_optimiser = Adam(params=self.critic_params,
-                                         lr=self.rl['facmac']['critic_lr'],
-                                         eps=self.rl['optimizer_epsilon'])
-        else:
-            raise Exception(f"unknown optimizer {self.rl['optimizer']}")
-
-        # self.log_stats_t = -self.args.learner_log_interval - 1
+        self.__name__ = 'MADDPGLearner'
+        super().__init__(mac, scheme, rl)
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         # Get the relevant quantities
@@ -92,13 +55,8 @@ class MADDPGLearner(Learner):
             + self.rl['facmac']['gamma'] \
             * (1 - terminated.expand_as(target_vals)) * target_vals
 
-        td_error = (q_taken - targets.detach())
-        mask = mask.expand_as(td_error)
-        masked_td_error = td_error * mask
-        loss = (masked_td_error ** 2).sum() / mask.sum()
+        self.compute_grad_loss(q_taken, targets, mask)
 
-        self.critic_optimiser.zero_grad()
-        loss.backward()
         self.critic_optimiser.step()
 
         mac_out = []
@@ -119,7 +77,7 @@ class MADDPGLearner(Learner):
         pi = mac_out
 
         # Compute the actor loss
-        pg_loss = -chosen_action_qvals.mean() + (pi**2).mean() * 1e-3
+        pg_loss = - chosen_action_qvals.mean() + (pi**2).mean() * 1e-3
 
         # Optimise agents
         self.agent_optimiser.zero_grad()
@@ -148,26 +106,3 @@ class MADDPGLearner(Learner):
 
         inputs = th.cat([x.reshape(bs, -1) for x in inputs], dim=1)
         return inputs
-
-    def _update_targets(self):
-        self.target_mac.load_state(self.mac)
-        self.target_critic.load_state_dict(self.critic.state_dict())
-        self.logger.console_logger.info("Updated all target networks")
-
-    def cuda(self, device="cuda:0"):
-        self.mac.cuda(device=device)
-        self.target_mac.cuda(device=device)
-        self.critic.cuda(device=device)
-        self.target_critic.cuda(device=device)
-
-    def save_models(self, path):
-        self.mac.save_models(path)
-        th.save(self.agent_optimiser.state_dict(), "{}/opt.th".format(path))
-
-    def load_models(self, path):
-        self.mac.load_models(path)
-        # Not quite right but I don't want to save target networks
-        self.target_mac.load_models(path)
-        self.agent_optimiser.load_state_dict(
-            th.load("{}/opt.th".format(path),
-                    map_location=lambda storage, loc: storage))

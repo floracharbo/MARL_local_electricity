@@ -84,6 +84,8 @@ def initialise_dict(
         'zero': 0,
         'Nones': [None] * n
     }
+    if len(second_level_entries) > 0:
+        type_obj = 'empty_dict'
     obj = {}
     for e in entries:
         obj[e] = obj_dict[type_obj].copy()

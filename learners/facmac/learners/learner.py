@@ -1,9 +1,76 @@
+import copy
+
 import torch as th
+from torch.optim import Adam, RMSprop
+
+from learners.facmac.modules.critics.maddpg import MADDPGCritic
+from learners.facmac.modules.mixers.qmix import QMixer
+from learners.facmac.modules.mixers.vdn import VDNMixer
 
 
 class Learner():
-    def __init__(self):
+    def __init__(self, mac, rl, scheme):
         self.mixer = None
+        self.critic = None
+        self.rl = rl
+        self.n_agents = rl['n_agents']
+        self.n_actions = rl['dim_actions']
+        self.mac = mac
+        self.target_mac = copy.deepcopy(self.mac)
+        self.agent_params = list(mac.parameters())
+        self.named_params = dict(mac.named_parameters())
+        self.cuda_available = True if th.cuda.is_available() else False
+
+        if self.__name__[0:6] == 'MADDPG':
+            self.maddpg_init(mac, scheme, rl)
+        elif self.__name__ in ['FACMACLearner', 'CQLearner']:
+            self.init_mixer(rl)
+
+    def init_mixer(self, rl):
+        if rl['mixer'] is not None \
+                and self.rl['n_agents'] > 1:
+            # if just 1 agent do not mix anything
+            if rl['mixer'] == "vdn":
+                self.mixer = VDNMixer()
+            elif rl['mixer'] == "qmix":
+                self.mixer = QMixer(rl)
+            # elif rl['mixer'] == "vdn-s":
+            #     self.mixer = VDNState(rl)
+            # elif rl['mixer'] == "qmix-nonmonotonic":
+            #     self.mixer = QMixerNonmonotonic(rl)
+            else:
+                raise ValueError(f"Mixer {rl['mixer']} not recognised.")
+
+    def maddpg_init(self, mac, scheme, rl):
+        self.agent_params = list(mac.parameters())
+
+        self.critic = MADDPGCritic(scheme, rl)
+        self.target_critic = copy.deepcopy(self.critic)
+        self.critic_params = list(self.critic.parameters())
+
+        if self.rl['optimizer'] == "rmsprop":
+            self.agent_optimiser = RMSprop(params=self.agent_params,
+                                           lr=rl['lr'],
+                                           alpha=self.rl['optim_alpha'],
+                                           eps=self.rl['optim_eps'])
+        elif self.rl['optimizer'] == "adam":
+            self.agent_optimiser = Adam(params=self.agent_params,
+                                        lr=rl['lr'],
+                                        eps=self.rl['optimizer_epsilon'])
+        else:
+            raise Exception(f"unknown optimizer {self.rl['optimizer']}")
+
+        if self.rl['optimizer'] == "rmsprop":
+            self.critic_optimiser = RMSprop(params=self.critic_params,
+                                            lr=self.rl['facmac']['critic_lr'],
+                                            alpha=self.rl['optim_alpha'],
+                                            eps=self.rl['optim_eps'])
+        elif self.rl['optimizer'] == "adam":
+            self.critic_optimiser = Adam(params=self.critic_params,
+                                         lr=self.rl['facmac']['critic_lr'],
+                                         eps=self.rl['optimizer_epsilon'])
+        else:
+            raise Exception(f"unknown optimizer {self.rl['optimizer']}")
 
     def _update_targets_soft(self, tau):
         for target_param, param in zip(self.target_mac.parameters(),
@@ -36,8 +103,9 @@ class Learner():
 
         return target_mac_out
 
-
-    def _append_chosen_action_qvals(self, actions, batch, agent_outs, chosen_action_qvals, t):
+    def _append_chosen_action_qvals(
+            self, actions, batch, agent_outs, chosen_action_qvals, t
+    ):
         for idx in range(self.n_agents):
             tem_joint_act = actions[:, t: t + 1].detach().clone().view(
                 batch.batch_size, -1, self.n_actions)
@@ -51,8 +119,9 @@ class Learner():
     def cuda(self, device="cuda:0"):
         self.mac.cuda(device=device)
         self.target_mac.cuda(device=device)
-        self.critic.cuda(device=device)
-        self.target_critic.cuda(device=device)
+        if self.critic is not None:
+            self.critic.cuda(device=device)
+            self.target_critic.cuda(device=device)
         if self.mixer is not None:
             self.mixer.cuda(device=device)
             self.target_mixer.cuda(device=device)
@@ -62,3 +131,32 @@ class Learner():
         self.target_critic.load_state_dict(self.critic.state_dict())
         if self.mixer is not None:
             self.target_mixer.load_state_dict(self.mixer.state_dict())
+
+    def compute_grad_loss(self, q_taken, targets, mask):
+        td_error = (q_taken - targets.detach())
+        mask = mask.expand_as(td_error)
+        masked_td_error = td_error * mask
+        loss = (masked_td_error ** 2).sum() / mask.sum()
+        self.critic_optimiser.zero_grad()
+        loss.backward()
+
+        return masked_td_error, loss
+
+    def save_models(self, path):
+        self.mac.save_models(path)
+        if self.mixer is not None:
+            th.save(self.mixer.state_dict(), "{}/mixer.th".format(path))
+
+        th.save(self.agent_optimiser.state_dict(), "{}/opt.th".format(path))
+
+    def load_models(self, path):
+        self.mac.load_models(path)
+        # Not quite right but I don't want to save target networks
+        self.target_mac.load_models(path)
+        if self.mixer is not None:
+            self.mixer.load_state_dict(
+                th.load("{}/mixer.th".format(path),
+                        map_location=lambda storage, loc: storage))
+        self.agent_optimiser.load_state_dict(
+            th.load("{}/opt.th".format(path),
+                    map_location=lambda storage, loc: storage))
