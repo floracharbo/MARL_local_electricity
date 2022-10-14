@@ -18,7 +18,7 @@ from learners.facmac.modules.critics.facmac import FACMACCritic
 class FACMACLearner(Learner):
     def __init__(self, mac, scheme, rl):
         self.__name__ = 'FACMACLearner'
-        super.__init__(mac, rl, scheme)
+        super().__init__(mac, rl, scheme)
 
         self.critic = FACMACCritic(scheme, rl)
         self.target_critic = copy.deepcopy(self.critic)
