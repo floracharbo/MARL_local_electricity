@@ -1,6 +1,7 @@
 import torch as th
 import torch.nn as nn
 
+
 class Critic(nn.Module):
     def __init__(self, rl):
         super(Critic, self).__init__()

@@ -9,8 +9,8 @@ import torch.nn.functional as F
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, rl):
         super(RNNAgent, self).__init__()
-        self.rl = rl
 
+        self.rl = rl
         self.fc1 = nn.Linear(input_shape, rl['rnn_hidden_dim'])
         self.rnn = nn.GRUCell(self.rl['rnn_hidden_dim'],
                               self.rl['rnn_hidden_dim'])

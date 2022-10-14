@@ -455,7 +455,6 @@ class LocalElecEnv():
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
-
         break_down_rewards = [gc, sc, dc, costs_wholesale, costs_losses,
                               emissions, emissions_from_grid,
                               emissions_from_loss, gc_a, sc_a, c_a]

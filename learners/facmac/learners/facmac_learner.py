@@ -10,8 +10,6 @@ from torch.optim import Adam, RMSprop
 from learners.facmac.components.episode_buffer import EpisodeBatch
 from learners.facmac.learners.learner import Learner
 from learners.facmac.modules.critics.facmac import FACMACCritic
-from learners.facmac.modules.mixers.qmix import QMixer
-from learners.facmac.modules.mixers.vdn import VDNMixer
 
 # from learners.facmac.modules.mixers.qmix_ablations
 # import VDNState, QMixerNonmonotonic
@@ -19,32 +17,15 @@ from learners.facmac.modules.mixers.vdn import VDNMixer
 
 class FACMACLearner(Learner):
     def __init__(self, mac, scheme, rl):
-        self.rl = rl
-        self.n_agents = rl['n_agents']
-        self.n_actions = rl['dim_actions']
-        self.mac = mac
-        self.target_mac = copy.deepcopy(self.mac)
-        self.agent_params = list(mac.parameters())
-        self.cuda_available = True if th.cuda.is_available() else False
-        self.critic = FACMACCritic(scheme, rl)
+        self.__name__ = 'FACMACLearner'
+        super.__init__(mac, rl, scheme)
 
+        self.critic = FACMACCritic(scheme, rl)
         self.target_critic = copy.deepcopy(self.critic)
         self.critic_params = list(self.critic.parameters())
 
-        self.mixer = None
         if rl['mixer'] is not None \
                 and self.rl['n_agents'] > 1:
-            # if just 1 agent do not mix anything
-            if rl['mixer'] == "vdn":
-                self.mixer = VDNMixer()
-            elif rl['mixer'] == "qmix":
-                self.mixer = QMixer(rl)
-            # elif rl['mixer'] == "vdn-s":
-            #     self.mixer = VDNState(rl)
-            # elif rl['mixer'] == "qmix-nonmonotonic":
-            #     self.mixer = QMixerNonmonotonic(rl)
-            else:
-                raise ValueError(f"Mixer {rl['mixer']} not recognised.")
             self.critic_params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 
@@ -69,8 +50,6 @@ class FACMACLearner(Learner):
                 eps=rl['optimizer_epsilon'])
         else:
             raise Exception("unknown optimizer {}".format(rl["optimizer"]))
-
-        # self.log_stats_t = -self.args.learner_log_interval - 1
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         rewards = batch["reward"][:, :-1]
@@ -228,21 +207,3 @@ class FACMACLearner(Learner):
         inputs = th.cat([x.reshape(bs * self.n_agents, -1)
                          for x in inputs], dim=1)
         return inputs
-
-    def save_models(self, path):
-        self.mac.save_models(path)
-        if self.mixer is not None:
-            th.save(self.mixer.state_dict(), "{}/mixer.th".format(path))
-        th.save(self.agent_optimiser.state_dict(), "{}/opt.th".format(path))
-
-    def load_models(self, path):
-        self.mac.load_models(path)
-        # Not quite right but I don't want to save target networks
-        self.target_mac.load_models(path)
-        if self.mixer is not None:
-            self.mixer.load_state_dict(
-                th.load("{}/mixer.th".format(path),
-                        map_location=lambda storage, loc: storage))
-        self.agent_optimiser.load_state_dict(
-            th.load("{}/opt.th".format(path),
-                    map_location=lambda storage, loc: storage))

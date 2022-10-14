@@ -115,13 +115,9 @@ class FACMACDiscreteLearner(Learner):
             batch["reward"], terminated, mask, target_vals,
             self.n_agents, self.args.gamma, self.args.td_lambda)
         mask = mask[:, :-1]
-        td_error = (q_taken - targets.detach())
-        mask = mask.expand_as(td_error)
-        masked_td_error = td_error * mask
-        loss = (masked_td_error ** 2).sum() / mask.sum()
 
-        self.critic_optimiser.zero_grad()
-        loss.backward()
+        masked_td_error, loss = self.compute_grad_loss(q_taken, targets, mask)
+
         critic_grad_norm = th.nn.utils.clip_grad_norm_(
             self.critic_params, self.args.grad_norm_clip)
         self.critic_optimiser.step()
@@ -188,30 +184,3 @@ class FACMACDiscreteLearner(Learner):
                                  / (mask_elems * self.args.n_agents),
                                  t_env)
             self.log_stats_t = t_env
-
-    def cuda(self, device="cuda:0"):
-        self.mac.cuda(device=device)
-        self.target_mac.cuda(device=device)
-        self.critic.cuda(device=device)
-        self.target_critic.cuda(device=device)
-        if self.mixer is not None:
-            self.mixer.cuda(device=device)
-            self.target_mixer.cuda(device=device)
-
-    def save_models(self, path):
-        self.mac.save_models(path)
-        if self.mixer is not None:
-            th.save(self.mixer.state_dict(), "{}/mixer.th".format(path))
-        th.save(self.agent_optimiser.state_dict(), "{}/opt.th".format(path))
-
-    def load_models(self, path):
-        self.mac.load_models(path)
-        # Not quite right but I don't want to save target networks
-        self.target_mac.load_models(path)
-        if self.mixer is not None:
-            self.mixer.load_state_dict(
-                th.load("{}/mixer.th".format(path),
-                        map_location=lambda storage, loc: storage))
-        self.agent_optimiser.load_state_dict(
-            th.load("{}/opt.th".format(path),
-                    map_location=lambda storage, loc: storage))

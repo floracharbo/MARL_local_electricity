@@ -8,46 +8,31 @@ from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
 from learners.facmac.learners.learner import Learner
-from learners.facmac.modules.mixers.qmix import QMixer
-from learners.facmac.modules.mixers.vdn import VDNMixer
 
 
 class CQLearner(Learner):
     def __init__(self, mac, scheme, rl):
-        self.rl = rl
-        self.mac = mac
-
-        self.params = list(mac.parameters())
-        self.named_params = dict(mac.named_parameters())
+        self.__name__ = 'CQLearner'
+        super().__init__(mac, rl, scheme)
 
         self.last_target_update_episode = 0
 
-        self.mixer = None
         if rl['mixer'] is not None and rl['n_agents'] > 1:
-            # if just 1 agent do not mix anything
-            if rl['mixer'] == "vdn":
-                self.mixer = VDNMixer()
-            elif rl['mixer'] == "qmix":
-                self.mixer = QMixer(rl)
-            else:
-                raise ValueError(f"Mixer {rl['mixer']} not recognised.")
-            self.params += list(self.mixer.parameters())
+            self.agent_params += list(self.mixer.parameters())
             self.named_params.update(dict(self.mixer.named_parameters()))
             self.target_mixer = copy.deepcopy(self.mixer)
 
         if rl["optimizer"] == "rmsprop":
-            self.optimiser = RMSprop(params=self.params,
+            self.optimiser = RMSprop(params=self.agent_params,
                                      alpha=rl['optim_alpha'],
                                      lr=rl['lr'],
                                      eps=rl['optim_eps'])
         elif rl["optimizer"] == "adam":
-            self.optimiser = Adam(params=self.params,
+            self.optimiser = Adam(params=self.agent_params,
                                   lr=rl['lr'],
                                   eps=rl["optimizer_epsilon"])
         else:
             raise Exception("unknown optimizer {}".format(rl["optimizer"]))
-
-        self.target_mac = copy.deepcopy(mac)
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         # Get the relevant quantities
@@ -136,28 +121,3 @@ class CQLearner(Learner):
         if self.mixer is not None:
             self.target_mixer.load_state_dict(self.mixer.state_dict())
         self.logger.console_logger.info("Updated target network")
-
-    def cuda(self):
-        self.mac.cuda()
-        self.target_mac.cuda()
-        if self.mixer is not None:
-            self.mixer.cuda()
-            self.target_mixer.cuda()
-
-    def save_models(self, path):
-        self.mac.save_models(path)
-        if self.mixer is not None:
-            th.save(self.mixer.state_dict(), "{}/mixer.th".format(path))
-        th.save(self.optimiser.state_dict(), "{}/opt.th".format(path))
-
-    def load_models(self, path):
-        self.mac.load_models(path)
-        # Not quite right but I don't want to save target networks
-        self.target_mac.load_models(path)
-        if self.mixer is not None:
-            self.mixer.load_state_dict(
-                th.load("{}/mixer.th".format(path),
-                        map_location=lambda storage, loc: storage))
-        self.optimiser.load_state_dict(
-            th.load("{}/opt.th".format(path),
-                    map_location=lambda storage, loc: storage))

@@ -6,8 +6,9 @@ import torch as th
 import torch.distributions as tdist
 from gym import spaces
 
-from .basic_controller import BasicMAC
 from learners.facmac.utils.rl_utils import input_last_action
+
+from .basic_controller import BasicMAC
 
 
 # This multi-agent controller shares parameters between agents

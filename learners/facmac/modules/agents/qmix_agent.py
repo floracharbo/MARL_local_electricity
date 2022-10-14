@@ -4,6 +4,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+from learners.facmac.modules.agents.agent import Agent
+
 
 class QMIXRNNAgent(nn.Module):
     def __init__(self, input_shape, rl):
@@ -27,20 +29,9 @@ class QMIXRNNAgent(nn.Module):
         return q, h
 
 
-class FFAgent(nn.Module):
-    def __init__(self, input_shape, args):
-        super(FFAgent, self).__init__()
-        self.args = args
-
-        # Easiest to reuse rnn_hidden_dim variable
-        self.fc1 = nn.Linear(input_shape, self.rl['rnn_hidden_dim'])
-        self.fc2 = nn.Linear(self.rl['rnn_hidden_dim'],
-                             self.rl['rnn_hidden_dim'])
-        self.fc3 = nn.Linear(self.rl['rnn_hidden_dim'], self.rl['dim_actions'])
-
-    def init_hidden(self):
-        # make hidden states on same device as model
-        return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
+class FFAgent(Agent):
+    def __init__(self, input_shape, rl):
+        super(FFAgent, self).__init__(input_shape, rl)
 
     def forward(self, inputs, hidden_state):
         x = F.relu(self.fc1(inputs))

@@ -1,56 +1,17 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-import copy
-
 import torch as th
-from torch.optim import Adam, RMSprop
 
 from learners.facmac.components.episode_buffer import EpisodeBatch
 from learners.facmac.learners.learner import Learner
-from learners.facmac.modules.critics.maddpg import MADDPGCritic
 from learners.facmac.utils.rl_utils import build_td_lambda_targets
 
 
 class MADDPGDiscreteLearner(Learner):
-    def __init__(self, mac, scheme, logger, args):
-        self.args = args
-        self.n_agents = args.n_agents
-        self.n_actions = args.n_actions
-        self.logger = logger
-
-        self.mac = mac
-        self.target_mac = copy.deepcopy(self.mac)
-        self.agent_params = list(mac.parameters())
-
-        self.critic = MADDPGCritic(scheme, args)
-        self.target_critic = copy.deepcopy(self.critic)
-        self.critic_params = list(self.critic.parameters())
-
-        optimizer = getattr(self.args, "optimizer", "rmsprop")
-        if optimizer == "rmsprop":
-            self.agent_optimiser = RMSprop(
-                params=self.agent_params, lr=args.lr,
-                alpha=args.optim_alpha, eps=args.optim_eps)
-        elif optimizer == "adam":
-            self.agent_optimiser = Adam(
-                params=self.agent_params, lr=args.lr,
-                eps=getattr(args, "optimizer_epsilon", 10E-8))
-        else:
-            raise Exception("unknown optimizer {}".format(optimizer))
-
-        if optimizer == "rmsprop":
-            self.critic_optimiser = RMSprop(
-                params=self.critic_params, lr=args.critic_lr,
-                alpha=args.optim_alpha, eps=args.optim_eps)
-        elif optimizer == "adam":
-            self.critic_optimiser = Adam(
-                params=self.critic_params, lr=args.critic_lr,
-                eps=getattr(args, "optimizer_epsilon", 10E-8))
-        else:
-            raise Exception(f"unknown optimizer {optimizer}")
-
-        self.log_stats_t = -self.args.learner_log_interval - 1
+    def __init__(self, mac, scheme, rl):
+        self.__name__ = 'MADDPGDiscreteLearner'
+        super().__init__(mac, rl, scheme)
         self.last_target_update_episode = 0
         self.critic_training_steps = 0
 
@@ -74,13 +35,9 @@ class MADDPGDiscreteLearner(Learner):
             batch["reward"], terminated, mask, target_vals,
             self.n_agents, self.args.gamma, self.args.td_lambda)
         mask = mask[:, :-1]
-        td_error = (q_taken - targets.detach())
-        mask = mask.expand_as(td_error)
-        masked_td_error = td_error * mask
-        loss = (masked_td_error ** 2).sum() / mask.sum()
 
-        self.critic_optimiser.zero_grad()
-        loss.backward()
+        masked_td_error, loss = self.compute_grad_loss(q_taken, targets, mask)
+
         critic_grad_norm = th.nn.utils.clip_grad_norm_(
             self.critic_params, self.args.grad_norm_clip)
         self.critic_optimiser.step()
@@ -99,7 +56,7 @@ class MADDPGDiscreteLearner(Learner):
         chosen_action_qvals = th.stack(chosen_action_qvals, dim=1)
 
         # Compute the actor loss
-        pg_loss = -chosen_action_qvals.mean()
+        pg_loss = - chosen_action_qvals.mean()
 
         # Optimise agents
         self.agent_optimiser.zero_grad()
@@ -154,20 +111,3 @@ class MADDPGDiscreteLearner(Learner):
 
         inputs = th.cat([x.reshape(bs, -1) for x in inputs], dim=1)
         return inputs
-
-    def _update_targets(self):
-        self.target_mac.load_state(self.mac)
-        self.target_critic.load_state_dict(self.critic.state_dict())
-        self.logger.console_logger.info("Updated all target networks")
-
-    def save_models(self, path):
-        self.mac.save_models(path)
-        th.save(self.agent_optimiser.state_dict(), "{}/opt.th".format(path))
-
-    def load_models(self, path):
-        self.mac.load_models(path)
-        # Not quite right but I don't want to save target networks
-        self.target_mac.load_models(path)
-        self.agent_optimiser.load_state_dict(
-            th.load("{}/opt.th".format(path),
-                    map_location=lambda storage, loc: storage))

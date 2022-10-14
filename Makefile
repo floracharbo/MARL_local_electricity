@@ -12,9 +12,7 @@ lint:
 	isort .
 	flake8 --ignore=W605,W503 --exclude learners --exclude tests .
 	pylama --skip tests/run_test.py,learners/facmac/learners/facmac_learner_discrete.py,learners/facmac/learners/facmac_learner.py,config/compare_inputs.py .
-	# FILES=$(find . -type f -name "*.py")
-	# pylint --ignore tests -E $FILES
-	find . -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore tests/*
+	find . -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201
 	mypy --show-error-codes --exclude learners/facmac --disable-error-code import --disable-error-code attr-defined .
 
 quick_run:
