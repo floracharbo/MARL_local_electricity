@@ -88,9 +88,7 @@ class Learner():
                                            self.mixer.parameters()):
                 target_param.data.copy_(target_param.data * (1.0 - tau)
                                         + param.data * tau)
-        if self.args.verbose:
-            self.logger.console_logger.info(
-                f"Updated all target networks (soft update tau={tau})")
+
 
     def _get_target_actions_batch(self, batch, t_env):
         target_mac_out = []

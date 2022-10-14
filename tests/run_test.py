@@ -27,7 +27,7 @@ def test_generate_colors(mocker):
         side_effect=random_True_False
     )
 
-    colors = generate_colors(save, prm, all_type_eval, colours_only)
+    colors = generate_colors(save, prm, entries=all_type_eval, colours_only=colours_only)
 
     assert len(colors) == len(all_type_eval), \
         "generate colours lengths do not match " \
