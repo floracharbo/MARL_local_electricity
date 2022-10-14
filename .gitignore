@@ -1,12 +1,11 @@
 *.pyc
-*.npy
 *.png
 *.ipynb
 *.th
-beep-24.wav
 *.pdf
 results/
-*.pickle
 .github/workflows
-Jan2020.txt
-octopus_20220101.txt
+*.icloud
+potentially_useless
+input_data/hedge_inputs*
+outputs
