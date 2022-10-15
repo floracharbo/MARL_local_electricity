@@ -84,13 +84,13 @@ class Explorer():
         ]
         self.env.update_date(self.i0_costs)
 
-    def _initialise_passive_vars(self, env, ridx, epoch, i_explore):
+    def _initialise_passive_vars(self, env, repeat, epoch, i_explore):
         self.n_agents = self.prm["ntw"]["nP"]
         self.agents = range(self.n_agents)
         # get environment seed
         seed_ind = self.ind_seed_deterministic \
             if self.rl["deterministic"] == 1 \
-            else self.data.get_seed_ind(ridx, epoch, i_explore)
+            else self.data.get_seed_ind(repeat, epoch, i_explore)
         seed_ind += self.data.d_ind_seed[self.data.p]
         env.set_passive_active(passive=True)
         t = "baseline"
@@ -105,7 +105,7 @@ class Explorer():
             self.prm["loads"][e] = []
 
     def _passive_get_steps(
-            self, env, ridx, epoch, i_explore, type_actions, step_vals
+            self, env, repeat, epoch, i_explore, type_actions, step_vals
     ):
         self.data.p = "P"
         self._init_passive_data()
@@ -114,7 +114,7 @@ class Explorer():
 
         # initialise variables for passive case
         seed_ind, t, done, sequence_feasible, record, evaluation \
-            = self._initialise_passive_vars(env, ridx, epoch, i_explore)
+            = self._initialise_passive_vars(env, repeat, epoch, i_explore)
 
         # find feasible data
         _, step_vals, mus_opt = \
@@ -322,7 +322,7 @@ class Explorer():
         return step_vals, traj_reward, sequence_feasible
 
     def _active_get_steps(
-            self, env, ridx, epoch, i_explore, type_actions,
+            self, env, repeat, epoch, i_explore, type_actions,
             step_vals, evaluation
     ):
         rl = self.rl
@@ -339,7 +339,7 @@ class Explorer():
         # seed_mult = 1 # for initial passive consumers
         seed_ind = self.ind_seed_deterministic \
             if rl["deterministic"] == 1 \
-            else self.data.get_seed_ind(ridx, epoch, i_explore)
+            else self.data.get_seed_ind(repeat, epoch, i_explore)
         seed_ind += self.data.d_ind_seed[self.data.p]
 
         [res, _, _, batch], step_vals, mus_opt = \
@@ -426,7 +426,7 @@ class Explorer():
 
         return step_vals
 
-    def get_steps(self, type_actions, ridx, epoch, i_explore,
+    def get_steps(self, type_actions, repeat, epoch, i_explore,
                   evaluation=False, new_episode_batch=None, parallel=False):
         """Get episode steps interacting with environment.
 
@@ -444,12 +444,12 @@ class Explorer():
 
         # passive consumers
         step_vals = self._passive_get_steps(
-            env, ridx, epoch, i_explore, type_actions, step_vals
+            env, repeat, epoch, i_explore, type_actions, step_vals
         )
         evaluation = eval0
 
         step_vals = self._active_get_steps(
-            env, ridx, epoch, i_explore, type_actions, step_vals, evaluation
+            env, repeat, epoch, i_explore, type_actions, step_vals, evaluation
         )
 
         self._check_rewards_match(type_actions, evaluation, step_vals)

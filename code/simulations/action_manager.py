@@ -181,8 +181,10 @@ class Action_manager:
             mask = a_dp > 1e-3
             action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
             for a in as_:
-                assert action_points[i][a] > - 1e-4, f"action_points[{i}][{a}] {action_points[i][a]} < 0"
-                assert action_points[i][a] < 1 + 1e-4, f"action_points[{i}][{a}] {action_points[i][a]} > 1"
+                assert action_points[i][a] > - 1e-4, \
+                    f"action_points[{i}][{a}] {action_points[i][a]} < 0"
+                assert action_points[i][a] < 1 + 1e-4, \
+                    f"action_points[{i}][{a}] {action_points[i][a]} > 1"
                 if - 1e-4 < action_points[i][a] < 0:
                     action_points[i][a] = 0
                 if 1 < action_points[i][a] < 1 + 1e-4:
@@ -296,8 +298,9 @@ class Action_manager:
             self.res[a] = copy.copy(res)
 
         self.bat.actions_to_env_vars(self.res)
-        self.heat.actions_to_env_vars(self.res, loads['l_flex'], self.tot_l_fixed,
-                             E_flex=flex_heat)
+        self.heat.actions_to_env_vars(
+            self.res, loads['l_flex'], self.tot_l_fixed, E_flex=flex_heat
+        )
 
         # check for errors
         for a in as_:

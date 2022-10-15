@@ -294,7 +294,7 @@ class Data_manager():
 
         return seed_ind
 
-    def get_seed_ind(self, ridx: int, epoch: int, i_explore: int) -> int:
+    def get_seed_ind(self, repeat: int, epoch: int, i_explore: int) -> int:
         """
         Obtain the rank of the current seed.
 
@@ -304,13 +304,14 @@ class Data_manager():
         """
         if epoch < self.rl['n_epochs']:
             seed_ind = \
-                ridx * (self.rl['n_epochs'] * (self.rl['n_explore'] + 1)
-                        + self.rl['n_end_test']) \
-                + epoch * (self.rl['n_explore'] + 1) + i_explore
+                repeat * (
+                    self.rl['n_epochs'] * (self.rl['n_explore'] + 1)
+                    + self.rl['n_end_test']
+                ) + epoch * (self.rl['n_explore'] + 1) + i_explore
         if epoch >= self.rl['n_epochs']:
             seed_ind = \
-                ridx * (self.rl['n_epochs'] * (self.rl['n_explore'] + 1)
-                        + self.rl['n_end_test']) \
+                repeat * (self.rl['n_epochs'] * (self.rl['n_explore'] + 1)
+                          + self.rl['n_end_test']) \
                 + (self.rl['n_epochs'] * (self.rl['n_explore'] + 1)) \
                 + (epoch - self.rl['n_epochs'])
 

@@ -37,12 +37,12 @@ def _print_stats(f, prm, record, metrics):
     sum_duration = 0
     sum_duration_test = 0
     sum_n_not_feas = 0
-    for ridx in range(prm['RL']['n_repeats']):
+    for repeat in range(prm['RL']['n_repeats']):
         for epoch in range(prm['RL']['n_all_epochs']):
             if epoch < prm['RL']['n_epochs']:
-                sum_duration += record.duration_epoch[ridx][epoch]
+                sum_duration += record.duration_epoch[repeat][epoch]
             else:
-                sum_duration_test += record.duration_epoch[ridx][epoch]
+                sum_duration_test += record.duration_epoch[repeat][epoch]
 
     average_duration = sum_duration / (prm['RL']['n_repeats']
                                        * prm['RL']['n_epochs'])

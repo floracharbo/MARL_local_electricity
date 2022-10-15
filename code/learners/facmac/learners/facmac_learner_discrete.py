@@ -170,6 +170,13 @@ class FACMACDiscreteLearner(Learner):
         else:
             raise Exception(f"unknown target update mode {target_update_mode}")
 
+        self._log_learning(
+            t_env, loss, critic_grad_norm, mask, masked_td_error, targets
+        )
+
+    def _log_learning(
+            self, t_env, loss, critic_grad_norm, mask, masked_td_error, targets
+    ):
         if t_env - self.log_stats_t >= self.args.learner_log_interval:
             self.logger.log_stat("critic_loss", loss.item(), t_env)
             self.logger.log_stat("critic_grad_norm", critic_grad_norm, t_env)

@@ -70,7 +70,7 @@ class Runner():
         return model_save_time
 
     def _end_evaluation(
-            self, ridx, new_env, type_eval, i0_costs, delta, date0
+            self, repeat, new_env, type_eval, i0_costs, delta, date0
     ):
         i_explore = 0
         for epoch_test in \
@@ -79,13 +79,13 @@ class Runner():
             t_start = time.time()  # start recording time
             date0, delta, i0_costs = \
                 self._set_date(
-                    ridx, epoch_test, i_explore, date0,
+                    repeat, epoch_test, i_explore, date0,
                     delta, i0_costs, new_env
                 )
             self.env.reinitialise_envfactors(
                 date0, epoch_test, i_explore, evaluation_add1=True)
             eval_steps, _ = self.explorer.get_steps(
-                type_eval, ridx, epoch_test, self.rl['n_explore'],
+                type_eval, repeat, epoch_test, self.rl['n_explore'],
                 evaluation=True, new_episode_batch=self.new_episode_batch)
             duration_epoch = time.time() - t_start
 
@@ -97,7 +97,7 @@ class Runner():
             # episode += 1
 
             # date0, delta, i0_costs = self._set_date(
-            #     ridx, epoch, i_explore, date0, delta,
+            #     repeat, epoch, i_explore, date0, delta,
             #     i0_costs, new_env)
             #
             # # initialise environment cluster, scaling factors, etc.
@@ -109,7 +109,7 @@ class Runner():
             #     epoch, evaluation=False)
             #
             # steps_vals, self.episode_batch = self.explorer.get_steps(
-            #     type_explo, ridx, epoch, i_explore,
+            #     type_explo, repeat, epoch, i_explore,
             #     new_episode_batch=self.new_episode_batch)
             #
             # train_steps_vals.append(steps_vals)
@@ -132,15 +132,15 @@ class Runner():
 
     def run_experiment(self):
         """For a given state space, explore and learn from the environment."""
-        ridx = 0  # initialise repetition number
+        repeat = 0  # initialise repetition number
         new_env = True  # boolean for creating a new environment
         # initialise the seed for creating environments
         self.explorer.ind_seed_deterministic = - 1
         date0, delta, i0_costs = None, None, None
         # multiple repetition to sample different learning trajectories
-        while ridx < self.rl['n_repeats']:
-            print(f"ridx {ridx}")
-            episode, converged = self._new_repeat(ridx, new_env)
+        while repeat < self.rl['n_repeats']:
+            print(f"repeat {repeat}")
+            episode, converged = self._new_repeat(repeat, new_env)
 
             # looping through epochs
             # have progress bar while running through epochs
@@ -159,7 +159,7 @@ class Runner():
 
                     steps_vals, date0, delta, i0_costs, type_explo \
                         = self._exploration_episode(
-                            ridx, epoch, i_explore, date0, delta, i0_costs,
+                            repeat, epoch, i_explore, date0, delta, i0_costs,
                             new_env, evaluation=False, evaluation_add1=False
                         )
                     train_steps_vals.append(steps_vals)
@@ -170,7 +170,7 @@ class Runner():
 
                     # append record
                     for e in ['seed', 'n_not_feas', 'not_feas_vars']:
-                        self.record.__dict__[e][ridx].append(
+                        self.record.__dict__[e][repeat].append(
                             train_steps_vals[-1][e])
 
                     model_save_time = self._save_nn_model(model_save_time)
@@ -186,12 +186,12 @@ class Runner():
                 self.env.reinitialise_envfactors(
                     date0, epoch, self.rl['n_explore'])
                 eval_steps, _ = self.explorer.get_steps(
-                    type_eval, ridx, epoch, self.rl['n_explore'],
+                    type_eval, repeat, epoch, self.rl['n_explore'],
                     evaluation=True, new_episode_batch=self.new_episode_batch)
 
                 # record
                 for e in ['seed', 'n_not_feas', 'not_feas_vars']:
-                    self.record.__dict__[e][ridx].append(eval_steps[e])
+                    self.record.__dict__[e][repeat].append(eval_steps[e])
                 duration_epoch = time.time() - t_start
 
                 # make a list, one exploration after the other
@@ -202,20 +202,20 @@ class Runner():
                                       self.rl, self.learner, duration_epoch)
 
                 if self.rl['deterministic']:
-                    converged = self._check_convergence(ridx, epoch, converged)
-                self._end_of_epoch_parameter_updates(ridx, epoch)
+                    converged = self._check_convergence(repeat, epoch, converged)
+                self._end_of_epoch_parameter_updates(repeat, epoch)
 
             # then do evaluation only for one month, no learning
             self._end_evaluation(
-                ridx, new_env, type_eval, i0_costs, delta, date0
+                repeat, new_env, type_eval, i0_costs, delta, date0
             )
 
             new_env = True \
-                if ((ridx + 1) % self.rl['n_init_same_env'] == 0
+                if ((repeat + 1) % self.rl['n_init_same_env'] == 0
                     or self.rl['deterministic'] == 2) \
                 else False
             self.record.save(end_of='repeat')
-            ridx += 1
+            repeat += 1
 
         for p in ['P', '']:
             if len(self.explorer.data.seeds[p]) > len(self.rl['seeds'][p]):
@@ -284,7 +284,7 @@ class Runner():
                 elif self.rl['type_learning'] == 'DDQN':
                     self.learner[t] = Agent_DDQN(self.env, self.rl, t)
 
-    def _initialise_buffer_learner_mac(self, ridx=0):
+    def _initialise_buffer_learner_mac(self, repeat=0):
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN', 'facmac']:
             if 'learner' not in self.__dict__.keys():
                 self.learner = {}
@@ -299,7 +299,7 @@ class Runner():
                 # the Q learner needs to initialise epsilon
                 # and temperature values, and set counters
                 # and Q tables to 0
-                self.learner.new_repeat(ridx)
+                self.learner.new_repeat(repeat)
             else:  # create one instance for all types
                 self.learner = TabularQLearner(self.env, self.rl)
                 self.learner = TabularQLearner(self.env, self.rl)
@@ -308,14 +308,14 @@ class Runner():
             self.new_episode_batch = None
             self.mac = None
 
-    def _new_repeat(self, ridx, new_env):
+    def _new_repeat(self, repeat, new_env):
         # track whether the learning has converged
         # (useful for deterministic case)
         converged = False
         self.explorer.t_env = 0
         self._initialise_buffer_learner_mac()
         # initialise dictionaries for storing relevant values during repeat
-        self.record.new_repeat(ridx, self.rl)
+        self.record.new_repeat(repeat, self.rl)
         #  at each repeat reinitialise agent clusters
         #  according to clus0 probabilities
         if new_env:  # need to create a new environment
@@ -323,12 +323,12 @@ class Runner():
             self.explorer.data.deterministic_created = False
             self.explorer.ind_seed_deterministic += 1
         # record current environment creation seed
-        self.record.ind_seed_deterministic[ridx] = \
+        self.record.ind_seed_deterministic[repeat] = \
             self.explorer.ind_seed_deterministic
 
         # Set seeds (for reproduceability)
-        np.random.seed(ridx), random.seed(ridx)
-        th.manual_seed(ridx)
+        np.random.seed(repeat), random.seed(repeat)
+        th.manual_seed(repeat)
         if self.rl['type_learning'] == 'q_learning' \
                 and self.rl['q_learning']['control_eps'] == 2:
             self.learner.rMT, self.learner.rLT = 0, 0
@@ -338,7 +338,7 @@ class Runner():
         return episode, converged
 
     def _set_date(self,
-                  ridx,
+                  repeat,
                   epoch,
                   i_explore,
                   date0,
@@ -352,7 +352,7 @@ class Runner():
         else:
             new_date = True if self.prm['syst']['change_start'] else False
         if new_date:
-            seed = self.explorer.data.get_seed_ind(ridx, epoch, i_explore)
+            seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
             set_seeds_rdn(seed)
             delta_days = int(np.random.choice(range(
                 (self.prm['syst']['max_dateend']
@@ -432,13 +432,13 @@ class Runner():
                 for a in range(self.n_agents):
                     self.learner[t][a].epsilon_update()
 
-    def _check_convergence(self, ridx, epoch, converged):
+    def _check_convergence(self, repeat, epoch, converged):
         if not converged and \
                 sum(1 for t in self.rl['type_eval']
-                    if self.record.stability[ridx][t] != [None]) \
+                    if self.record.stability[repeat][t] != [None]) \
                 == len(self.rl['type_eval']) * 5:
             converged = True
-            print(f'repeat {ridx} converged at epoch = {epoch}')
+            print(f'repeat {repeat} converged at epoch = {epoch}')
 
         return converged
 
@@ -476,7 +476,7 @@ class Runner():
 
         return types_needed
 
-    def _end_of_epoch_parameter_updates(self, ridx, epoch):
+    def _end_of_epoch_parameter_updates(self, repeat, epoch):
 
         if self.rl['type_learning'] == 'DDQN':
             self._DDQN_epsilon_update()
@@ -484,7 +484,7 @@ class Runner():
         if self.rl['type_learning'] == 'q_learning':
             if self.rl['q_learning']['epsilon_decay']:
                 self.learner.epsilon_decay(
-                    ridx, epoch, self.record.mean_eval_rewards)
+                    repeat, epoch, self.record.mean_eval_rewards)
             if self.rl['q_learning']['T_decay']:
                 self.learner.T = self.learner.T * self.rl['T_decay_param']
 
@@ -492,13 +492,13 @@ class Runner():
             self._DQN_T_decay()
 
     def _exploration_episode(
-            self, ridx, epoch, i_explore, date0, delta,
+            self, repeat, epoch, i_explore, date0, delta,
             i0_costs, new_env, evaluation=False, evaluation_add1=False,
             set_date=True
     ):
         if set_date:
             date0, delta, i0_costs = self._set_date(
-                ridx, epoch, i_explore, date0, delta,
+                repeat, epoch, i_explore, date0, delta,
                 i0_costs, new_env)
 
         # initialise environment cluster, scaling factors, etc.
@@ -510,7 +510,7 @@ class Runner():
             epoch, evaluation=evaluation)
 
         steps_vals, self.episode_batch = self.explorer.get_steps(
-            type_explo, ridx, epoch, i_explore,
+            type_explo, repeat, epoch, i_explore,
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)
 
         return steps_vals, date0, delta, i0_costs, type_explo

@@ -32,7 +32,7 @@ class TabularQLearner:
         self.q_tables, self.counter = \
             [initialise_dict(rl['type_Qs'], 'empty_dict')
              for _ in range(2)]
-        self.ridx = 0
+        self.repeat = 0
         for e in ['hysteretic', 'alpha']:
             self.__dict__[e] = self.rl['q_learning'][e]
 
@@ -56,10 +56,10 @@ class TabularQLearner:
                      for _ in range(na)]
             self.counter[t] = [np.zeros(shape) for a in range(na)]
 
-    def new_repeat(self, ridx):
+    def new_repeat(self, repeat):
         """ method called at the beginning of a new repeat
         to update epsilon and T values """
-        self.ridx = ridx
+        self.repeat = repeat
         self.set0()
         # compute epsilon value(s) based on if they are allocated
         # per method or not and if they are decayed or not
@@ -245,8 +245,8 @@ class TabularQLearner:
                 + (1 - self.rl['lambda']) * self.eps[t]
             self.eps[t] = min(1, max(0, eps))
 
-    def epsilon_decay(self, ridx, epoch, mean_eval_rewards):
-        mean_eval_rewards = mean_eval_rewards[ridx]
+    def epsilon_decay(self, repeat, epoch, mean_eval_rewards):
+        mean_eval_rewards = mean_eval_rewards[repeat]
         decrease_eps = {}
         if self.rl['control_eps'] == 2:
             self._reward_based_eps_control(mean_eval_rewards)

@@ -70,6 +70,7 @@ def patch_find_feasible_data(
 
     return seed_data, step_vals, mus_opt
 
+
 def patch_update_date(self, i0_costs, date0=None):
     self.i0_costs = 12 * 24
     self.date0 = self.prm['syst']['date0'] + timedelta(days=12)
@@ -78,8 +79,10 @@ def patch_update_date(self, i0_costs, date0=None):
     self.bat.date0 = self.date0
     self.bat.date_end = self.date_end
 
+
 def patch_self_id(self):
     return "_test.npy"
+
 
 def patch_init_i0_costs(self):
     self.i0_costs = 12 * 24
@@ -87,8 +90,9 @@ def patch_init_i0_costs(self):
         self.prm["grd"]["Call"][self.i0_costs: self.i0_costs + self.prm["syst"]["N"]]
     self.env.update_date(self.i0_costs)
 
+
 def patch_set_date(
-        self, ridx, epoch, i_explore,
+        self, repeat, epoch, i_explore,
         date0, delta, i0_costs, new_env
 ):
     set_seeds_rdn(0)

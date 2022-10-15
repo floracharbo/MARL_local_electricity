@@ -21,7 +21,7 @@ class CQMixMAC(BasicMAC):
             if self.rl["exploration_mode"] == "ornstein_uhlenbeck":
                 x = getattr(self, "ou_noise_state",
                             chosen_actions.clone().zero_())
-                action = 0
+                mu = 0
                 theta = self.rl['ou_theta']
                 sigma = self.rl['ou_sigma']
 
@@ -30,7 +30,7 @@ class CQMixMAC(BasicMAC):
                     * self.rl["ou_stop_episode"] \
                     else 0.0
 
-                dx = theta * (action - x) + sigma * x.clone().normal_()
+                dx = theta * (mu - x) + sigma * x.clone().normal_()
                 self.ou_noise_state = x + dx
                 ou_noise = self.ou_noise_state * noise_scale
                 chosen_actions = chosen_actions + ou_noise
@@ -240,7 +240,7 @@ class CQMixMAC(BasicMAC):
         ftype = th.FloatTensor \
             if not next(self.agent.parameters()).is_cuda \
             else th.cuda.FloatTensor
-        action = ftype(ep_batch[bs].batch_size, self.n_agents,
+        mu = ftype(ep_batch[bs].batch_size, self.n_agents,
                    self.rl['dim_actions']).zero_()
         std = ftype(ep_batch[bs].batch_size, self.n_agents,
                     self.rl['dim_actions']).zero_() + 1.0

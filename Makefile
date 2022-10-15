@@ -10,8 +10,8 @@ install:
 
 lint:
 	isort code
-	flake8 --ignore=W605,W503 --exclude learners --exclude tests code
-	pylama --skip code/tests/run_test.py,code/learners/facmac/learners/facmac_learner_discrete.py,code/learners/facmac/learners/facmac_learner.py,code/config/compare_inputs.py code
+	flake8 --ignore=W605,W503 --exclude learners --exclude tests --max-line-length=100 code
+	pylama --ignore code/tests/run_test.py,code/learners/facmac --ignore=E501 code
 	find code -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201
 	mypy --show-error-codes --exclude code/learners/facmac --disable-error-code import --disable-error-code attr-defined code --disable-error-code no-member --disable-error-code duplicate-code
 
@@ -25,4 +25,4 @@ facmac:
 	python code/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.000001
 
 test:
-	pytest tests
+	pytest code/tests

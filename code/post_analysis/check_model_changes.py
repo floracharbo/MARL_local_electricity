@@ -23,15 +23,15 @@ import torch as th
 
 def plot_actions(actions, path):
     for type_train in ["random", "env_r_c"]:
-        for ridx in nos:
-            actions_ = actions[ridx][type_train]
+        for repeat in nos:
+            actions_ = actions[repeat][type_train]
             for i_action in range(3):
                 fig = plt.figure()
                 for epoch in range(len(actions_)):
                     for t in range(len(actions_[epoch])):
                         for home in range(len(actions_[epoch][t])):
                             plt.plot(epoch, actions_[epoch][t][home][i_action], 'o')
-                title = f"actions {type_train} i_action {i_action} {ridx}"
+                title = f"actions {type_train} i_action {i_action} {repeat}"
                 plt.title(title)
                 fig.savefig(path / title)
 
@@ -79,7 +79,7 @@ for run in range(608, 611):
     for i in nos:
         actions.append(
             np.load(
-                path / f"eval_actions_ridx{i}.npy",
+                path / f"eval_actions_repeat{i}.npy",
                 allow_pickle=True
             ).item()
         )

@@ -50,6 +50,22 @@ class FACMACLearner(Learner):
         else:
             raise Exception("unknown optimizer {}".format(rl["optimizer"]))
 
+    def get_critic_outs(self, critic, actions_, mixer, batch):
+        critic.init_hidden(batch.batch_size)
+        list_critic_out = []
+        for t in range(batch.max_seq_length - 1):
+            inputs = self._build_inputs(batch, t=t)
+            critic_out, critic.hidden_states = critic(
+                inputs, actions_[:, t:t + 1].detach(),
+                critic.hidden_states)
+            if self.mixer is not None:
+                critic_out = mixer(critic_out.view(
+                    batch.batch_size, -1, 1), batch["state"][:, t: t + 1])
+            list_critic_out.append(critic_out)
+        list_critic_out = th.stack(list_critic_out, dim=1)
+
+        return list_critic_out
+
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]
@@ -69,49 +85,20 @@ class FACMACLearner(Learner):
                 "agent_target_outs nan"
             target_actions.append(agent_target_outs)
         target_actions = th.stack(target_actions, dim=1)  # Concat over time
-        q_taken = []
 
         # replace all nan actions with the target action
         # so the gradient will be zero
-        shape_actions = np.shape(actions)
-        for i_batch in range(shape_actions[0]):
-            for i_step in range(shape_actions[1]):
-                for i_agent in range(shape_actions[2]):
-                    for i_action in range(shape_actions[3]):
-                        if th.isnan(
-                                actions[i_batch, i_step, i_agent, i_action]
-                        ):
+        actions = self._replace_nan_actions_with_target_actions(
+            actions, target_actions
+        )
 
-                            actions[i_batch, i_step, i_agent, i_action] \
-                                = target_actions[
-                                i_batch, i_step, i_agent, i_action]
-        self.critic.init_hidden(batch.batch_size)
-
-        for t in range(batch.max_seq_length - 1):
-            inputs = self._build_inputs(batch, t=t)
-            critic_out, self.critic.hidden_states = self.critic(
-                inputs, actions[:, t:t + 1].detach(),
-                self.critic.hidden_states)
-            if self.mixer is not None:
-                critic_out = self.mixer(critic_out.view(
-                    batch.batch_size, -1, 1), batch["state"][:, t: t + 1])
-            q_taken.append(critic_out)
-        q_taken = th.stack(q_taken, dim=1)
-
-        target_vals = []
-        self.target_critic.init_hidden(batch.batch_size)
-        for t in range(1, batch.max_seq_length):
-            target_inputs = self._build_inputs(batch, t=t)
-            target_critic_out, self.target_critic.hidden_states = \
-                self.target_critic(target_inputs,
-                                   target_actions[:, t: t + 1].detach(),
-                                   self.target_critic.hidden_states)
-            if self.mixer is not None:
-                target_critic_out = self.target_mixer(
-                    target_critic_out.view(batch.batch_size, -1, 1),
-                    batch["state"][:, t: t + 1])
-            target_vals.append(target_critic_out)
-        target_vals = th.stack(target_vals, dim=1)
+        list_critics = [self.critic, self.target_critic]
+        list_actions = [actions, target_actions]
+        list_mixers = [self.mixer, self.target_mixer]
+        q_taken, target_vals = [
+            self.get_critic_outs(critic, actions_, mixer, batch)
+            for critic, actions_, mixer in zip(list_critics, list_actions, list_mixers)
+        ]
 
         if self.mixer is not None:
             q_taken = q_taken.view(batch.batch_size, -1, 1)
@@ -178,6 +165,22 @@ class FACMACLearner(Learner):
         else:
             raise Exception(f"unknown target update mode: "
                             f"{self.rl['target_update_mode']}!")
+
+    def _replace_nan_actions_with_target_actions(self, actions, target_actions):
+        shape_actions = np.shape(actions)
+        for i_batch in range(shape_actions[0]):
+            for i_step in range(shape_actions[1]):
+                for i_agent in range(shape_actions[2]):
+                    for i_action in range(shape_actions[3]):
+                        if th.isnan(
+                                actions[i_batch, i_step, i_agent, i_action]
+                        ):
+
+                            actions[i_batch, i_step, i_agent, i_action] \
+                                = target_actions[
+                                i_batch, i_step, i_agent, i_action]
+
+        return actions
 
     def _build_inputs(self, batch, t):
         bs = batch.batch_size
