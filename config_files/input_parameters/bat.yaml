@@ -13,3 +13,4 @@ eff: 1
 # 'maxthrough' : 750, # max thoughput per day [kWh]
 intervals_fprob: 50
 own_EV: 1 # 1 if all have EVs, else array of ownership
+n_clus: 3  # excluding no trip days

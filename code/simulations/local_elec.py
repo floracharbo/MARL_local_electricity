@@ -54,26 +54,7 @@ class LocalElecEnv():
         self.N = prm['syst']['N']
 
         # initialise parameters
-        for e in ['minf', 'maxf', 'f_prm', 'f_mean',
-                  'n_clus', 'pclus', 'ptrans', 'n_prof']:
-            self.__dict__[e] = {}
-        for obj, labobj in zip([prm['loads'], prm['gen']], ['loads', 'gen']):
-            self.minf[labobj] = np.min(obj['listfactors'])
-            self.maxf[labobj] = np.max(obj['listfactors'])
-            self.f_prm[labobj] = obj['f_prms']
-            self.f_mean[labobj] = obj['f_mean']
-        self.minf['bat'] = min(min(prm['bat']['bracket_fs'][dtt])
-                               for dtt in self.labels_day_trans)
-        self.maxf['bat'] = max(max(prm['bat']['bracket_fs'][dtt])
-                               for dtt in self.labels_day_trans)
-
-        for obj, labobj in zip([prm['loads'], prm['bat']], self.labels_clus):
-            for e in ['n_clus', 'pclus', 'ptrans']:
-                self.__dict__[e][labobj] = obj[e]
-
-        prms = [prm[e] for e in self.labels]
-        for obj, label in zip(prms, self.labels):
-            self.__dict__['n_prof'][label] = obj['n_prof']
+        self._init_factors_clusters_profiles_parameters(prm)
 
         self.server = self.rl['server']
         self.action_manager = Action_manager(prm, self)
@@ -619,7 +600,7 @@ class LocalElecEnv():
             self.f['bat' + p][a] = self.prm['bat']['mid_fs'][dtt_][int(choice)]
             for e in ['loads', 'gen', 'bat']:
                 self.f[e + p][a] = min(
-                    max(self.minf[e], self.f[e + p][a]), self.maxf[e])
+                    max(self.min_f[e], self.f[e + p][a]), self.max_f[e])
 
         return fEV_new_interval
 
@@ -1049,3 +1030,27 @@ class LocalElecEnv():
             self.bat.batch[a] = initialise_dict(self.bat.batch_entries)
             self.batch[a]['flex'] = np.zeros((0, self.max_delay + 1))
             self.bat.batch[a]['flex'] = np.zeros((0, self.max_delay + 1))
+            self.bat.batch[a]['flex'] = np.zeros((0, self.max_delay + 1))
+
+    def _init_factors_clusters_profiles_parameters(self, prm):
+        for e in ['min_f', 'max_f', 'f_prm', 'f_mean',
+                  'n_clus', 'pclus', 'ptrans', 'n_prof']:
+            self.__dict__[e] = {}
+        for obj, labobj in zip([prm['loads'], prm['gen']], ['loads', 'gen']):
+            self.min_f[labobj] = np.min(obj['listfactors'])
+            self.max_f[labobj] = np.max(obj['listfactors'])
+            self.f_prm[labobj] = obj['f_prms']
+            self.f_mean[labobj] = obj['f_mean']
+        self.min_f['bat'] = min(min(prm['bat']['bracket_fs'][dtt])
+                               for dtt in self.labels_day_trans)
+        self.max_f['bat'] = max(max(prm['bat']['bracket_fs'][dtt])
+                               for dtt in self.labels_day_trans)
+
+        for obj, labobj in zip([prm['loads'], prm['bat']], self.labels_clus):
+            for e in ['n_clus', 'pclus', 'ptrans']:
+                self.__dict__[e][labobj] = obj[e]
+
+        prms = [prm[e] for e in self.labels]
+        for obj, label in zip(prms, self.labels):
+            self.__dict__['n_prof'][label] = obj['n_prof']
+

@@ -6,6 +6,23 @@ import pandas as pd
 from utilities.userdeftools import granularity_to_multipliers
 
 
+def compute_max_EV_cons_gen_values(env):
+    maxEVcons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
+    for dt in ["wd", "we"]:
+        for c in range(env.n_clus["bat"]):
+            if np.max(env.prof["bat"]["cons"][dt][c]) > maxEVcons:
+                maxEVcons = np.max(env.prof["bat"]["cons"][dt][c])
+        for c in range(env.n_clus["loads"]):
+            if np.max(env.prof["loads"][dt][c]) > max_normcons_hour:
+                max_normcons_hour = np.max(env.prof["loads"][dt][c])
+        for m in range(12):
+            if len(env.prof["gen"][m]) > 0 \
+                    and np.max(env.prof["gen"][m]) > max_normgen_hour:
+                max_normgen_hour = np.max(env.prof["gen"][m])
+
+    return maxEVcons, max_normcons_hour, max_normgen_hour
+
+
 class EnvSpaces():
     """Manage indexes operations for environment states and actions."""
 
@@ -18,30 +35,23 @@ class EnvSpaces():
         self.type_eval = env.prm["RL"]["type_eval"]
         prm = env.prm
         self._get_space_info(env)
+        self._init_factors_profiles_parameters(env, prm)
+        for e in ["dim_actions", "aggregate_actions", "type_env"]:
+            self.__dict__[e] = prm["RL"][e]
+
+    def _init_factors_profiles_parameters(self, env, prm):
         self.list_factors = {}
         for key in ["gen", "loads", "bat"]:
             self.list_factors[key] = env.prm[key]["listfactors"]
         self.perc = {}
         for e in ["loads", "gen", "bat", "grd"]:
             self.perc[e] = prm[e]["perc"]
-        for e in ["dim_actions", "aggregate_actions", "type_env"]:
-            self.__dict__[e] = prm["RL"][e]
 
     def _get_space_info(self, env):
         prm = env.prm
         # info on state and action spaces
-        maxEVcons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
-        for dt in ["wd", "we"]:
-            for c in range(env.n_clus["bat"]):
-                if np.max(env.prof["bat"]["cons"][dt][c]) > maxEVcons:
-                    maxEVcons = np.max(env.prof["bat"]["cons"][dt][c])
-            for c in range(env.n_clus["loads"]):
-                if np.max(env.prof["loads"][dt][c]) > max_normcons_hour:
-                    max_normcons_hour = np.max(env.prof["loads"][dt][c])
-            for m in range(12):
-                if len(env.prof["gen"][m]) > 0 \
-                        and np.max(env.prof["gen"][m]) > max_normgen_hour:
-                    max_normgen_hour = np.max(env.prof["gen"][m])
+        maxEVcons, max_normcons_hour, max_normgen_hour \
+            = compute_max_EV_cons_gen_values(env)
 
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
@@ -71,26 +81,26 @@ class EnvSpaces():
                 ["bat_clus_prev", 0, env.n_clus["bat"] - 1,
                  env.n_clus["bat"], 1],
                 # scaling factors - for whole day
-                ["loads_fact_step", env.minf["loads"], env.maxf["loads"],
+                ["loads_fact_step", env.min_f["loads"], env.max_f["loads"],
                  rl["n_other_states"], 0],
-                ["loads_fact_prev", env.minf["loads"], env.maxf["loads"],
+                ["loads_fact_prev", env.min_f["loads"], env.max_f["loads"],
                  rl["n_other_states"], 0],
-                ["gen_fact_step", env.minf["gen"], env.maxf["gen"],
+                ["gen_fact_step", env.min_f["gen"], env.max_f["gen"],
                  rl["n_other_states"], 0],
-                ["gen_fact_prev", env.minf["gen"], env.maxf["gen"],
+                ["gen_fact_prev", env.min_f["gen"], env.max_f["gen"],
                  rl["n_other_states"], 0],
-                ["bat_fact_step", env.minf["bat"], env.maxf["bat"],
+                ["bat_fact_step", env.min_f["bat"], env.max_f["bat"],
                  rl["n_other_states"], 0],
-                ["bat_fact_prev", env.minf["bat"], env.maxf["bat"],
+                ["bat_fact_prev", env.min_f["bat"], env.max_f["bat"],
                  rl["n_other_states"], 0],
                 # absolute value at time step / hour
-                ["loads_cons_step", 0, max_normcons_hour * env.maxf["loads"],
+                ["loads_cons_step", 0, max_normcons_hour * env.max_f["loads"],
                  rl["n_other_states"], 0],
-                ["loads_cons_prev", 0, max_normcons_hour * env.maxf["loads"],
+                ["loads_cons_prev", 0, max_normcons_hour * env.max_f["loads"],
                  rl["n_other_states"], 0],
-                ["gen_prod_step", 0, max_normgen_hour * env.maxf["gen"],
+                ["gen_prod_step", 0, max_normgen_hour * env.max_f["gen"],
                  rl["n_other_states"], 0],
-                ["gen_prod_prev", 0, max_normgen_hour * env.maxf["gen"],
+                ["gen_prod_prev", 0, max_normgen_hour * env.max_f["gen"],
                  rl["n_other_states"], 0],
                 ["bat_cons_step", 0, maxEVcons, rl["n_other_states"], 0],
                 ["bat_cons_prev", 0, maxEVcons, rl["n_other_states"], 0],

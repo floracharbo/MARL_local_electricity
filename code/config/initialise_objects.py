@@ -334,6 +334,22 @@ def _load_gen_profiles(gen, profiles, prof_path, paths, syst):
     return profiles, gen
 
 
+def _load_bat_factors_parameters(syst, paths, bat):
+    if "labels_day_trans" in syst:
+        for dtt in syst["labels_day_trans"]:
+            bat["f_prob"][dtt] = np.load(
+                paths["factors_path"]
+                / f"prob_f1perf0_{bat['intervals_fprob']}_{dtt}.npy")
+            bat["mid_fs"][dtt] = np.load(
+                paths["factors_path"]
+                / f"midxs_f0f1probs_n{bat['intervals_fprob']}_{dtt}.npy")
+            bat["bracket_fs"][dtt] = np.load(
+                paths["factors_path"]
+                / f"xs_f0f1probs_n{bat['intervals_fprob']}_{dtt}.npy")
+
+    return bat
+
+
 def _update_bat_prm(prm):
     """
     Compute parameters relating to the EV battery for the experiments.
@@ -363,17 +379,8 @@ def _update_bat_prm(prm):
     bat["f_prob"], bat["mid_fs"], bat["bracket_fs"] = [{} for _ in range(3)]
     if isinstance(bat["cap"], (int, float)):
         bat["cap"] = [bat["cap"] for _ in range(ntw["n"])]
-    if "labels_day_trans" in syst:
-        for dtt in syst["labels_day_trans"]:
-            bat["f_prob"][dtt] = np.load(
-                paths["factors_path"]
-                / f"prob_f1perf0_{bat['intervals_fprob']}_{dtt}.npy")
-            bat["mid_fs"][dtt] = np.load(
-                paths["factors_path"]
-                / f"midxs_f0f1probs_n{bat['intervals_fprob']}_{dtt}.npy")
-            bat["bracket_fs"][dtt] = np.load(
-                paths["factors_path"]
-                / f"xs_f0f1probs_n{bat['intervals_fprob']}_{dtt}.npy")
+
+    bat = _load_bat_factors_parameters(syst, paths, bat)
 
     # battery characteristics
     bat["min_charge"] = [bat["cap"][a] * max(bat["SoCmin"], bat["baseld"])

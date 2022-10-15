@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest import mock
 
 import numpy as np
+import pickle
 import pytest
 from config.generate_colors import _check_color_diffs, generate_colors
 from simulations.runner import run
@@ -114,6 +115,47 @@ def patch_set_date(
 def patch_load_data_dictionaries(loads, gen, bat, paths, syst):
     return [loads, gen, bat]
 
+
+def patch_init_factors_clusters_profiles_parameters(self, prm):
+    self.n_clus = {
+        'loads': prm['loads']['n_clus'],
+        'bat': prm['bat']['n_clus']
+    }
+
+    for e in ['min_f', 'max_f']:
+        with open(f'input_data/open_data_v1/{e}.pickle', 'rb') as file:
+            self.__dict__[e] = pickle.load(file)
+
+
+def patch_init_factors_profiles_parameters(self, env, prm):
+    self.perc = {
+        'grd': prm['grd']['perc']
+    }
+
+
+def patch_reinitialise_envfactors(self, date0, epoch, i_explore,
+                                evaluation_add1=False):
+    return
+
+def patch_load_profiles(paths, bat, syst, loads, gen):
+    profiles = {}
+    return profiles, bat, loads, gen
+
+
+def _load_bat_factors_parameters(syst, paths, bat):
+    return bat
+
+
+def patch_compute_max_EV_cons_gen_values(env):
+    labels = [
+        "maxEVcons", "max_normcons_hour", "max_normgen_hour"
+    ]
+    return [
+        np.load(f"input_data/open_data_v1/{label}_test.npy")
+        for label in labels
+    ]
+
+
 def test_all(mocker):
     settings = {
         'heat': {'file': 'heat2'},
@@ -161,6 +203,34 @@ def test_all(mocker):
         "config.initialise_objects._load_data_dictionaries",
         side_effect=patch_load_data_dictionaries
     )
+    mocker.patch(
+        "config.initialise_objects._load_profiles",
+        side_effect=patch_load_profiles
+    )
+    mocker.patch(
+        "config.initialise_objects._load_bat_factors_parameters",
+        side_effect=_load_bat_factors_parameters
+    )
+    mocker.patch(
+        "simulations.local_elec.LocalElecEnv._init_factors_clusters_profiles_parameters",
+        side_effect=patch_init_factors_clusters_profiles_parameters,
+        autospec=True
+    )
+    mocker.patch(
+        "simulations.local_elec.LocalElecEnv.reinitialise_envfactors",
+        side_effect=patch_reinitialise_envfactors,
+        autospec=True
+    )
+    mocker.patch(
+        "utilities.env_spaces.EnvSpaces._init_factors_profiles_parameters",
+        side_effect=patch_init_factors_profiles_parameters,
+        autospec=True
+    )
+    mocker.patch(
+        "utilities.env_spaces.compute_max_EV_cons_gen_values",
+        side_effect=patch_compute_max_EV_cons_gen_values
+    )
+
     for type_learning in ['facmac', 'q_learning']:
         settings['RL']['type_learning'] = type_learning
         for aggregate_actions in [True,  False]:
