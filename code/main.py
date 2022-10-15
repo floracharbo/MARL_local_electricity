@@ -43,4 +43,9 @@ settings = {
 RUN_MODE = 1
 no_runs = [610]  # if plotting
 
-run(RUN_MODE, settings, no_runs)
+for type_learning in ['facmac', 'q_learning']:
+    settings['RL']['type_learning'] = type_learning
+    for aggregate_actions in [True, False]:
+        settings['RL']['aggregate_actions'] = aggregate_actions
+        print(f"test {type_learning} aggregate_actions {aggregate_actions}")
+        run(RUN_MODE, settings)

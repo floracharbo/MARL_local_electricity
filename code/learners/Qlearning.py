@@ -9,10 +9,7 @@ tabular Q learner
 import math
 
 import numpy as np
-<<<<<<< HEAD:code/learners/Qlearning.py
-=======
 
->>>>>>> main:learners/Qlearning.py
 from utilities.userdeftools import (data_source, distr_learning,
                                     initialise_dict, reward_type)
 
@@ -249,13 +246,8 @@ class TabularQLearner:
                 + (1 - self.rl['lambda']) * self.eps[t]
             self.eps[t] = min(1, max(0, eps))
 
-<<<<<<< HEAD:code/learners/Qlearning.py
     def epsilon_decay(self, repeat, epoch, mean_eval_rewards):
         mean_eval_rewards = mean_eval_rewards[repeat]
-=======
-    def epsilon_decay(self, ridx, epoch, mean_eval_rewards):
-        mean_eval_rewards = mean_eval_rewards[ridx]
->>>>>>> main:learners/Qlearning.py
         decrease_eps = {}
         if self.rl['control_eps'] == 2:
             self._reward_based_eps_control(mean_eval_rewards)

@@ -84,11 +84,7 @@ class Explorer():
         ]
         self.env.update_date(self.i0_costs)
 
-<<<<<<< HEAD:code/simulations/explorer.py
     def _initialise_passive_vars(self, env, repeat, epoch, i_explore):
-=======
-    def _initialise_passive_vars(self, env, ridx, epoch, i_explore):
->>>>>>> main:simulations/explorer.py
         self.n_agents = self.prm["ntw"]["nP"]
         self.agents = range(self.n_agents)
         # get environment seed
@@ -109,11 +105,7 @@ class Explorer():
             self.prm["loads"][e] = []
 
     def _passive_get_steps(
-<<<<<<< HEAD:code/simulations/explorer.py
             self, env, repeat, epoch, i_explore, type_actions, step_vals
-=======
-            self, env, ridx, epoch, i_explore, type_actions, step_vals
->>>>>>> main:simulations/explorer.py
     ):
         self.data.p = "P"
         self._init_passive_data()
@@ -122,11 +114,7 @@ class Explorer():
 
         # initialise variables for passive case
         seed_ind, t, done, sequence_feasible, record, evaluation \
-<<<<<<< HEAD:code/simulations/explorer.py
             = self._initialise_passive_vars(env, repeat, epoch, i_explore)
-=======
-            = self._initialise_passive_vars(env, ridx, epoch, i_explore)
->>>>>>> main:simulations/explorer.py
 
         # find feasible data
         _, step_vals, mus_opt = \
@@ -211,15 +199,9 @@ class Explorer():
         for a in self.agents:
             # array of actions = the same as chosen
             # except for agent a which has the default action
-<<<<<<< HEAD:code/simulations/explorer.py
             actions_baseline_a = action.copy()
             actions_baseline_a[a] = self.rl["default_action"][a]
             combs_actions.append(actions_baseline_a)
-=======
-            mu_actions_baseline_a = action.copy()
-            mu_actions_baseline_a[a] = self.rl["default_action"][a]
-            combs_actions.append(mu_actions_baseline_a)
->>>>>>> main:simulations/explorer.py
         combs_actions.append(self.rl["default_action"])
         for ca in combs_actions:
             # get outp d
@@ -340,11 +322,7 @@ class Explorer():
         return step_vals, traj_reward, sequence_feasible
 
     def _active_get_steps(
-<<<<<<< HEAD:code/simulations/explorer.py
             self, env, repeat, epoch, i_explore, type_actions,
-=======
-            self, env, ridx, epoch, i_explore, type_actions,
->>>>>>> main:simulations/explorer.py
             step_vals, evaluation
     ):
         rl = self.rl
@@ -448,7 +426,6 @@ class Explorer():
 
         return step_vals
 
-<<<<<<< HEAD:code/simulations/explorer.py
     def get_steps(self, type_actions, repeat, epoch, i_explore,
                   evaluation=False, new_episode_batch=None, parallel=False):
         """Get episode steps interacting with environment.
@@ -475,34 +452,6 @@ class Explorer():
             env, repeat, epoch, i_explore, type_actions, step_vals, evaluation
         )
 
-=======
-    def get_steps(self, type_actions, ridx, epoch, i_explore,
-                  evaluation=False, new_episode_batch=None, parallel=False):
-        """Get episode steps interacting with environment.
-
-        For all inputted types of explorations.
-        """
-        eval0 = evaluation
-        self.data.seed_ind = {}
-        self.data.seed = {"P": 0, "": 0}
-        # create link to objects/data needed in method
-        env = copy.deepcopy(self.env) if parallel else self.env
-
-        # initialise output
-        step_vals = initialise_dict(type_actions)
-        self._init_facmac_mac(type_actions, new_episode_batch)
-
-        # passive consumers
-        step_vals = self._passive_get_steps(
-            env, ridx, epoch, i_explore, type_actions, step_vals
-        )
-        evaluation = eval0
-
-        step_vals = self._active_get_steps(
-            env, ridx, epoch, i_explore, type_actions, step_vals, evaluation
-        )
-
->>>>>>> main:simulations/explorer.py
         self._check_rewards_match(type_actions, evaluation, step_vals)
 
         if self.rl["type_learning"] != "facmac":
@@ -583,11 +532,7 @@ class Explorer():
         return passive_vars
 
     def _get_diff_rewards(
-<<<<<<< HEAD:code/simulations/explorer.py
             self, evaluation, i_step, action, date,
-=======
-            self, evaluation, i_step, mu_action, date,
->>>>>>> main:simulations/explorer.py
             loads, res, feasible, reward, indiv_rewards
     ):
         obtain_diff_reward = any(
@@ -799,11 +744,7 @@ class Explorer():
         feasible = True
         t = "opt"
         sum_RL_rewards = 0
-<<<<<<< HEAD:code/simulations/explorer.py
         all_actions = []
-=======
-        all_mus = []
->>>>>>> main:simulations/explorer.py
         step_vals[t] = initialise_dict(
             self.step_vals_entries)
         batchflex_opt, batch_avail_EV = \

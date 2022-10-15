@@ -10,10 +10,7 @@ from typing import Tuple
 import numpy as np
 import tensorflow as tf
 import torch as th
-<<<<<<< HEAD:code/simulations/select_actions.py
-=======
 
->>>>>>> main:simulations/select_actions.py
 from utilities.userdeftools import granularity_to_multipliers
 
 

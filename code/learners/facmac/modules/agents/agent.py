@@ -1,19 +1,10 @@
 import torch as th
-<<<<<<< HEAD
-<<<<<<<< HEAD:code/learners/facmac/modules/agents/agent.py
-import torch.nn as nn
-========
+
 import torch.nn.functional as F
->>>>>>>> main:learners/facmac/modules/agents/mlp_agent.py
 
-from learners.facmac.modules.agents.agent import Agent
-
-<<<<<<<< HEAD:code/learners/facmac/modules/agents/agent.py
-=======
 import torch.nn as nn
 
 
->>>>>>> main
 class Agent(nn.Module):
     def __init__(self, input_shape, rl):
         super(Agent, self).__init__()
@@ -38,8 +29,7 @@ class Agent(nn.Module):
     def init_hidden(self):
         # make hidden states on same device as model
         return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
-<<<<<<< HEAD
-========
+
 
 class MLPAgent(Agent):
     def __init__(self, input_shape, rl):
@@ -55,6 +45,3 @@ class MLPAgent(Agent):
         else:
             actions = th.tanh(self.fc_out(x))
         return {"actions": actions, "hidden_state": hidden_state}
->>>>>>>> main:learners/facmac/modules/agents/mlp_agent.py
-=======
->>>>>>> main

@@ -15,10 +15,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
-<<<<<<< HEAD:code/simulations/problem.py
-=======
 
->>>>>>> main:simulations/problem.py
 from utilities.userdeftools import comb
 
 

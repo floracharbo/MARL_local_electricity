@@ -16,13 +16,9 @@ from gym import spaces
 from gym.utils import seeding
 from home_components.battery import Battery
 from home_components.heat import Heat
-<<<<<<< HEAD:code/simulations/local_elec.py
 from scipy.stats import gamma
 from simulations.action_manager import Action_manager
 from six import integer_types
-=======
-from simulations.mu_manager import Mu_manager
->>>>>>> main:simulations/local_elec.py
 from utilities.env_spaces import EnvSpaces
 from utilities.userdeftools import initialise_dict
 
@@ -743,11 +739,8 @@ class LocalElecEnv():
         self._loads_to_flex(as_)
         self.dloaded += 1
 
-<<<<<<< HEAD:code/simulations/local_elec.py
         assert len(self.batch[0]['avail_EV']) > 0, "empty avail_EV batch"
 
-=======
->>>>>>> main:simulations/local_elec.py
     def _load_next_day(self, as_: list = []):
         """
         Load next day of data.

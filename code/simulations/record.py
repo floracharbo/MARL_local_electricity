@@ -15,10 +15,7 @@ from typing import Tuple
 
 import numpy as np
 import scipy as sp
-<<<<<<< HEAD:code/simulations/record.py
-=======
 
->>>>>>> main:simulations/record.py
 from utilities.userdeftools import get_moving_average, initialise_dict
 
 
@@ -153,19 +150,11 @@ class Record():
         """At the end of each epoch, append training or evaluation record."""
         if list_train_stepvals is not None:
             for t in rl["type_explo"]:
-<<<<<<< HEAD:code/simulations/record.py
                 self.train_rewards[self.repeat][t].append(
                     list_train_stepvals[t]["reward"])
                 self.train_actions[self.repeat][t].append(
                     list_train_stepvals[t]["action"])
                 self.train_states[self.repeat][t].append(
-=======
-                self.train_rewards[self.ridx][t].append(
-                    list_train_stepvals[t]["reward"])
-                self.train_actions[self.ridx][t].append(
-                    list_train_stepvals[t]["action"])
-                self.train_states[self.ridx][t].append(
->>>>>>> main:simulations/record.py
                     list_train_stepvals[t]["state"])
         for t in rl["type_eval"]:
             self._append_eval(eval_steps, t, epoch, end_test)
@@ -210,11 +199,7 @@ class Record():
         repeat = self.repeat if end_of == "repeat" else None
         for label in labels:
             save_path \
-<<<<<<< HEAD:code/simulations/record.py
                 = Path(f"{label}" if repeat is None else f"{label}_repeat{repeat}")
-=======
-                = Path(f"{label}" if ridx is None else f"{label}_ridx{ridx}")
->>>>>>> main:simulations/record.py
             if self.paths["record_folder"] is not None:
                 save_path = Path(self.paths["record_folder"]) / save_path
             to_save = self.__dict__[label] if end_of == "end" \

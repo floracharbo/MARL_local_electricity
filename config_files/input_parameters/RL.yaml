@@ -38,11 +38,7 @@ n_init_same_env: 2  # if deterministic
 ind_seed_deterministic: 0
 
 # plotting
-<<<<<<< HEAD:config_files/input_parameters/RL.yaml
 plotting_action: False  # used for plotting mu position on graph
-=======
-plotting_mu: False  # used for plotting mu position on graph
->>>>>>> main:input_parameters/RL.yaml
 
 # reward
 penalty: 10 # if avail_EV :: 0 and l_EV > store:apply penalty to reward (for training, not evaluation)
@@ -222,13 +218,9 @@ type_learn_to_space:
         DDQN: 'discrete'
         facmac: 'continuous'
         DDPG: 'continuous'
-<<<<<<< HEAD:config_files/input_parameters/RL.yaml
-
 action_labels_aggregate: ['Action variable [-]']
 action_labels_disaggregate: [
         'Flexible consumption action [-]',
         'Flexible heating action [-]',
         'Flexible EV charge action [-]'
 ]
-=======
->>>>>>> main:input_parameters/RL.yaml

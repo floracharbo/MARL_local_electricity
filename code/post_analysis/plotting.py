@@ -280,15 +280,9 @@ def _plot_indoor_air_temp(
     return T_air_a
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _get_repeat_data(repeat, all_methods_to_plot, root):
     # last = last epoch of each repeat
     last = np.load(root / 'record' / f'last_repeat{repeat}.npy',
-=======
-def _get_ridx_data(ridx, all_methods_to_plot, root):
-    # last = last epoch of each repeat
-    last = np.load(root / 'record' / f'last_ridx{ridx}.npy',
->>>>>>> main:post_analysis/plotting.py
                    allow_pickle=True).item()
     cintensity_kg = [c * 1e3 for c in last['cintensity']['baseline']]
     methods_to_plot = [m for m in all_methods_to_plot if m in last['reward']]
@@ -339,7 +333,6 @@ def _get_bands_EV_availability(bEV, a):
     return bands_bEV
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _plot_ev_loads_and_availability(axs, xs, lEV, a, bands_bEV):
     ax = axs[2, 1]
     ax.step(xs[0:24], lEV[a][0:24], color='k', where='post')
@@ -367,8 +360,6 @@ def _plot_indiv_agent_res_action(prm, ys, xs, lw_indiv, linestyles, t, ax):
     return ax
 
 
-=======
->>>>>>> main:post_analysis/plotting.py
 def _plot_indiv_agent_res(
         prm, all_methods_to_plot, root, title_ylabel_dict,
         colors_non_methods, lw_indiv, labels, linestyles
@@ -381,15 +372,9 @@ def _plot_indiv_agent_res(
     # EV load / availability
     # Cumulative rewards
     # Battery level
-<<<<<<< HEAD:code/post_analysis/plotting.py
     for repeat in range(prm['RL']['n_repeats']):
         last, cintensity_kg, methods_to_plot = \
             _get_repeat_data(repeat, all_methods_to_plot, root)
-=======
-    for ridx in range(prm['RL']['n_repeats']):
-        last, cintensity_kg, methods_to_plot = \
-            _get_ridx_data(ridx, all_methods_to_plot, root)
->>>>>>> main:post_analysis/plotting.py
 
         # plot EV availability + EV cons on same plot
         lEV, bEV = [[last['batch'][a][e]
@@ -409,21 +394,9 @@ def _plot_indiv_agent_res(
                 row=0, col=0, last=last,
                 colors_non_methods=colors_non_methods, lw=lw_indiv)
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
             axs = _plot_ev_loads_and_availability(
                 axs, xs, lEV, a, bands_bEV
             )
-=======
-            # EV loads and availability
-            ax = axs[2, 1]
-            ax.step(xs[0:24], lEV[a][0:24], color='k', where='post')
-            for band in bands_bEV:
-                ax.axvspan(band[0], band[1], alpha=0.3, color='grey')
-            ax.set_ylabel('EV load [kWh]')
-            grey_patch = matplotlib.patches.Patch(
-                alpha=0.3, color='grey', label='EV unavailable')
-            ax.legend(handles=[grey_patch], fancybox=True)
->>>>>>> main:post_analysis/plotting.py
 
             # cum rewards
             _plot_cum_rewards(
@@ -447,21 +420,9 @@ def _plot_indiv_agent_res(
                     ys = last[e][t]
                     ys = [ys[step][a] for step in range(len(ys))]
                     if e == 'action':
-<<<<<<< HEAD:code/post_analysis/plotting.py
                         ax = _plot_indiv_agent_res_action(
                             prm, ys, xs, lw_indiv, linestyles, t, ax
                         )
-=======
-                        for action in range(prm['RL']['dim_actions']):
-                            ys_ = [0] + [
-                                ys[step][action]
-                                for step in range(prm['syst']['N'])
-                            ]
-                            ax.step(xs, ys_, where='post',
-                                    label=f"t_action{action}",
-                                    color=prm['save']['colorse'][t],
-                                    lw=lw_indiv, linestyle=linestyles[action])
->>>>>>> main:post_analysis/plotting.py
 
                     else:
                         if e == 'store' and t == 'opt':
@@ -478,11 +439,7 @@ def _plot_indiv_agent_res(
                 axs[3, c].set_xlabel('Time [h]')
 
             fig.tight_layout()
-<<<<<<< HEAD:code/post_analysis/plotting.py
             title = f'subplots example day repeat {repeat} a {a}'
-=======
-            title = f'subplots example day repeat {ridx} a {a}'
->>>>>>> main:post_analysis/plotting.py
             title_display = 'subplots example day'
             subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
@@ -497,45 +454,26 @@ def _plot_indiv_agent_res(
                 title_display=title_display)
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, root, title_ylabel_dict,
-=======
-def _plot_all_agents_all_ridx_res(
-        list_ridx, all_methods_to_plot, root, title_ylabel_dict,
->>>>>>> main:post_analysis/plotting.py
         axs, colors_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
         rows, columns, entries, all_vals
 ):
-<<<<<<< HEAD:code/post_analysis/plotting.py
     for repeat in list_repeat:
         last, cintensity_kg, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, root)
-=======
-    for ridx in list_ridx:
-        last, cintensity_kg, methods_to_plot = _get_ridx_data(
-            ridx, all_methods_to_plot, root)
->>>>>>> main:post_analysis/plotting.py
         _plot_grid_price(
             title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
             row=0, col=0, last=last,
             colors_non_methods=colors_non_methods, lw=lw_indiv)
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
         cum_rewards_repeat = _plot_cum_rewards(
-=======
-        cum_rewards_ridx = _plot_cum_rewards(
->>>>>>> main:post_analysis/plotting.py
             axs, last, methods_to_plot, labels, prm, row=3,
             col=0, alpha=alpha_not_indiv, lw=lw_all,
             display_labels=False)
         for t in all_methods_to_plot:
-<<<<<<< HEAD:code/post_analysis/plotting.py
             all_cum_rewards[t].append(cum_rewards_repeat[t])
-=======
-            all_cum_rewards[t].append(cum_rewards_ridx[t])
->>>>>>> main:post_analysis/plotting.py
         for a in range(prm['ntw']['n']):
             T_air_a = _plot_indoor_air_temp(
                 axs, methods_to_plot, last, title_ylabel_dict,
@@ -557,29 +495,17 @@ def _plot_all_agents_all_ridx_res(
                     axs[r, c].step(xs, ys, where='post',
                                    color=prm['save']['colorse'][t],
                                    lw=lw_all, alpha=alpha_not_indiv)
-<<<<<<< HEAD:code/post_analysis/plotting.py
                     all_vals[e][t][repeat].append(ys)
-=======
-                    all_vals[e][t][ridx].append(ys)
->>>>>>> main:post_analysis/plotting.py
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
                 if r == 2:
                     axs[r, c].set_xlabel('Time [h]')
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
     return axs, all_T_air
 
 
 def _plot_last_epochs_actions(
         list_repeat, means, e, t, prm, all_vals, ax, xs, lw_mean, linestyles
-=======
-    return axs
-
-
-def _plot_last_epochs_actions(
-        list_ridx, means, e, t, prm, all_vals, ax, xs, lw_mean, linestyles
->>>>>>> main:post_analysis/plotting.py
 ):
     means[e][t] = []
 
@@ -587,7 +513,6 @@ def _plot_last_epochs_actions(
         all_vals_e_t_step_mean = np.zeros(prm['syst']['N'])
         for step in range(prm['syst']['N']):
             all_vals_e_t_step = np.array(
-<<<<<<< HEAD:code/post_analysis/plotting.py
                 [[all_vals[e][t][repeat][home][step][action]
                   for repeat in list_repeat]
                  for home in range(prm['ntw']['n'])]
@@ -595,15 +520,6 @@ def _plot_last_epochs_actions(
             if all(
                     [[all_vals[e][t][repeat][home][step][action] is None
                       for repeat in list_repeat]
-=======
-                [[all_vals[e][t][ridx][home][step][action]
-                  for ridx in list_ridx]
-                 for home in range(prm['ntw']['n'])]
-            )
-            if all(
-                    [[all_vals[e][t][ridx][home][step][action] is None
-                      for ridx in list_ridx]
->>>>>>> main:post_analysis/plotting.py
                      for home in range(prm['ntw']['n'])]
             ):
                 all_vals_e_t_step = None
@@ -628,11 +544,7 @@ def _plot_last_epochs_actions(
 def _plot_all_agents_mean_res(
         entries, all_methods_to_plot, axs, all_T_air,
         prm, lw_mean, all_cum_rewards, labels,
-<<<<<<< HEAD:code/post_analysis/plotting.py
         rows, columns, all_vals, list_repeat, linestyles
-=======
-        rows, columns, all_vals, list_ridx, linestyles
->>>>>>> main:post_analysis/plotting.py
 ):
     means = initialise_dict(['T_air', 'cum_rewards'] + entries,
                             'empty_dict')
@@ -655,30 +567,17 @@ def _plot_all_agents_mean_res(
                 xs = [-0.01] + xs
             if e == 'action':
                 axs[r, c] = _plot_last_epochs_actions(
-<<<<<<< HEAD:code/post_analysis/plotting.py
                     list_repeat, means, e, t, prm, all_vals,
-=======
-                    list_ridx, means, e, t, prm, all_vals,
->>>>>>> main:post_analysis/plotting.py
                     axs[r, c], xs, lw_mean, linestyles
                 )
 
             else:
-<<<<<<< HEAD:code/post_analysis/plotting.py
                 n = len(all_vals[e][t][list_repeat[0]][0])
                 all_vals_e_t_step_mean = np.zeros(n)
                 for step in range(n):
                     all_vals_e_t_step = np.array(
                         [[all_vals[e][t][repeat][home][step]
                           for repeat in list_repeat]
-=======
-                n = len(all_vals[e][t][list_ridx[0]][0])
-                all_vals_e_t_step_mean = np.zeros(n)
-                for step in range(n):
-                    all_vals_e_t_step = np.array(
-                        [[all_vals[e][t][ridx][home][step]
-                          for ridx in list_ridx]
->>>>>>> main:post_analysis/plotting.py
                          for home in range(prm['ntw']['n'])]
                     )
                     all_vals_e_t_step_mean[step] = np.mean(
@@ -693,28 +592,16 @@ def _plot_all_agents_mean_res(
 
 
 def _plot_all_agents_res(
-<<<<<<< HEAD:code/post_analysis/plotting.py
         list_repeat, lw_all, prm, lw_all_list_repeat, all_methods_to_plot,
-=======
-        list_ridx, lw_all, prm, lw_all_list_ridx, all_methods_to_plot,
->>>>>>> main:post_analysis/plotting.py
         root, title_ylabel_dict, colors_non_methods, labels,
         lw_indiv, alpha_not_indiv, lw_mean, linestyles
 ):
     # do one figure with all agents and repeats
-<<<<<<< HEAD:code/post_analysis/plotting.py
     title_repeat = 'all_repeats' if list_repeat is None \
         else f'repeat_{list_repeat}'
     lw_all = lw_all if list_repeat is None else lw_all_list_repeat
     list_repeat = range(prm['RL']['n_repeats']) \
         if list_repeat is None else list_repeat
-=======
-    title_ridx = 'all_ridx' if list_ridx is None \
-        else f'ridx_{list_ridx}'
-    lw_all = lw_all if list_ridx is None else lw_all_list_ridx
-    list_ridx = range(prm['RL']['n_repeats']) \
-        if list_ridx is None else list_ridx
->>>>>>> main:post_analysis/plotting.py
     # Action variable
     # Heating E
     # Total consumption
@@ -734,13 +621,8 @@ def _plot_all_agents_res(
         for t in all_methods_to_plot:
             all_vals[e][t] = initialise_dict(range(prm['RL']['n_repeats']))
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
     axs, all_T_air = _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, root, title_ylabel_dict,
-=======
-    axs = _plot_all_agents_all_ridx_res(
-        list_ridx, all_methods_to_plot, root, title_ylabel_dict,
->>>>>>> main:post_analysis/plotting.py
         axs, colors_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
         rows, columns, entries, all_vals
@@ -748,19 +630,11 @@ def _plot_all_agents_res(
     axs = _plot_all_agents_mean_res(
         entries, all_methods_to_plot, axs, all_T_air,
         prm, lw_mean, all_cum_rewards, labels,
-<<<<<<< HEAD:code/post_analysis/plotting.py
         rows, columns, all_vals, list_repeat, linestyles
     )
 
     fig.tight_layout()
     title = f'subplots example day all agents {title_repeat}'
-=======
-        rows, columns, all_vals, list_ridx, linestyles
-    )
-
-    fig.tight_layout()
-    title = f'subplots example day all agents {title_ridx}'
->>>>>>> main:post_analysis/plotting.py
     title_display = 'subplots example day'
     subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
     for r in range(4):
@@ -776,11 +650,7 @@ def _plot_all_agents_res(
     )
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _plot_res(root, prm, indiv=True, list_repeat=None):
-=======
-def _plot_res(root, prm, indiv=True, list_ridx=None):
->>>>>>> main:post_analysis/plotting.py
     # indiv = plot figure for one agent at a time
     # if false, do all the lines on the same plot in light
     # with one thick line average
@@ -846,11 +716,7 @@ def _plot_res(root, prm, indiv=True, list_ridx=None):
         )
     elif not indiv:
         _plot_all_agents_res(
-<<<<<<< HEAD:code/post_analysis/plotting.py
             list_repeat, lw_all, prm, lw_all_list_repeat, all_methods_to_plot,
-=======
-            list_ridx, lw_all, prm, lw_all_list_ridx, all_methods_to_plot,
->>>>>>> main:post_analysis/plotting.py
             root, title_ylabel_dict, colors_non_methods, labels,
             lw_indiv, alpha_not_indiv, lw_mean, linestyles
         )
@@ -922,15 +788,9 @@ def _plot_mova_eval_per_repeat(
     plt.close('all')
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _plot_epsilon(repeat, prm, record):
     if 'eps' in record.__dict__.keys() and record.eps != {}:
         if type(record.eps[repeat][0]) is dict:
-=======
-def _plot_epsilon(ridx, prm, record):
-    if 'eps' in record.__dict__.keys() and record.eps != {}:
-        if type(record.eps[ridx][0]) is dict:
->>>>>>> main:post_analysis/plotting.py
             fig = plt.figure()
             for t in prm['RL']['eval_action_choice']:
                 plt.plot([record.eps[repeat][e][t]
@@ -965,7 +825,6 @@ def _plot_epsilon(ridx, prm, record):
 
 def _plot_unique_state_best_psi(
         prm, eval_entries_plot_indiv, best_theta, index_to_val,
-<<<<<<< HEAD:code/post_analysis/plotting.py
         possible_states, q, repeat
 ):
     for t in eval_entries_plot_indiv:
@@ -1063,131 +922,6 @@ def _plot_2d_state_space_best_psi(
                 high_res=prm['save']['high_res'],
                 display_title=False
             )
-=======
-        possible_states, q, ridx
-):
-    for t in eval_entries_plot_indiv:
-        na = prm['ntw']['n'] if distr_learning(t) in ['d', 'Cd'] else 1
-        best_theta[t] = initialise_dict(range(na), type_obj='empty_dict')
-        for a in range(na):
-            best_theta[t][a] = np.zeros((possible_states,))
-            for s in range(possible_states):
-                indmax = np.argmax(q[t][a][s])
-                best_theta[t][a][s] = \
-                    index_to_val([indmax], typev='action')[0]
-
-            # plot historgram of best theta per method
-            fig, ax = plt.subplots()
-            y_pos = np.arange(len(eval_entries_plot_indiv))
-            i_tables = [a if distr_learning(t) == 'd' else 0
-                        for t in eval_entries_plot_indiv]
-            best_thetas = \
-                [best_theta[eval_entries_plot_indiv[it]][i_tables[it]][0]
-                 for it in range(len(eval_entries_plot_indiv))]
-            colors_bars = [prm['save']['colorse'][t]
-                           for t in eval_entries_plot_indiv
-                           if t[-1] != '0']
-            ax.bar(y_pos, best_thetas, align='center',
-                   alpha=0.5, color=colors_bars)
-            plt.ylim([0, 1])
-            title = f'best theta per method state None ' \
-                    f'repeat {ridx} a {a}'
-
-            ax.set_ylabel(r'best $\theta$ [-]')
-            _formatting_ticks(
-                ax, fig, ys=eval_entries_plot_indiv,
-                title=title,
-                fig_folder=prm['paths']['fig_folder'],
-                save_run=prm['save']['save_run'],
-                high_res=prm['save']['high_res'],
-                display_title=False
-            )
-
-
-def _plot_1d_state_space_best_psi(
-        prm, eval_entries_plot_indiv, best_theta, possible_states, ridx
-):
-    for a in range(prm['ntw']['n']):
-        fig, ax = plt.subplots()
-        theta_M = []
-        for t in eval_entries_plot_indiv:
-            index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
-            theta_M.append([best_theta[t][index_a][int(s)]
-                            for s in range(possible_states)])
-        im = ax.imshow(theta_M, vmin=0, vmax=1)
-        title = f"best theta per method and per state state space " \
-                f"{prm['RL']['statecomb_str']} repeat {ridx} a {a}"
-        _formatting_ticks(
-            ax, fig, xs=eval_entries_plot_indiv,
-            ys=range(possible_states),
-            title=title, im=im,
-            grid=False,
-            fig_folder=prm['paths']['fig_folder'],
-            save_run=prm['save']['save_run'],
-            high_res=prm['save']['high_res'],
-            display_title=False
-        )
-
-
-def _plot_2d_state_space_best_psi(
-        prm, eval_entries_plot_indiv, record, possible_states,
-        spaces, best_theta, ridx
-):
-    for a in range(prm['ntw']['n']):
-        for i_t in range(len(eval_entries_plot_indiv)):
-            t = eval_entries_plot_indiv[i_t]
-            M = np.zeros((record.granularity_state0,
-                          record.granularity_state1))
-            index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
-            for s in range(possible_states):
-                s1, s2 = spaces.global_to_indiv_index(
-                    'state', s, multipliers=granularity_to_multipliers(
-                        [record.granularity_state0,
-                         record.granularity_state1]))
-                M[s1, s2] = best_theta[t][index_a][s]
-
-            fig, ax = plt.subplots()
-            plt.xlabel(prm['RL']['state_space'][1])
-            plt.ylabel(prm['RL']['state_space'][0])
-            im = ax.imshow(M, vmin=0, vmax=1)
-            title = f"best theta per state combination state space " \
-                    f"{prm['RL']['state_space']} repeat {ridx} a {a}"
-            _formatting_ticks(
-                ax, fig, ys=record.granularity_state1,
-                xs=record.granularity_state0,
-                title=title, im=im, grid=False,
-                fig_folder=prm['paths']['fig_folder'],
-                save_run=prm['save']['save_run'],
-                high_res=prm['save']['high_res'],
-                display_title=False
-            )
-
-
-def _plot_best_psi(
-        ridx, q_tables, prm, record, possible_states,
-        index_to_val, eval_entries_plot_indiv, spaces
-):
-    if not (
-            prm['RL']['type_learning'] == 'q_learning'
-            and prm['ntw']['n'] < 4
-    ):
-        return
-
-    best_theta = initialise_dict(eval_entries_plot_indiv)
-    q = q_tables[ridx][prm['RL']['n_epochs'] - 1] \
-        if record.save_qtables else q_tables[ridx]
-    if prm['RL']['state_space'] == [None]:
-        _plot_unique_state_best_psi(
-            prm, eval_entries_plot_indiv, best_theta, index_to_val,
-            possible_states, q, ridx
-        )
-
-    # if one dimensional state space - best theta[method, state]
-    elif prm['RL']['dim_states'] == 1:
-        _plot_1d_state_space_best_psi(
-            prm, eval_entries_plot_indiv, best_theta, possible_states, ridx
-        )
->>>>>>> main:post_analysis/plotting.py
 
 
 def _plot_best_psi(
@@ -1220,11 +954,7 @@ def _plot_best_psi(
     elif prm['RL']['dim_states'] == 2:
         _plot_2d_state_space_best_psi(
             prm, eval_entries_plot_indiv, record, possible_states,
-<<<<<<< HEAD:code/post_analysis/plotting.py
             spaces, best_theta, repeat
-=======
-            spaces, best_theta, ridx
->>>>>>> main:post_analysis/plotting.py
         )
 
 
@@ -1262,11 +992,7 @@ def _plot_q_values(
                 high_res=prm['save']['high_res'], display_title=False)
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _plot_noisy_deterministic_inputs(prm, batch_entries, record, repeat):
-=======
-def _plot_noisy_deterministic_inputs(prm, batch_entries, record, ridx):
->>>>>>> main:post_analysis/plotting.py
     seeds = np.load(prm['paths']['seeds_path'])
     heatavail = {}
     for e in batch_entries:
@@ -1276,15 +1002,9 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, ridx):
             n = len(np.load(f'batch_{int(seeds[0] + 1)}_a0_lds.npy',
                             mmap_mode='c'))
             heatavail[a] = np.zeros((n,))
-<<<<<<< HEAD:code/post_analysis/plotting.py
             for seed in record.seed[repeat]:
                 str_seed = str(int(seed)) if seed > seeds[0] + 1 else \
                     f'deterministic_{record.ind_seed_deterministic[repeat]}'
-=======
-            for seed in record.seed[ridx]:
-                str_seed = str(int(seed)) if seed > seeds[0] + 1 else \
-                    f'deterministic_{record.ind_seed_deterministic[ridx]}'
->>>>>>> main:post_analysis/plotting.py
                 str_batch = f'batch_{str_seed}_a{a}_{e}.npy'
                 if os.path.exists(str_batch):
                     batch_a_e = np.load(str_batch, mmap_mode='c')
@@ -1297,11 +1017,7 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, ridx):
                 heatavail_plot = np.reshape(heatavail[a], (1, n))
                 sns.heatmap(heatavail_plot, cmap="YlGn",
                             cbar=True, ax=axs[a])
-<<<<<<< HEAD:code/post_analysis/plotting.py
         title = f"noisy repeat {repeat} {e}"
-=======
-        title = f"noisy repeat {ridx} {e}"
->>>>>>> main:post_analysis/plotting.py
         _title_and_save(
             title, fig, prm['paths']['fig_folder'],
             prm['save']['save_run']
@@ -1310,11 +1026,7 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, ridx):
         fig.savefig(e)
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _plot_env_input(repeat, prm, record):
-=======
-def _plot_env_input(ridx, prm, record):
->>>>>>> main:post_analysis/plotting.py
     if prm['RL']['deterministic'] is None \
             or prm['RL']['deterministic'] == 0 \
             or not prm['save']['plotting_batch']:
@@ -1324,11 +1036,7 @@ def _plot_env_input(ridx, prm, record):
     if prm['RL']['deterministic'] == 2:
         # 0 is indeterministic, 1 is deterministic, 2 is deterministic noisy
         _plot_noisy_deterministic_inputs(
-<<<<<<< HEAD:code/post_analysis/plotting.py
             prm, batch_entries, record, repeat
-=======
-            prm, batch_entries, record, ridx
->>>>>>> main:post_analysis/plotting.py
         )
 
     else:
@@ -1962,11 +1670,7 @@ def _distribution_savings(mean_eval_rewards_per_hh, prm, aggregate='daily'):
     )
 
 
-<<<<<<< HEAD:code/post_analysis/plotting.py
 def _plot_eval_action_type_repeat(actions_, prm, type_eval, labels, i_action, repeat):
-=======
-def _plot_eval_action_type_ridx(actions_, prm, type_eval, labels, mu, ridx):
->>>>>>> main:post_analysis/plotting.py
     fig = plt.figure()
     for epoch in range(prm["RL"]["n_epochs"]):
         if actions_[epoch] is None:
@@ -1975,31 +1679,18 @@ def _plot_eval_action_type_ridx(actions_, prm, type_eval, labels, mu, ridx):
             continue
         for step in range(len(actions_[epoch])):
             for home in range(len(actions_[epoch][step])):
-<<<<<<< HEAD:code/post_analysis/plotting.py
                 if actions_[epoch][step][home][i_action] is None:
-=======
-                if actions_[epoch][step][home][mu] is None:
->>>>>>> main:post_analysis/plotting.py
                     if type_eval != 'opt':
                         print(f"None in {type_eval}")
                     continue
                 plt.plot(
                     epoch,
-<<<<<<< HEAD:code/post_analysis/plotting.py
                     actions_[epoch][step][home][i_action],
                     'o'
                 )
     plt.ylabel(labels[i_action])
     plt.xlabel("Epoch")
     title = f"actions {type_eval} labels[i_action] {repeat}"
-=======
-                    actions_[epoch][step][home][mu],
-                    'o'
-                )
-    plt.ylabel(labels[mu])
-    plt.xlabel("Epoch")
-    title = f"actions {type_eval} mu {mu} {ridx}"
->>>>>>> main:post_analysis/plotting.py
     _title_and_save(
         title, fig, prm["paths"]["fig_folder"],
         prm["save"]["save_run"]
@@ -2018,7 +1709,6 @@ def _plot_eval_action(record, prm):
 
     for type_eval in prm["RL"]["type_eval"]:
         if type_eval == "baseline" \
-<<<<<<< HEAD:code/post_analysis/plotting.py
                 or any(len(actions[repeat]) == 0
                        for repeat in range(prm["RL"]["n_repeats"])):
             continue
@@ -2027,16 +1717,6 @@ def _plot_eval_action(record, prm):
             for i_action in range(prm['RL']['dim_actions']):
                 _plot_eval_action_type_repeat(
                     actions_, prm, type_eval, labels, i_action, repeat
-=======
-                or any(len(actions[ridx]) == 0
-                       for ridx in range(prm["RL"]["n_repeats"])):
-            continue
-        for ridx in range(prm["RL"]["n_repeats"]):
-            actions_ = actions[ridx][type_eval]
-            for mu in range(n_mus):
-                _plot_eval_action_type_ridx(
-                    actions_, prm, type_eval, labels, mu, ridx
->>>>>>> main:post_analysis/plotting.py
                 )
 
 
@@ -2137,20 +1817,14 @@ def plotting(record, spaces, prm, f):
         root = prm['paths']['folder_run']
         _plot_res(root, prm, indiv=False)
         _plot_res(root, prm, indiv=True)
-<<<<<<< HEAD:code/post_analysis/plotting.py
         for repeat in range(prm['RL']['n_repeats']):
             _plot_res(root, prm, indiv=False, list_repeat=[repeat])
-=======
-        for ridx in range(prm['RL']['n_repeats']):
-            _plot_res(root, prm, indiv=False, list_ridx=[ridx])
->>>>>>> main:post_analysis/plotting.py
 
     # other repeat-specific plots:
     for repeat in range(prm['RL']['n_repeats']):
         if prm['save']['plot_type'] > 0:
             # 10 - plot moving average of all evaluation rewards
             # for each repeat
-<<<<<<< HEAD:code/post_analysis/plotting.py
             _plot_mova_eval_per_repeat(
                 repeat, eval_rewards, prm, n_window, eval_entries_plot)
         if prm['save']['plot_type'] > 1:
@@ -2160,22 +1834,10 @@ def plotting(record, spaces, prm, f):
             # 12 - plot best psi action value per state
             _plot_best_psi(
                 repeat, q_tables, prm, record, possible_states,
-=======
-            _plot_mova_eval_per_ridx(
-                ridx, eval_rewards, prm, n_window, eval_entries_plot)
-        if prm['save']['plot_type'] > 1:
-            # 11 - plot epsilon over time for each repeat
-            _plot_epsilon(ridx, prm, record)
-
-            # 12 - plot best psi action value per state
-            _plot_best_psi(
-                ridx, q_tables, prm, record, possible_states,
->>>>>>> main:post_analysis/plotting.py
                 spaces.index_to_val, eval_entries_plot_indiv, spaces)
 
             # 13 - plot q values
             _plot_q_values(
-<<<<<<< HEAD:code/post_analysis/plotting.py
                 q_tables, repeat, prm, eval_entries_plot_indiv,
                 spaces.index_to_val, q_entries
             )
@@ -2185,26 +1847,11 @@ def plotting(record, spaces, prm, f):
             # 15 - make video of visits to each state
             _video_visit_states(
                 repeat, q_entries, counters, possible_states,
-=======
-                q_tables, ridx, prm, eval_entries_plot_indiv,
-                spaces.index_to_val, q_entries
-            )
-            # 14 - plot environment input
-            _plot_env_input(ridx, prm, record)
-
-            # 15 - make video of visits to each state
-            _video_visit_states(
-                ridx, q_entries, counters, possible_states,
->>>>>>> main:post_analysis/plotting.py
                 prm, record, spaces)
 
             # 16 -  final number of exploration of actions in each state
             _plot_final_explorations(
-<<<<<<< HEAD:code/post_analysis/plotting.py
                 repeat, prm, q_entries, action_state_space_0,
-=======
-                ridx, prm, q_entries, action_state_space_0,
->>>>>>> main:post_analysis/plotting.py
                 state_space_0, record, counters)
 
             # 17 - n not feas vs variables vs time step

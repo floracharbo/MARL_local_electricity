@@ -2,10 +2,7 @@
 
 import numpy as np
 import pandas as pd
-<<<<<<< HEAD:code/utilities/env_spaces.py
-=======
 
->>>>>>> main:utilities/env_spaces.py
 from utilities.userdeftools import granularity_to_multipliers
 
 

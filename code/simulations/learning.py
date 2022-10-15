@@ -5,14 +5,8 @@ author: Flora Charbonnier
 """
 
 from typing import List
-<<<<<<< HEAD:code/simulations/learning.py
 
 import numpy as np
-=======
-
-import numpy as np
-
->>>>>>> main:simulations/learning.py
 from utilities.userdeftools import (data_source, granularity_to_multipliers,
                                     reward_type)
 
