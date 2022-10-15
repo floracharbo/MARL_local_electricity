@@ -111,6 +111,9 @@ def patch_set_date(
     return date0, delta, i0_costs
 
 
+def patch_load_data_dictionaries(loads, gen, bat, paths, syst):
+    return [loads, gen, bat]
+
 def test_all(mocker):
     settings = {
         'heat': {'file': 'heat2'},
@@ -153,6 +156,10 @@ def test_all(mocker):
         "simulations.runner.Runner._set_date",
         side_effect=patch_set_date,
         autospec=True
+    )
+    mocker.patch(
+        "config.initialise_objects._load_data_dictionaries",
+        side_effect=patch_load_data_dictionaries
     )
     for type_learning in ['facmac', 'q_learning']:
         settings['RL']['type_learning'] = type_learning
