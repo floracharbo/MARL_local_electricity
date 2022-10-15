@@ -65,10 +65,10 @@ def initialise_objects(
     prm = input_params(prm, settings)
     if not Path("outputs").exists():
         os.mkdir("outputs")
-    for folder in ["results", "opt_res"]:
+    for folder in ["results", "opt_res", "seeds"]:
         prm['paths'][folder] = Path("outputs") / folder
         if not (prm['paths'][folder]).exists():
-            os.mkdir(folder)
+            os.mkdir(prm['paths'][folder])
 
     if no_run is None:
         prev_runs = \
