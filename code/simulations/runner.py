@@ -15,6 +15,11 @@ from typing import Tuple
 
 import numpy as np
 import torch as th
+<<<<<<< HEAD:code/simulations/runner.py
+=======
+from tqdm import tqdm
+
+>>>>>>> main:simulations/runner.py
 from config.initialise_objects import initialise_objects
 from config.input_data import get_settings_i, input_paths, load_existing_prm
 from learners.DDPG import Learner_DDPG
@@ -29,7 +34,10 @@ from post_analysis.plot_summary_no_agents import plot_results_vs_nag
 from post_analysis.post_processing import post_processing
 from simulations.explorer import Explorer
 from simulations.local_elec import LocalElecEnv
+<<<<<<< HEAD:code/simulations/runner.py
 from tqdm import tqdm
+=======
+>>>>>>> main:simulations/runner.py
 from utilities.userdeftools import (data_source, initialise_dict, reward_type,
                                     set_seeds_rdn)
 
@@ -70,7 +78,11 @@ class Runner():
         return model_save_time
 
     def _end_evaluation(
+<<<<<<< HEAD:code/simulations/runner.py
             self, repeat, new_env, type_eval, i0_costs, delta, date0
+=======
+            self, ridx, new_env, type_eval, i0_costs, delta, date0
+>>>>>>> main:simulations/runner.py
     ):
         i_explore = 0
         for epoch_test in \
@@ -79,13 +91,21 @@ class Runner():
             t_start = time.time()  # start recording time
             date0, delta, i0_costs = \
                 self._set_date(
+<<<<<<< HEAD:code/simulations/runner.py
                     repeat, epoch_test, i_explore, date0,
+=======
+                    ridx, epoch_test, i_explore, date0,
+>>>>>>> main:simulations/runner.py
                     delta, i0_costs, new_env
                 )
             self.env.reinitialise_envfactors(
                 date0, epoch_test, i_explore, evaluation_add1=True)
             eval_steps, _ = self.explorer.get_steps(
+<<<<<<< HEAD:code/simulations/runner.py
                 type_eval, repeat, epoch_test, self.rl['n_explore'],
+=======
+                type_eval, ridx, epoch_test, self.rl['n_explore'],
+>>>>>>> main:simulations/runner.py
                 evaluation=True, new_episode_batch=self.new_episode_batch)
             duration_epoch = time.time() - t_start
 
@@ -97,7 +117,11 @@ class Runner():
             # episode += 1
 
             # date0, delta, i0_costs = self._set_date(
+<<<<<<< HEAD:code/simulations/runner.py
             #     repeat, epoch, i_explore, date0, delta,
+=======
+            #     ridx, epoch, i_explore, date0, delta,
+>>>>>>> main:simulations/runner.py
             #     i0_costs, new_env)
             #
             # # initialise environment cluster, scaling factors, etc.
@@ -109,7 +133,11 @@ class Runner():
             #     epoch, evaluation=False)
             #
             # steps_vals, self.episode_batch = self.explorer.get_steps(
+<<<<<<< HEAD:code/simulations/runner.py
             #     type_explo, repeat, epoch, i_explore,
+=======
+            #     type_explo, ridx, epoch, i_explore,
+>>>>>>> main:simulations/runner.py
             #     new_episode_batch=self.new_episode_batch)
             #
             # train_steps_vals.append(steps_vals)
@@ -207,7 +235,11 @@ class Runner():
 
             # then do evaluation only for one month, no learning
             self._end_evaluation(
+<<<<<<< HEAD:code/simulations/runner.py
                 repeat, new_env, type_eval, i0_costs, delta, date0
+=======
+                ridx, new_env, type_eval, i0_costs, delta, date0
+>>>>>>> main:simulations/runner.py
             )
 
             new_env = True \
@@ -284,7 +316,11 @@ class Runner():
                 elif self.rl['type_learning'] == 'DDQN':
                     self.learner[t] = Agent_DDQN(self.env, self.rl, t)
 
+<<<<<<< HEAD:code/simulations/runner.py
     def _initialise_buffer_learner_mac(self, repeat=0):
+=======
+    def _initialise_buffer_learner_mac(self, ridx=0):
+>>>>>>> main:simulations/runner.py
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN', 'facmac']:
             if 'learner' not in self.__dict__.keys():
                 self.learner = {}

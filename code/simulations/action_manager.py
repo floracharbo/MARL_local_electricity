@@ -14,6 +14,10 @@ import seaborn as sns
 from matplotlib import gridspec
 from utilities.userdeftools import initialise_dict
 
+<<<<<<< HEAD:code/simulations/action_manager.py
+=======
+from utilities.userdeftools import initialise_dict
+>>>>>>> main:simulations/mu_manager.py
 
 class Action_manager:
     """
@@ -179,7 +183,11 @@ class Action_manager:
         for i in ['B', 'C', 'D', 'E']:
             action_points[i] = np.zeros(self.n_agents)
             mask = a_dp > 1e-3
+<<<<<<< HEAD:code/simulations/action_manager.py
             action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
+=======
+            mu[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
+>>>>>>> main:simulations/mu_manager.py
             for a in as_:
                 assert action_points[i][a] > - 1e-4, \
                     f"action_points[{i}][{a}] {action_points[i][a]} < 0"
@@ -553,7 +561,11 @@ class Action_manager:
         if loads['l_flex'][a] > 0:
             flexible_cons_action = flex_cons / loads['l_flex'][a]
         else:
+<<<<<<< HEAD:code/simulations/action_manager.py
             flexible_cons_action = None
+=======
+            mu_flex_cons = None
+>>>>>>> main:simulations/mu_manager.py
 
         E_heat \
             = 0 if res['E_heat'][a][h] < 1e-3 else res['E_heat'][a][h]
@@ -562,7 +574,11 @@ class Action_manager:
                 (E_heat - self.heat.E_heat_min[a]) / \
                 (self.heat.E_heat_max[a] - self.heat.E_heat_min[a])
         else:
+<<<<<<< HEAD:code/simulations/action_manager.py
             flexible_heat_action = None
+=======
+            mu_flex_heat = None
+>>>>>>> main:simulations/mu_manager.py
         max_charge_a, min_charge_a = [
             self.max_charge[a], self.min_charge[a]
         ]
@@ -622,16 +638,28 @@ class Action_manager:
             self, actions, error, res, loads, a, h, bool_flex
     ):
         for i in range(self.dim_actions):
+<<<<<<< HEAD:code/simulations/action_manager.py
             if actions[a][i] is not None \
                     and actions[a][i] < self.low_action[i]:
                 if actions[a][i] < self.low_action[i] - 1e-2:
+=======
+            if mu_action[a][i] is not None \
+                    and mu_action[a][i] < self.low_action[i]:
+                if mu_action[a][i] < self.low_action[i] - 1e-2:
+>>>>>>> main:simulations/mu_manager.py
                     error[a] = True
                 else:
                     actions[a][i] = 0
 
+<<<<<<< HEAD:code/simulations/action_manager.py
             if actions[a][i] is not None \
                     and actions[a][i] > self.high_action[i]:
                 if actions[a][i] > self.high_action[i] + 1e-2:
+=======
+            if mu_action[a][i] is not None \
+                    and mu_action[a][i] > self.high_action[i]:
+                if mu_action[a][i] > self.high_action[i] + 1e-2:
+>>>>>>> main:simulations/mu_manager.py
                     error[a] = True
                 else:
                     actions[a][i] = self.high_action[i]

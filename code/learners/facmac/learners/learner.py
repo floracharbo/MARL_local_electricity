@@ -1,10 +1,11 @@
 import copy
 
 import torch as th
+from torch.optim import Adam, RMSprop
+
 from learners.facmac.modules.critics.maddpg import MADDPGCritic
 from learners.facmac.modules.mixers.qmix import QMixer
 from learners.facmac.modules.mixers.vdn import VDNMixer
-from torch.optim import Adam, RMSprop
 
 
 class Learner():
@@ -87,6 +88,7 @@ class Learner():
                                            self.mixer.parameters()):
                 target_param.data.copy_(target_param.data * (1.0 - tau)
                                         + param.data * tau)
+
 
     def _get_target_actions_batch(self, batch, t_env):
         target_mac_out = []

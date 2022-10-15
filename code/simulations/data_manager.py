@@ -28,6 +28,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 from simulations.problem import Solver
 from utilities.userdeftools import set_seeds_rdn
+<<<<<<< HEAD:code/simulations/data_manager.py
 
 
 def format_ntw(ntw, loads, syst, bat, batch, p):
@@ -65,6 +66,8 @@ def format_ntw(ntw, loads, syst, bat, batch, p):
                         ntw['flex'][t, load_type, a, tC] = 1
 
     return ntw
+=======
+>>>>>>> main:simulations/data_manager.py
 
 
 class Data_manager():

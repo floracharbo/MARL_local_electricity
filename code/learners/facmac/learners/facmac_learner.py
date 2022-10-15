@@ -8,7 +8,10 @@ import torch as th
 from learners.facmac.components.episode_buffer import EpisodeBatch
 from learners.facmac.learners.learner import Learner
 from learners.facmac.modules.critics.facmac import FACMACCritic
+<<<<<<< HEAD:code/learners/facmac/learners/facmac_learner.py
 from torch.optim import Adam, RMSprop
+=======
+>>>>>>> main:learners/facmac/learners/facmac_learner.py
 
 # from learners.facmac.modules.mixers.qmix_ablations
 # import VDNState, QMixerNonmonotonic
@@ -50,6 +53,7 @@ class FACMACLearner(Learner):
         else:
             raise Exception("unknown optimizer {}".format(rl["optimizer"]))
 
+<<<<<<< HEAD:code/learners/facmac/learners/facmac_learner.py
     def get_critic_outs(self, critic, actions_, mixer, batch):
         critic.init_hidden(batch.batch_size)
         list_critic_out = []
@@ -66,6 +70,8 @@ class FACMACLearner(Learner):
 
         return list_critic_out
 
+=======
+>>>>>>> main:learners/facmac/learners/facmac_learner.py
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]
@@ -166,6 +172,7 @@ class FACMACLearner(Learner):
             raise Exception(f"unknown target update mode: "
                             f"{self.rl['target_update_mode']}!")
 
+<<<<<<< HEAD:code/learners/facmac/learners/facmac_learner.py
     def _replace_nan_actions_with_target_actions(self, actions, target_actions):
         shape_actions = np.shape(actions)
         for i_batch in range(shape_actions[0]):
@@ -182,6 +189,8 @@ class FACMACLearner(Learner):
 
         return actions
 
+=======
+>>>>>>> main:learners/facmac/learners/facmac_learner.py
     def _build_inputs(self, batch, t):
         bs = batch.batch_size
         inputs = []

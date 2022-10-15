@@ -162,6 +162,34 @@ def get_prm_save_RL(prm_save, prm):
     return prm_save
 
 
+def add_prm_save_list(val, dict_, key):
+    if isinstance(val, list):
+        dict_[key] = []
+        for item in val:
+            if isinstance(item, (int, float, bool)):
+                dict_[key].append(item)
+
+    return dict_
+
+
+def get_prm_save_RL(prm_save, prm):
+    prm_save['RL'] = {}
+    for e, val in prm['RL'].items():
+        prm_save['RL'] = add_prm_save_list(val, prm_save['RL'], e)
+        if isinstance(val, dict):
+            prm_save['RL'][e] = {}
+            for key in val.keys():
+                prm_save['RL'][e] = add_prm_save_list(
+                    val[key], prm_save['RL'][e], key
+                )
+                if isinstance(val[key], (int, float, bool)):
+                    prm_save['RL'][e][key] = val[key]
+        elif isinstance(val, (int, float, bool)):
+            prm_save['RL'][e] = val
+
+    return prm_save
+
+
 def get_prm_save(prm):
     """Save run parameters for record-keeping."""
     prm_save = {}  # save selected system parameters

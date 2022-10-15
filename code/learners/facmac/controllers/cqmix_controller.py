@@ -7,6 +7,8 @@ import torch.distributions as tdist
 from gym import spaces
 from learners.facmac.utils.rl_utils import input_last_action
 
+from learners.facmac.utils.rl_utils import input_last_action
+
 from .basic_controller import BasicMAC
 
 

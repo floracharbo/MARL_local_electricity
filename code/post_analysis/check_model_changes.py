@@ -23,15 +23,26 @@ import torch as th
 
 def plot_actions(actions, path):
     for type_train in ["random", "env_r_c"]:
+<<<<<<< HEAD:code/post_analysis/check_model_changes.py
         for repeat in nos:
             actions_ = actions[repeat][type_train]
             for i_action in range(3):
+=======
+        for ridx in nos:
+            actions_ = actions[ridx][type_train]
+            for mu in range(3):
+>>>>>>> main:post_analysis/check_model_changes.py
                 fig = plt.figure()
                 for epoch in range(len(actions_)):
                     for t in range(len(actions_[epoch])):
                         for home in range(len(actions_[epoch][t])):
+<<<<<<< HEAD:code/post_analysis/check_model_changes.py
                             plt.plot(epoch, actions_[epoch][t][home][i_action], 'o')
                 title = f"actions {type_train} i_action {i_action} {repeat}"
+=======
+                            plt.plot(epoch, actions_[epoch][t][home][mu], 'o')
+                title = f"actions {type_train} mu {mu} {ridx}"
+>>>>>>> main:post_analysis/check_model_changes.py
                 plt.title(title)
                 fig.savefig(path / title)
 
