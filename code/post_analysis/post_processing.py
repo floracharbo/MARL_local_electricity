@@ -188,7 +188,7 @@ def get_prm_save(prm):
                 prm_save[key][sub_key] = prm[key][sub_key]
             else:
                 print(f"{sub_key} not in prm[{key}]")
-                np.save(f"keys_prm_{key}", list(prm[key].keys()))
+                # np.save(f"keys_prm_{key}", list(prm[key].keys()))
 
     prm_save = get_prm_save_RL(prm_save, prm)
 
