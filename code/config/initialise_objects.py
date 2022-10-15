@@ -63,6 +63,8 @@ def initialise_objects(
     # general input paths and system parameters are in inputs
     # where
     prm = input_params(prm, settings)
+    if not Path("outputs").exists():
+        os.mkdir("outputs")
     for folder in ["results", "opt_res"]:
         prm['paths'][folder] = Path("outputs") / folder
         if not (prm['paths'][folder]).exists():
