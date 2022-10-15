@@ -501,7 +501,7 @@ def _plot_all_agents_all_repeats_res(
                 if r == 2:
                     axs[r, c].set_xlabel('Time [h]')
 
-    return axs
+    return axs, all_T_air
 
 
 def _plot_last_epochs_actions(
@@ -621,7 +621,7 @@ def _plot_all_agents_res(
         for t in all_methods_to_plot:
             all_vals[e][t] = initialise_dict(range(prm['RL']['n_repeats']))
 
-    axs = _plot_all_agents_all_repeats_res(
+    axs, all_T_air = _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, root, title_ylabel_dict,
         axs, colors_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
