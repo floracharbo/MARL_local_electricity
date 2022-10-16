@@ -34,38 +34,38 @@ def _eval_entries_plot_colors(prm):
     evaluation_methods = rl['evaluation_methods']
     if prm['ntw']['n'] == 1:
         evaluation_methods = [
-            e for e in evaluation_methods
-            if distr_learning(e) == 'd'
-            or e in ['baseline', 'opt']]
-        if len([e for e in evaluation_methods if len(e.split('_')) > 1]) == 0:
+            evaluation_method for evaluation_method in evaluation_methods
+            if distr_learning(evaluation_method) == 'd'
+            or evaluation_method in ['baseline', 'opt']]
+        if len([evaluation_method for evaluation_method in evaluation_methods if len(evaluation_method.split('_')) > 1]) == 0:
             evaluation_methods = [
-                e for e in rl['evaluation_methods']
-                if distr_learning(e) == 'c'
-                or e in ['baseline', 'opt']
+                evaluation_method for evaluation_method in rl['evaluation_methods']
+                if distr_learning(evaluation_method) == 'c'
+                or evaluation_method in ['baseline', 'opt']
             ]
 
     prm["save"]["eval_entries_plot"] = \
-        [e for e in evaluation_methods if e != 'baseline'] \
+        [evaluation_method for evaluation_method in evaluation_methods if evaluation_method != 'baseline'] \
         + ['baseline'] if 'baseline' in evaluation_methods else evaluation_methods
     methods_to_plot = {}
-    for e in evaluation_methods:
-        methods_to_plot[e] = '-'
+    for evaluation_method in evaluation_methods:
+        methods_to_plot[evaluation_method] = '-'
     eval_entries_distr = [
-        e for e in evaluation_methods
-        if len(e.split('_')) > 1 and distr_learning(e) == 'd'
+        evaluation_method for evaluation_method in evaluation_methods
+        if len(evaluation_method.split('_')) > 1 and distr_learning(evaluation_method) == 'd'
     ]
     eval_entries_centr = [
-        e for e in evaluation_methods
-        if len(e.split('_')) > 1 and distr_learning(e) == 'c'
+        evaluation_method for evaluation_method in evaluation_methods
+        if len(evaluation_method.split('_')) > 1 and distr_learning(evaluation_method) == 'c'
     ]
     other_eval_entries = [
-        e for e in evaluation_methods if len(e.split("_")) == 1
+        evaluation_method for evaluation_method in evaluation_methods if len(evaluation_method.split("_")) == 1
     ]
 
     prm["save"]["eval_entries_plot_indiv"] = [
-        e for e in prm["save"]["eval_entries_plot"]
-        if len(e.split('_')) > 1
-        and distr_learning(e) not in ['Cc0', 'Cd0']
+        evaluation_method for evaluation_method in prm["save"]["eval_entries_plot"]
+        if len(evaluation_method.split('_')) > 1
+        and distr_learning(evaluation_method) not in ['Cc0', 'Cd0']
     ]
     prm["save"]["base_entries"] = eval_entries_distr if len(eval_entries_distr) > 0 \
         else eval_entries_centr
@@ -93,13 +93,13 @@ def initialise_variables(prm, spaces, record):
     )
     spaces.new_state_space(rl['state_space'])
     rl["q_tables"], rl["counters"] = record.q_tables, record.counter
-    if rl["evaluation_methods_env"] == "discrete":
+    if rl["type_env"] == "discrete":
         rl["possible_states"] = record.possible_states \
             if record.possible_states > 0 else 1
     else:
         rl["possible_states"] = None
 
-    if rl['evaluation_methods_learning'] == 'q_learning':
+    if rl['type_learning'] == 'q_learning':
         if isinstance(rl["q_tables"][0], list):
             if len(rl["counters"][0]) > 0:
                 rl["q_entries"] = list(rl["counters"][0][0].keys())
