@@ -59,7 +59,7 @@ class Runner():
 
             if self.prm['RL']['type_learning'] == 'facmac' \
                     and self.prm["save"]["save_nns"]:
-                for t_explo in self.rl['type_explo']:
+                for t_explo in self.rl["exploration_methods"]:
                     if t_explo not in self.learner:
                         continue
                     save_path \
@@ -70,7 +70,7 @@ class Runner():
         return model_save_time
 
     def _end_evaluation(
-            self, repeat, new_env, type_eval, i0_costs, delta, date0
+            self, repeat, new_env, evaluations_methods, i0_costs, delta, date0
     ):
         i_explore = 0
         for epoch_test in \
@@ -85,7 +85,7 @@ class Runner():
             self.env.reinitialise_envfactors(
                 date0, epoch_test, i_explore, evaluation_add1=True)
             eval_steps, _ = self.explorer.get_steps(
-                type_eval, repeat, epoch_test, self.rl['n_explore'],
+                evaluations_methods, repeat, epoch_test, self.rl['n_explore'],
                 evaluation=True, new_episode_batch=self.new_episode_batch)
             duration_epoch = time.time() - t_start
 
@@ -103,12 +103,12 @@ class Runner():
             self.learner.learn_from_explorations(train_steps_vals)
 
         elif self.rl['type_learning'] == 'DQN':
-            for t in self.rl['type_Qs']:
+            for method in self.rl['type_Qs']:
                 if self.rl['distr_learning'] == 'decentralised':
                     for home in range(self.n):
-                        self.learner[t][home].target_update()
+                        self.learner[method][home].target_update()
                 else:
-                    self.learner[t].target_update()
+                    self.learner[method].target_update()
 
     def run_experiment(self):
         """For a given state space, explore and learn from the environment."""
@@ -137,7 +137,7 @@ class Runner():
                 for i_explore in range(self.rl['n_explore']):
                     episode += 1
 
-                    steps_vals, date0, delta, i0_costs, type_explo \
+                    steps_vals, date0, delta, i0_costs, exploration_methods \
                         = self._exploration_episode(
                             repeat, epoch, i_explore, date0, delta, i0_costs,
                             new_env, evaluation=False, evaluation_add1=False
@@ -160,13 +160,13 @@ class Runner():
                 self._post_exploration_learning(epoch, train_steps_vals)
 
                 # evaluation step
-                type_eval = self._check_if_opt_needed(epoch, evaluation=True)
+                evaluations_methods = self._check_if_opt_needed(epoch, evaluation=True)
                 assert i_explore + 1 == self.rl['n_explore']
 
                 self.env.reinitialise_envfactors(
                     date0, epoch, self.rl['n_explore'])
                 eval_steps, _ = self.explorer.get_steps(
-                    type_eval, repeat, epoch, self.rl['n_explore'],
+                    evaluations_methods, repeat, epoch, self.rl['n_explore'],
                     evaluation=True, new_episode_batch=self.new_episode_batch)
 
                 # record
@@ -177,7 +177,7 @@ class Runner():
                 # make a list, one exploration after the other
                 # rather than a list of 'explorations' in 2D
                 list_train_stepvals = self._train_vals_to_list(
-                    train_steps_vals, type_explo)
+                    train_steps_vals, exploration_methods)
                 self.record.end_epoch(epoch, eval_steps, list_train_stepvals,
                                       self.rl, self.learner, duration_epoch)
 
@@ -187,7 +187,7 @@ class Runner():
 
             # then do evaluation only for one month, no learning
             self._end_evaluation(
-                repeat, new_env, type_eval, i0_costs, delta, date0
+                repeat, new_env, evaluations_methods, i0_costs, delta, date0
             )
 
             new_env = True \
@@ -201,12 +201,12 @@ class Runner():
             if len(self.explorer.data.seeds[passive_ext]) > len(self.rl['seeds'][passive_ext]):
                 self.rl['seeds'][passive_ext] = self.explorer.seeds[passive_ext].copy()
 
-    def _initialise_buffer_learner_mac_facmac(self, t):
+    def _initialise_buffer_learner_mac_facmac(self, method):
         if 'buffer' not in self.__dict__.keys():
             self.buffer = {}
             self.mac = {}
 
-        self.buffer[t] = ReplayBuffer(
+        self.buffer[method] = ReplayBuffer(
             self.rl['scheme'], self.rl['groups'],
             self.rl['buffer_size'],
             self.rl['env_info']["episode_limit"] + 1
@@ -215,8 +215,8 @@ class Runner():
             device="cpu" if self.rl['buffer_cpu_only']
             else self.rl['device'])
         # Setup multiagent controller here
-        self.mac[t] = mac_REGISTRY[self.rl['mac']](
-            self.buffer[t].scheme, self.rl['groups'],
+        self.mac[method] = mac_REGISTRY[self.rl['mac']](
+            self.buffer[method].scheme, self.rl['groups'],
             self.rl)
         self.new_episode_batch = \
             partial(EpisodeBatch, self.rl['scheme'],
@@ -225,54 +225,54 @@ class Runner():
                     self.rl['episode_limit'] + 1,
                     preprocess=self.rl['preprocess'],
                     device=self.rl['device'])
-        self.learner[t] = le_REGISTRY[self.rl['learner']](
-            self.mac[t],
-            self.buffer[t].scheme,
+        self.learner[method] = le_REGISTRY[self.rl['learner']](
+            self.mac[method],
+            self.buffer[method].scheme,
             self.rl,
         )
         if self.rl['use_cuda']:
-            self.learner[t].cuda()
+            self.learner[method].cuda()
 
-    def _initialise_buffer_learner_mac_deep_learning(self, t):
+    def _initialise_buffer_learner_mac_deep_learning(self, method):
         if self.rl['distr_learning'] == 'decentralised':
-            if t in self.learner.keys():
+            if method in self.learner.keys():
                 # the learner as already been intialised; simply reset
                 for home in range(self.n):
-                    self.learner[t][home].reset()
+                    self.learner[method][home].reset()
             else:
                 if self.rl['type_learning'] == 'DDPG':
-                    self.learner[t] = [Learner_DDPG(
-                        self.rl, t + f'_{home}') for home in range(self.n)]
+                    self.learner[method] = [Learner_DDPG(
+                        self.rl, method + f'_{home}') for home in range(self.n)]
                 elif self.rl['type_learning'] == 'DDQN':
-                    self.learner[t] = [Agent_DDQN(
-                        self.env, self.rl, t) for _ in range(self.n)]
+                    self.learner[method] = [Agent_DDQN(
+                        self.env, self.rl, method) for _ in range(self.n)]
                 else:
-                    self.learner[t] = [Agent_DQN(
-                        self.rl, t + f'_{home}', t, self.prm['syst']['N'])
+                    self.learner[method] = [Agent_DQN(
+                        self.rl, method + f'_{home}', method, self.prm['syst']['N'])
                         for home in range(self.n)]
         else:
-            if t in self.learner.keys():
+            if method in self.learner.keys():
                 # the learner as already been intialised;
                 # simply reset
-                self.learner[t].reset()  # reset learner
+                self.learner[method].reset()  # reset learner
             else:  # initialise objects
                 if self.rl['type_learning'] == 'DDPG':
-                    self.learner[t] = Learner_DDPG(self.rl, t)
+                    self.learner[method] = Learner_DDPG(self.rl, method)
                 elif self.rl['type_learning'] == 'DQN':
-                    self.learner[t] = Agent_DQN(
-                        self.rl, t, t, self.prm['syst']['N'])
+                    self.learner[method] = Agent_DQN(
+                        self.rl, method, method, self.prm['syst']['N'])
                 elif self.rl['type_learning'] == 'DDQN':
-                    self.learner[t] = Agent_DDQN(self.env, self.rl, t)
+                    self.learner[method] = Agent_DDQN(self.env, self.rl, method)
 
     def _initialise_buffer_learner_mac(self, repeat=0):
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN', 'facmac']:
             if 'learner' not in self.__dict__.keys():
                 self.learner = {}
-            for t in self.rl['type_Qs']:
+            for method in self.rl['type_Qs']:
                 if self.rl['type_learning'] == 'facmac':
-                    self._initialise_buffer_learner_mac_facmac(t)
+                    self._initialise_buffer_learner_mac_facmac(method)
                 else:
-                    self._initialise_buffer_learner_mac_deep_learning(t)
+                    self._initialise_buffer_learner_mac_deep_learning(method)
 
         elif self.rl['type_learning'] == 'q_learning':
             if 'learner' in self.__dict__.keys():
@@ -353,23 +353,23 @@ class Runner():
 
     def _facmac_episode_batch_insert_and_sample(self, episode):
 
-        for t_explo in self.rl['type_explo']:
-            t_to_update = [] if t_explo == 'baseline' \
+        for t_explo in self.rl["exploration_methods"]:
+            methods_to_update = [] if t_explo == 'baseline' \
                 else [t_explo] if t_explo[0:3] == 'env' \
-                else [t for t in self.rl['type_Qs']
-                      if data_source(t) == 'opt' and t[-1] != '0']
-            for t in t_to_update:
-                diff = True if reward_type(t) == 'd' else False
-                opt = True if data_source(t) == 'opt' else False
+                else [method for method in self.rl['type_Qs']
+                      if data_source(method) == 'opt' and method[-1] != '0']
+            for method in methods_to_update:
+                diff = True if reward_type(method) == 'd' else False
+                opt = True if data_source(method) == 'opt' else False
 
-                self.buffer[t].insert_episode_batch(
-                    self.episode_batch[t], difference=diff,
+                self.buffer[method].insert_episode_batch(
+                    self.episode_batch[method], difference=diff,
                     optimisation=opt)
 
-                if self.buffer[t].can_sample(self.rl['facmac']['batch_size']) \
-                        and (self.buffer[t].episodes_in_buffer
+                if self.buffer[method].can_sample(self.rl['facmac']['batch_size']) \
+                        and (self.buffer[method].episodes_in_buffer
                              > self.rl['buffer_warmup']):
-                    episode_sample = self.buffer[t].sample(
+                    episode_sample = self.buffer[method].sample(
                         self.rl['facmac']['batch_size'])
 
                     # Truncate batch to only filled time steps
@@ -378,70 +378,73 @@ class Runner():
 
                     if episode_sample.device != self.rl['device']:
                         episode_sample.to(self.rl['device'])
-                    self.learner[t].train(episode_sample,
-                                          self.explorer.t_env, episode)
+                    self.learner[method].train(
+                        episode_sample,
+                        self.explorer.t_env,
+                        episode
+                    )
 
-    def _train_vals_to_list(self, train_steps_vals, type_explo):
+    def _train_vals_to_list(self, train_steps_vals, exploration_methods):
 
         list_train_stepvals = initialise_dict(
-            self.rl['type_explo'], type_obj='empty_dict')
+            self.rl["exploration_methods"], type_obj='empty_dict')
 
-        for t in self.rl['type_explo']:
-            for e in train_steps_vals[0][self.rl['type_explo'][0]].keys():
+        for method in self.rl["exploration_methods"]:
+            for e in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
                 if e not in ['seeds', 'n_not_feas', 'not_feas_vars'] \
-                        and e in train_steps_vals[0][type_explo[0]].keys():
-                    list_train_stepvals[t][e] = []
+                        and e in train_steps_vals[0][exploration_methods[0]].keys():
+                    list_train_stepvals[method][e] = []
                     for i_explore in range(self.rl['n_explore']):
-                        if t in type_explo:
-                            for x in train_steps_vals[i_explore][t][e]:
-                                list_train_stepvals[t][e].append(x)
+                        if method in exploration_methods:
+                            for x in train_steps_vals[i_explore][method][e]:
+                                list_train_stepvals[method][e].append(x)
                         else:
                             vals = \
-                                train_steps_vals[i_explore][type_explo[0]][e]
+                                train_steps_vals[i_explore][exploration_methods[0]][e]
                             for _ in enumerate(vals):
-                                list_train_stepvals[t][e].append(None)
+                                list_train_stepvals[method][e].append(None)
 
         return list_train_stepvals
 
     def _DDQN_epsilon_update(self):
 
-        for t in self.rl['type_Qs']:
+        for method in self.rl['type_Qs']:
             if self.rl['distr_learning'] == 'centralised':
-                self.learner[t].epsilon_update()
+                self.learner[method].epsilon_update()
             elif self.rl['distr_learning'] == 'decentralised':
                 for home in range(self.n_homes):
-                    self.learner[t][home].epsilon_update()
+                    self.learner[method][home].epsilon_update()
 
     def _check_convergence(self, repeat, epoch, converged):
         if not converged and \
-                sum(1 for t in self.rl['type_eval']
-                    if self.record.stability[repeat][t] != [None]) \
-                == len(self.rl['type_eval']) * 5:
+                sum(1 for method in self.rl["evaluation_methods"]
+                    if self.record.stability[repeat][method] != [None]) \
+                == len(self.rl["evaluation_methods"]) * 5:
             converged = True
             print(f'repeat {repeat} converged at epoch = {epoch}')
 
         return converged
 
     def _DQN_T_decay(self):
-        for t in self.rl['type_Qs']:
+        for method in self.rl['type_Qs']:
             if self.rl['distr_learning'] == 'centralised':
-                self.learner[t].ActionStateModel.T = \
-                    self.learner[t].ActionStateModel.T * \
+                self.learner[method].ActionStateModel.T = \
+                    self.learner[method].ActionStateModel.T * \
                     self.rl['T_decay_param']
             elif self.rl['distr_learning'] == 'decentralised':
                 for home in range(self.n):
-                    self.learner[t][home].ActionStateModel.T = \
-                        self.learner[t][home].ActionStateModel.T * \
+                    self.learner[method][home].ActionStateModel.T = \
+                        self.learner[method][home].ActionStateModel.T * \
                         self.rl['T_decay_param']
 
     def _check_if_opt_needed(self, epoch, evaluation=False):
-        opts_in_eval = sum(t != 'opt' and t[0:3] == 'opt'
-                           for t in self.rl['type_eval']) > 0
+        opts_in_eval = sum(method != 'opt' and method[0:3] == 'opt'
+                           for method in self.rl["evaluation_methods"]) > 0
         eval_stage = True \
             if evaluation and epoch >= self.rl['start_end_eval'] \
             else False
-        candidate_types = self.rl['type_eval'] if evaluation \
-            else self.rl['type_explo']
+        candidate_types = self.rl["evaluation_methods"] if evaluation \
+            else self.rl["exploration_methods"]
 
         # if no evaluation types rely on optimisation
         # and we are not checking feasibility with optimisations
@@ -450,7 +453,7 @@ class Runner():
         if not opts_in_eval \
                 and not self.rl['check_feasibility_with_opt'] \
                 and not eval_stage:
-            types_needed = [t for t in candidate_types if t[0:3] != 'opt']
+            types_needed = [method for method in candidate_types if method[0:3] != 'opt']
         else:
             types_needed = candidate_types
 
@@ -486,14 +489,14 @@ class Runner():
             date0, epoch, i_explore, evaluation_add1=evaluation_add1)
 
         # exploration - obtain experience
-        type_explo = self._check_if_opt_needed(
+        exploration_methods = self._check_if_opt_needed(
             epoch, evaluation=evaluation)
 
         steps_vals, self.episode_batch = self.explorer.get_steps(
-            type_explo, repeat, epoch, i_explore,
+            exploration_methods, repeat, epoch, i_explore,
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)
 
-        return steps_vals, date0, delta, i0_costs, type_explo
+        return steps_vals, date0, delta, i0_costs, exploration_methods
 
 
 def get_number_runs(settings):

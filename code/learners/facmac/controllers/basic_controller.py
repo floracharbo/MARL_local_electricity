@@ -28,8 +28,8 @@ class BasicMAC:
 
         return chosen_actions
 
-    def forward(self, ep_batch, t):
-        agent_inputs = self._build_inputs(ep_batch, t)
+    def forward(self, ep_batch, t_ep):
+        agent_inputs = self._build_inputs(ep_batch, t_ep)
         agent_outs, self.hidden_states = self.agent(
             agent_inputs, self.hidden_states)
 

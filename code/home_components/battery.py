@@ -125,15 +125,15 @@ class Battery:
                 start_trip, end_trip = [], []
                 if batch[home]['avail_EV'][0] == 0:
                     start_trip.append(0)
-                for t in range(len(batch[home]['avail_EV']) - 1):
-                    if batch[home]['avail_EV'][t] == 0 \
-                            and batch[home]['avail_EV'][t + 1] == 1:
-                        end_trip.append(t)
-                    if t > 0 and batch[home]['avail_EV'][t] == 0 \
-                            and batch[home]['avail_EV'][t - 1] == 1:
-                        start_trip.append(t)
+                for time in range(len(batch[home]['avail_EV']) - 1):
+                    if batch[home]['avail_EV'][time] == 0 \
+                            and batch[home]['avail_EV'][time + 1] == 1:
+                        end_trip.append(time)
+                    if time > 0 and batch[home]['avail_EV'][time] == 0 \
+                            and batch[home]['avail_EV'][time - 1] == 1:
+                        start_trip.append(time)
                 if len(start_trip) > len(end_trip) \
-                        and batch[home]['avail_EV'][t] == 0:
+                        and batch[home]['avail_EV'][time] == 0:
                     end_trip.append(self.N - 1)
                 for start, end in zip(start_trip, end_trip):
                     batch[home]['bat_dem_agg'][start] = \
@@ -545,7 +545,7 @@ class Battery:
         for home in range(self.n_homes):
             # check if opportunity to charge before trip > 37.5
             if h == 0 and not self.batch['avail_EV'][home][0]:
-                loads_T, deltaT, i_endtrip = self.next_trip_details(h, date, home)
+                loads_T, deltaT, _ = self.next_trip_details(h, date, home)
                 if loads_T > self.store0[home]:
                     # trip larger than initial charge and straight
                     # away not available
@@ -563,7 +563,7 @@ class Battery:
                         'not enough to go back to initial charge ' \
                         'at the last time step'
                     self._print_error(error_message, print_error)
-                loads_T_next, deltaT_next, i_endtrip_next = \
+                loads_T_next, deltaT_next, _ = \
                     self.next_trip_details(
                         deltaT, date + datetime.timedelta(hours=deltaT), home)
                 if deltaT_next > 0 \
@@ -641,20 +641,20 @@ class Battery:
             if bat['d_max'] < np.max(bat['batch_loads_EV'][home]):
                 feasible[home] = False
                 print("bat['d_max'] < np.max(bat['batch_loads_EV'][home])")
-                for t in range(len(bat['batch_loads_EV'][home])):
-                    if bat['batch_loads_EV'][home, t] > bat['d_max']:
-                        bat['batch_loads_EV'][home, t] = bat['d_max']
+                for time in range(len(bat['batch_loads_EV'][home])):
+                    if bat['batch_loads_EV'][home, time] > bat['d_max']:
+                        bat['batch_loads_EV'][home, time] = bat['d_max']
 
-        t = 0
+        time = 0
 
         self.reset(prm)
-        while all(feasible) and t < syst['N']:
-            date = self.date0 + datetime.timedelta(hours=t)
+        while all(feasible) and time < syst['N']:
+            date = self.date0 + datetime.timedelta(hours=time)
             bool_penalty = self.min_max_charge_t(
-                t, date, print_error=False,
+                time, date, print_error=False,
                 simulation=False)
             feasible[bool_penalty] = False
             self.update_step()
-            t += 1
+            time += 1
 
         return feasible

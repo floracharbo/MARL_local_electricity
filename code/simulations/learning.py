@@ -7,8 +7,8 @@ author: Flora Charbonnier
 from typing import List
 
 import numpy as np
-from utilities.userdeftools import (data_source, reward_type)
 from utilities.env_spaces import granularity_to_multipliers
+from utilities.userdeftools import data_source, reward_type
 
 
 class LearningManager():
@@ -18,7 +18,7 @@ class LearningManager():
         """Initialise Learner object."""
         self.env = env
         self.rl = prm["RL"]
-        self.agents = range(prm["ntw"]["n"])
+        self.homes = range(prm["ntw"]["n"])
         self.learner = learner
         self.N = prm["syst"]["N"]
         self.episode_batch = episode_batch
@@ -29,7 +29,7 @@ class LearningManager():
                  action: list,
                  reward: float,
                  done: bool,
-                 t: str,
+                 method: str,
                  step: int,
                  evaluation: bool,
                  traj_reward: list
@@ -41,19 +41,19 @@ class LearningManager():
                 "reward": [(reward,)],
                 "terminated": [(done,)],
             }
-            self.episode_batch[t].update(post_transition_data, ts=step)
+            self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
                 and not evaluation \
-                and t != 'baseline' \
+                and method != 'baseline' \
                 and not done:
             if type(reward) in [float, int, np.float64]:
                 traj_reward = self._learning_total_rewards(
-                    traj_reward, reward, current_state, action, state, t
+                    traj_reward, reward, current_state, action, state, method
                 )
             else:
                 traj_reward = self._learning_difference_rewards(
-                    traj_reward, reward, current_state, action, state, t
+                    traj_reward, reward, current_state, action, state, method
                 )
 
         return traj_reward
@@ -61,24 +61,24 @@ class LearningManager():
     def learn_trajectory_opt(self, step_vals):
         """Learn from optimisation episode using DDPG or DQN."""
         rl = self.prm["RL"]
-        for home in self.agents:
+        for home in self.homes:
             states_a, next_states_a = \
                 [np.reshape([step_vals["opt"][e][i_step][home]
                              for i_step in range(self.N)],
                             rl["dim_states"])
                  for e in ["state", "next_state"]]
-            t_opts = [t for t in rl["type_eval"]
-                      if t[0:3] == "opt" and t != "opt"]
-            for t in t_opts:
-                if reward_type(t) == "d":
+            t_opts = [method for method in rl["evaluation_methods"]
+                      if method[0:3] == "opt" and method != "opt"]
+            for method in t_opts:
+                if reward_type(method) == "d":
                     reward_diff_e = "reward_diff" \
-                        if data_source(t) == "opt" \
+                        if data_source(method) == "opt" \
                         else "reward"
                     traj_reward_a = sum(
                         [step_vals["opt"][reward_diff_e][i_step][home]
                          for i_step in range(self.N)])
 
-                elif reward_type(t) == "r":
+                elif reward_type(method) == "r":
                     traj_reward_a = \
                         sum([step_vals["opt"]["reward"][i_step]
                              for i_step in range(self.N)])
@@ -87,16 +87,16 @@ class LearningManager():
 
                 if rl["type_learning"] == "DQN":
                     self._learn_DQN(
-                        home, t, states_a, next_states_a,
+                        home, method, states_a, next_states_a,
                         actions_a, traj_reward_a)
 
                 elif rl["type_learning"] == "DDPG":
                     if rl["distr_learning"] == "decentralised":
-                        self.learner[t][home].learn(
+                        self.learner[method][home].learn(
                             states_a, actions_a, traj_reward_a,
                             next_states_a)
                     else:
-                        self.learner[t].learn(
+                        self.learner[method].learn(
                             states_a, actions_a, traj_reward_a,
                             next_states_a)
 
@@ -109,7 +109,7 @@ class LearningManager():
                                   reward_diffs: list
                                   ):
         """Learn using DDPG, DQN, or DDQN."""
-        t_opts = [t_ for t_ in self.rl['type_eval']
+        t_opts = [t_ for t_ in self.rl["evaluation_methods"]
                   if t_[0:3] == "opt" and t_ != "opt"]
         for t_ in t_opts:
             # this assumes the states are the same for all
@@ -118,7 +118,7 @@ class LearningManager():
                 self.learner[t_].learn(
                     current_state[0], actions, reward, state[0])
             else:
-                for home in self.agents:
+                for home in self.homes:
                     if reward_type(t_) == 'r' and self.rl['competitive']:
                         reward = indiv_rewards[home]
                     elif reward_type(t_) == 'd':
@@ -150,59 +150,59 @@ class LearningManager():
                               states: list,
                               actions: list,
                               traj_reward: list,
-                              t: str,
+                              method: str,
                               evaluation: bool
                               ):
         """Learn from trajectory."""
-        for home in self.agents:
+        for home in self.homes:
             states_a = [states[i_step][home]
                         for i_step in range(self.N)]
             next_states_a = [states[i_step][home]
                              for i_step in range(1, self.N + 1)]
             traj_reward_a = traj_reward[home] \
-                if len(t.split('_')) > 1 and reward_type(t) == 'd' \
+                if len(method.split('_')) > 1 and reward_type(method) == 'd' \
                 and not evaluation \
                 else traj_reward
             if self.rl["distr_learning"] == "decentralised":
-                self.learner[t][home].learn(
+                self.learner[method][home].learn(
                     states_a, actions[home], traj_reward_a, next_states_a)
             else:
-                self.learner[t].learn(
+                self.learner[method].learn(
                     states_a, actions[home], traj_reward_a, next_states_a)
 
-    def q_learning_instant_feedback(self, evaluation, t, step_vals, step):
+    def q_learning_instant_feedback(self, evaluation, method, step_vals, step):
         """At the end of each step, learn from experience using Q-learning."""
         if evaluation is False \
                 and self.rl["type_learning"] == "q_learning":
             if self.rl["instant_feedback"] \
                     and not evaluation \
-                    and t in self.rl["type_explo"]:
+                    and method in self.rl["exploration_methods"]:
                 # learner agent learns from this step
-                self.learner.learn(t, step_vals[t], step)
+                self.learner.learn(method, step_vals[method], step)
 
     def _learning_difference_rewards(
-            self, traj_reward, reward, current_state, action, state, t
+            self, traj_reward, reward, current_state, action, state, method
     ):
         # this is difference rewards and/or competitive -
         # no joint action as we would not use diff rewards
         # with joint action
-        for home in self.agents:
+        for home in self.homes:
             if self.rl['trajectory']:
                 traj_reward[home] += reward[home]
             else:
                 if self.rl["distr_learning"] == "decentralised":
-                    self.learner[t][home].learn(
+                    self.learner[method][home].learn(
                         current_state[home], action[home],
                         reward[home], state[home])
                 else:
-                    self.learner[t].learn(
+                    self.learner[method].learn(
                         current_state[home], action[home],
                         reward[home], state[home])
 
         return traj_reward
 
     def _learning_total_rewards(
-            self, traj_reward, reward, current_state, action, state, t
+            self, traj_reward, reward, current_state, action, state, method
     ):
         if self.rl['trajectory']:
             traj_reward += reward
@@ -221,19 +221,19 @@ class LearningManager():
             current_state_, action_, state_ \
                 = current_state, action, state
 
-        for home in self.agents:
+        for home in self.homes:
             if self.rl["distr_learning"] == "decentralised":
-                self.learner[t][home].learn(
+                self.learner[method][home].learn(
                     current_state_[home], action_[home],
                     reward, state_[home])
 
             if self.rl["distr_learning"] == "centralised":
-                self.learner[t].learn(
+                self.learner[method].learn(
                     current_state_[home], action_[home],
                     reward, state_[home])
 
             if self.rl["distr_learning"] == 'joint':
-                self.learner[t].learn(
+                self.learner[method].learn(
                     current_state_[0], action_,
                     reward, state_[0])
 
@@ -241,7 +241,7 @@ class LearningManager():
 
     def _learn_DQN(self,
                    home: int,
-                   t: str,
+                   method: str,
                    states_a: int,
                    next_states_a: int,
                    actions_a: int,
@@ -262,7 +262,7 @@ class LearningManager():
                     env.indiv_to_global_index(
                         type_, indexes=ind, multipliers=multipliers_traj
                     )
-                    for home in self.agents
+                    for home in self.homes
                 ]
                 for type_, ind
                 in zip(["state", "state", "action"],
@@ -272,6 +272,6 @@ class LearningManager():
         learn_inputs = [traj_ind_state, traj_ind_actions,
                         traj_reward_a, traj_ind_next_state]
         if self.rl["distr_learning"] == "decentralised":
-            self.learner[t][home].learn(learn_inputs)
+            self.learner[method][home].learn(learn_inputs)
         else:
-            self.learner[t].learn(learn_inputs)
+            self.learner[method].learn(learn_inputs)

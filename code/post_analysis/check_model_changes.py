@@ -28,9 +28,9 @@ def plot_actions(actions, path):
             for i_action in range(3):
                 fig = plt.figure()
                 for epoch in range(len(actions_)):
-                    for t in range(len(actions_[epoch])):
-                        for home in range(len(actions_[epoch][t])):
-                            plt.plot(epoch, actions_[epoch][t][home][i_action], 'o')
+                    for time in range(len(actions_[epoch])):
+                        for home in range(len(actions_[epoch][time])):
+                            plt.plot(epoch, actions_[epoch][time][home][i_action], 'o')
                 title = f"actions {type_train} i_action {i_action} {repeat}"
                 plt.title(title)
                 fig.savefig(path / title)

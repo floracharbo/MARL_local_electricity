@@ -3,7 +3,7 @@ Created on Thu Aug 11 2023.
 
 @author: floracharbonnier
 
-Object Data_manager generating, checking, formatting data for explorations.
+Object DataManager generating, checking, formatting data for explorations.
 
 Methods are:
 - __init__: Add relevant information to the properties of the object.
@@ -36,13 +36,13 @@ def format_ntw(ntw, loads, syst, bat, batch, passive_ext):
     WTD = np.zeros((loads['n_types'], syst['N']), dtype=int)
     if loads['flextype'] == 1:
         WTD[0] = np.zeros(syst['N'])
-        for t in range(syst['N']):
-            WTD[1, t] = max(min(loads['flex'][1], syst['N'] - 1 - t), 0)
+        for time in range(syst['N']):
+            WTD[1, time] = max(min(loads['flex'][1], syst['N'] - 1 - time), 0)
     else:
         for load_type in range(loads['n_types']):
-            for t in range(syst['N']):
-                WTD[load_type][t] = max(
-                    min(loads['flex'][load_type], syst['N'] - 1 - t), 0)
+            for time in range(syst['N']):
+                WTD[load_type][time] = max(
+                    min(loads['flex'][load_type], syst['N'] - 1 - time), 0)
 
     # make ntw matrices
     ntw['Bcap'] = np.zeros((ntw['n' + passive_ext], syst['N']))
@@ -53,22 +53,22 @@ def format_ntw(ntw, loads, syst, bat, batch, passive_ext):
     ntw['gen'] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
     for home in range(ntw['n' + passive_ext]):
         ntw['gen'][home] = batch[home]['gen'][0: len(ntw['gen'][home])]
-        for t in range(syst['N']):
-            ntw['Bcap'][home, t] = bat['cap' + passive_ext][home]
+        for time in range(syst['N']):
+            ntw['Bcap'][home, time] = bat['cap' + passive_ext][home]
             for load_type in range(loads['n_types']):
                 loads_str = 'loads' if 'loads' in batch[home] else 'lds'
-                ntw['dem'][0][home][t] = batch[home][loads_str][t] \
+                ntw['dem'][0][home][time] = batch[home][loads_str][time] \
                     * (1 - loads['share_flexs'][home])
-                ntw['dem'][1][home][t] = batch[home][loads_str][t] \
+                ntw['dem'][1][home][time] = batch[home][loads_str][time] \
                     * loads['share_flexs'][home]
                 for tC in range(syst['N']):
-                    if tC >= t and tC <= t + int(WTD[load_type][t]):
-                        ntw['flex'][t, load_type, home, tC] = 1
+                    if time <= tC <= time + int(WTD[load_type][time]):
+                        ntw['flex'][time, load_type, home, tC] = 1
 
     return ntw
 
 
-class Data_manager():
+class DataManager():
     """Generating, checking, formatting data for explorations."""
 
     def __init__(self, env: object, prm: dict, explorer: object):
@@ -360,10 +360,12 @@ class Data_manager():
 
     def _load_res(self, labels: list = ['factors', 'clusters']) -> List[dict]:
         """Load pre-saved day data."""
-        files = [np.load(self.paths['res_path']
-                     / f"{label}{self.file_id()}",
-                     allow_pickle=True).item()
-             for label in labels]
+        files = [
+            np.load(
+                self.paths['res_path'] / f"{label}{self.file_id()}",
+                allow_pickle=True
+            ).item() for label in labels
+        ]
 
         return files
 
@@ -464,6 +466,7 @@ class Data_manager():
         return feasible
 
     def update_flexibility_opt(self, batchflex_opt, res, i_step):
+        """Update available flexibility based on optimisation results."""
         n_homes = len(res["E_heat"])
         cons_flex_opt = \
             [res["totcons"][home][i_step] - batchflex_opt[home][i_step][0]

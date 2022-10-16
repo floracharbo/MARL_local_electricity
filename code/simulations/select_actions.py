@@ -23,7 +23,7 @@ class ActionSelector:
         self.n_agents = prm["ntw"]["n"]
         self.rl = prm["RL"]
         self.env = env
-        self.agents = range(prm["ntw"]["n"])
+        self.homes = range(prm["ntw"]["n"])
         self.episode_batch = episode_batch
 
     def _format_tf_prev_state(
@@ -34,16 +34,16 @@ class ActionSelector:
             tf_prev_state = [tf.expand_dims(
                 tf.convert_to_tensor(np.reshape(
                     current_state[home], (1, 1))), 0)
-                for home in self.agents]
+                for home in self.homes]
         else:
             tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
-                current_state[home]), 0) for home in self.agents]
+                current_state[home]), 0) for home in self.homes]
 
         return tf_prev_state
 
     def select_action(
             self,
-            t: str,
+            method: str,
             step: int,
             actions: list,
             mus_opt: list,
@@ -59,25 +59,25 @@ class ActionSelector:
         tf_prev_state = self._format_tf_prev_state(current_state)
 
         # action choice for current time step
-        if t == 'baseline':
+        if method == 'baseline':
             action = self.rl['default_action']
-        elif t == 'random':
+        elif method == 'random':
             action = np.random.random(np.shape(self.rl['default_action']))
-        elif t == 'tryopt':
+        elif method == 'tryopt':
             action = mus_opt[step]
         elif rl['type_learning'] in ['DDPG', 'DQN'] and rl['trajectory']:
             action = [actions[home][step]
-                      for home in self.agents]
+                      for home in self.homes]
 
         elif rl['type_learning'] == 'DDPG' and not rl['trajectory']:
             action = self._select_action_DDPG(
                 tf_prev_state, eps_greedy, rdn_eps_greedy,
-                rdn_eps_greedy_indiv, t
+                rdn_eps_greedy_indiv, method
             )
 
         elif rl['type_learning'] == 'facmac':
             action = self._select_action_facmac(
-                current_state, tf_prev_state, step, evaluation, t, t_env
+                current_state, tf_prev_state, step, evaluation, method, t_env
             )
 
         else:
@@ -87,9 +87,9 @@ class ActionSelector:
             if rl['type_learning'] == 'q_learning':
                 ind_action = [
                     self.learner.sample_action(
-                        t, ind_current_state[home], home, eps_greedy=eps_greedy
+                        method, ind_current_state[home], home, eps_greedy=eps_greedy
                     )[0]
-                    for home in self.agents
+                    for home in self.homes
                 ]
 
             elif rl['type_learning'] == 'DDQN':
@@ -103,14 +103,14 @@ class ActionSelector:
                 )
 
             action_indexes = [self.env.spaces.global_to_indiv_index(
-                "action", ind_action[a_]) for a_ in self.agents]
+                "action", ind_action[a_]) for a_ in self.homes]
             action = [self.env.spaces.index_to_val(
                 action_indexes[a_], typev="action")
-                for a_ in self.agents]
+                for a_ in self.homes]
 
         return action, tf_prev_state
 
-    def trajectory_actions(self, t, rdn_eps_greedy_indiv,
+    def trajectory_actions(self, method, rdn_eps_greedy_indiv,
                            eps_greedy, rdn_eps_greedy):
         """Select actions for all episode time steps."""
         env, rl = self.env, self.rl
@@ -121,12 +121,12 @@ class ActionSelector:
             inputs_state_val = \
                 [i_step, env.date + timedelta(hours=i_step), False,
                  [[env.batch[home]['flex'][ih] for ih in range(0, 2)]
-                  for home in self.agents]]
+                  for home in self.homes]]
             states[i_step] = env.get_state_vals(inputs=inputs_state_val)
 
-        if t == 'baseline':
+        if method == 'baseline':
             actions = [[self.rl['default_action'][home] for _ in range(
-                self.N)] for home in self.agents]
+                self.N)] for home in self.homes]
             ind_actions = \
                 np.ones(self.n_agents) * (env.spaces.n["actions"] - 1)
 
@@ -149,27 +149,27 @@ class ActionSelector:
 
     def _select_action_DDPG(
             self, tf_prev_state, eps_greedy, rdn_eps_greedy,
-            rdn_eps_greedy_indiv, t
+            rdn_eps_greedy_indiv, method
     ):
         if self.rl["distr_learning"] == "decentralised":
             action = [
-                self.learner[t][home].sample_action(
+                self.learner[method][home].sample_action(
                     tf_prev_state[home], eps_greedy=eps_greedy,
                     rdn_eps_greedy=rdn_eps_greedy,
                     rdn_eps_greedy_indiv=rdn_eps_greedy_indiv
                 )[0]
-                for home in self.agents
+                for home in self.homes
             ]
         elif self.rl["distr_learning"] == "centralised":
             self.tf_prev_state = tf_prev_state
             action = [
-                self.learner[t].sample_action(
+                self.learner[method].sample_action(
                     tf_prev_state[home], eps_greedy=eps_greedy,
                     rdn_eps_greedy=rdn_eps_greedy,
                     rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)[
-                    0] for home in self.agents]
+                    0] for home in self.homes]
         elif self.rl["distr_learning"] == 'joint':
-            action = self.learner[t].sample_action(
+            action = self.learner[method].sample_action(
                 tf_prev_state[0], eps_greedy=eps_greedy,
                 rdn_eps_greedy=rdn_eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)[0]
@@ -181,93 +181,93 @@ class ActionSelector:
         return action
 
     def _select_action_facmac(
-            self, current_state, tf_prev_state, step, evaluation, t, t_env
+            self, current_state, tf_prev_state, step, evaluation, method, t_env
     ):
         pre_transition_data = {
-            "state": [current_state[home] for home in self.agents],
+            "state": [current_state[home] for home in self.homes],
             "avail_actions": [self.rl['avail_actions']],
             "obs": [np.reshape(tf_prev_state,
                                (self.n_agents, self.rl['obs_shape']))]
         }
-        self.episode_batch[t].update(pre_transition_data, ts=step)
+        self.episode_batch[method].update(pre_transition_data, ts=step)
         if self.rl['action_selector'] == "gumbel":
-            actions = self.mac[t].select_actions(
-                self.episode_batch[t], t_ep=step, t_env=t_env,
+            actions = self.mac[method].select_actions(
+                self.episode_batch[method], t_ep=step, t_env=t_env,
                 test_mode=evaluation, explore=(not evaluation))
             action = th.argmax(actions, dim=-1).long()
         else:
-            action = self.mac[t].select_actions(
-                self.episode_batch[t], t_ep=step,
+            action = self.mac[method].select_actions(
+                self.episode_batch[method], t_ep=step,
                 t_env=t_env, test_mode=evaluation)
 
         action = [[float(action[0][home][i])
                    for i in range(self.rl['dim_actions'])]
-                  for home in self.agents]
+                  for home in self.homes]
 
         return action
 
     def _select_action_DDQN(self, ind_current_state, eps_greedy):
-        t = "DDQN"
+        method = "DDQN"
         if self.rl["distr_learning"] == "decentralised":
-            ind_action = [self.learner[t][home].sample_action(
+            ind_action = [self.learner[method][home].sample_action(
                 ind_current_state[home], eps_greedy=eps_greedy)
-                for home in self.agents]
+                for home in self.homes]
         elif self.rl["distr_learning"] == "centralised":
-            ind_action = [self.learner[t].sample_action(
+            ind_action = [self.learner[method].sample_action(
                 ind_current_state[home], eps_greedy=eps_greedy)
-                for home in self.agents]
+                for home in self.homes]
 
         return ind_action
 
     def _select_action_DQN(
             self, ind_current_state, eps_greedy, rdn_eps_greedy_indiv
     ):
-        t = "DQN"
+        method = "DQN"
         if self.rl["distr_learning"] == "decentralised":
-            ind_action = [self.learner[t][home].sample_action(
+            ind_action = [self.learner[method][home].sample_action(
                 ind_current_state[home], eps_greedy=eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
-                for home in self.agents]
+                for home in self.homes]
         elif self.rl["distr_learning"] == "centralised":
-            ind_action = [self.learner[t].sample_action(
+            ind_action = [self.learner[method].sample_action(
                 ind_current_state[home], eps_greedy=eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
-                for home in self.agents]
+                for home in self.homes]
 
         return ind_action
 
     def _trajectory_actions_DDPG(
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
     ):
-        t = "DDPG"
+        method = "DDPG"
         if self.rl['LSTM']:
             tf_prev_states = [tf.expand_dims(tf.convert_to_tensor(
                 np.reshape(states[0: self.N, home],
                            (1, self.rl['dim_states']))), 0)
-                for home in self.agents]
+                for home in self.homes]
         else:
             tf_prev_states = [tf.expand_dims(tf.convert_to_tensor(
                 np.reshape(states[0: self.N, home], self.rl['dim_states'])
-            ), 0) for home in self.agents]
+            ), 0) for home in self.homes]
 
         if self.rl["distr_learning"] == "decentralised":
             actions = [
-                self.learner[t][home].sample_action(
+                self.learner[method][home].sample_action(
                     tf_prev_states[home],
                     eps_greedy=eps_greedy,
                     rdn_eps_greedy=rdn_eps_greedy,
                     rdn_eps_greedy_indiv=rdn_eps_greedy_indiv
-                )[0] for home in self.agents
+                )[0] for home in self.homes
             ]
         elif self.rl["distr_learning"] == "centralised":
             self.tf_prev_states = tf_prev_states
             actions = [
-                self.learner[t].sample_action(
+                self.learner[method].sample_action(
                     tf_prev_states[home],
                     eps_greedy=eps_greedy,
                     rdn_eps_greedy=rdn_eps_greedy,
                     rdn_eps_greedy_indiv=rdn_eps_greedy_indiv
-                )[0] for home in self.agents
+                )[0] for home in self.homes
             ]
 
         ind_actions = None
@@ -277,53 +277,52 @@ class ActionSelector:
     def _trajectory_actions_DQN(
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
     ):
-        t = "DQN"
+        method = "DQN"
         ind_states = [self.env.spaces.get_space_indexes(
             all_vals=current_state, indiv_indexes=True)
             for current_state in states]
         ind_states_a_step = [[ind_states[i_step][home] for i_step in range(
-            self.N)] for home in self.agents]
+            self.N)] for home in self.homes]
         granularity = [self.rl["n_other_states"] for _ in range(24)]
         multipliers_traj = granularity_to_multipliers(
             granularity)
         traj_ind_state = [self.env.indiv_to_global_index(
             "state", indexes=ind_states_a_step[home],
             multipliers=multipliers_traj)
-            for home in self.agents]
+            for home in self.homes]
 
         if self.rl["distr_learning"] == "decentralised":
-            ind_actions = [self.learner[t][home].sample_action(
+            ind_actions = [self.learner[method][home].sample_action(
                 traj_ind_state[home], eps_greedy=eps_greedy,
                 rdn_eps_greedy=rdn_eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
-                for home in self.agents]
+                for home in self.homes]
         elif self.rl["distr_learning"] == "centralised":
-            ind_actions = [self.learner[t].sample_action(
+            ind_actions = [self.learner[method].sample_action(
                 ind_states_a_step[home], eps_greedy=eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)
-                for home in self.agents]
+                for home in self.homes]
         actions = [
             [self.env.spaces.index_to_val(
                 [ind_actions[a_][i_step]], typev="action")[0]
              for i_step in range(self.N)]
-            for a_ in self.agents
+            for a_ in self.homes
         ]
 
         return actions, ind_actions
 
     def _trajectory_actions_DDQN(self, eps_greedy):
-        t = "DDQN"
+        method = "DDQN"
         if self.rl["distr_learning"] == "decentralised":
-            ind_actions = [self.learner[t][home].sample_action(
+            ind_actions = [self.learner[method][home].sample_action(
                 eps_greedy=eps_greedy)
-                for home in self.agents]
+                for home in self.homes]
         elif self.rl["distr_learning"] == "centralised":
-            ind_actions = self.learner[t].sample_action(
+            ind_actions = self.learner[method].sample_action(
                 eps_greedy=eps_greedy)
         actions = None
 
         return actions, ind_actions
-
 
     def set_eps_greedy_vars(self, rl, epoch, evaluation):
         # if eps_greedy is true we are adding random action selection

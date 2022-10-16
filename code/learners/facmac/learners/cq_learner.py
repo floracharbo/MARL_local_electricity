@@ -31,7 +31,7 @@ class CQLearner(Learner):
                                   lr=rl['lr'],
                                   eps=rl["optimizer_epsilon"])
         else:
-            raise Exception("unknown optimizer {}".format(rl["optimizer"]))
+            raise Exception(f"unknown optimizer {rl['optimizer']}")
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         # Get the relevant quantities

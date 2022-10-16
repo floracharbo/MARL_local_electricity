@@ -151,8 +151,12 @@ class Learner():
         self.target_mac.load_models(path)
         if self.mixer is not None:
             self.mixer.load_state_dict(
-                th.load("{}/mixer.th".format(path),
-                        map_location=lambda storage, loc: storage))
+                th.load(
+                    f"{path}/mixer.th",
+                    map_location=lambda storage, loc: storage)
+            )
         self.agent_optimiser.load_state_dict(
-            th.load("{}/opt.th".format(path),
-                    map_location=lambda storage, loc: storage))
+            th.load(
+                f"{path}/opt.th",
+                map_location=lambda storage, loc: storage)
+        )

@@ -100,7 +100,7 @@ class Agent_DDQN():
         with tf.GradientTape() as tape:
             q_eval_arr = self.evaluation_network(states)
             q_eval = tf.reduce_max(q_eval_arr, axis=1)
-            print("q_eval: {}".format(q_eval))
+            print(f"q_eval: {q_eval}")
             if self.enable_DDQN:
                 # Double Deep Q-Network
                 q_values = self.evaluation_network(nextStates)

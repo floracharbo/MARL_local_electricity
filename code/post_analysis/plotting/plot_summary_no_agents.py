@@ -42,30 +42,31 @@ def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):
     prm, _, _ = initialise_objects(
         prm, no_run=run, initialise_record=False)
     if n_ag == 1:
-        prm['RL']['type_eval'] = \
-            [e for e in prm['RL']['type_eval']
+        prm['RL']['evaluation_methods'] = \
+            [e for e in prm['RL']['evaluation_methods']
              if distr_learning(e) == 'd' or e in ['baseline', 'opt']]
     metrics = np.load(
         PATH + f'run{run}/figures/metrics.npy',
         allow_pickle=True).item()
 
     if run < 254:
-        prm['RL']['type_eval'] = \
-            [t for t in prm['RL']['type_eval']
-             if t == 'opt' or data_source[t] == 'opt']
+        prm['RL']['evaluation_methods'] = [
+            method for method in prm['RL']['evaluation_methods']
+            if method == 'opt' or data_source[method] == 'opt'
+        ]
 
     return prm, metrics
 
 
 def _metrics_to_results(prm, n_ag, to_plot, res, res_entries, metrics):
-    for type_eval in \
-            [type_eval for type_eval in prm['RL']['type_eval']
-             if type_eval != 'baseline']:
-        if n_ag > 1 or type_eval == 'opt':
-            type_evals = [type_eval]
+    for evaluation_method in \
+            [evaluation_method for evaluation_method in prm['RL']['evaluation_methods']
+             if evaluation_method != 'baseline']:
+        if n_ag > 1 or evaluation_method == 'opt':
+            type_evals = [evaluation_method]
         else:
             type_evals = \
-                [f"{data_source[type_eval]}_{reward_type(type_eval)}_{e}"
+                [f"{data_source[evaluation_method]}_{reward_type(evaluation_method)}_{e}"
                  for e in ['c', 'd']]
 
         for t_ in type_evals:
@@ -74,11 +75,11 @@ def _metrics_to_results(prm, n_ag, to_plot, res, res_entries, metrics):
                     res['xs'][t_].append(n_ag)
                     for key in res_entries[1:]:
                         res[key][t_].append(
-                            metrics['end_bl'][key][type_eval])
+                            metrics['end_bl'][key][evaluation_method])
                 else:
                     res['xs'][t_] = [n_ag]
                     for key in res_entries[1:]:
-                        res[key][t_] = [metrics['end_bl'][key][type_eval]]
+                        res[key][t_] = [metrics['end_bl'][key][evaluation_method]]
 
     return res
 
@@ -258,30 +259,30 @@ def plot_results_vs_nag():
     green = prm['save']['colorse']['env_d_d']
     prm['save']['colorse']['opt_d_d'] = green
 
-    for type_eval in res['xs'].keys():
-        order = np.argsort(res['xs'][type_eval])
+    for evaluation_method in res['xs'].keys():
+        order = np.argsort(res['xs'][evaluation_method])
         for key in res_entries:
-            res[key][type_eval] = [res[key][type_eval][i] for i in order]
-        line_style = 'dotted' if type_eval == 'opt' else '-'
-        color = prm['save']['colorse'][type_eval] \
-            if type_eval == 'opt' \
+            res[key][evaluation_method] = [res[key][evaluation_method][i] for i in order]
+        line_style = 'dotted' if evaluation_method == 'opt' else '-'
+        color = prm['save']['colorse'][evaluation_method] \
+            if evaluation_method == 'opt' \
             else prm['save']['colorse'][
-            f"{data_source(type_eval)}_{reward_type(type_eval)}_d"]
+            f"{data_source(evaluation_method)}_{reward_type(evaluation_method)}_d"]
         plt.plot(
-            res['xs'][type_eval],
-            res['p50'][type_eval],
+            res['xs'][evaluation_method],
+            res['p50'][evaluation_method],
             color=color,
             ls=line_style,
-            label=type_eval)
+            label=evaluation_method)
         plt.fill_between(
-            res['xs'][type_eval],
-            res['p25'][type_eval],
-            res['p75'][type_eval],
+            res['xs'][evaluation_method],
+            res['p25'][evaluation_method],
+            res['p75'][evaluation_method],
             color=color,
             alpha=0.3)
-        print(f"type_eval {type_eval} color {color} "
-              f"res['xs'][type_eval] {res['xs'][type_eval]} "
-              f"res['p50'][type_eval] {res['p50'][type_eval]}")
+        print(f"evaluation_method {evaluation_method} color {color} "
+              f"res['xs'][evaluation_method] {res['xs'][evaluation_method]} "
+              f"res['p50'][evaluation_method] {res['p50'][evaluation_method]}")
     plt.gca().set_xscale('log')
     xmax = max(n_ags)
     plt.hlines(y=0, xmin=1, xmax=xmax, colors='k',

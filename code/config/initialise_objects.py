@@ -21,10 +21,10 @@ from config.input_data import input_params
 from gym import spaces
 from learners.facmac.components.transforms import OneHot
 from simulations.record import Record
-from utilities.userdeftools import (
-    distr_learning, initialise_dict, reward_type, str_to_int
-)
 from utilities.env_spaces import _actions_from_unit_box, _actions_to_unit_box
+from utilities.userdeftools import (distr_learning, initialise_dict,
+                                    reward_type, str_to_int)
+
 
 def initialise_objects(
         prm: dict,
@@ -404,7 +404,7 @@ def _format_rl_parameters(rl):
     ]:
         rl[key] = int(rl[key])
     rl["lr"] = float(rl["lr"])
-    if type(rl["state_space"]) is str:
+    if isinstance(rl["state_space"], str):
         rl["state_space"] = [rl["state_space"]]
     for key in ["batch_size", "buffer_capacity"]:
         if key in rl[rl["type_learning"]]:
@@ -421,8 +421,8 @@ def _format_rl_parameters(rl):
                 # give them all methods the same eps value
                 var = rl[type_learning][key]
                 rl[type_learning][key] = {}
-                for type_eval in rl["eval_action_choice"]:
-                    rl[type_learning][key][type_eval] = var
+                for evaluation_method in rl["eval_action_choice"]:
+                    rl[type_learning][key][evaluation_method] = var
 
     return rl
 
@@ -434,8 +434,8 @@ def _exploration_parameters(rl):
     type_learning = rl["type_learning"]
     if type_learning in ["DDQN", "DQN", "q_learning"]:
         if rl[type_learning]["control_eps"] == 1 \
-                and "baseline" not in rl["type_eval"]:
-            rl["type_eval"].append("baseline")
+                and "baseline" not in rl["evaluation_methods"]:
+            rl["evaluation_methods"].append("baseline")
         if rl[type_learning]["epsilon_end"] == "best":
             # take result of sensitivity analysis
             if rl[type_learning]["control_eps"] < 2:
@@ -455,9 +455,9 @@ def _exploration_parameters(rl):
             rl[type_learning]["epsilon_decay_param"] = {}
             epsilon_end = rl[type_learning]["epsilon_end"]
             epsilon0 = rl[type_learning]["epsilon0"]
-            for type_explo in epsilon_end:
-                rl[type_learning]["epsilon_decay_param"][type_explo] \
-                    = (epsilon_end[type_explo] / epsilon0) \
+            for exploration_method in epsilon_end:
+                rl[type_learning]["epsilon_decay_param"][exploration_method] \
+                    = (epsilon_end[exploration_method] / epsilon0) \
                     ** (1 / rl["tot_learn_cycles"])
 
     # for key in ["epsilon_end", "T", "tauMT", "tauLT",
@@ -468,8 +468,8 @@ def _exploration_parameters(rl):
     #             # give them all methods the same eps value
     #             var = rl[type_learning][key]
     #             rl[type_learning][key] = {}
-    #             for type_eval in rl["eval_action_choice"]:
-    #                 rl[type_learning][key][type_eval] = var
+    #             for evaluation_method in rl["eval_action_choice"]:
+    #                 rl[type_learning][key][evaluation_method] = var
     #         elif key == "control_window_eps":
         control_window_eps = rl["control_window_eps"]
         window_per_method_specified \
@@ -480,9 +480,9 @@ def _exploration_parameters(rl):
                 len(list(control_window_eps.keys())[0].split("_")
                     ) == 1
             if specified_per_reward_only:
-                for type_eval in rl["eval_action_choice"]:
-                    rl["control_window_eps"][type_eval] = \
-                        control_window_eps[reward_type(type_eval)]
+                for evaluation_method in rl["eval_action_choice"]:
+                    rl["control_window_eps"][evaluation_method] = \
+                        control_window_eps[reward_type(evaluation_method)]
 
 
 def _dims_states_actions(rl, syst):
@@ -762,37 +762,38 @@ def _filter_type_learning_facmac(rl):
         return
 
     valid_types = {
-        "explo": ["env_r_c", "env_d_c", "opt", "baseline"],
-        "eval": [
+        "exploration": ["env_r_c", "env_d_c", "opt", "baseline"],
+        "evaluation": [
             "env_r_c", "env_d_c", "opt_r_c", "opt_d_c",
             "opt", "baseline", "random"
         ]
     }
-    for stage in ["eval", "explo"]:
+    for stage in ["evaluation", "exploration"]:
         new_ts = []
-        for t in rl[f"type_{stage}"]:
+        for t in rl[f"{stage}_methods"]:
             new_t = t
             if len(t.split("_")) == 3:
                 if distr_learning(t) == "d":
                     new_t = f"{t.split('_')[0]}_{t.split('_')[1]}_c"
             new_ts.append(new_t)
-        rl[f"type_{stage}"] \
+        rl[f"{stage}_methods"] \
             = [t for t in new_ts if t in valid_types[stage]]
 
 
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning
-        rl["type_eval"] = [t for t in rl["type_eval"]
-                           if t in ["opt", "baseline"]
-                           or (reward_type(t) != "A"
-                               and distr_learning(t) != "c")]
+        rl["evaluation_methods"] = [
+            t for t in rl["evaluation_methods"]
+            if t in ["opt", "baseline"]
+            or (reward_type(t) != "A" and distr_learning(t) != "c")
+        ]
 
 
 def _make_type_eval_list(rl, largeQ_bool=False):
     type_eval_list = ["baseline"]
     if rl["explo_reward_type"] is not None:
         input_explo_reward_type = rl["explo_reward_type"] \
-            if type(rl["explo_reward_type"]) is list \
+            if isinstance(rl["explo_reward_type"], list) \
             else [rl["explo_reward_type"]]
         type_eval_list += input_explo_reward_type
     else:
@@ -826,14 +827,14 @@ def _make_type_eval_list(rl, largeQ_bool=False):
         for d in data_sources:
             type_eval_list += [d + mc for mc in methods_combs]
 
-    rl["type_eval"] = type_eval_list
+    rl["evaluation_methods"] = type_eval_list
     _filter_type_learning_competitive(rl)
 
-    rl["type_explo"] = [
-        t for t in rl["type_eval"] if not (t[0:3] == "opt" and len(t) > 3)
+    rl["exploration_methods"] = [
+        t for t in rl["evaluation_methods"] if not (t[0:3] == "opt" and len(t) > 3)
     ]
     rl["eval_action_choice"] = [
-        t for t in rl["type_eval"] if t not in ["baseline", "opt"]
+        t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
     ]
     assert len(rl["eval_action_choice"]) > 0, \
         "not valid eval_type with action_choice"

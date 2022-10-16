@@ -28,7 +28,6 @@ class Optimiser():
         self.save = prm["save"]
         self.paths = prm["paths"]
 
-
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
@@ -48,7 +47,7 @@ class Optimiser():
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
                 if prm['ntw']['dem'][0][0][0] < res['constl(0, 0)'][0][0]:
-                    print('fixed dem smaller than fixed onsumption home=0 t=0')
+                    print('fixed dem smaller than fixed onsumption home=0 time=0')
                 if abs(np.sum(res['totcons']) - np.sum(res['E_heat'])
                        - np.sum(prm['ntw']['dem'])) > 1e-3:
                     print(f"tot load cons "
@@ -191,11 +190,11 @@ class Optimiser():
         # constraints
         # substation energy balance
         p.add_list_of_constraints(
-            [grid[t]
-             - np.sum(self.loads['netp0'][b0][t]
+            [grid[time]
+             - np.sum(self.loads['netp0'][b0][time]
                       for b0 in range(self.ntw['nP']))
-             - pic.sum([netp[b, t] for b in range(n_homes)])
-             == 0 for t in range(N)])
+             - pic.sum([netp[home, time] for home in range(n_homes)])
+             == 0 for time in range(N)])
 
         # prosumer energy balance
         p.add_constraint(netp - charge / self.bat['eta_ch']
@@ -233,7 +232,7 @@ class Optimiser():
 
         # costs constraints
         p.add_list_of_constraints(
-            [grid2[t] >= grid[t] * grid[t] for t in range(N)])
+            [grid2[time] >= grid[time] * grid[time] for time in range(N)])
 
         p.add_constraint(
             gc == (self.grd['C']
@@ -265,44 +264,44 @@ class Optimiser():
 
         if bat['eff'] == 1:
             p.add_list_of_constraints(
-                [charge[:, t] - discharge_tot[:, t]
-                 == store[:, t + 1] - store[:, t]
-                 for t in range(self.N - 1)])
+                [charge[:, time] - discharge_tot[:, time]
+                 == store[:, time + 1] - store[:, time]
+                 for time in range(self.N - 1)])
             p.add_constraint(store[:, self.N - 1]
                              + charge[:, self.N - 1]
                              - discharge_tot[:, self.N - 1]
                              >= store_end)
 
         elif bat['eff'] == 2:
-            for b in range(self.n_homes):
+            for home in range(self.n_homes):
                 p.add_constraint(
-                    bat['eta_ch'][b, self.N - 1] * charge[b, self.N - 1]
-                    - bat['eta_ch'][b, self.N - 1]
-                    * discharge_tot[b, self.N - 1]
-                    == store_end[b] - store[b, self.N - 1]
+                    bat['eta_ch'][home, self.N - 1] * charge[home, self.N - 1]
+                    - bat['eta_ch'][home, self.N - 1]
+                    * discharge_tot[home, self.N - 1]
+                    == store_end[home] - store[home, self.N - 1]
                 )
-                for t in range(self.N - 1):
+                for time in range(self.N - 1):
                     p.add_constraint(
-                        bat['eta_ch'][b, t] * charge[b, t]
-                        - bat['eta_dis'][b, t] * discharge_tot[b, t]
-                        == store[b, t + 1] - store[b, t]
+                        bat['eta_ch'][home, time] * charge[home, time]
+                        - bat['eta_dis'][home, time] * discharge_tot[home, time]
+                        == store[home, time + 1] - store[home, time]
                     )
 
         # initialise storage
         p.add_list_of_constraints(
-            [store[b, 0] == bat['SoC0'] * self.ntw['Bcap'][b, 0]
-             for b in range(self.n_homes)])
+            [store[home, 0] == bat['SoC0'] * self.ntw['Bcap'][home, 0]
+             for home in range(self.n_homes)])
 
         p.add_list_of_constraints(
-            [store[:, t + 1] >= bat['SoCmin']
-             * self.ntw['Bcap'][:, t] * bat['batch_avail_EV'][:, t]
-             for t in range(self.N - 1)])
+            [store[:, time + 1] >= bat['SoCmin']
+             * self.ntw['Bcap'][:, time] * bat['batch_avail_EV'][:, time]
+             for time in range(self.N - 1)])
 
         # if EV not avail at a given time step,
         # it is ok to start the following time step with less than minimum
         p.add_list_of_constraints(
-            [store[:, t + 1] >= bat['baseld'] * bat['batch_avail_EV'][:, t]
-             for t in range(self.N - 1)])
+            [store[:, time + 1] >= bat['baseld'] * bat['batch_avail_EV'][:, time]
+             for time in range(self.N - 1)])
 
         # can charge only when EV is available
         p.add_constraint(
@@ -325,10 +324,10 @@ class Optimiser():
             netp_abs = p.add_variable('netp_abs', (self.n_homes, self.N),
                                       vtype='continuous')
             netp0_abs = np.sum(
-                [[abs(self.loads['netp0'][b0][t])
-                  if self.loads['netp0'][b0][t] < 0
+                [[abs(self.loads['netp0'][b0][time])
+                  if self.loads['netp0'][b0][time] < 0
                   else 0
-                  for b0 in range(ntw['nP'])] for t in range(self.N)])
+                  for b0 in range(ntw['nP'])] for time in range(self.N)])
             p.add_constraint(netp_abs >= - netp)
             p.add_constraint(netp_abs >= 0)
             # distribution costs
@@ -336,19 +335,19 @@ class Optimiser():
         else:
             netp2 = p.add_variable('netp2', (self.n_homes, self.N),
                                    vtype='continuous')
-            sum_netp2 = np.sum([[self.loads['netp0'][b0][t] ** 2
+            sum_netp2 = np.sum([[self.loads['netp0'][b0][time] ** 2
                                  for b0 in range(ntw['nP'])]
-                                for t in range(self.N)])
-            for b in range(self.n_homes):
+                                for time in range(self.N)])
+            for home in range(self.n_homes):
                 p.add_list_of_constraints(
-                    [netp2[b, t] >= netp[b, t] * netp[b, t]
-                     for t in range(self.N)])
+                    [netp2[home, time] >= netp[home, time] * netp[home, time]
+                     for time in range(self.N)])
             p.add_constraint(dc == ntw['C'] * (pic.sum(netp2) + sum_netp2))
 
         return p
 
     def _update_prm(self, prm):
-        if type(prm) is list or type(prm) is tuple:
+        if isinstance(prm, (list, tuple)):
             self.syst, self.loads, self.ntw, self.bat, self.grd, self.heat \
                 = prm
         else:
@@ -357,9 +356,9 @@ class Optimiser():
                    for e in ['syst', 'loads', 'ntw', 'bat', 'grd', 'heat']]
 
     def _plot_y(self, prm, y, time):
-        for b in range(prm['ntw']['n']):
-            yb = np.reshape(y[b, :], (prm['syst']['N']))
-            plt.plot(time, yb, label=f'agent {b}')
+        for home in range(prm['ntw']['n']):
+            yb = np.reshape(y[home, :], (prm['syst']['N']))
+            plt.plot(time, yb, label=f'agent {home}')
 
     def _plot_inputs(self, prm, time):
         # inputs
@@ -390,9 +389,9 @@ class Optimiser():
         cin += 1
         fin[cin] = plt.figure()
         lin[cin] = 'demand'
-        for b in range(prm['ntw']['n']):
-            labelb = 'agent ' + str(b)
-            yb = np.sum(prm['ntw']['dem'], axis=0)[b]
+        for home in range(prm['ntw']['n']):
+            labelb = 'agent ' + str(home)
+            yb = np.sum(prm['ntw']['dem'], axis=0)[home]
             plt.plot(time, yb, label=labelb)
         plt.title('Demand')
         plt.xlabel('Time [h]')
@@ -404,13 +403,13 @@ class Optimiser():
         cin += 1
         fin[cin], axs = plt.subplots(prm['ntw']['n'], 1)
         lin[cin] = 'batch_avail_EV'
-        for b in range(prm['ntw']['n']):
-            labelb = 'agent ' + str(b)
-            axb = axs[b] if prm['ntw']['n'] > 1 else axs
+        for home in range(prm['ntw']['n']):
+            labelb = 'agent ' + str(home)
+            axb = axs[home] if prm['ntw']['n'] > 1 else axs
 
-            for t in range(prm['syst']['N']):
-                if prm['bat']['batch_avail_EV'][b, t] == 0:
-                    axb.axvspan(t - 0.5, t + 0.5, alpha=0.1, color='red')
+            for time in range(prm['syst']['N']):
+                if prm['bat']['batch_avail_EV'][home, time] == 0:
+                    axb.axvspan(time - 0.5, time + 0.5, alpha=0.1, color='red')
             axb.set_ylabel(labelb)
         plt.xlabel('Time [h]')
         plt.title('EV unavailable')
@@ -436,12 +435,12 @@ class Optimiser():
 
         P = (P_ch - P_dis) * 1e3
         SoC = np.zeros((self.n_homes, prm['N']))
-        for b in range(self.n_homes):
-            if bat_cap[b] == 0:
-                SoC[b] = np.zeros(prm['N'])
+        for home in range(self.n_homes):
+            if bat_cap[home] == 0:
+                SoC[home] = np.zeros(prm['N'])
             else:
                 # in battery(times, bus)/cap(bus)
-                SoC[b] = np.divide(store[b], bat_cap[b])
+                SoC[home] = np.divide(store[home], bat_cap[home])
         a0 = - 0.852
         a1 = 63.867
         a2 = 3.6297
@@ -486,14 +485,14 @@ class Optimiser():
         i_cell = np.zeros(np.shape(P))
         eta = np.zeros(np.shape(P))
         for home in range(self.n_homes):
-            for t in range(prm['N']):
+            for time in range(prm['N']):
                 s = solve(
-                    P[home, t]
-                    + (x ** 2 - x * (Voc[home, t] / Rt[home, t])) * kappa * Rt[home, t],
+                    P[home, time]
+                    + (x ** 2 - x * (Voc[home, time] / Rt[home, time])) * kappa * Rt[home, time],
                     x)
-                A = Rt[home, t] * kappa
-                B = - Voc[home, t] * kappa
-                C = P[home, t]
+                A = Rt[home, time] * kappa
+                B = - Voc[home, time] * kappa
+                C = P[home, time]
                 s2_pos = (- B + np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
                     if A > 0 else 0
                 s2_neg = (- B - np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
@@ -506,16 +505,16 @@ class Optimiser():
                         etas2.append(0)
                     else:
                         etas.append(np.divide(
-                            s[sign] * Voc[home, t],
-                            s[sign] * (Voc[home, t] - s[sign] * Rt[home, t]))
+                            s[sign] * Voc[home, time],
+                            s[sign] * (Voc[home, time] - s[sign] * Rt[home, time]))
                         )
                         etas2.append(np.divide(
-                            s2[sign] * Voc[home, t],
-                            s2[sign] * (Voc[home, t] - s2[sign] * Rt[home, t]))
+                            s2[sign] * Voc[home, time],
+                            s2[sign] * (Voc[home, time] - s2[sign] * Rt[home, time]))
                         )
                 print(f'etas = {etas}, etas2={etas2}')
-                eta[home, t] = etas[np.argmin(abs(etas - 1))]
-                i_cell[home, t] = s[np.argmin(abs(etas - 1))]
+                eta[home, time] = etas[np.argmin(abs(etas - 1))]
+                i_cell[home, time] = s[np.argmin(abs(etas - 1))]
 
         return eta, s, s2
 
@@ -552,19 +551,19 @@ class Optimiser():
     def _cons_constraints(self, p, constl, consa, E_heat, totcons):
         loads = self.loads
         for load_type in range(loads['n_types']):
-            for b in range(self.n_homes):
-                for t in range(self.N):
-                    # t = tD
+            for home in range(self.n_homes):
+                for time in range(self.N):
+                    # time = tD
                     p.add_constraint(
-                        pic.sum([constl[t, load_type][b, tC]
-                                 * self.ntw['flex'][t, load_type, b, tC]
+                        pic.sum([constl[time, load_type][home, tC]
+                                 * self.ntw['flex'][time, load_type, home, tC]
                                  for tC in range(self.N)])
-                        == self.ntw['dem'][load_type, b, t])
-                    # t = tC
+                        == self.ntw['dem'][load_type, home, time])
+                    # time = tC
                     p.add_constraint(
-                        pic.sum([constl[tD, load_type][b, t]
+                        pic.sum([constl[tD, load_type][home, time]
                                  for tD in range(self.N)])
-                        == consa[load_type][b, t])
+                        == consa[load_type][home, time])
         p.add_constraint(
             pic.sum([consa[load_type]
                      for load_type in range(loads['n_types'])])
@@ -579,39 +578,39 @@ class Optimiser():
             if heat['own_heat'][home]:
                 p.add_constraint(T[home, 0] == heat['T0'])
                 p.add_list_of_constraints(
-                    [T[home, t + 1] == heat['T_coeff'][home][0]
-                        + heat['T_coeff'][home][1] * T[home, t]
-                        + heat['T_coeff'][home][2] * heat['T_out'][t]
-                        # heat['T_coeff'][home][3] * heat['phi_sol'][t]
-                        + heat['T_coeff'][home][4] * E_heat[home, t]
+                    [T[home, time + 1] == heat['T_coeff'][home][0]
+                        + heat['T_coeff'][home][1] * T[home, time]
+                        + heat['T_coeff'][home][2] * heat['T_out'][time]
+                        # heat['T_coeff'][home][3] * heat['phi_sol'][time]
+                        + heat['T_coeff'][home][4] * E_heat[home, time]
                         * 1e3 * self.syst['H'] / 24
-                        for t in range(self.N - 1)])
+                        for time in range(self.N - 1)])
 
                 p.add_list_of_constraints(
-                    [T_air[home, t] == heat['T_air_coeff'][home][0]
-                        + heat['T_air_coeff'][home][1] * T[home, t]
-                        + heat['T_air_coeff'][home][2] * heat['T_out'][t]
-                        # heat['T_air_coeff'][home][3] * heat['phi_sol'][t] +
-                        + heat['T_air_coeff'][home][4] * E_heat[home, t]
+                    [T_air[home, time] == heat['T_air_coeff'][home][0]
+                        + heat['T_air_coeff'][home][1] * T[home, time]
+                        + heat['T_air_coeff'][home][2] * heat['T_out'][time]
+                        # heat['T_air_coeff'][home][3] * heat['phi_sol'][time] +
+                        + heat['T_air_coeff'][home][4] * E_heat[home, time]
                         * 1e3 * self.syst['H'] / 24
-                        for t in range(self.N)])
+                        for time in range(self.N)])
 
                 p.add_list_of_constraints(
-                    [T_air[home, t] <= heat['T_UB'][home][t]
-                        for t in range(self.N)])
+                    [T_air[home, time] <= heat['T_UB'][home][time]
+                        for time in range(self.N)])
                 p.add_list_of_constraints(
-                    [T_air[home, t] >= heat['T_LB'][home][t]
-                        for t in range(self.N)])
+                    [T_air[home, time] >= heat['T_LB'][home][time]
+                        for time in range(self.N)])
             else:
                 p.add_list_of_constraints(
-                    [E_heat[home, t] == 0 for t in
+                    [E_heat[home, time] == 0 for time in
                      range(self.N)])
                 p.add_list_of_constraints(
-                    [T_air[home, t]
-                     == (heat['T_LB'][home][t] + heat['T_UB'][home][t]) / 2
-                     for t in range(self.N)])
+                    [T_air[home, time]
+                     == (heat['T_LB'][home][time] + heat['T_UB'][home][time]) / 2
+                     for time in range(self.N)])
                 p.add_list_of_constraints(
-                    [T[home, t] == (heat['T_LB'][home][t] + heat['T_UB'][home][t]) / 2
-                     for t in range(self.N)])
+                    [T[home, time] == (heat['T_LB'][home][time] + heat['T_UB'][home][time]) / 2
+                     for time in range(self.N)])
 
         return p

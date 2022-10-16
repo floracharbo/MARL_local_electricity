@@ -613,8 +613,8 @@ class Action_translator:
             [flexible_cons_action, flexible_heat_action, battery_action]
         )
         bool_flex.append(
-            False if sum(action is None for action in actions[home]) == 3
-            else True)
+            not sum(action is None for action in actions[home]) == 3
+        )
 
         return actions, bool_flex
 

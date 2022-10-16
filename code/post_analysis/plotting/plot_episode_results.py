@@ -10,20 +10,20 @@ from utilities.userdeftools import data_source, initialise_dict, reward_type
 
 
 def _plot_last_epochs_actions(
-        list_repeat, means, e, t, prm, all_vals, ax, xs, lw_mean, linestyles
+        list_repeat, means, e, method, prm, all_vals, ax, xs, lw_mean, linestyles
 ):
-    means[e][t] = []
+    means[e][method] = []
 
     for action in range(prm["RL"]["dim_actions"]):
         all_vals_e_t_step_mean = np.zeros(prm["syst"]["N"])
         for step in range(prm["syst"]["N"]):
             all_vals_e_t_step = np.array(
-                [[all_vals[e][t][repeat][home][step][action]
+                [[all_vals[e][method][repeat][home][step][action]
                   for repeat in list_repeat]
                  for home in range(prm["ntw"]["n"])]
             )
             if all(
-                    [[all_vals[e][t][repeat][home][step][action] is None
+                    [[all_vals[e][method][repeat][home][step][action] is None
                       for repeat in list_repeat]
                      for home in range(prm["ntw"]["n"])]
             ):
@@ -37,11 +37,11 @@ def _plot_last_epochs_actions(
 
         ax.step(
             xs, all_vals_e_t_step_mean,
-            where="post", label=t,
-            color=prm["save"]["colorse"][t],
+            where="post", label=method,
+            color=prm["save"]["colorse"][method],
             lw=lw_mean, alpha=1, linestyle=linestyles[action]
         )
-        means[e][t].append(all_vals_e_t_step)
+        means[e][method].append(all_vals_e_t_step)
 
     return ax
 
@@ -53,35 +53,35 @@ def _plot_all_agents_mean_res(
 ):
     means = initialise_dict(["T_air", "cum_rewards"] + entries,
                             "empty_dict")
-    for t in all_methods_to_plot:
-        axs[1, 1].step(range(24), np.mean(all_T_air[t], axis=0),
-                       where="post", label=t,
-                       color=prm["save"]["colorse"][t],
+    for method in all_methods_to_plot:
+        axs[1, 1].step(range(24), np.mean(all_T_air[method], axis=0),
+                       where="post", label=method,
+                       color=prm["save"]["colorse"][method],
                        lw=lw_mean, alpha=1)
-        means["T_air"][t] = np.mean(all_T_air[t], axis=0)
+        means["T_air"][method] = np.mean(all_T_air[method], axis=0)
 
         axs[3, 0].plot([- 0.01] + list(range(24)),
-                       [0] + list(np.mean(all_cum_rewards[t], axis=0)),
-                       label=labels[t],
-                       color=prm["save"]["colorse"][t],
+                       [0] + list(np.mean(all_cum_rewards[method], axis=0)),
+                       label=labels[method],
+                       color=prm["save"]["colorse"][method],
                        lw=lw_mean, alpha=1)
-        means["cum_rewards"][t] = np.mean(all_T_air[t], axis=0)
+        means["cum_rewards"][method] = np.mean(all_T_air[method], axis=0)
         for r, c, e in zip(rows, columns, entries):
             xs = list(range(24))
             if e == "store":
                 xs = [-0.01] + xs
             if e == "action":
                 axs[r, c] = _plot_last_epochs_actions(
-                    list_repeat, means, e, t, prm, all_vals,
+                    list_repeat, means, e, method, prm, all_vals,
                     axs[r, c], xs, lw_mean, linestyles
                 )
 
             else:
-                n = len(all_vals[e][t][list_repeat[0]][0])
+                n = len(all_vals[e][method][list_repeat[0]][0])
                 all_vals_e_t_step_mean = np.zeros(n)
                 for step in range(n):
                     all_vals_e_t_step = np.array(
-                        [[all_vals[e][t][repeat][home][step]
+                        [[all_vals[e][method][repeat][home][step]
                           for repeat in list_repeat]
                          for home in range(prm["ntw"]["n"])]
                     )
@@ -89,10 +89,10 @@ def _plot_all_agents_mean_res(
                         np.mean(all_vals_e_t_step)
                     )
                 axs[r, c].step(xs, all_vals_e_t_step_mean,
-                               where="post", label=t,
-                               color=prm["save"]["colorse"][t],
+                               where="post", label=method,
+                               color=prm["save"]["colorse"][method],
                                lw=lw_mean, alpha=1)
-                means[e][t] = all_vals_e_t_step_mean
+                means[e][method] = all_vals_e_t_step_mean
     return axs
 
 
@@ -116,12 +116,14 @@ def _plot_indoor_air_temp(
 ):
     T_air_a = {}
     ax = axs[row, col]
-    for t in methods_to_plot:
-        T_air_a[t] = [last["T_air"][t][step][home]
-                      for step in range(len(last["T_air"][t]))]
-        label = t if display_labels else None
-        ax.step(range(24), T_air_a[t], where="post", label=label,
-                color=prm["save"]["colorse"][t], lw=lw, alpha=alpha)
+    for method in methods_to_plot:
+        T_air_a[method] = [
+            last["T_air"][method][step][home]
+            for step in range(len(last["T_air"][method]))
+        ]
+        label = method if display_labels else None
+        ax.step(range(24), T_air_a[method], where="post", label=label,
+                color=prm["save"]["colorse"][method], lw=lw, alpha=alpha)
     ax.set_ylabel(
         f"{title_ylabel_dict['T_air'][0]} {title_ylabel_dict['T_air'][1]}")
     ax.step(range(24), prm["heat"]["T_LB"][0][0:24], "--",
@@ -139,12 +141,14 @@ def _plot_cum_rewards(
     cumrewards = {}
     ax = axs[row, col]
 
-    for t in methods_to_plot:
-        cumrewards[t] = [sum(last["reward"][t][0: i + 1])
-                         for i in range(len(last["reward"][t]))]
-        label = labels[t] if display_labels else None
-        ax.plot([- 0.01] + list(range(24)), [0] + cumrewards[t], label=label,
-                color=prm["save"]["colorse"][t], lw=lw, alpha=alpha)
+    for method in methods_to_plot:
+        cumrewards[method] = [
+            sum(last["reward"][method][0: i + 1])
+            for i in range(len(last["reward"][method]))
+        ]
+        label = labels[method] if display_labels else None
+        ax.plot([- 0.01] + list(range(24)), [0] + cumrewards[method], label=label,
+                color=prm["save"]["colorse"][method], lw=lw, alpha=alpha)
     ax.legend(fancybox=True, loc="best", ncol=2)
     ax.set_ylabel("Cumulative rewards [£]")
     ax.set_xlabel("Time [h]")
@@ -197,8 +201,8 @@ def _plot_all_agents_all_repeats_res(
             axs, last, methods_to_plot, labels, prm, row=3,
             col=0, alpha=alpha_not_indiv, lw=lw_all,
             display_labels=False)
-        for t in all_methods_to_plot:
-            all_cum_rewards[t].append(cum_rewards_repeat[t])
+        for method in all_methods_to_plot:
+            all_cum_rewards[method].append(cum_rewards_repeat[method])
         for home in range(prm["ntw"]["n"]):
             T_air_a = _plot_indoor_air_temp(
                 axs, methods_to_plot, last, title_ylabel_dict,
@@ -206,21 +210,21 @@ def _plot_all_agents_all_repeats_res(
                 display_labels=False, lw=lw_all)
             # returned is home dictionary per method of
             # 24 h profie for that last epoch
-            for t in methods_to_plot:
-                all_T_air[t].append(T_air_a[t])
+            for method in methods_to_plot:
+                all_T_air[method].append(T_air_a[method])
 
         for r, c, e in zip(rows, columns, entries):
             for home in range(prm["ntw"]["n"]):
-                for t in methods_to_plot:
-                    xs, ys = list(range(24)), last[e][t]
+                for method in methods_to_plot:
+                    xs, ys = list(range(24)), last[e][method]
                     ys = [ys[step][home] for step in range(len(ys))]
                     if e == "store":
                         xs = [-0.01] + xs
                         ys = [prm["bat"]["store0"][home]] + ys
                     axs[r, c].step(xs, ys, where="post",
-                                   color=prm["save"]["colorse"][t],
+                                   color=prm["save"]["colorse"][method],
                                    lw=lw_all, alpha=alpha_not_indiv)
-                    all_vals[e][t][repeat].append(ys)
+                    all_vals[e][method][repeat].append(ys)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
                 if r == 2:
@@ -273,8 +277,8 @@ def _plot_all_agents_res(
         entries, second_level_entries=all_methods_to_plot
     )
     for e in entries:
-        for t in all_methods_to_plot:
-            all_vals[e][t] = initialise_dict(range(prm["RL"]["n_repeats"]))
+        for method in all_methods_to_plot:
+            all_vals[e][method] = initialise_dict(range(prm["RL"]["n_repeats"]))
 
     axs, all_T_air = _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, title_ylabel_dict,
@@ -313,7 +317,7 @@ def _get_repeat_data(repeat, all_methods_to_plot, folder_run):
     return last, cintensity_kg, methods_to_plot
 
 
-def _plot_indiv_agent_res_action(prm, ys, xs, lw_indiv, linestyles, t, ax):
+def _plot_indiv_agent_res_action(prm, ys, xs, lw_indiv, linestyles, method, ax):
     for action in range(prm["RL"]["dim_actions"]):
         ys_ = [0] + [
             ys[step][action]
@@ -321,7 +325,7 @@ def _plot_indiv_agent_res_action(prm, ys, xs, lw_indiv, linestyles, t, ax):
         ]
         ax.step(xs, ys_, where="post",
                 label=f"t_action{action}",
-                color=prm["save"]["colorse"][t],
+                color=prm["save"]["colorse"][method],
                 lw=lw_indiv, linestyle=linestyles[action])
 
     return ax
@@ -383,24 +387,24 @@ def _plot_indiv_agent_res(
             entries = ["action", "totcons", "tot_E_heat", "store"]
             for r, c, e in zip(rows, columns, entries):
                 ax = axs[r, c]
-                for t in methods_to_plot:
+                for method in methods_to_plot:
                     xs = [-0.01] + list(range(24))
-                    ys = last[e][t]
+                    ys = last[e][method]
                     ys = [ys[step][home] for step in range(len(ys))]
                     if e == "action":
                         ax = _plot_indiv_agent_res_action(
-                            prm, ys, xs, lw_indiv, linestyles, t, ax
+                            prm, ys, xs, lw_indiv, linestyles, method, ax
                         )
 
                     else:
-                        if e == "store" and t == "opt":
+                        if e == "store" and method == "opt":
                             ys = ys + [prm["bat"]["store0"][home]]
                         elif e == "store":
                             ys = [prm["bat"]["store0"][home]] + ys
                         else:
                             ys = [0] + ys
-                        ax.step(xs, ys, where="post", label=t,
-                                color=prm["save"]["colorse"][t],
+                        ax.step(xs, ys, where="post", label=method,
+                                color=prm["save"]["colorse"][method],
                                 lw=lw_indiv)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
@@ -427,7 +431,7 @@ def plot_res(prm, indiv=True, list_repeat=None):
     # if false, do all the lines on the same plot in light
     # with one thick line average
     # Do big figure with subplots
-    all_methods_to_plot = prm["RL"]["type_eval"]
+    all_methods_to_plot = prm["RL"]["evaluation_methods"]
 
     title_ylabel_dict = {
         "T_air": ["Indoor air temperature", "[$^o$C]"],
@@ -459,7 +463,7 @@ def plot_res(prm, indiv=True, list_repeat=None):
     lw_mean = 2.5
     alpha_not_indiv = 0.15
     plt.rcParams["font.size"] = "16"
-    colors_methods = [prm["save"]["colorse"][t] for t in all_methods_to_plot]
+    colors_methods = [prm["save"]["colorse"][method] for method in all_methods_to_plot]
     colors_non_methods = [c for c in prm["save"]["colors"]
                           if c not in colors_methods]
     prm["save"]["colorse"]["opt_n_c"] = prm["save"]["colorse"]["opt_n_d"]
@@ -471,15 +475,15 @@ def plot_res(prm, indiv=True, list_repeat=None):
         "A": "A"
     }
     experience_labels = {"opt": "O", "env": "E"}
-    for t in prm["RL"]["type_eval"]:
-        if t == "opt":
-            labels[t] = "optimal"
-        elif t == "baseline":
-            labels[t] = t
+    for method in prm["RL"]["evaluation_methods"]:
+        if method == "opt":
+            labels[method] = "optimal"
+        elif method == "baseline":
+            labels[method] = method
         else:
-            label = reward_labels[reward_type(t)]
-            label += experience_labels[data_source(t)]
-            labels[t] = label
+            label = reward_labels[reward_type(method)]
+            label += experience_labels[data_source(method)]
+            labels[method] = label
 
     if indiv:  # do one figure per agent and per repeat
         _plot_indiv_agent_res(

@@ -37,7 +37,7 @@ class FACMACLearner(Learner):
                 params=self.agent_params, lr=rl['lr'],
                 eps=rl['optimizer_epsilon'])
         else:
-            raise Exception("unknown optimizer {}".format(rl["optimizer"]))
+            raise Exception(f"unknown optimizer {rl['optimizer']}")
 
         if rl["optimizer"] == "rmsprop":
             self.critic_optimiser = RMSprop(

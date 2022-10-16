@@ -38,25 +38,25 @@ class TabularQLearner:
 
     def set0(self):
         """ for each repeat, reinitialise q_tables and counters """
-        for t in self.rl['type_Qs']:
-            str_frame = 'all' if distr_learning(t) in ['Cc0', 'Cd0'] else '1'
+        for method in self.rl['type_Qs']:
+            str_frame = 'all' if distr_learning(method) in ['Cc0', 'Cd0'] else '1'
             shape = [self.n_states[str_frame], self.n_actions[str_frame]]
             if self.rl['initialise_q'] == 'random':
                 minq, maxq = np.load('minq.npy'), np.load('maxq.npy')
                 np.random.seed(self.rand_init_seed)
             self.rand_init_seed += 1
             n_homes = self.n_agents if (
-                distr_learning(t) in ['d', 'Cd', 'd0']
+                distr_learning(method) in ['d', 'Cd', 'd0']
                 or self.rl['competitive']
             ) else 1
-            if t[-1] == 'n' or self.rl['initialise_q'] == 'zeros':
+            if method[-1] == 'n' or self.rl['initialise_q'] == 'zeros':
                 # this is a count = copy of corresponding counter;
-                self.q_tables[t] = [np.zeros(shape) for _ in range(n_homes)]
+                self.q_tables[method] = [np.zeros(shape) for _ in range(n_homes)]
             else:  # this is a normal q table - make random initialisation
-                self.q_tables[t] = \
+                self.q_tables[method] = \
                     [np.random.uniform(low=minq, high=maxq, size=shape)
                      for _ in range(n_homes)]
-            self.counter[t] = [np.zeros(shape) for _ in range(n_homes)]
+            self.counter[method] = [np.zeros(shape) for _ in range(n_homes)]
 
     def new_repeat(self, repeat):
         """ method called at the beginning of a new repeat
@@ -67,26 +67,26 @@ class TabularQLearner:
         # per method or not and if they are decayed or not
         self.eps = {}
         if self.rl['q_learning']['epsilon_decay']:
-            if type(self.rl['q_learning']['epsilon_end']) is float:
+            if isinstance(self.rl['q_learning']['epsilon_end'], float):
                 self.eps = self.rl['q_learning']['epsilon0']
             else:
-                for t in self.rl['type_eval']:
-                    self.eps[t] = self.rl['q_learning']['epsilon0']
+                for method in self.rl['evaluation_methods']:
+                    self.eps[method] = self.rl['q_learning']['epsilon0']
         else:
-            if type(self.rl['q_learning']['eps']) is float:
+            if isinstance(self.rl['q_learning']['eps'], float):
                 self.eps = self.rl['q_learning']['eps']
             else:
-                for t in self.rl['eval_action_choice']:
-                    self.eps[t] = self.rl['q_learning']['eps'][t]
+                for method in self.rl['eval_action_choice']:
+                    self.eps[method] = self.rl['q_learning']['eps'][method]
         self.T = self.rl['T0'] if self.rl['q_learning']['T_decay'] \
             else self.rl['q_learning']['T']
 
     def learn_from_explorations(self, train_steps_vals):
         for i_explore in range(self.rl['n_explore']):
-            for t in self.rl['type_explo']:
+            for method in self.rl["exploration_methods"]:
                 # learn for each experience bundle individually
                 # for the tabular Q learner
-                self.learn(t, train_steps_vals[i_explore][t])
+                self.learn(method, train_steps_vals[i_explore][method])
 
     def sample_action(self, q, ind_state, home, eps_greedy=True):
         ind_action = []
@@ -110,7 +110,7 @@ class TabularQLearner:
                 greedy_ind_action = actions_maxval[
                     [i for i in range(len(cump_maxac))
                      if rdn_max > cump_maxac[i]][-1]]
-                if type(self.eps) is float or type(self.eps) is int:
+                if isinstance(self.eps, (float, int)):
                     eps = self.eps
                 else:
                     eps = self.eps[q] \
@@ -177,7 +177,7 @@ class TabularQLearner:
             self.counter[q_table_name][i_table][ind_state][ind_action] += 1
 
     def get_lr(self, td_error, q):
-        if type(self.alpha) is float:
+        if isinstance(self.alpha, float):
             try:
                 lr = self.alpha if (not self.hysteretic or td_error > 0) \
                     else self.alpha * self.rl['q_learning']['beta_to_alpha']
@@ -185,7 +185,7 @@ class TabularQLearner:
                 print(f"ex = {ex}")
         else:
             beta_to_alpha = self.rl['beta_to_alpha'] \
-                if type(self.rl['beta_to_alpha']) is float \
+                if isinstance(self.rl['beta_to_alpha'], float) \
                 else self.rl['q_learning']['beta_to_alpha'][q]
             lr = self.alpha[q] \
                 if (not self.hysteretic or td_error > 0) \
@@ -202,50 +202,51 @@ class TabularQLearner:
             for q in q_to_update:
                 self.update_q_step(q, step, step_vals)
 
-    def _control_decrease_eps(self, t, epoch, mean_eval_rewards, decrease_eps):
+    def _control_decrease_eps(self, method, epoch, mean_eval_rewards, decrease_eps):
         n_window \
-            = self.rl['control_window_eps'][t] * self.rl['n_explore']
-        if epoch >= self.rl['control_window_eps'][t]:
+            = self.rl['control_window_eps'][method] * self.rl['n_explore']
+        if epoch >= self.rl['control_window_eps'][method]:
             baseline_last = sum(mean_eval_rewards['baseline'][
                                 - n_window:])
             baseline_prev = \
                 sum(mean_eval_rewards['baseline']
-                    [- 2 * self.rl['control_window_eps'][t]
+                    [- 2 * self.rl['control_window_eps'][method]
                      * self.rl['n_explore']: - n_window])
-            t_eval = t
+            t_eval = method
             reward_last = sum(mean_eval_rewards[t_eval][- n_window:])
             reward_prev = sum(mean_eval_rewards[t_eval]
                               [- 2 * n_window: - n_window])
-            decrease_eps[t] = (
+            decrease_eps[method] = (
                 True
                 if (reward_last - baseline_last)
                 >= (reward_prev - baseline_prev)
                 else False
             )
         else:
-            decrease_eps[t] = True
+            decrease_eps[method] = True
 
         return decrease_eps
 
     def _reward_based_eps_control(self, mean_eval_rewards):
         # XU et al. 2018 Reward-Based Exploration
         k = {}
-        for t in self.rl['eval_action_choice']:
-            self.rMT = self.rMT / self.rl['tauMT'][t] + np.mean(
-                mean_eval_rewards[t][- self.rl['n_explore']:])
-            self.rLT = self.rLT / self.rl['tauLT'][t] + self.rMT
-            sum_exp = np.exp(self.rMT / self.rl['q_learning']['T'][t]) \
-                + np.exp(self.rLT / self.rl['q_learning']['T'][t])
-            k[t] = (np.exp(self.rMT / self.rl['q_learning']['T'][t])
-                    - np.exp(self.rLT / self.rl['q_learning']['T'][t])) \
-                / sum_exp
+        for method in self.rl['eval_action_choice']:
+            self.rMT = self.rMT / self.rl['tauMT'][method] + np.mean(
+                mean_eval_rewards[method][- self.rl['n_explore']:])
+            self.rLT = self.rLT / self.rl['tauLT'][method] + self.rMT
+            sum_exp = np.exp(self.rMT / self.rl['q_learning']['T'][method]) \
+                + np.exp(self.rLT / self.rl['q_learning']['T'][method])
+            k[method] = (
+                np.exp(self.rMT / self.rl['q_learning']['T'][method])
+                - np.exp(self.rLT / self.rl['q_learning']['T'][method])
+            ) / sum_exp
 
-        assert not (type(self.eps) is float or type(self.eps) is int), \
+        assert not (isinstance(self.eps, (float, int))), \
             "have eps per method"
-        for t in self.rl['eval_action_choice']:
-            eps = self.rl['lambda'] * k[t] \
-                + (1 - self.rl['lambda']) * self.eps[t]
-            self.eps[t] = min(1, max(0, eps))
+        for method in self.rl['eval_action_choice']:
+            eps = self.rl['lambda'] * k[method] \
+                + (1 - self.rl['lambda']) * self.eps[method]
+            self.eps[method] = min(1, max(0, eps))
 
     def epsilon_decay(self, repeat, epoch, mean_eval_rewards):
         mean_eval_rewards = mean_eval_rewards[repeat]
@@ -254,18 +255,18 @@ class TabularQLearner:
             self._reward_based_eps_control(mean_eval_rewards)
 
         else:
-            for t in self.rl['eval_action_choice']:
+            for method in self.rl['eval_action_choice']:
                 if self.rl['control_eps'] == 1:
                     decrease_eps = self._control_decrease_eps(
-                        t, epoch, mean_eval_rewards, decrease_eps
+                        method, epoch, mean_eval_rewards, decrease_eps
                     )
                 else:
-                    decrease_eps[t] = True
+                    decrease_eps[method] = True
 
-            if type(self.eps) is float or type(self.eps) is int:
+            if isinstance(self.eps, (float, int)):
                 decrease_eps = True \
-                    if sum(1 for t in self.rl['eval_action_choice']
-                           if decrease_eps[t]) > 0 \
+                    if sum(1 for method in self.rl['eval_action_choice']
+                           if decrease_eps[method]) > 0 \
                     else False
                 factor = self.rl['epsilon_decay_param'] if decrease_eps \
                     else (1 / self.rl['epsilon_decay_param'])
@@ -275,16 +276,16 @@ class TabularQLearner:
                 if epoch >= self.rl['q_learning']['end_decay']:
                     self.eps = 0
             else:
-                for t in self.rl['eval_action_choice']:
-                    factor = self.rl['epsilon_decay_param'][t] \
-                        if decrease_eps[t] \
-                        else (1 / self.rl['epsilon_decay_param'][t])
-                    self.eps[t] = min(
-                        max(0, self.eps[t] * factor), 1)
+                for method in self.rl['eval_action_choice']:
+                    factor = self.rl['epsilon_decay_param'][method] \
+                        if decrease_eps[method] \
+                        else (1 / self.rl['epsilon_decay_param'][method])
+                    self.eps[method] = min(
+                        max(0, self.eps[method] * factor), 1)
                     if epoch < self.rl['q_learning']['start_decay']:
-                        self.eps[t] = 1
+                        self.eps[method] = 1
                     if epoch >= self.rl['q_learning']['end_decay']:
-                        self.eps[t] = 0
+                        self.eps[method] = 0
 
     def _get_reward_a(self, diff_rewards, indiv_rewards, reward, q, home):
         if reward_type(q) == 'd':
@@ -417,7 +418,7 @@ class TabularQLearner:
                     reward_a = q0_a - q0_baseline_a
                     error = reward_a - self.q_tables[q][i_table][
                         ind_indiv_s[home]][ind_indiv_ac[home]]
-                    if type(error) is list:
+                    if isinstance(error, list):
                         print(f'type(error) if list,'
                               f' q = {q}  reward_a = {reward_a}')
                     lr = self.get_lr(error, q)

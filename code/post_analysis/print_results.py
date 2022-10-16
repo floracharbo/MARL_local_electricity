@@ -49,7 +49,7 @@ def _print_stats(f, prm, record, metrics):
     average_n_not_feas = sum_n_not_feas / (prm['RL']['n_repeats']
                                            * prm['RL']['n_epochs'])
     f = _print_str(
-        f"\nTested {prm['RL']['type_eval']}",
+        f"\nTested {prm['RL']['evaluation_methods']}",
         prm['save']['save_run'],
         f
     )

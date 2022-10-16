@@ -39,8 +39,8 @@ class Record():
         for e in self.entries:
             self.__dict__.update({e: {}})
         # all exploration / evaluation methods
-        self.all_methods = rl["type_eval"] + \
-            list(set(rl["type_explo"]) - set(rl["type_eval"]))
+        self.all_methods = rl["evaluation_methods"] + \
+            list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
         # parameters needed for generating paths string
         for e in ["n_epochs", "instant_feedback", "type_env"]:
             self.__dict__[e] = rl[e]
@@ -106,27 +106,27 @@ class Record():
         self.duration_epoch[repeat], self.eps[repeat] \
             = [initialise_dict(range(rl["n_epochs"])) for _ in range(2)]
 
-        self.train_rewards[repeat] = initialise_dict(rl["type_explo"])
+        self.train_rewards[repeat] = initialise_dict(rl["exploration_methods"])
 
         if rl["type_learning"] == "DQN"\
                 or (rl["type_learning"] == "q_learning"
                     and rl["q_learning"]["epsilon_decay"]):
-            self.eps[repeat] = initialise_dict(rl["type_eval"])
+            self.eps[repeat] = initialise_dict(rl["evaluation_methods"])
 
         if rl["type_learning"] == "DQN"\
                 and rl["distr_learning"] == "decentralised":
-            for t in rl["type_eval"]:
-                self.eps[repeat][t] = initialise_dict(range(self.n_homes))
+            for method in rl["evaluation_methods"]:
+                self.eps[repeat][method] = initialise_dict(range(self.n_homes))
 
         for e in ["eval_rewards", "mean_eval_rewards", "eval_actions"] \
                 + self.break_down_rewards_entries:
-            self.__dict__[e][repeat] = initialise_dict(rl["type_eval"])
+            self.__dict__[e][repeat] = initialise_dict(rl["evaluation_methods"])
 
         for e in ["train_actions", "train_states"]:
-            self.__dict__[e][repeat] = initialise_dict(rl["type_explo"])
+            self.__dict__[e][repeat] = initialise_dict(rl["exploration_methods"])
 
         self.stability[repeat] = initialise_dict(
-            rl["type_eval"], type_obj="Nones")
+            rl["evaluation_methods"], type_obj="Nones")
 
         for e in ["seed", "n_not_feas", "not_feas_vars"]:
             self.__dict__[e][repeat] = []
@@ -148,15 +148,15 @@ class Record():
                   ):
         """At the end of each epoch, append training or evaluation record."""
         if list_train_stepvals is not None:
-            for t in rl["type_explo"]:
-                self.train_rewards[self.repeat][t].append(
-                    list_train_stepvals[t]["reward"])
-                self.train_actions[self.repeat][t].append(
-                    list_train_stepvals[t]["action"])
-                self.train_states[self.repeat][t].append(
-                    list_train_stepvals[t]["state"])
-        for t in rl["type_eval"]:
-            self._append_eval(eval_steps, t, epoch, end_test)
+            for method in rl["exploration_methods"]:
+                self.train_rewards[self.repeat][method].append(
+                    list_train_stepvals[method]["reward"])
+                self.train_actions[self.repeat][method].append(
+                    list_train_stepvals[method]["action"])
+                self.train_states[self.repeat][method].append(
+                    list_train_stepvals[method]["state"])
+        for method in rl["evaluation_methods"]:
+            self._append_eval(eval_steps, method, epoch, end_test)
 
         if rl["type_learning"] == "q_learning" and not end_test:
             if self.save_qtables:
@@ -172,13 +172,13 @@ class Record():
 
         self.duration_epoch[self.repeat][epoch] = duration_epoch
 
-    def last_epoch(self, evaluation, t, record_output, batch, done):
+    def last_epoch(self, evaluation, method, record_output, batch, done):
         """Record more information for the final epoch in self.last."""
         type_step = "eval" if evaluation else "train"
         if type_step == "eval":
             for output, label in zip(record_output, self.last_entries):
-                self.last[self.repeat][label][t].append(output)
-            if done and t == "baseline":
+                self.last[self.repeat][label][method].append(output)
+            if done and method == "baseline":
                 self.last[self.repeat]["batch"] = batch
 
     def save(self, end_of: str = "repeat"):
@@ -490,52 +490,52 @@ class Record():
 
         return metrics, metric_entries
 
-    def _append_eval(self, eval_steps, t, epoch, end_test):
-        if t in eval_steps:
-            if eval_steps[t]["reward"][-1] is not None:
-                epoch_mean_eval_t = np.mean(eval_steps[t]["reward"])
+    def _append_eval(self, eval_steps, method, epoch, end_test):
+        if method in eval_steps:
+            if eval_steps[method]["reward"][-1] is not None:
+                epoch_mean_eval_t = np.mean(eval_steps[method]["reward"])
             else:
                 epoch_mean_eval_t = None
             for e in ["reward", "action"]:
-                self.__dict__[f"eval_{e}s"][self.repeat][t].append(
-                    eval_steps[t][e]
+                self.__dict__[f"eval_{e}s"][self.repeat][method].append(
+                    eval_steps[method][e]
                 )
         else:
             for e in ["eval_rewards", "eval_actions"]:
-                self.__dict__[e][self.repeat][t].append(None)
+                self.__dict__[e][self.repeat][method].append(None)
             epoch_mean_eval_t = None
 
-        self.mean_eval_rewards[self.repeat][t].append(epoch_mean_eval_t)
-        all_mean_eval_t = self.mean_eval_rewards[self.repeat][t]
+        self.mean_eval_rewards[self.repeat][method].append(epoch_mean_eval_t)
+        all_mean_eval_t = self.mean_eval_rewards[self.repeat][method]
         for e in self.break_down_rewards_entries:
             eval_step_t_e = \
-                None if t not in eval_steps \
-                else eval_steps[t][e]
-            self.__dict__[e][self.repeat][t].append(
+                None if method not in eval_steps \
+                else eval_steps[method][e]
+            self.__dict__[e][self.repeat][method].append(
                 np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None
                 else None)
         # we have done at least 6 steps
-        if not end_test and len(all_mean_eval_t) > 5 and t != "opt":
+        if not end_test and len(all_mean_eval_t) > 5 and method != "opt":
             equal_consecutive = \
                 [abs(all_mean_eval_t[- i]
                      - all_mean_eval_t[- (i + 1)]) < 1e-5
                  for i in range(4)]
             if sum(equal_consecutive) == 4:
-                self.stability[self.repeat][t] = epoch
+                self.stability[self.repeat][method] = epoch
 
     def _update_eps(self, rl, learner, epoch, end_test):
         if rl["type_learning"] == "DQN" and not end_test:
-            for t in rl["type_Qs"]:
+            for method in rl["type_Qs"]:
                 if rl["distr_learning"] == "centralised":
-                    self.eps[self.repeat][t].append(copy.copy(learner[t].eps))
+                    self.eps[self.repeat][method].append(copy.copy(learner[method].eps))
                 else:
                     for home in range(self.n_homes):
-                        self.eps[self.repeat][t][home].append(
-                            copy.copy(learner[t][home].eps))
+                        self.eps[self.repeat][method][home].append(
+                            copy.copy(learner[method][home].eps))
 
         elif rl["type_learning"] == "q_learning" and not end_test:
-            for t in rl["type_Qs"]:
+            for method in rl["type_Qs"]:
                 if rl["q_learning"]["epsilon_decay"]:
-                    self.eps[self.repeat][t].append(copy.copy(learner.eps[t]))
+                    self.eps[self.repeat][method].append(copy.copy(learner.eps[method]))
                 else:
                     self.eps[self.repeat][epoch] = copy.copy(learner.eps)

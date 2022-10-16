@@ -29,12 +29,16 @@ from post_analysis.plotting.plotting_utils import (formatting_figure,
 
 def _plot_epsilon(repeat, prm, record):
     if 'eps' in record.__dict__.keys() and record.eps != {}:
-        if type(record.eps[repeat][0]) is dict:
+        if isinstance(record.eps[repeat][0], dict):
             fig = plt.figure()
-            for t in prm['RL']['eval_action_choice']:
-                plt.plot([record.eps[repeat][e][t]
-                          for e in range(prm['RL']['n_epochs'])],
-                         label=t, color=prm['save']['colorse'][t])
+            for method in prm['RL']['eval_action_choice']:
+                plt.plot(
+                    [
+                        record.eps[repeat][e][method]
+                        for e in range(prm['RL']['n_epochs'])
+                    ],
+                    label=method, color=prm['save']['colorse'][method]
+                )
             plt.xlabel('epoch')
             plt.ylabel('eps')
             title = "epsilon over epochs, state comb " \

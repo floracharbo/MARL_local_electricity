@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from post_analysis.plotting.plotting_utils import (formatting_ticks,
                                                    title_and_save)
-from utilities.userdeftools import distr_learning,initialise_dict, reward_type
 from utilities.env_spaces import granularity_to_multipliers
+from utilities.userdeftools import distr_learning, initialise_dict, reward_type
 
 
 def _plot_1d_state_space_best_psi(
@@ -15,9 +15,9 @@ def _plot_1d_state_space_best_psi(
     for home in range(prm['ntw']['n']):
         fig, ax = plt.subplots()
         theta_M = []
-        for t in prm["save"]["eval_entries_plot_indiv"]:
-            index_a = home if distr_learning(t) in ['d', 'Cd'] else 0
-            theta_M.append([best_theta[t][index_a][int(s)]
+        for method in prm["save"]["eval_entries_plot_indiv"]:
+            index_a = home if distr_learning(method) in ['d', 'Cd'] else 0
+            theta_M.append([best_theta[method][index_a][int(s)]
                             for s in range(rl["possible_states_0_0"])])
         im = ax.imshow(theta_M, vmin=0, vmax=1)
         title = f"best theta per method and per state state space " \
@@ -40,16 +40,16 @@ def _plot_2d_state_space_best_psi(
     rl = prm["RL"]
     for home in range(prm['ntw']['n']):
         for i_t in range(len(prm["save"]["eval_entries_plot_indiv"])):
-            t = prm["save"]["eval_entries_plot_indiv"][i_t]
+            method = prm["save"]["eval_entries_plot_indiv"][i_t]
             M = np.zeros((record.granularity_state0,
                           record.granularity_state1))
-            index_a = home if distr_learning(t) in ['d', 'Cd'] else 0
+            index_a = home if distr_learning(method) in ['d', 'Cd'] else 0
             for s in range(rl["possible_states_0_0"]):
                 s1, s2 = spaces.global_to_indiv_index(
                     'state', s, multipliers=granularity_to_multipliers(
                         [record.granularity_state0,
                          record.granularity_state1]))
-                M[s1, s2] = best_theta[t][index_a][s]
+                M[s1, s2] = best_theta[method][index_a][s]
 
             fig, ax = plt.subplots()
             plt.xlabel(rl['state_space'][1])
@@ -75,27 +75,31 @@ def _plot_unique_state_best_psi(
     possible_states = rl["possible_states_0_0"]
     eval_entries_plot_indiv = prm["save"]["eval_entries_plot_indiv"]
 
-    for t in eval_entries_plot_indiv:
-        n_homes = prm['ntw']['n'] if distr_learning(t) in ['d', 'Cd'] else 1
-        best_theta[t] = initialise_dict(range(n_homes), type_obj='empty_dict')
+    for method in eval_entries_plot_indiv:
+        n_homes = prm['ntw']['n'] if distr_learning(method) in ['d', 'Cd'] else 1
+        best_theta[method] = initialise_dict(range(n_homes), type_obj='empty_dict')
         for home in range(n_homes):
-            best_theta[t][home] = np.zeros((possible_states,))
+            best_theta[method][home] = np.zeros((possible_states,))
             for s in range(possible_states):
-                indmax = np.argmax(q[t][home][s])
-                best_theta[t][home][s] = \
+                indmax = np.argmax(q[method][home][s])
+                best_theta[method][home][s] = \
                     index_to_val([indmax], typev='action')[0]
 
             # plot historgram of best theta per method
             fig, ax = plt.subplots()
             y_pos = np.arange(len(eval_entries_plot_indiv))
-            i_tables = [home if distr_learning(t) == 'd' else 0
-                        for t in eval_entries_plot_indiv]
+            i_tables = [
+                home if distr_learning(method) == 'd' else 0
+                for method in eval_entries_plot_indiv
+            ]
             best_thetas = \
                 [best_theta[eval_entries_plot_indiv[it]][i_tables[it]][0]
                  for it in range(len(eval_entries_plot_indiv))]
-            colors_bars = [prm['save']['colorse'][t]
-                           for t in eval_entries_plot_indiv
-                           if t[-1] != '0']
+            colors_bars = [
+                prm['save']['colorse'][method]
+                for method in eval_entries_plot_indiv
+                if method[-1] != '0'
+            ]
             ax.bar(y_pos, best_thetas, align='center',
                    alpha=0.5, color=colors_bars)
             plt.ylim([0, 1])
@@ -156,9 +160,9 @@ def plot_q_values(repeat, index_to_val, prm):
             M = np.zeros((len(eval_entries_plot_indiv), rl['n_action']))
 
             for i_t in range(len(eval_entries_plot_indiv)):
-                t = eval_entries_plot_indiv[i_t]
-                i_table = home if distr_learning(t) == 'd' else 0
-                qvals = rl["q_tables"][repeat][rl['n_epochs'] - 1][t][i_table][
+                method = eval_entries_plot_indiv[i_t]
+                i_table = home if distr_learning(method) == 'd' else 0
+                qvals = rl["q_tables"][repeat][rl['n_epochs'] - 1][method][i_table][
                     0]  # in final epoch, in 0-th (unique) state
                 M[i_t, :] = qvals
 
@@ -168,7 +172,7 @@ def plot_q_values(repeat, index_to_val, prm):
             ys = [m * i + b for i in range(rl['n_action'])]
             fig, ax = plt.subplots()
             im = ax.imshow(M)
-            title = "qval per action per t state None repeat {repeat} home {home}"
+            title = f"qval per action per state None repeat {repeat} home {home}"
             formatting_ticks(
                 ax, fig, xs=xs, ys=ys, title=title, im=im, grid=False,
                 fig_folder=prm['paths']['fig_folder'],
@@ -189,9 +193,9 @@ def video_visit_states(
 
     import cv2
     counters = rl["counters"][repeat]
-    for t in rl["q_entries"]:
+    for method in rl["q_entries"]:
         maxval = np.max(
-            [np.sum(counters[rl['n_epochs'] - 1][t][s])
+            [np.sum(counters[rl['n_epochs'] - 1][method][s])
              for s in range(rl["possible_states_0_0"])])
 
         for epoch in range(rl['n_epochs']):
@@ -207,7 +211,7 @@ def video_visit_states(
                         'state', s, multipliers=granularity_to_multipliers(
                             [record.granularity_state0,
                              record.granularity_state1]))
-                    counters_per_state[s1, s2] = sum(counters[epoch][t][s])
+                    counters_per_state[s1, s2] = sum(counters[epoch][method][s])
                 plt.ylabel(rl['state_space'][1])
 
             elif rl['dim_states'] == 1:
@@ -217,10 +221,10 @@ def video_visit_states(
                 plt.xlabel(r'$\theta$ [-]')
                 for s in range(rl["possible_states_0_0"]):
                     for home in range(rl['n_action']):
-                        counters_per_state[s, home] = counters[epoch][t][s][home]
+                        counters_per_state[s, home] = counters[epoch][method][s][home]
             else:
                 counters_per_state = [
-                    sum(counters[epoch][t][s]) for s in range(rl["possible_states_0_0"])
+                    sum(counters[epoch][method][s]) for s in range(rl["possible_states_0_0"])
                 ]
                 plt.xlabel(rl['state_space'][0])
             plt.imshow(counters_per_state, vmin=0, vmax=maxval)
@@ -233,9 +237,9 @@ def video_visit_states(
                 height, width, layers = img0.shape
                 fourcc = cv2.VideoWriter_fourcc(*'MJPG')
                 title = \
-                    prm['paths']['fig_folder'] / f'qlearn_repeat{repeat}_{t}.avi' \
+                    prm['paths']['fig_folder'] / f'qlearn_repeat{repeat}_{method}.avi' \
                     if prm['paths']['fig_folder'] is not None \
-                    else f'qlearn_repeat{repeat}_{t}.avi'
+                    else f'qlearn_repeat{repeat}_{method}.avi'
                 out = cv2.VideoWriter(title, fourcc, 40.0, (width, height))
                 os.remove('fig.png')
             else:
@@ -254,19 +258,19 @@ def plot_final_explorations(repeat, record, prm):
             or len(rl["counters"][0]) == 0:
         return
 
-    for t in rl["q_entries"]:
-        n_homes = prm['ntw']['n'] if reward_type(t) == '1' else 1
+    for method in rl["q_entries"]:
+        n_homes = prm['ntw']['n'] if reward_type(method) == '1' else 1
         for home in range(n_homes):
             rl["action_state_space_0"][repeat][home], rl["state_space_0"][repeat][home] =\
                 [initialise_dict(rl["q_entries"]) for _ in range(2)]
             fig, ax = plt.subplots()
-            counters_plot = rl["counters"][repeat][rl['n_epochs'] - 1][t][home] \
-                if record.save_qtables else rl["counters"][repeat][t][home]
+            counters_plot = rl["counters"][repeat][rl['n_epochs'] - 1][method][home] \
+                if record.save_qtables else rl["counters"][repeat][method][home]
             im = ax.imshow(counters_plot, aspect='auto')
             fig.colorbar(im, ax=ax)
             title = f"Explorations per state action pair state space " \
                     f"{rl['statecomb_str']} repeat {repeat} " \
-                    f"method {t} home {home}"
+                    f"method {method} home {home}"
             title_and_save(title, fig, prm)
 
             sum_action_0, sum_state_0 = 0, 0
@@ -276,8 +280,8 @@ def plot_final_explorations(repeat, record, prm):
                 for ac in range(rl['n_discrete_actions']):
                     if counters_plot[s][ac] == 0:
                         sum_action_0 += 1
-            rl["state_space_0"][repeat][home][t] = \
+            rl["state_space_0"][repeat][home][method] = \
                 sum_state_0 / rl['n_total_discrete_states']
-            rl["action_state_space_0"][repeat][home][t] = \
+            rl["action_state_space_0"][repeat][home][method] = \
                 sum_action_0 / (rl['n_total_discrete_states']
                                 * rl['n_discrete_actions'])

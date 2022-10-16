@@ -31,14 +31,14 @@ def _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm):
 
 
 def _barplot(
-        bars, eval_types, prm, baseline=None, opt=None, text_labels=True,
+        bars, evaluation_methods, prm, baseline=None, opt=None, text_labels=True,
         colors=None, error=None, title=None, display_title=True,
         lower_bound=None, upper_bound=None, display_ticks=True,
         ax0=None, display_legend=False, ylabel=None, xlabel=None
 ):
 
-    n_evaltype = len(eval_types)
-    barWidth = 1 / (n_evaltype + 1)
+    n_evaluation_methods = len(evaluation_methods)
+    barWidth = 1 / (n_evaluation_methods + 1)
     rs = [x * 1 / len(bars) + (1 / len(bars) / 2) for x in range(len(bars))]
 
     if ax0 is None:
@@ -46,13 +46,13 @@ def _barplot(
     else:
         ax = ax0
 
-    for ind_e in range(n_evaltype):
+    for ind_e in range(n_evaluation_methods):
         rsir = rs[ind_e]
         err = None if error is None else error[ind_e]
         barplot = bars[ind_e]
         barplot = barplot - baseline if title[0:7] == 'Average' else barplot
         ax.bar(rsir, barplot, yerr=err, capsize=10, width=barWidth,
-               edgecolor='white', label=eval_types[ind_e], color=colors[ind_e])
+               edgecolor='white', label=evaluation_methods[ind_e], color=colors[ind_e])
 
     ax = _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm)
 

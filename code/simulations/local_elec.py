@@ -50,7 +50,7 @@ class LocalElecEnv():
 
         self.prof = profiles
         self.n_homes = prm['ntw']['n']
-        self.agents = range(self.n_homes)
+        self.homes = range(self.n_homes)
         self.N = prm['syst']['N']
 
         # initialise parameters
@@ -73,7 +73,7 @@ class LocalElecEnv():
         if self.rl['type_learning'] == 'facmac':
             self.action_space = self.rl['action_space']
             self.observation_space = []
-            for home in self.agents:
+            for _ in self.homes:
                 self.observation_space.append(spaces.Box(
                     low=-np.inf, high=+np.inf,
                     shape=(self.rl['obs_shape'],),
@@ -101,7 +101,7 @@ class LocalElecEnv():
         # date0 is not the total date0 for all runs,
         # but the specific date0 for this run
         # as defined in learning.py at the same time as i0_costs
-        self.t = 0  # hrs since start
+        self.time = 0  # hrs since start
         self.steps_beyond_done = None
         self.done = False
         self.idt = 0 if self.date0.weekday() < 5 else 1
@@ -118,7 +118,7 @@ class LocalElecEnv():
         self.batch_file = self.batchfile0
         self.save_file = self.batch_file
         self.nonamefile = str(int(seed))
-        self.factors, self.clusters = [initialise_dict(self.agents) for _ in range(2)]
+        self.factors, self.clusters = [initialise_dict(self.homes) for _ in range(2)]
         if self.load_data:
             self.factors = np.load(
                 self.res_path / f"factors{self._file_id()}",
@@ -127,7 +127,7 @@ class LocalElecEnv():
                 self.res_path / f"clusters{self._file_id()}",
                 allow_pickle=True).item()
         else:
-            for home in self.agents:
+            for home in self.homes:
                 self.factors[home] = initialise_dict(
                     [self.loads_p, self.gen_p, self.bat_p])
                 self.clusters[home] = initialise_dict([self.loads_p, self.bat_p])
@@ -215,12 +215,12 @@ class LocalElecEnv():
             self.coeff_T = self.prm['heat']['T_coeff' + self.passive_ext]
         self.coeff_Tair = self.prm['heat']['T_air_coeff' + self.passive_ext]
         self.n_homes = self.prm['ntw']['n' + self.passive_ext]
-        self.agents = range(self.n_homes)
+        self.homes = range(self.n_homes)
         for e in ['cap_p', 'store0_p', 'mincharge_p', 'n_homes']:
             self.action_translator.__dict__[e] = self.__dict__[e]
             self.spaces.__dict__[e] = self.__dict__[e]
         self.T_air = [self.prm['heat']['T_req' + self.passive_ext][home][0]
-                      for home in self.agents]
+                      for home in self.homes]
 
     def update_date(self, i0_costs: int, date0: datetime = None):
         """Update new date for new day."""
@@ -299,13 +299,13 @@ class LocalElecEnv():
     ) -> list:
         """Compute environment updates and reward from selected action."""
         h = self._get_h()
-        agents = self.agents
+        agents = self.homes
         batch_flex = [self.batch[home]['flex'] for home in agents]
         self._batch_tests(batch_flex, h)
 
         # update batch if needed
         daynumber = (self.date - self.date0).days
-        if h == 1 and self.t > 1 \
+        if h == 1 and self.time > 1 \
                 and self.dloaded < daynumber + 2 == 0 \
                 and not self.slid_day:
             self._load_next_day()
@@ -329,7 +329,7 @@ class LocalElecEnv():
             new_batch_flex = self.update_flex(loads['flex_cons'])
             next_date = self.date + timedelta(hours=1)
             next_done = next_date == self.date_end
-            inputs_next_state = [self.t + 1, next_date, next_done,
+            inputs_next_state = [self.time + 1, next_date, next_done,
                                  new_batch_flex, self.bat.store]
             next_state = self.get_state_vals(inputs=inputs_next_state) \
                 if not self.done \
@@ -337,7 +337,7 @@ class LocalElecEnv():
             if implement:
                 for home in agents:
                     batch_flex[home][h: h + 2] = new_batch_flex[home]
-                self.t += 1
+                self.time += 1
                 self.date = next_date
                 self.idt = 0 if self.date.weekday() < 5 else 1
                 self.done = next_done
@@ -348,7 +348,7 @@ class LocalElecEnv():
                 assert all(
                     self.batch[home]['loads'][ih]
                     <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
-                    for home in self.agents
+                    for home in self.homes
                 ), f"h {h} ih {ih}"
             if record or evaluation:
                 ld_fixed = [sum(batch_flex[home][h][:]) for home in agents] \
@@ -363,9 +363,9 @@ class LocalElecEnv():
                      break_down_rewards, self.bat.store, ldflex, ld_fixed,
                      home_vars['tot_cons'].copy(), loads['tot_cons_loads'].copy(),
                      self.heat.tot_E.copy(), self.heat.T.copy(),
-                     self.heat.T_air.copy(), self.grdC[self.t].copy(),
-                     self.wholesale[self.t].copy(),
-                     self.cintensity[self.t].copy()]
+                     self.heat.T_air.copy(), self.grdC[self.time].copy(),
+                     self.wholesale[self.time].copy(),
+                     self.cintensity[self.time].copy()]
                 return [next_state, self.done, reward, break_down_rewards,
                         home_vars['bool_flex'], constraint_ok, record_output]
             elif netp_storeout:
@@ -399,7 +399,7 @@ class LocalElecEnv():
                 [self.prm['loads'][e][home][hour]
                  for home in range(self.prm['ntw']['nP'])]
                 for e in ['netp0', 'discharge_tot0', 'charge0']]
-        i_step = self.t if i_step is None else i_step
+        i_step = self.time if i_step is None else i_step
         if discharge_tot is None:
             discharge_tot = self.bat.discharge_tot
         charge = self.bat.charge if charge is None else charge
@@ -410,24 +410,24 @@ class LocalElecEnv():
         grid = sum(netp) + sum(netp0)
         if self.prm['ntw']['charge_type'] == 0:
             sum_netp = sum([abs(netp[home]) if netp[home] < 0
-                           else 0 for home in self.agents])
+                           else 0 for home in self.homes])
             sum_netp0 = sum([abs(netp0[home]) if netp0[home] < 0
                              else 0 for home in range(len(netp0))])
             netpvar = sum_netp + sum_netp0
             dc = self.prm['ntw']['C'] * netpvar
         else:
-            netpvar = sum([netp[home] ** 2 for home in self.agents]) \
+            netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
             dc = self.prm['ntw']['C'] * netpvar
         gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
-        gc_a = [wholesalet * netp[home] for home in self.agents]
+        gc_a = [wholesalet * netp[home] for home in self.homes]
         sc = self.prm['bat']['C'] \
             * (sum(discharge_tot[home] + charge[home]
-                   for home in self.agents)
+                   for home in self.homes)
                 + sum(discharge_tot0[home] + charge0[home]
                       for home in range(len(discharge_tot0))))
         sc_a = [self.prm['bat']['C'] * (discharge_tot[home] + charge[home])
-                for home in self.agents]
+                for home in self.homes]
         c_a = [g + s for g, s in zip(gc_a, sc_a)]
         reward = - (gc + sc + dc)
         costs_wholesale = wholesalet * grid
@@ -455,27 +455,27 @@ class LocalElecEnv():
         if other_input is None:
             date = self.date
             h = self._get_h()
-            batch_flex = [self.batch[home]['flex'][h] for home in self.agents]
+            batch_flex = [self.batch[home]['flex'][h] for home in self.homes]
             if date == self.date_end - timedelta(hours=1):
                 loads['l_flex'] = np.zeros(self.n_homes)
                 loads['l_fixed'] = np.array(
-                    [sum(batch_flex[home]) for home in self.agents]
+                    [sum(batch_flex[home]) for home in self.homes]
                 )
             else:
                 loads['l_flex'] = np.array(
-                    [sum(batch_flex[home][1:]) for home in self.agents]
+                    [sum(batch_flex[home][1:]) for home in self.homes]
                 )
                 loads['l_fixed'] = np.array(
-                    [batch_flex[home][0] for home in self.agents]
+                    [batch_flex[home][0] for home in self.homes]
                 )
             home_vars['gen'] = np.array(
-                [self.batch[home]['gen'][h] for home in self.agents]
+                [self.batch[home]['gen'][h] for home in self.homes]
             )
 
             if action is None:
                 return None
             try:
-                for home in self.agents:
+                for home in self.homes:
                     if action[home] is None:
                         print(f'action[{home}] is None, action = {action[home]}')
             except Exception as ex:
@@ -521,10 +521,10 @@ class LocalElecEnv():
         """
         if inputs is None:
             t, date, done, store = [
-                self.t, self.date, self.done, self.bat.store
+                self.time, self.date, self.done, self.bat.store
             ]
             batch_flex_h = [
-                self.batch[home]['flex'][self.step] for home in self.agents
+                self.batch[home]['flex'][self.step] for home in self.homes
             ]
         else:
             date = inputs[1]
@@ -537,7 +537,7 @@ class LocalElecEnv():
             else self.spaces.descriptors['state']
         vals = np.zeros((self.n_homes, len(descriptors)))
         hour = self._get_h(date)
-        for home in self.agents:
+        for home in self.homes:
             for i, descriptor in enumerate(descriptors):
                 vals[home, i] = self._descriptor_to_val(
                     descriptor, inputs_, hour, idt, home
@@ -649,7 +649,7 @@ class LocalElecEnv():
     def _generate_new_day(self, homes: list):
         """If new day of data was not presaved, load here."""
         # intialise variables
-        homes = self.agents if len(homes) == 0 else homes
+        homes = self.homes if len(homes) == 0 else homes
         day = {}
         dt = self.prm['syst']['labels_day'][self.idt]
         dtt = self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
@@ -756,7 +756,7 @@ class LocalElecEnv():
                          homes: list = None
                          ) -> list:
         """Get random indexes for profile selection."""
-        homes = self.agents if len(homes) == 0 else homes
+        homes = self.homes if len(homes) == 0 else homes
         iprofs = []
         n_profs = self.n_prof[type_clus][dt] \
             if dt is not None \
@@ -781,7 +781,7 @@ class LocalElecEnv():
 
     def _loads_to_flex(self, homes: list = None):
         """Apply share of flexible loads to new day loads data."""
-        homes = self.agents if len(homes) == 0 else homes
+        homes = self.homes if len(homes) == 0 else homes
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for t in range(24):
@@ -936,7 +936,7 @@ class LocalElecEnv():
 
     def _batch_tests(self, batch_flex, h):
         share_flexs = self.prm['loads']['share_flexs']
-        for home in self.agents:
+        for home in self.homes:
             assert sum(batch_flex[home][h][1: 5]) <= \
                 sum(batch_flex[home][ih][0] / (1 - share_flexs[home])
                     * share_flexs[home]
@@ -974,7 +974,7 @@ class LocalElecEnv():
             ), "loads_next_flex too large"
 
     def _loads_test(self):
-        for home in self.agents:
+        for home in self.homes:
             for ih in range(self.N):
                 assert (self.batch[home]['loads'][ih]
                         <= self.batch[home]['flex'][ih][0]
@@ -1001,7 +1001,7 @@ class LocalElecEnv():
                 [[np.percentile(self.normalised_grdC,
                                 i * 100 / self.n_grdC_level)
                   for i in range(self.n_grdC_level)] + [1]
-                 for _ in self.agents]
+                 for _ in self.homes]
 
     def _initialise_new_data(self):
         # we have not loaded data from file -> save new data
@@ -1028,7 +1028,7 @@ class LocalElecEnv():
 
     def _initialise_batch_entries(self, agents=[]):
         if len(agents) == 0:
-            agents = self.agents
+            agents = self.homes
         for home in agents:
             self.batch[home] = initialise_dict(self.batch_entries)
             self.bat.batch[home] = initialise_dict(self.bat.batch_entries)

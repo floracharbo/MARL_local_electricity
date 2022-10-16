@@ -10,23 +10,23 @@ def distribution_savings(prm, aggregate='daily'):
     rl = prm["RL"]
     fig = plt.figure()
     test_savings = {}
-    for t in [t for t in rl["mean_eval_rewards_per_hh"][0] if t != 'baseline']:
-        test_savings[t] = []
+    for method in [method for method in rl["mean_eval_rewards_per_hh"][0] if method != 'baseline']:
+        test_savings[method] = []
         for repeat in range(prm['RL']['n_repeats']):
             rewards_t, rewards_bsl = \
-                [rl["mean_eval_rewards_per_hh"][repeat][type_eval][
+                [rl["mean_eval_rewards_per_hh"][repeat][evaluation_method][
                  prm['RL']['n_epochs']:]
-                 for type_eval in [t, 'baseline']]
+                 for evaluation_method in [method, 'baseline']]
             savings_rel_baseline = \
                 [reward - baseline for reward, baseline
                  in zip(rewards_t, rewards_bsl)]
             if aggregate == 'daily':
-                test_savings[t] += savings_rel_baseline
+                test_savings[method] += savings_rel_baseline
             elif aggregate == 'test_period':
-                test_savings[t] += [np.mean(savings_rel_baseline)]
+                test_savings[method] += [np.mean(savings_rel_baseline)]
 
-        plt.hist(test_savings[t], alpha=0.5, label=t,
-                 color=prm['save']['colorse'][t])
+        plt.hist(test_savings[method], alpha=0.5, label=method,
+                 color=prm['save']['colorse'][method])
 
     plt.legend()
     plt.xlabel("Average test savings [£/h/home]")
@@ -91,28 +91,30 @@ def barplot_breakdown_savings(record, prm):
     bars = [[] for _ in range(len(labels))]
     shares_reduc = {}
     tots = {}
-    for t in prm['RL']['type_eval']:
-        shares_reduc[t] = []
+    for method in prm['RL']['evaluation_methods']:
+        shares_reduc[method] = []
         for i, label in enumerate(labels):
             record_obj = record.__dict__[label]
             mult = prm['syst']['co2tax'] if label == 'emissions' else 1
             bars[i].append(
                 np.mean([[(record_obj[repeat]['baseline'][epoch]
-                           - record_obj[repeat][t][epoch])
+                           - record_obj[repeat][method][epoch])
                           * mult / (prm['ntw']['n'] + prm['ntw']['nP'])
                           for epoch in range(prm['RL']['start_end_eval'],
-                                             len(record_obj[repeat][t]))]
+                                             len(record_obj[repeat][method]))]
                          for repeat in range(prm['RL']['n_repeats'])]))
-        tots[t] = sum(bars[i][-1] for i, label in enumerate(labels)
-                      if label in ['dc', 'sc', 'gc'])
-        shares_reduc[t].append(
-            [bars[i][-1] / tots[t] if tots[t] > 0 else None
+        tots[method] = sum(
+            bars[i][-1] for i, label in enumerate(labels)
+            if label in ['dc', 'sc', 'gc']
+        )
+        shares_reduc[method].append(
+            [bars[i][-1] / tots[method] if tots[method] > 0 else None
              for i in range(len(labels))]
         )
 
     barWidth = 1 / (len(labels) + 1)
     rs = []
-    rs.append(np.arange(len(prm['RL']['type_eval'])))
+    rs.append(np.arange(len(prm['RL']['evaluation_methods'])))
     for ir in range(len(labels) - 1):
         rs.append([x + barWidth for x in rs[ir]])
     plt.figure()
@@ -120,7 +122,7 @@ def barplot_breakdown_savings(record, prm):
         plt.bar(rs[ir], bars[ir], width=barWidth, label=labels[ir])
     plt.xlabel('evaluation')
     plt.xticks([r + barWidth
-                for r in range(len(bars[0]))], prm['RL']['type_eval'],
+                for r in range(len(bars[0]))], prm['RL']['evaluation_methods'],
                rotation='vertical')
     plt.legend()
     plt.title('savings relative to baseline costs / emissions')
@@ -138,17 +140,19 @@ def barplot_indiv_savings(record, prm):
             if not np.isnan(record.indiv_sc[0]['baseline'][0][0]) \
             else False
     if indiv_savings:
-        eval_not_baseline = [t for t in prm['RL']['type_eval']
-                             if t != 'baseline']
+        eval_not_baseline = [
+            method for method in prm['RL']['evaluation_methods']
+            if method != 'baseline'
+        ]
         savings_a, share_sc, std_savings = [
             [[] for _ in range(prm['ntw']['n'])]
             for _ in range(3)
         ]
         for home in range(prm['ntw']['n']):
-            for t in eval_not_baseline:
+            for method in eval_not_baseline:
                 savings_sc_a, savings_gc_a = [
                     np.mean([[(reward[repeat]['baseline'][epoch][home]
-                               - reward[repeat][t][epoch])
+                               - reward[repeat][method][epoch])
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  prm['RL']['n_epochs'])]
                              for repeat in range(prm['RL']['n_repeats'])])
@@ -158,7 +162,7 @@ def barplot_indiv_savings(record, prm):
                     savings_sc_a / (savings_sc_a + savings_gc_a))
                 savings_a_all = \
                     [[(record.__dict__['indiv_c'][repeat]['baseline'][epoch][home]
-                       - record.__dict__['indiv_c'][repeat][t][epoch])
+                       - record.__dict__['indiv_c'][repeat][method][epoch])
                       for epoch in range(prm['RL']['start_end_eval'],
                                          prm['RL']['n_epochs'])]
                      for repeat in range(prm['RL']['n_repeats'])]
@@ -178,7 +182,7 @@ def barplot_indiv_savings(record, prm):
         labels = range(prm['ntw']['n'])
         barWidth = 1 / (len(labels) + 1)
         rs = []
-        rs.append(np.arange(len(prm['RL']['type_eval']) - 1))
+        rs.append(np.arange(len(prm['RL']['evaluation_methods']) - 1))
         for home in range(len(labels) - 1):
             rs.append([x + barWidth for x in rs[home]])
 
@@ -188,8 +192,8 @@ def barplot_indiv_savings(record, prm):
                     label=labels[home], yerr=std_savings[home])
         plt.xlabel('savings per agent')
         plt.xticks([r + barWidth
-                    for r in range(len(prm['RL']['type_eval']))],
-                   prm['RL']['type_eval'], rotation='vertical')
+                    for r in range(len(prm['RL']['evaluation_methods']))],
+                   prm['RL']['evaluation_methods'], rotation='vertical')
         plt.legend()
         title = "savings per agent relative to " \
                 "individual baseline costs"
@@ -202,8 +206,8 @@ def barplot_indiv_savings(record, prm):
             plt.bar(rs[home], share_sc[home], width=barWidth, label=labels[home])
         plt.xlabel('share of individual savings from battery costs savings')
         plt.xticks([r + barWidth
-                    for r in range(len(prm['RL']['type_eval']))],
-                   prm['RL']['type_eval'], rotation='vertical')
+                    for r in range(len(prm['RL']['evaluation_methods']))],
+                   prm['RL']['evaluation_methods'], rotation='vertical')
         plt.legend()
         title = "share of individual savings from battery costs " \
             "savings relative to individual baseline costs"

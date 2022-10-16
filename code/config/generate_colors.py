@@ -48,11 +48,11 @@ def _check_color_diffs(colors, new_color, min_diffs=None):
     return enough_diff
 
 
-def _colors_to_prm(save, prm, colors0, colors, all_type_eval):
+def _colors_to_prm(save, prm, colors0, colors, all_evaluation_methods):
     """
     Add initial list of colors 'colors0' + the generated list of colors.
 
-    Colours corresponding to the types of evaluations 'all_type_eval'
+    Colours corresponding to the types of evaluations 'all_evaluation_methods'
     to the prm dictionary.
     """
     if save is None:
@@ -67,18 +67,18 @@ def _colors_to_prm(save, prm, colors0, colors, all_type_eval):
     save['colorse']['opt'] = save['colors'][0]
 
     # first allocate the colours to decentralised environment-based learning
-    allocate_1 = [type_eval for type_eval in all_type_eval
-                  if type_eval not in ['opt', 'baseline']
-                  and distr_learning(type_eval) == 'd']
-    for i, type_eval in enumerate(allocate_1):
-        save['colorse'][type_eval] = save['colors'][i + 1]
+    allocate_1 = [evaluation_method for evaluation_method in all_evaluation_methods
+                  if evaluation_method not in ['opt', 'baseline']
+                  and distr_learning(evaluation_method) == 'd']
+    for i, evaluation_method in enumerate(allocate_1):
+        save['colorse'][evaluation_method] = save['colors'][i + 1]
 
     # then allocate to the other environment-based learning
-    allocate_2 = [type_eval for type_eval in all_type_eval
-                  if not (type_eval in ['opt', 'baseline']
-                          or distr_learning(type_eval) == 'd')]
-    for i, type_eval in enumerate(allocate_2):
-        save['colorse'][type_eval] = save['colors'][i + 1]
+    allocate_2 = [evaluation_method for evaluation_method in all_evaluation_methods
+                  if not (evaluation_method in ['opt', 'baseline']
+                          or distr_learning(evaluation_method) == 'd')]
+    for i, evaluation_method in enumerate(allocate_2):
+        save['colorse'][evaluation_method] = save['colors'][i + 1]
 
     return save, prm
 
@@ -112,17 +112,19 @@ def generate_colors(save, prm, colours_only=False, entries=None):
     """
     # list all possible for consistent colors ordering
     if entries is None:
-        all_type_eval = []
+        all_evaluation_methods = []
         reward_structure_combs = \
             ['r_c', 'r_d', 'A_Cc', 'A_c', 'A_d', 'd_Cc', 'd_c', 'd_d']
         for experience_source in ['env_', 'opt_']:
-            all_type_eval += [experience_source + rs_comb
-                              for rs_comb in reward_structure_combs]
-        all_type_eval += ['opt', 'opt_n_c', 'opt_n_d']
+            all_evaluation_methods += [
+                experience_source + rs_comb
+                for rs_comb in reward_structure_combs
+            ]
+        all_evaluation_methods += ['opt', 'opt_n_c', 'opt_n_d']
     else:
-        all_type_eval = entries
+        all_evaluation_methods = entries
 
-    n_colors = len(all_type_eval)
+    n_colors = len(all_evaluation_methods)
     n_added = 0
     colors = []
 
@@ -172,5 +174,5 @@ def generate_colors(save, prm, colours_only=False, entries=None):
         return colors0 + colors
     else:
         # save the list to the parameters
-        save, prm = _colors_to_prm(save, prm, colors0, colors, all_type_eval)
+        save, prm = _colors_to_prm(save, prm, colors0, colors, all_evaluation_methods)
         return save, prm

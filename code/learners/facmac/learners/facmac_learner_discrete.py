@@ -41,7 +41,7 @@ class FACMACDiscreteLearner(Learner):
             elif rl['mixer'] == "qmix-nonmonotonic":
                 self.mixer = QMixerNonmonotonic(rl)
             else:
-                raise ValueError("Mixer {} not recognised.".format(rl['mixer']))
+                raise ValueError(f"Mixer {rl['mixer']} not recognised.")
             self.critic_params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 

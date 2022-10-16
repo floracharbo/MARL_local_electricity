@@ -99,8 +99,8 @@ def _save_reliability(prm, record):
     paths["save_data_folder"] = paths["folder_run"] / "data"
     if not os.path.exists(paths["save_data_folder"]):
         os.mkdir(paths["save_data_folder"])
-    for type_eval in prm["RL"]["type_eval"]:
-        algo_dir = paths["save_data_folder"] / f"algo{type_eval}"
+    for evaluation_method in prm["RL"]["evaluation_methods"]:
+        algo_dir = paths["save_data_folder"] / f"algo{evaluation_method}"
         if not os.path.exists(algo_dir):
             os.mkdir(algo_dir)
         task_dir = algo_dir / "task"
@@ -114,7 +114,7 @@ def _save_reliability(prm, record):
             if not os.path.exists(train_dir):
                 os.mkdir(train_dir)
             save_dir = train_dir / "mean_eval_rewards"
-            np.save(save_dir, record.mean_eval_rewards[repeat][type_eval])
+            np.save(save_dir, record.mean_eval_rewards[repeat][evaluation_method])
 
 
 def _clean_up(prm, no_run):
@@ -135,6 +135,7 @@ def _clean_up(prm, no_run):
 
 
 def add_prm_save_list(val, dict_, key):
+    """Save all int/float/bool items."""
     if isinstance(val, list):
         dict_[key] = []
         for item in val:
@@ -145,6 +146,7 @@ def add_prm_save_list(val, dict_, key):
 
 
 def get_prm_save_RL(prm_save, prm):
+    """Add all int/float/bool items in prm["RL"] to dict to save."""
     prm_save["RL"] = {}
     for e, val in prm["RL"].items():
         prm_save["RL"] = add_prm_save_list(val, prm_save["RL"], e)

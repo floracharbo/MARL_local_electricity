@@ -31,32 +31,35 @@ def _get_mean_rewards_from_record(prm, record):
 
 def _eval_entries_plot_colors(prm):
     rl = prm["RL"]
-    eval_entries = rl['type_eval']
+    evaluation_methods = rl['evaluation_methods']
     if prm['ntw']['n'] == 1:
-        eval_entries = [e for e in eval_entries
-                        if distr_learning(e) == 'd'
-                        or e in ['baseline', 'opt']]
-        if len([e for e in eval_entries if len(e.split('_')) > 1]) == 0:
-            eval_entries = [e for e in rl['type_eval']
-                            if distr_learning(e) == 'c'
-                            or e in ['baseline', 'opt']]
+        evaluation_methods = [
+            e for e in evaluation_methods
+            if distr_learning(e) == 'd'
+            or e in ['baseline', 'opt']]
+        if len([e for e in evaluation_methods if len(e.split('_')) > 1]) == 0:
+            evaluation_methods = [
+                e for e in rl['evaluation_methods']
+                if distr_learning(e) == 'c'
+                or e in ['baseline', 'opt']
+            ]
 
     prm["save"]["eval_entries_plot"] = \
-        [e for e in eval_entries if e != 'baseline'] \
-        + ['baseline'] if 'baseline' in eval_entries else eval_entries
-    type_plot = {}
-    for e in eval_entries:
-        type_plot[e] = '-'
+        [e for e in evaluation_methods if e != 'baseline'] \
+        + ['baseline'] if 'baseline' in evaluation_methods else evaluation_methods
+    methods_to_plot = {}
+    for e in evaluation_methods:
+        methods_to_plot[e] = '-'
     eval_entries_distr = [
-        e for e in eval_entries
+        e for e in evaluation_methods
         if len(e.split('_')) > 1 and distr_learning(e) == 'd'
     ]
     eval_entries_centr = [
-        e for e in eval_entries
+        e for e in evaluation_methods
         if len(e.split('_')) > 1 and distr_learning(e) == 'c'
     ]
     other_eval_entries = [
-        e for e in eval_entries if len(e.split("_")) == 1
+        e for e in evaluation_methods if len(e.split("_")) == 1
     ]
 
     prm["save"]["eval_entries_plot_indiv"] = [
@@ -84,20 +87,20 @@ def initialise_variables(prm, spaces, record):
     for space in ['action_state_space_0', 'state_space_0']:
         rl[space] = initialise_dict(range(rl['n_repeats']))
 
-    rl['eval_rewards'] = record.eval_rewards  # [repeat][t][epoch]
+    rl['eval_rewards'] = record.eval_rewards  # [repeat][method][epoch]
     prm["save"]["n_window"] = int(
         max(min(100, rl['n_all_epochs'] / 10), 2)
     )
     spaces.new_state_space(rl['state_space'])
     rl["q_tables"], rl["counters"] = record.q_tables, record.counter
-    if rl["type_env"] == "discrete":
+    if rl["evaluation_methods_env"] == "discrete":
         rl["possible_states"] = record.possible_states \
             if record.possible_states > 0 else 1
     else:
         rl["possible_states"] = None
 
-    if rl['type_learning'] == 'q_learning':
-        if type(rl["q_tables"][0]) is list:
+    if rl['evaluation_methods_learning'] == 'q_learning':
+        if isinstance(rl["q_tables"][0], list):
             if len(rl["counters"][0]) > 0:
                 rl["q_entries"] = list(rl["counters"][0][0].keys())
                 record.save_qtables = True

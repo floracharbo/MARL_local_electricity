@@ -177,7 +177,7 @@ def test_all(mocker):
     run_mode = 1
 
     mocker.patch(
-        "simulations.data_manager.Data_manager.find_feasible_data",
+        "simulations.data_manager.DataManager.find_feasible_data",
         side_effect=patch_find_feasible_data,
         autospec=True
     )

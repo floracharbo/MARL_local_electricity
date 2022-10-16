@@ -6,18 +6,18 @@ import torch as th
 from post_analysis.plotting.plotting_utils import title_and_save
 
 
-def _plot_eval_action_type_repeat(actions_, prm, type_eval, labels, i_action, repeat):
+def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_action, repeat):
     fig = plt.figure()
     for epoch in range(prm["RL"]["n_epochs"]):
         if actions_[epoch] is None:
-            if type_eval != 'opt':
-                print(f"None in {type_eval}")
+            if evaluation_method != 'opt':
+                print(f"None in {evaluation_method}")
             continue
         for step in range(len(actions_[epoch])):
             for home in range(len(actions_[epoch][step])):
                 if actions_[epoch][step][home][i_action] is None:
-                    if type_eval != 'opt':
-                        print(f"None in {type_eval}")
+                    if evaluation_method != 'opt':
+                        print(f"None in {evaluation_method}")
                     continue
                 plt.plot(
                     epoch,
@@ -26,7 +26,7 @@ def _plot_eval_action_type_repeat(actions_, prm, type_eval, labels, i_action, re
                 )
     plt.ylabel(labels[i_action])
     plt.xlabel("Epoch")
-    title = f"actions {type_eval} labels[i_action] {repeat}"
+    title = f"actions {evaluation_method} labels[i_action] {repeat}"
     title_and_save(title, fig, prm)
 
 
@@ -40,16 +40,16 @@ def plot_eval_action(record, prm):
     else:
         labels = prm["RL"]["action_labels_disaggregate"]
 
-    for type_eval in prm["RL"]["type_eval"]:
-        if type_eval == "baseline" \
+    for evaluation_method in prm["RL"]["evaluation_methods"]:
+        if evaluation_method == "baseline" \
                 or any(len(actions[repeat]) == 0
                        for repeat in range(prm["RL"]["n_repeats"])):
             continue
         for repeat in range(prm["RL"]["n_repeats"]):
-            actions_ = actions[repeat][type_eval]
+            actions_ = actions[repeat][evaluation_method]
             for i_action in range(prm['RL']['dim_actions']):
                 _plot_eval_action_type_repeat(
-                    actions_, prm, type_eval, labels, i_action, repeat
+                    actions_, prm, evaluation_method, labels, i_action, repeat
                 )
 
 
@@ -57,20 +57,20 @@ def check_model_changes(prm):
     if prm["RL"]["type_learning"] == "q_learning":
         return
     networks = [
-        t for t in prm["RL"]["type_eval"]
-        if t not in ["baseline", "opt", "random"]
+        method for method in prm["RL"]["evaluation_methods"]
+        if method not in ["baseline", "opt", "random"]
     ]
-    for t in networks:
+    for method in networks:
         folders = [
             folder for folder in os.listdir(prm["paths"]["record_folder"])
-            if folder[0:len(f"models_{t}")] == f"models_{t}"
+            if folder[0:len(f"models_{method}")] == f"models_{method}"
         ]
         if len(folders) > 0:
             nos = [int(folder.split("_")[-1]) for folder in folders]
             nos.sort()
             agents, mixers = [], []
             for no in nos:
-                path = prm["paths"]["record_folder"] / f"models_{t}_{no}"
+                path = prm["paths"]["record_folder"] / f"models_{method}_{no}"
                 agents.append(th.load(path / "agent.th"))
                 mixers.append(th.load(path / "mixer.th"))
 

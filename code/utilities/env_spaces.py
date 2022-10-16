@@ -1,9 +1,11 @@
 """This file containts the EnvSpaces class."""
 
 from datetime import timedelta
+
 import numpy as np
 import pandas as pd
 import torch as th
+
 
 def _actions_to_unit_box(actions, rl):
     if isinstance(actions, np.ndarray):
@@ -77,7 +79,7 @@ class EnvSpaces():
         self.current_date0 = env.prm["syst"]["current_date0"]
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["bat"]["c_max"]
-        self.type_eval = env.prm["RL"]["type_eval"]
+        self.evaluation_method = env.prm["RL"]["evaluation_methods"]
         prm = env.prm
         self._get_space_info(env)
         self._init_factors_profiles_parameters(env, prm)
@@ -196,7 +198,7 @@ class EnvSpaces():
                     0, self.n[space] - 1, num=self.n[space])
                 # initialise global multipliers for going to agent
                 # states and actions to global states and actions
-                if any(t[-2] == 'C' for t in self.type_eval):
+                if any(method[-2] == 'C' for method in self.evaluation_method):
                     self.global_multipliers[space] = \
                         granularity_to_multipliers(
                             [self.n[space] for _ in range(self.n_homes)])
@@ -342,16 +344,16 @@ class EnvSpaces():
 
         return index
 
-    def get_global_ind(self, current_state, state, action, done, t):
+    def get_global_ind(self, current_state, state, action, done, method):
         """Given state/action values list, get global space index."""
         global_ind = {}
         for label, type_ind, x in zip(["state", "next_state", "action"],
                                       ["state", "state", "action"],
                                       [current_state, state, action]):
-            if t != "tryopt" and not (label == "next_state" and done):
+            if method != "tryopt" and not (label == "next_state" and done):
                 ind_x = self.get_space_indexes(
                     done=False, all_vals=x, type_=type_ind)
-                if t[-2] == 'C':
+                if method[-2] == 'C':
                     global_ind[label] = [
                         self.indiv_to_global_index(
                             type_ind,
@@ -407,7 +409,7 @@ class EnvSpaces():
                          / n_bins * i
                          for i in range(n_bins + 1)])
                 else:
-                    if type(self.maxval[typev][s]) is list:
+                    if isinstance(self.maxval[typev][s], list):
                         brackets[typev].append(
                             [[self.minval[typev][s]
                               + (self.maxval[typev][s][home]
@@ -428,7 +430,7 @@ class EnvSpaces():
         action = step_vals_i["action"]
         if (
                 self.type_env == "discrete"
-                and any(t[-2] == 'C' for t in self.type_eval)
+                and any(method[-2] == 'C' for method in self.evaluation_method)
         ):
             ind_state = self.get_space_indexes(
                 all_vals=step_vals_i["state"])
@@ -451,7 +453,6 @@ class EnvSpaces():
             step_vals_i["ind_global_action"] = None
 
         return step_vals_i
-
 
     def opt_step_to_state(
             self,
@@ -489,7 +490,7 @@ class EnvSpaces():
             for descriptor in self.descriptors["state"]:
                 if descriptor in state_vals:
                     val = state_vals[descriptor][home] \
-                        if type(state_vals[descriptor]) is list \
+                        if isinstance(state_vals[descriptor], list) \
                         else state_vals[descriptor]
                 elif descriptor in self.state_funcs:
                     inputs = i_step, res, home, date, prm
@@ -534,8 +535,8 @@ class EnvSpaces():
     def _get_dT_next(self, inputs):
         i_step, _, home, _, prm = inputs
         T_req = prm["heat"]["T_req"][home]
-        t_next = [t for t in range(i_step + 1, self.N)
-                  if T_req[t] != T_req[i_step]]
+        t_next = [time for time in range(i_step + 1, self.N)
+                  if T_req[time] != T_req[i_step]]
         if not t_next:
             val = 0
         else:
@@ -569,8 +570,9 @@ class EnvSpaces():
     def _get_grdC_level(self, inputs):
         i_step = inputs[0]
         prm = inputs[-1]
-        costs = prm["grd"]["Call"][self.i0_costs:
-                                        self.i0_costs + self.N + 1]
+        costs = prm["grd"]["Call"][
+            self.i0_costs: self.i0_costs + self.N + 1
+        ]
         val = (costs[i_step] - min(costs)) \
             / (max(costs) - min(costs))
 
