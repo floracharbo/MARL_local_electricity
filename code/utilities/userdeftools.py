@@ -134,29 +134,6 @@ def set_seeds_rdn(seed):
     np.random.seed(seed), random.seed(seed)
     th.manual_seed(seed)
 
-
-def granularity_to_multipliers(granularity):
-    """
-    Get multipliers for each indicator index to get unique number.
-
-    Given the granularity of a list of indicators;
-    by how much to multiply each of the indexes
-    to get a unique integer identifier.
-    """
-    # check that i am not going to encounter
-    # RuntimeWarning: overflow encountered in long scalars
-    # granular spaces should only be used if their size is manageable
-    for i in range(1, len(granularity)):
-        assert np.prod(granularity[-i:]) < 1e9, \
-            "the global space is too large for granular representation"
-    multipliers = []
-    for i in range(len(granularity) - 1):
-        multipliers.append(np.prod(granularity[i + 1:]))
-    multipliers.append(1)
-
-    return multipliers
-
-
 def data_source(q):
     return q.split('_')[0]
 
@@ -167,26 +144,3 @@ def reward_type(q):
 
 def distr_learning(q):
     return q.split('_')[2]
-
-
-def _actions_to_unit_box(actions, rl):
-    if isinstance(actions, np.ndarray):
-        return rl["actions2unit_coef_numpy"] * actions \
-            + rl["actions_min_numpy"]
-    elif actions.is_cuda:
-        return rl["actions2unit_coef"] * actions + rl["actions_min"]
-    else:
-        return rl["actions2unit_coef_cpu"] * actions \
-            + rl["actions_min_cpu"]
-
-
-def _actions_from_unit_box(actions, rl):
-    if isinstance(actions, np.ndarray):
-        return th.div((actions - rl["actions_min_numpy"]),
-                      rl["actions2unit_coef_numpy"])
-    elif actions.is_cuda:
-        return th.div((actions - rl["actions_min"]),
-                      rl["actions2unit_coef"])
-    else:
-        return th.div((actions - rl["actions_min_cpu"]),
-                      rl["actions2unit_coef_cpu"])

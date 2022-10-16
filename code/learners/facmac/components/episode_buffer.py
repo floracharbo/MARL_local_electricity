@@ -442,7 +442,6 @@ class CompressibleEpisodeBatch(EpisodeBatch):
     def __init__(self, scheme, groups, batch_size, max_seq_length,
                  data, preprocess, device, out_device,
                  chunk_size=10, algo="zstd"):
-
         self.out_device = out_device
         self.chunk_size = chunk_size
         self.algo = algo

@@ -355,7 +355,7 @@ class Heat:
                 self.tot_E.append(self.E_flex[home] + self.E_heat_min[home])
         else:
             # if flexible energy consumption was defined through
-            # flexible_heat_action in actions_to_env_vars action_manager
+            # flexible_heat_action in actions_to_env_vars action_translator
             self.E_flex = E_flex
             self.tot_E = [flex + min for flex, min in
                           zip(self.E_flex, self.E_heat_min)]

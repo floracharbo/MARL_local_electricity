@@ -10,7 +10,7 @@ from typing import Tuple
 import numpy as np
 import tensorflow as tf
 import torch as th
-from utilities.userdeftools import granularity_to_multipliers
+from utilities.env_spaces import granularity_to_multipliers
 
 
 class ActionSelector:
@@ -323,3 +323,26 @@ class ActionSelector:
         actions = None
 
         return actions, ind_actions
+
+
+    def set_eps_greedy_vars(self, rl, epoch, evaluation):
+        # if eps_greedy is true we are adding random action selection
+        eps_greedy = False if (
+            evaluation and rl["eval_deterministic"] and epoch > 0) else True
+        if eps_greedy and rl["type_learning"] in ["DDPG", "DQN", "DDQN"] \
+                and rl[rl["type_learning"]]["rdn_eps_greedy"]:
+            # DDPG with random action when exploring,
+            # not just the best with added noise
+            rdn_eps_greedy = True
+            eps_greedy = False
+            rdn_eps_greedy_indiv = False
+        elif eps_greedy and rl["type_learning"] in ["DDPG", "DQN", "DDQN"] \
+                and self.rl[rl["type_learning"]]["rdn_eps_greedy_indiv"]:
+            rdn_eps_greedy = False
+            rdn_eps_greedy_indiv = True
+            eps_greedy = False
+        else:
+            rdn_eps_greedy = False
+            rdn_eps_greedy_indiv = False
+
+        return eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv

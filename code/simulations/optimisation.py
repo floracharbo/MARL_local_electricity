@@ -18,8 +18,8 @@ import picos as pic
 from utilities.userdeftools import comb
 
 
-class Solver():
-    """The Solver manages convex optimisations."""
+class Optimiser():
+    """The Optimiser object manages convex optimisations."""
 
     def __init__(self, prm):
         """Initialise solver object for doing optimisations."""
@@ -27,6 +27,7 @@ class Solver():
         self.n_homes = prm["ntw"]["n"]
         self.save = prm["save"]
         self.paths = prm["paths"]
+
 
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""

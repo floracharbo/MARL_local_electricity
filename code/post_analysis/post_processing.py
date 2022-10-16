@@ -15,7 +15,7 @@ import time  # to record time it takes to run simulations
 from pathlib import Path
 
 import numpy as np
-from post_analysis.plotting import plotting
+from post_analysis.plotting.plotting import plotting
 from post_analysis.print_results import print_results
 from utilities.userdeftools import distr_learning
 

@@ -26,11 +26,12 @@ import traceback
 from typing import List, Optional, Tuple
 
 import numpy as np
-from simulations.problem import Solver
+from simulations.optimisation import Optimiser
 from utilities.userdeftools import set_seeds_rdn
 
 
 def format_ntw(ntw, loads, syst, bat, batch, passive_ext):
+    """Format network parameters in preparation for optimisation."""
     # Willingness to delay (WTD)
     WTD = np.zeros((loads['n_types'], syst['N']), dtype=int)
     if loads['flextype'] == 1:
@@ -74,7 +75,7 @@ class Data_manager():
         """Add relevant information to the properties of the object."""
         self.env = env
         self.prm = prm
-        self.solver = Solver(prm)
+        self.optimiser = Optimiser(prm)
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
@@ -179,7 +180,7 @@ class Data_manager():
 
         if all(data_feasibles) and opt_needed:
             try:
-                res = self.solver.solve(self.prm)
+                res = self.optimiser.solve(self.prm)
             except Exception as ex:  # if infeasible, make new data
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())
@@ -227,10 +228,10 @@ class Data_manager():
         # boolean: whether optimisation problem is feasible;
         # start by assuming it is not
         data_feasible = 0
-        it = -1
-        while not data_feasible and it < 100:
+        iteration = -1
+        while not data_feasible and iteration < 100:
             # try solving problem else making new data until problem solved
-            it += 1
+            iteration += 1
             feasibility_checked = self.get_seed(seed_ind)
             set_seeds_rdn(self.seed[self.passive_ext])
             mus_opt = None
@@ -359,12 +360,12 @@ class Data_manager():
 
     def _load_res(self, labels: list = ['factors', 'clusters']) -> List[dict]:
         """Load pre-saved day data."""
-        x = [np.load(self.paths['res_path']
+        files = [np.load(self.paths['res_path']
                      / f"{label}{self.file_id()}",
                      allow_pickle=True).item()
              for label in labels]
 
-        return x
+        return files
 
     def _env_make_data(
             self,
@@ -461,3 +462,20 @@ class Data_manager():
         heat['T_out'] = self.env.heat.T_out
 
         return feasible
+
+    def update_flexibility_opt(self, batchflex_opt, res, i_step):
+        n_homes = len(res["E_heat"])
+        cons_flex_opt = \
+            [res["totcons"][home][i_step] - batchflex_opt[home][i_step][0]
+             - res["E_heat"][home][i_step] for home in range(n_homes)]
+        inputs_update_flex = \
+            [i_step, batchflex_opt, self.prm["loads"]["max_delay"],
+             n_homes]
+        new_batch_flex = self.env.update_flex(
+            cons_flex_opt, opts=inputs_update_flex)
+        for home in range(n_homes):
+            batchflex_opt[home][i_step: i_step + 2] = new_batch_flex[home]
+
+        assert batchflex_opt is not None, "batchflex_opt is None"
+
+        return batchflex_opt

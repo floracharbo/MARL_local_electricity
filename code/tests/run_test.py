@@ -75,7 +75,7 @@ def patch_find_feasible_data(
 def patch_update_date(self, i0_costs, date0=None):
     self.i0_costs = 12 * 24
     self.date0 = self.prm['syst']['date0'] + timedelta(days=12)
-    self.action_manager.date0 = self.date0
+    self.action_translator.date0 = self.date0
     self.date_end = self.date0 + timedelta(hours=self.N)
     self.bat.date0 = self.date0
     self.bat.date_end = self.date_end

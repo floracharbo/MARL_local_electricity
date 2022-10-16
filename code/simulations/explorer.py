@@ -68,13 +68,6 @@ class Explorer():
         self._init_i0_costs()
 
         self.paths = prm["paths"]
-        self.state_funcs = {
-            "store0": self._get_store,
-            "grdC_level": self._get_grdC_level,
-            "dT_next": self._get_dT_next,
-            "EV_tau": self._get_EV_tau,
-            "bat_dem_agg": self._get_bat_dem_agg
-        }
 
     def _init_i0_costs(self):
         self.i0_costs = 0
@@ -238,7 +231,7 @@ class Explorer():
         # loop through steps until either end of sequence
         # or one step if infeasible
         eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv \
-            = self._set_eps_greedy_vars(self.rl, epoch, evaluation)
+            = self.action_selector.set_eps_greedy_vars(self.rl, epoch, evaluation)
 
         while not done and sequence_feasible:
             current_state = state
@@ -334,7 +327,7 @@ class Explorer():
         t0 = type_actions_nonopt[0]
         initt0 = 0
         eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv \
-            = self._set_eps_greedy_vars(rl, epoch, evaluation)
+            = self.action_selector.set_eps_greedy_vars(rl, epoch, evaluation)
         # make data for optimisation
         # seed_mult = 1 # for initial passive consumers
         seed_ind = self.ind_seed_deterministic \
@@ -487,41 +480,13 @@ class Explorer():
             )
         }
 
-        step_vals_i["state"] = self._opt_step_to_state(
-            res, i_step, cluss, factors, loads_prev, loads_step, batch_avail_EV)
+        step_vals_i["state"] = self.env.spaces.opt_step_to_state(
+            self.prm, res, i_step, cluss, factors, loads_prev, loads_step, batch_avail_EV)
 
         self.env.heat.E_heat_min_max(i_step)
         self.env.heat.potential_E_flex()
 
         return step_vals_i, date, loads, loads_step, loads_prev, home_vars
-
-    def _get_ind_global_state_action(self, step_vals_i):
-        action = step_vals_i["action"]
-        if (
-                self.prm["RL"]["type_env"] == "discrete"
-                and any(t[-2] == 'C' for t in self.prm["RL"]["type_eval"])
-        ):
-            ind_state = self.env.spaces.get_space_indexes(
-                all_vals=step_vals_i["state"])
-            step_vals_i["ind_global_state"] = \
-                [self.env.spaces.indiv_to_global_index(
-                    "state", indexes=ind_state,
-                    multipliers=self.global_multipliers["state"])]
-            ind_action = self.env.spaces.get_space_indexes(
-                all_vals=action, type_="action")
-            for home in self.agents:
-                assert not (ind_action is None and action[home] is not None), \
-                    f"action[{home}] {step_vals_i['action'][home]} " \
-                    f"is none whereas action {action[home]} is not"
-            step_vals_i["ind_global_action"] = \
-                [self.env.spaces.indiv_to_global_index(
-                    "action", indexes=ind_action,
-                    multipliers=self.global_multipliers["action"])]
-        else:
-            step_vals_i["ind_global_state"] = None
-            step_vals_i["ind_global_action"] = None
-
-        return step_vals_i
 
     def _get_passive_vars(self, i_step):
         passive_vars = \
@@ -588,8 +553,8 @@ class Explorer():
             else:
                 step_vals[t]["ind_next_global_state"].append(None)
         if i_step == len(res["grid"]) - 1:
-            step_vals[t]["next_state"].append(self._opt_step_to_state(
-                res, i_step + 1, cluss, factors, loads_prev,
+            step_vals[t]["next_state"].append(self.env.spaces.opt_step_to_state(
+                self.prm, res, i_step + 1, cluss, factors, loads_prev,
                 loads_step, batch_avail_EV))
             if self.prm["RL"]["type_env"] == "discrete" and t[-2] == 'C':
                 ind_next_state = self.env.spaces.get_space_indexes(
@@ -715,22 +680,6 @@ class Explorer():
                     state, reward_diffs
                 )
 
-    def _update_flexibility_opt(self, batchflex_opt, res, i_step):
-        cons_flex_opt = \
-            [res["totcons"][home][i_step] - batchflex_opt[home][i_step][0]
-             - res["E_heat"][home][i_step] for home in self.agents]
-        inputs_update_flex = \
-            [i_step, batchflex_opt, self.prm["loads"]["max_delay"],
-             self.n_homes]
-        new_batch_flex = self.env.update_flex(
-            cons_flex_opt, opts=inputs_update_flex)
-        for home in self.agents:
-            batchflex_opt[home][i_step: i_step + 2] = new_batch_flex[home]
-
-        assert batchflex_opt is not None, "batchflex_opt is None"
-
-        return batchflex_opt
-
     def _test_total_rewards_match(self, evaluation, res, sum_RL_rewards):
         sum_res_rewards = (- (res["gc"] + res["sc"] + res["dc"]))
         if not (self.prm["RL"]["competitive"] and not evaluation):
@@ -767,11 +716,11 @@ class Explorer():
 
             # translate dp into action value
             step_vals_i["bool_flex"], step_vals_i["action"], error = \
-                env.action_manager.optimisation_to_rl_env_action(
+                env.action_translator.optimisation_to_rl_env_action(
                     i_step, date, res["netp"][:, i_step],
                     loads, home, res)
 
-            step_vals_i = self._get_ind_global_state_action(step_vals_i)
+            step_vals_i = self.env.spaces.get_ind_global_state_action(step_vals_i)
             feasible = not any(error)
 
             # determine rewards
@@ -810,7 +759,7 @@ class Explorer():
             )
 
             # update flexibility table
-            batchflex_opt = self._update_flexibility_opt(
+            batchflex_opt = self.data.update_flexibility_opt(
                 batchflex_opt, res, i_step
             )
 
@@ -887,7 +836,7 @@ class Explorer():
 
     def _fixed_flex_loads(self, i_step, batchflex_opt):
         """
-        Get fixed and flexible consumption equivalent to optimtisation results.
+        Get fixed and flexible consumption equivalent to optimisation results.
 
         Obtain total fixed and flexible loads for each agent
         for a given time step based on current optimisation results
@@ -979,154 +928,6 @@ class Explorer():
                                   for home in self.agents]
 
         return rewards_baseline, feasible
-
-    def _opt_step_to_state(self,
-                           res: dict,
-                           i_step: int,
-                           cluss: list,
-                           factors: list,
-                           loads_prev: list,
-                           loads_step: list,
-                           batch_avail_EV: np.ndarray
-                           ) -> list:
-        """
-        Get state descriptor values.
-
-        Get values corresponding to state descriptors specified,
-        based on optimisation results.
-        """
-        vals = []
-        date = self.prm["syst"]["current_date0"] + \
-            timedelta(hours=i_step)
-        for home in self.agents:
-            vals_home = []
-            state_vals = {
-                None: None,
-                "hour": i_step % 24,
-                "grdC": self.prm["grd"]["Call"][self.i0_costs + i_step],
-                "day_type": 0 if date.weekday() < 5 else 1,
-                "loads_cons_step": loads_step,
-                "loads_cons_prev": loads_prev,
-                "dT": self.prm["heat"]["T_req"][home][i_step]
-                - res["T_air"][home][min(i_step, len(res["T_air"][home]) - 1)]
-            }
-
-            for descriptor in self.descriptors["state"]:
-                if descriptor in state_vals:
-                    val = state_vals[descriptor][home] \
-                        if type(state_vals[descriptor]) is list \
-                        else state_vals[descriptor]
-                elif descriptor in self.state_funcs:
-                    inputs = i_step, res, home, date
-                    val = self.state_funcs[descriptor](inputs)
-
-                elif len(descriptor) > 9 \
-                        and (descriptor[-9:-5] == "fact"
-                             or descriptor[-9:-5] == "clus"):
-                    # scaling factors / profile clusters for the whole day
-                    day = (date - self.prm["syst"]["current_date0"]).days
-                    module = descriptor.split("_")[0]  # EV, loads or gen
-                    index_day = day - \
-                        1 if descriptor.split("_")[-1] == "prev" else day
-                    index_day = max(index_day, 0)
-                    data = factors if descriptor[-9:-5] == "fact" else cluss
-                    val = data[home][module][index_day]
-                else:  # select current or previous hour - step or prev
-                    i_step_val = i_step if descriptor[-4:] == "step" \
-                        else i_step - 1
-                    if i_step_val < 0:
-                        i_step_val = 0
-                    if len(descriptor) > 8 and descriptor[0:8] == "avail_EV":
-                        if i_step_val < len(batch_avail_EV[0]):
-                            val = batch_avail_EV[home][i_step_val]
-                        else:
-                            val = 1
-                    elif descriptor[0:3] == "gen":
-                        val = self.prm["ntw"]["gen"][home][i_step_val]
-                    else:  # remaining are EV_cons_step / prev
-                        val = self.prm["bat"]["batch_loads_EV"][home][i_step]
-                vals_home.append(val)
-            vals.append(vals_home)
-
-        assert np.shape(vals) \
-               == (self.n_homes, len(self.descriptors["state"])), \
-               f"np.shape(vals) {np.shape(vals)} " \
-               f"self.n_homes {self.n_homes} " \
-               f"len descriptors['state'] {len(self.descriptors['state'])}"
-
-        return vals
-
-    def _set_eps_greedy_vars(self, rl, epoch, evaluation):
-        # if eps_greedy is true we are adding random action selection
-        eps_greedy = False if (
-            evaluation and rl["eval_deterministic"] and epoch > 0) else True
-        if eps_greedy and rl["type_learning"] in ["DDPG", "DQN", "DDQN"] \
-                and rl[rl["type_learning"]]["rdn_eps_greedy"]:
-            # DDPG with random action when exploring,
-            # not just the best with added noise
-            rdn_eps_greedy = True
-            eps_greedy = False
-            rdn_eps_greedy_indiv = False
-        elif eps_greedy and rl["type_learning"] in ["DDPG", "DQN", "DDQN"] \
-                and self.rl[rl["type_learning"]]["rdn_eps_greedy_indiv"]:
-            rdn_eps_greedy = False
-            rdn_eps_greedy_indiv = True
-            eps_greedy = False
-        else:
-            rdn_eps_greedy = False
-            rdn_eps_greedy_indiv = False
-
-        return eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
-
-    def _get_dT_next(self, inputs):
-        i_step, _, home, _ = inputs
-        T_req = self.prm["heat"]["T_req"][home]
-        t_next = [t for t in range(i_step + 1, self.N)
-                  if T_req[t] != T_req[i_step]]
-        if not t_next:
-            val = 0
-        else:
-            val = (T_req[t_next[0]] - T_req[i_step]) \
-                / (t_next[0] - i_step)
-
-        return val
-
-    def _get_EV_tau(self, inputs):
-        i_step, res, home, date = inputs
-
-        loads_T, deltaT, _ = \
-            self.env.bat.next_trip_details(i_step, date, home)
-
-        if loads_T is not None and deltaT > 0:
-            val = ((loads_T - res["store"][home][i_step]) / deltaT)
-        else:
-            val = - 1
-
-        return val
-
-    def _get_store(self, inputs):
-        i_step, res, home, _ = inputs
-        if i_step < len(res["store"][home]):
-            val = res["store"][home][i_step]
-        else:
-            val = self.prm["bat"]["store0"][home]
-
-        return val
-
-    def _get_grdC_level(self, inputs):
-        i_step = inputs[0]
-        costs = self.prm["grd"]["Call"][self.i0_costs:
-                                        self.i0_costs + self.N + 1]
-        val = (costs[i_step] - min(costs)) \
-            / (max(costs) - min(costs))
-
-        return val
-
-    def _get_bat_dem_agg(self, inputs):
-        i_step, _, home, _ = inputs
-        val = self.prm["bat"]["bat_dem_agg"][home][i_step]
-
-        return val
 
     def types_that_learn_from_t(self, t):
         if t == 'opt':

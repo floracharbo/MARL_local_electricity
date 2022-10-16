@@ -15,7 +15,7 @@ from matplotlib import gridspec
 from utilities.userdeftools import initialise_dict
 
 
-class Action_manager:
+class Action_translator:
     """
     Manage computations of the RL flexibilitiy action variable.
 
@@ -28,8 +28,8 @@ class Action_manager:
     """
 
     def __init__(self, prm, env):
-        """Initialise action_manager object and add relevant properties."""
-        self.name = 'action manager'
+        """Initialise action_translator object and add relevant properties."""
+        self.name = 'action translator'
         self.entries = ['dp', 'ds', 'l_ch', 'l_dis', 'c']
         self.plotting = prm['RL']['plotting_action']
         self.server = prm['RL']['server']
@@ -84,11 +84,11 @@ class Action_manager:
         eta_dis, eta_ch = self.bat.eta_dis, self.bat.eta_ch
         homes = range(self.n_homes)
 
-        s_avail_dis, s_add_0, s_remove_0, C_avail = \
+        s_avail_dis, s_add_0, s_remove_0, potential_charge = \
             self.bat.initial_processing()
 
         self._check_input_types(
-            loads, home_vars, s_add_0, s_avail_dis, C_avail, s_remove_0
+            loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
         )
 
         # translate inputs into relevant quantities
@@ -124,7 +124,7 @@ class Action_manager:
         lnet_flex = tot_l_flex - g_to_flex
 
         # gen that can be put in store
-        g_to_store = np.minimum(gnet_flex, C_avail / eta_ch)
+        g_to_store = np.minimum(gnet_flex, potential_charge / eta_ch)
 
         # How much generation left after storing as much as possible
         gnet_store = gnet_flex - g_to_store
@@ -142,10 +142,10 @@ class Action_manager:
 
         d['ds']['C'] = s_add_0 - s_remove_0
         d['ds']['D'] = s_add_0 - s_remove_0
-        dsE = np.maximum(np.minimum(gnet_flex * eta_ch, C_avail), s_add_0)
+        dsE = np.maximum(np.minimum(gnet_flex * eta_ch, potential_charge), s_add_0)
         d['ds']['E'] = [min(dsE[home], - s_remove_0[home])
                         if s_remove_0[home] > 1e-2 else dsE[home] for home in homes]
-        d['ds']['F'] = np.where(s_remove_0 > 1e-2, - s_remove_0, C_avail)
+        d['ds']['F'] = np.where(s_remove_0 > 1e-2, - s_remove_0, potential_charge)
         d['dp']['A'] = - s_avail_dis * eta_dis - g_net_add0 \
             + s_add0_net / eta_ch + self.tot_l_fixed
 
@@ -163,7 +163,7 @@ class Action_manager:
         dpE_dsneg = lnet_fixed + lnet_flex - gnet_flex - eta_dis * s_remove_0
         d['dp']['E'] = np.where(dsE > 0, dpE_dspos, dpE_dsneg)
 
-        dpF_dspos = (C_avail - eta_ch * (g_to_add0 + g_to_store)) / eta_ch \
+        dpF_dspos = (potential_charge - eta_ch * (g_to_add0 + g_to_store)) / eta_ch \
             + lnet_fixed + lnet_flex - gnet_store
         dpF_dsneg = - s_remove_0 * eta_dis + lnet_fixed + lnet_flex - gnet_flex
         d['dp']['F'] = np.where(d['ds']['F'] >= 0, dpF_dspos, dpF_dsneg)
@@ -494,7 +494,7 @@ class Action_manager:
                         self.k[home][e].append([ad, bd])
 
     def _check_input_types(
-            self, loads, home_vars, s_add_0, s_avail_dis, C_avail, s_remove_0
+            self, loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
     ):
         assert isinstance(loads['l_fixed'], np.ndarray), \
             f"type(loads['l_fixed']) {type(loads['l_fixed'])}"
@@ -508,8 +508,8 @@ class Action_manager:
             f"type(s_add_0) = {type(s_add_0)}"
         assert isinstance(s_avail_dis, np.ndarray), \
             f"type(s_avail_dis) = {type(s_avail_dis)}"
-        assert isinstance(C_avail, np.ndarray), \
-            f"type(C_avail) = {type(C_avail)}"
+        assert isinstance(potential_charge, np.ndarray), \
+            f"type(potential_charge) = {type(potential_charge)}"
         assert isinstance(s_remove_0, np.ndarray), \
             f"type(s_remove_0) = {type(s_remove_0)}"
 
@@ -653,50 +653,50 @@ class Action_manager:
         return error
 
 # figs1
-# env.action_manager.mincharge=[7.5,7.5]
-# env.action_manager.maxcharge=[75,75]
-# env.action_manager.initial_processing(
+# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.maxcharge=[75,75]
+# env.action_translator.initial_processing(
 # [45,45], [10, 10], [10,10], [1,1], [5,5],[20, 20],[5, 5],[0, 1])
-# env.action_manager._plot_graph_actions(True, 'mu_smallgen')
+# env.action_translator._plot_graph_actions(True, 'mu_smallgen')
 
-# env.action_manager.mincharge=[7.5,7.5]
-# env.action_manager.maxcharge=[30,30]
-# env.action_manager.store0=[37.5,37.5]
-# env.action_manager.initial_processing(
+# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.maxcharge=[30,30]
+# env.action_translator.store0=[37.5,37.5]
+# env.action_translator.initial_processing(
 # [20,20], [10, 10], [15,15], [1,1], [0,0],[10, 10],[0, 0],[0, 1])
-# env.action_manager._plot_graph_actions(True, 'mu_midgen')
+# env.action_translator._plot_graph_actions(True, 'mu_midgen')
 
-# env.action_manager.mincharge=[7.5,7.5]
-# env.action_manager.maxcharge=[75,75]
-# env.action_manager.store0=[37.5,37.5]
-# env.action_manager.initial_processing(
+# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.maxcharge=[75,75]
+# env.action_translator.store0=[37.5,37.5]
+# env.action_translator.initial_processing(
 # [20,20], [10, 10], [30,30], [1,1], [0,0],[10, 10],[0, 0],[0, 1])
-# env.action_manager._plot_graph_actions(True, 'mu_largegen')
+# env.action_translator._plot_graph_actions(True, 'mu_largegen')
 
 # figs2
 # def initial_processing(self, store0, l_flex, gen0,
 # avail_EV, E_flex, l_fixed, E_heat_min, homes):
 
-# env.action_manager.mincharge=[7.5,7.5]
-# env.action_manager.maxcharge=[75,75]
-# env.action_manager.initial_processing(
+# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.maxcharge=[75,75]
+# env.action_translator.initial_processing(
 # [35,35], [20, 20], [5,5], [1,1], [0,0],[20, 20],[0, 0],[0, 1])
-# env.action_manager._plot_graph_actions(True, 'mu_smallgen')
+# env.action_translator._plot_graph_actions(True, 'mu_smallgen')
 
-# env.action_manager.mincharge=[7.5,7.5]
-# env.action_manager.maxcharge=[75,75]
-# env.action_manager.initial_processing(
+# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.maxcharge=[75,75]
+# env.action_translator.initial_processing(
 # [35,35], [20, 20], [5,5], [1,1], [0,0],[20, 20],[0, 0],[0, 1])
-# env.action_manager._plot_graph_actions(True, 'mu_legend', legend=True)
+# env.action_translator._plot_graph_actions(True, 'mu_legend', legend=True)
 
-# env.action_manager.mincharge=[7.5,7.5]
-# env.action_manager.maxcharge=[75,75]
-# env.action_manager.initial_processing(
+# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.maxcharge=[75,75]
+# env.action_translator.initial_processing(
 # [35,35], [20, 20], [30,30], [1,1], [0,0],[20, 20],[0, 0],[0, 1])
-# env.action_manager._plot_graph_actions(True, 'mu_midgen')
+# env.action_translator._plot_graph_actions(True, 'mu_midgen')
 
-# env.action_manager.mincharge=[7.5,7.5]
-# env.action_manager.maxcharge=[75,75]
-# env.action_manager.initial_processing(
+# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.maxcharge=[75,75]
+# env.action_translator.initial_processing(
 # [35,35], [20, 20], [50,50], [1,1], [0,0],[20, 20],[0, 0],[0, 1])
-# env.action_manager._plot_graph_actions(True, 'mu_largegen')
+# env.action_translator._plot_graph_actions(True, 'mu_largegen')

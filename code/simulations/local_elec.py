@@ -17,7 +17,7 @@ from gym.utils import seeding
 from home_components.battery import Battery
 from home_components.heat import Heat
 from scipy.stats import gamma
-from simulations.action_manager import Action_manager
+from simulations.action_translator import Action_translator
 from six import integer_types
 from utilities.env_spaces import EnvSpaces
 from utilities.userdeftools import initialise_dict
@@ -57,7 +57,8 @@ class LocalElecEnv():
         self._init_factors_clusters_profiles_parameters(prm)
 
         self.server = self.rl['server']
-        self.action_manager = Action_manager(prm, self)
+        self.action_translator = Action_translator(prm, self)
+        self.i0_costs = 0
         self.spaces = EnvSpaces(self)
         self.spaces.new_state_space(self.rl['state_space'])
         self.add_noise = 1 if self.rl['deterministic'] == 2 else 0
@@ -66,7 +67,6 @@ class LocalElecEnv():
             self.__dict__[e] = self.rl[e]
         self.opt_res_file = self.prm['paths']['opt_res_file']
         self.res_path = prm['paths']['res_path']
-        self.i0_costs = 0
         self.bat = Battery(prm)
         self.slid_day = False
 
@@ -135,8 +135,8 @@ class LocalElecEnv():
         # initialise heating and battery objects
         self.heat = Heat(self.prm, self.i0_costs, self.passive_ext, E_req_only)
         self.bat.reset(self.prm, self.passive_ext)
-        self.action_manager.heat = self.heat
-        self.action_manager.bat = self.bat
+        self.action_translator.heat = self.heat
+        self.action_translator.bat = self.bat
 
         # initialise demand ahead (2 days)
         self.batch = {}
@@ -217,7 +217,7 @@ class LocalElecEnv():
         self.n_homes = self.prm['ntw']['n' + self.passive_ext]
         self.agents = range(self.n_homes)
         for e in ['cap_p', 'store0_p', 'mincharge_p', 'n_homes']:
-            self.action_manager.__dict__[e] = self.__dict__[e]
+            self.action_translator.__dict__[e] = self.__dict__[e]
             self.spaces.__dict__[e] = self.__dict__[e]
         self.T_air = [self.prm['heat']['T_req' + self.passive_ext][home][0]
                       for home in self.agents]
@@ -227,7 +227,7 @@ class LocalElecEnv():
         self.i0_costs = i0_costs
         if date0 is not None:
             self.date0 = date0
-            self.action_manager.date0 = date0
+            self.action_translator.date0 = date0
             self.date_end = date0 + timedelta(hours=self.N)
             self.bat.date0 = date0
             self.bat.date_end = self.date_end
@@ -498,7 +498,7 @@ class LocalElecEnv():
         #  ----------- meet consumption + check constraints ---------------
         constraint_ok = True
         loads, home_vars, bool_penalty = \
-            self.action_manager.actions_to_env_vars(loads, home_vars, action, date, h)
+            self.action_translator.actions_to_env_vars(loads, home_vars, action, date, h)
 
         self.heat.next_T(update=True)
         self._check_constraints(
@@ -854,9 +854,9 @@ class LocalElecEnv():
                 print(f"self.bat.charge[{home}] = {self.bat.charge[home]}")
                 print(f"self.bat.discharge[{home}] = {self.bat.discharge[home]}")
                 print(f"home = {home}, loads = {loads}")
-                np.save('action_manager_d', self.action_manager.d)
-                np.save('action_manager_mu', self.action_manager.action_intervals)
-                np.save('action_manager_k', self.action_manager.k)
+                np.save('action_translator_d', self.action_translator.d)
+                np.save('action_translator_mu', self.action_translator.action_intervals)
+                np.save('action_translator_k', self.action_translator.k)
                 bool_penalty[home] = True
 
             # check tot cons

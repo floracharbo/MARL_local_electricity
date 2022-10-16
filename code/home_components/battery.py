@@ -39,7 +39,7 @@ class Battery:
     k_losses:
         Get charge/discharge loss slope parameters between 2 action points.
     check_errors_rl_actions_to_env_vars:
-        From action_manager.actions_to_env_vars, check battery constraints.
+        From action_translator.actions_to_env_vars, check battery constraints.
     """
 
     def __init__(self, prm, passive_ext=None):
@@ -453,12 +453,12 @@ class Battery:
         )
 
         # how much can I charge it by rel. to current level
-        C_avail = np.array(
+        potential_charge = np.array(
             [min(self.c_max, self.max_charge_t[home] - self.start_store[home])
              * self.avail_EV[home] for home in range(self.n_homes)]
         )
 
-        return s_avail_dis, s_add_0, s_remove_0, C_avail
+        return s_avail_dis, s_add_0, s_remove_0, potential_charge
 
     def k_losses(self, home, k, action_prev, action_next):
         """Get charge/discharge loss slope parameters between 2 action points."""
@@ -478,7 +478,7 @@ class Battery:
         return k
 
     def check_errors_apply_step(self, homes, bool_penalty, action, res):
-        """From action_manager.actions_to_env_vars, check battery constraints."""
+        """From action_translator.actions_to_env_vars, check battery constraints."""
         for home in homes:
             # bat
             if self.min_charge_t[home] - self.start_store[home] > self.c_max + 1e-2:

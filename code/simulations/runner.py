@@ -25,7 +25,7 @@ from learners.facmac.components.episode_buffer import (EpisodeBatch,
 from learners.facmac.controllers import REGISTRY as mac_REGISTRY
 from learners.facmac.learners import REGISTRY as le_REGISTRY
 from learners.Qlearning import TabularQLearner
-from post_analysis.plot_summary_no_agents import plot_results_vs_nag
+from post_analysis.plotting.plot_summary_no_agents import plot_results_vs_nag
 from post_analysis.post_processing import post_processing
 from simulations.explorer import Explorer
 from simulations.local_elec import LocalElecEnv

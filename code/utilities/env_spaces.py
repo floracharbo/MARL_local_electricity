@@ -1,8 +1,53 @@
 """This file containts the EnvSpaces class."""
 
+from datetime import timedelta
 import numpy as np
 import pandas as pd
-from utilities.userdeftools import granularity_to_multipliers
+import torch as th
+
+def _actions_to_unit_box(actions, rl):
+    if isinstance(actions, np.ndarray):
+        return rl["actions2unit_coef_numpy"] * actions \
+            + rl["actions_min_numpy"]
+    elif actions.is_cuda:
+        return rl["actions2unit_coef"] * actions + rl["actions_min"]
+    else:
+        return rl["actions2unit_coef_cpu"] * actions \
+            + rl["actions_min_cpu"]
+
+
+def _actions_from_unit_box(actions, rl):
+    if isinstance(actions, np.ndarray):
+        return th.div((actions - rl["actions_min_numpy"]),
+                      rl["actions2unit_coef_numpy"])
+    elif actions.is_cuda:
+        return th.div((actions - rl["actions_min"]),
+                      rl["actions2unit_coef"])
+    else:
+        return th.div((actions - rl["actions_min_cpu"]),
+                      rl["actions2unit_coef_cpu"])
+
+
+def granularity_to_multipliers(granularity):
+    """
+    Get multipliers for each indicator index to get unique number.
+
+    Given the granularity of a list of indicators;
+    by how much to multiply each of the indexes
+    to get a unique integer identifier.
+    """
+    # check that i am not going to encounter
+    # RuntimeWarning: overflow encountered in long scalars
+    # granular spaces should only be used if their size is manageable
+    for i in range(1, len(granularity)):
+        assert np.prod(granularity[-i:]) < 1e9, \
+            "the global space is too large for granular representation"
+    multipliers = []
+    for i in range(len(granularity) - 1):
+        multipliers.append(np.prod(granularity[i + 1:]))
+    multipliers.append(1)
+
+    return multipliers
 
 
 def compute_max_EV_cons_gen_values(env):
@@ -29,6 +74,7 @@ class EnvSpaces():
         """Initialise EnvSpaces class, add properties."""
         self.n_homes = env.n_homes
         self.n_actions = env.prm["RL"]["n_discrete_actions"]
+        self.current_date0 = env.prm["syst"]["current_date0"]
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["bat"]["c_max"]
         self.type_eval = env.prm["RL"]["type_eval"]
@@ -37,6 +83,14 @@ class EnvSpaces():
         self._init_factors_profiles_parameters(env, prm)
         for e in ["dim_actions", "aggregate_actions", "type_env"]:
             self.__dict__[e] = prm["RL"][e]
+        self.i0_costs = env.i0_costs
+        self.state_funcs = {
+            "store0": self._get_store,
+            "grdC_level": self._get_grdC_level,
+            "dT_next": self._get_dT_next,
+            "EV_tau": self._get_EV_tau,
+            "bat_dem_agg": self._get_bat_dem_agg
+        }
 
     def _init_factors_profiles_parameters(self, env, prm):
         self.list_factors = {}
@@ -369,3 +423,161 @@ class EnvSpaces():
                              for _ in range(self.n_homes)])
 
         return brackets
+
+    def get_ind_global_state_action(self, step_vals_i):
+        action = step_vals_i["action"]
+        if (
+                self.type_env == "discrete"
+                and any(t[-2] == 'C' for t in self.type_eval)
+        ):
+            ind_state = self.get_space_indexes(
+                all_vals=step_vals_i["state"])
+            step_vals_i["ind_global_state"] = \
+                [self.indiv_to_global_index(
+                    "state", indexes=ind_state,
+                    multipliers=self.global_multipliers["state"])]
+            ind_action = self.get_space_indexes(
+                all_vals=action, type_="action")
+            for home in range(self.n_homes):
+                assert not (ind_action is None and action[home] is not None), \
+                    f"action[{home}] {step_vals_i['action'][home]} " \
+                    f"is none whereas action {action[home]} is not"
+            step_vals_i["ind_global_action"] = \
+                [self.indiv_to_global_index(
+                    "action", indexes=ind_action,
+                    multipliers=self.global_multipliers["action"])]
+        else:
+            step_vals_i["ind_global_state"] = None
+            step_vals_i["ind_global_action"] = None
+
+        return step_vals_i
+
+
+    def opt_step_to_state(
+            self,
+            prm: dict,
+            res: dict,
+            i_step: int,
+            cluss: list,
+            factors: list,
+            loads_prev: list,
+            loads_step: list,
+            batch_avail_EV: np.ndarray
+    ) -> list:
+        """
+        Get state descriptor values.
+
+        Get values corresponding to state descriptors specified,
+        based on optimisation results.
+        """
+        n_homes = len(res["T_air"])
+        vals = []
+        date = self.current_date0 + timedelta(hours=i_step)
+        for home in range(n_homes):
+            vals_home = []
+            state_vals = {
+                None: None,
+                "hour": i_step % 24,
+                "grdC": prm["grd"]["Call"][self.i0_costs + i_step],
+                "day_type": 0 if date.weekday() < 5 else 1,
+                "loads_cons_step": loads_step,
+                "loads_cons_prev": loads_prev,
+                "dT": prm["heat"]["T_req"][home][i_step]
+                - res["T_air"][home][min(i_step, len(res["T_air"][home]) - 1)]
+            }
+
+            for descriptor in self.descriptors["state"]:
+                if descriptor in state_vals:
+                    val = state_vals[descriptor][home] \
+                        if type(state_vals[descriptor]) is list \
+                        else state_vals[descriptor]
+                elif descriptor in self.state_funcs:
+                    inputs = i_step, res, home, date, prm
+                    val = self.state_funcs[descriptor](inputs)
+
+                elif len(descriptor) > 9 \
+                        and (descriptor[-9:-5] == "fact"
+                             or descriptor[-9:-5] == "clus"):
+                    # scaling factors / profile clusters for the whole day
+                    day = (date - prm["syst"]["current_date0"]).days
+                    module = descriptor.split("_")[0]  # EV, loads or gen
+                    index_day = day - \
+                        1 if descriptor.split("_")[-1] == "prev" else day
+                    index_day = max(index_day, 0)
+                    data = factors if descriptor[-9:-5] == "fact" else cluss
+                    val = data[home][module][index_day]
+                else:  # select current or previous hour - step or prev
+                    i_step_val = i_step if descriptor[-4:] == "step" \
+                        else i_step - 1
+                    if i_step_val < 0:
+                        i_step_val = 0
+                    if len(descriptor) > 8 and descriptor[0:8] == "avail_EV":
+                        if i_step_val < len(batch_avail_EV[0]):
+                            val = batch_avail_EV[home][i_step_val]
+                        else:
+                            val = 1
+                    elif descriptor[0:3] == "gen":
+                        val = prm["ntw"]["gen"][home][i_step_val]
+                    else:  # remaining are EV_cons_step / prev
+                        val = prm["bat"]["batch_loads_EV"][home][i_step]
+                vals_home.append(val)
+            vals.append(vals_home)
+
+        assert np.shape(vals) \
+               == (self.n_homes, len(self.descriptors["state"])), \
+               f"np.shape(vals) {np.shape(vals)} " \
+               f"self.n_homes {self.n_homes} " \
+               f"len descriptors['state'] {len(self.descriptors['state'])}"
+
+        return vals
+
+    def _get_dT_next(self, inputs):
+        i_step, _, home, _, prm = inputs
+        T_req = prm["heat"]["T_req"][home]
+        t_next = [t for t in range(i_step + 1, self.N)
+                  if T_req[t] != T_req[i_step]]
+        if not t_next:
+            val = 0
+        else:
+            val = (T_req[t_next[0]] - T_req[i_step]) \
+                / (t_next[0] - i_step)
+
+        return val
+
+    def _get_EV_tau(self, inputs):
+        i_step, res, home, date, _ = inputs
+
+        loads_T, deltaT, _ = \
+            self.env.bat.next_trip_details(i_step, date, home)
+
+        if loads_T is not None and deltaT > 0:
+            val = ((loads_T - res["store"][home][i_step]) / deltaT)
+        else:
+            val = - 1
+
+        return val
+
+    def _get_store(self, inputs):
+        i_step, res, home, _, prm = inputs
+        if i_step < len(res["store"][home]):
+            val = res["store"][home][i_step]
+        else:
+            val = prm["bat"]["store0"][home]
+
+        return val
+
+    def _get_grdC_level(self, inputs):
+        i_step = inputs[0]
+        prm = inputs[-1]
+        costs = prm["grd"]["Call"][self.i0_costs:
+                                        self.i0_costs + self.N + 1]
+        val = (costs[i_step] - min(costs)) \
+            / (max(costs) - min(costs))
+
+        return val
+
+    def _get_bat_dem_agg(self, inputs):
+        i_step, _, home, _, prm = inputs
+        val = prm["bat"]["bat_dem_agg"][home][i_step]
+
+        return val

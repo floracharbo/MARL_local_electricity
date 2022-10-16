@@ -7,8 +7,8 @@ author: Flora Charbonnier
 from typing import List
 
 import numpy as np
-from utilities.userdeftools import (data_source, granularity_to_multipliers,
-                                    reward_type)
+from utilities.userdeftools import (data_source, reward_type)
+from utilities.env_spaces import granularity_to_multipliers
 
 
 class LearningManager():

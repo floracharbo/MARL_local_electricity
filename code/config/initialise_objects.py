@@ -21,10 +21,10 @@ from config.input_data import input_params
 from gym import spaces
 from learners.facmac.components.transforms import OneHot
 from simulations.record import Record
-from utilities.userdeftools import (_actions_from_unit_box,
-                                    _actions_to_unit_box, distr_learning,
-                                    initialise_dict, reward_type, str_to_int)
-
+from utilities.userdeftools import (
+    distr_learning, initialise_dict, reward_type, str_to_int
+)
+from utilities.env_spaces import _actions_from_unit_box, _actions_to_unit_box
 
 def initialise_objects(
         prm: dict,
@@ -652,7 +652,7 @@ def _time_info(prm, initialise_all):
     syst["n_int_per_hr"] = int(syst["H"] / 24)
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
-
+    syst['current_date0'] = syst['date0']
     if initialise_all and paths is not None:
         syst["datetimes"] = \
             np.load(paths["open_inputs"] / paths["datetimes"],
