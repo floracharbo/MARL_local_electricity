@@ -7,8 +7,6 @@ import torch.distributions as tdist
 from gym import spaces
 from learners.facmac.utils.rl_utils import input_last_action
 
-from learners.facmac.utils.rl_utils import input_last_action
-
 from .basic_controller import BasicMAC
 
 
@@ -52,7 +50,7 @@ class CQMixMAC(BasicMAC):
                 else:
                     chosen_actions = th.from_numpy(
                         np.array([[action_space[i].sample()
-                                   for i in range(self.rl['n_agents'])]
+                                   for i in range(self.n_agents)]
                                   for _ in range(ep_batch[bs].batch_size)])
                     ).float().to(device=ep_batch.device)
 

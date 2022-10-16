@@ -16,61 +16,78 @@ from torch.optim import Adam, RMSprop
 
 
 class FACMACDiscreteLearner(Learner):
-    def __init__(self, mac, scheme, logger, args):
-        self.args = args
-        self.n_agents = args.n_agents
-        self.n_actions = args.n_actions
+    def __init__(self, mac, scheme, logger, rl):
+        self.__name__ = 'FACMACDiscreteLearner'
+        super().__init__(mac, rl, scheme)
+        self.rl = rl
         self.logger = logger
 
         self.mac = mac
         self.target_mac = copy.deepcopy(self.mac)
         self.agent_params = list(mac.parameters())
 
-        self.critic = FACMACDiscreteCritic(scheme, args)
+        self.critic = FACMACDiscreteCritic(scheme, rl)
         self.target_critic = copy.deepcopy(self.critic)
         self.critic_params = list(self.critic.parameters())
         self.mixer = None
-        if args.mixer is not None and self.args.n_agents > 1:
+        if rl['mixer'] is not None and self.n_agents > 1:
             # if just 1 agent do not mix anything
-            if args.mixer == "vdn":
+            if rl['mixer'] == "vdn":
                 self.mixer = VDNMixer()
-            elif args.mixer == "qmix":
-                self.mixer = QMixer(args)
-            elif args.mixer == "vdn-s":
-                self.mixer = VDNState(args)
-            elif args.mixer == "qmix-nonmonotonic":
-                self.mixer = QMixerNonmonotonic(args)
+            elif rl['mixer'] == "qmix":
+                self.mixer = QMixer(rl)
+            elif rl['mixer'] == "vdn-s":
+                self.mixer = VDNState(rl)
+            elif rl['mixer'] == "qmix-nonmonotonic":
+                self.mixer = QMixerNonmonotonic(rl)
             else:
-                raise ValueError("Mixer {} not recognised.".format(args.mixer))
+                raise ValueError("Mixer {} not recognised.".format(rl['mixer']))
             self.critic_params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 
-        optimizer = getattr(self.args, "optimizer", "rmsprop")
-        if optimizer == "rmsprop":
+        if rl["optimizer"] == "rmsprop":
             self.agent_optimiser = RMSprop(
-                params=self.agent_params, lr=args.lr,
-                alpha=args.optim_alpha, eps=args.optim_eps)
-        elif optimizer == "adam":
+                params=self.agent_params, lr=rl["lr"],
+                alpha=rl["optim_alpha"], eps=rl["optim_eps"])
+        elif rl["optimizer"] == "adam":
             self.agent_optimiser = Adam(
-                params=self.agent_params, lr=args.lr,
-                eps=getattr(args, "optimizer_epsilon", 10E-8))
+                params=self.agent_params, lr=rl["lr"],
+                eps=rl["optimizer_epsilon"])
         else:
-            raise Exception(f"unknown optimizer {optimizer}")
+            raise Exception(f"unknown optimizer {rl['optimizer']}")
 
-        if optimizer == "rmsprop":
+        if rl["optimizer"] == "rmsprop":
             self.critic_optimiser = RMSprop(
-                params=self.critic_params, lr=args.critic_lr,
-                alpha=args.optim_alpha, eps=args.optim_eps)
-        elif optimizer == "adam":
+                params=self.critic_params, lr=rl["critic_lr"],
+                alpha=rl["optim_alpha"], eps=rl["optim_eps"])
+        elif rl["optimizer"] == "adam":
             self.critic_optimiser = Adam(
-                params=self.critic_params, lr=args.critic_lr,
-                eps=getattr(args, "optimizer_epsilon", 10E-8))
+                params=self.critic_params, lr=rl["critic_lr"],
+                eps=rl["optimizer_epsilon"])
         else:
-            raise Exception(f"unknown optimizer {optimizer}")
+            raise Exception(f"unknown optimizer {rl['optimizer']}")
 
-        self.log_stats_t = -self.args.learner_log_interval - 1
+        self.log_stats_t = -rl["learner_log_interval"] - 1
         self.last_target_update_episode = 0
         self.critic_training_steps = 0
+
+    def _compute_critic_and_mixer_q_values_for_batch_states_actions(
+            self, batch, actions, critic, mixer, obs, state
+    ):
+        q_taken, _ = critic(obs, actions)
+        if self.mixer is not None:
+            if self.rl['mixer'] == "vdn":
+                q_taken = mixer(
+                    q_taken.view(-1, self.n_agents, 1),
+                    state
+                )
+            else:
+                q_taken = mixer(
+                    q_taken.view(batch.batch_size, -1, 1),
+                    state
+                )
+
+        return q_taken
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         # Get the relevant quantities
@@ -82,26 +99,14 @@ class FACMACDiscreteLearner(Learner):
         # Train the critic batched
         target_mac_out = self._get_target_actions_batch(batch, t_env)
 
-        q_taken, _ = self.critic(batch["obs"][:, :-1], actions[:, :-1])
-        if self.mixer is not None:
-            if self.args.mixer == "vdn":
-                q_taken = self.mixer(q_taken.view(-1, self.n_agents, 1),
-                                     batch["state"][:, :-1])
-            else:
-                q_taken = self.mixer(q_taken.view(batch.batch_size, -1, 1),
-                                     batch["state"][:, :-1])
-
-        target_vals, _ = self.target_critic(batch["obs"][:, :],
-                                            target_mac_out.detach())
-        if self.mixer is not None:
-            if self.args.mixer == "vdn":
-                target_vals = self.target_mixer(
-                    target_vals.view(-1, self.n_agents, 1),
-                    batch["state"][:, :])
-            else:
-                target_vals = self.target_mixer(
-                    target_vals.view(batch.batch_size, -1, 1),
-                    batch["state"][:, :])
+        q_taken = self._compute_critic_and_mixer_q_values_for_batch_states_actions(
+            batch, actions[:, :-1], self.critic, self.mixer,
+            batch["obs"][:, :-1], batch["state"][:, :-1]
+        )
+        target_vals = self._compute_critic_and_mixer_q_values_for_batch_states_actions(
+            batch, target_mac_out.detach(), self.target_critic, self.target_mixer,
+            batch["obs"][:, :], batch["state"][:, :]
+        )
 
         if self.mixer is not None:
             q_taken = q_taken.view(batch.batch_size, -1, 1)
@@ -112,13 +117,13 @@ class FACMACDiscreteLearner(Learner):
 
         targets = build_td_lambda_targets(
             batch["reward"], terminated, mask, target_vals,
-            self.n_agents, self.args.gamma, self.args.td_lambda)
+            self.n_agents, self.rl["gamma"], self.rl["td_lambda"])
         mask = mask[:, :-1]
 
         masked_td_error, loss = self.compute_grad_loss(q_taken, targets, mask)
 
         critic_grad_norm = th.nn.utils.clip_grad_norm_(
-            self.critic_params, self.args.grad_norm_clip)
+            self.critic_params, self.rl["grad_norm_clip"])
         self.critic_optimiser.step()
         self.critic_training_steps += 1
 
@@ -127,17 +132,10 @@ class FACMACDiscreteLearner(Learner):
         # as deterministic functions of independent
         # noise to compute the policy gradient
         # (one hot action input to the critic)
-        mac_out = []
-        self.mac.init_hidden(batch.batch_size)
-        for t in range(batch.max_seq_length - 1):
-            act_outs = self.mac.select_actions(
-                batch, t_ep=t, t_env=t_env, test_mode=False, explore=False)
-            mac_out.append(act_outs)
-        mac_out = th.stack(mac_out, dim=1)  # Concat over time
-        chosen_action_qvals, _ = self.critic(batch["obs"][:, :-1], mac_out)
+        chosen_action_qvals = self._compute_critic_chosen_actions_qvals(batch, t_env)
 
         if self.mixer is not None:
-            if self.args.mixer == "vdn":
+            if self.rl['mixer'] == "vdn":
                 chosen_action_qvals = self.mixer(
                     chosen_action_qvals.view(-1, self.n_agents, 1),
                     batch["state"][:, :-1])
@@ -155,20 +153,18 @@ class FACMACDiscreteLearner(Learner):
         self.agent_optimiser.zero_grad()
         pg_loss.backward()
         self.agent_optimiser.step()
-        target_update_mode = \
-            getattr(self.args, "target_update_mode", "hard")
-        if target_update_mode == "hard":
+        if self.rl["target_update_mode"] == "hard":
             if (self.critic_training_steps - self.last_target_update_episode) \
-                    / self.args.target_update_interval >= 1.0:
+                    / self.rl["target_update_interval"] >= 1.0:
                 self._update_targets()
                 self.last_target_update_episode = self.critic_training_steps
-        elif target_update_mode \
+        elif self.rl["target_update_mode"] \
                 in ["soft", "exponential_moving_average"]:
             self._update_targets_soft(
-                tau=getattr(self.args, "target_update_tau", 0.001)
+                tau=self.rl["target_update_tau"]
             )
         else:
-            raise Exception(f"unknown target update mode {target_update_mode}")
+            raise Exception(f"unknown target update mode {self.rl['target_update_tau']}")
 
         self._log_learning(
             t_env, loss, critic_grad_norm, mask, masked_td_error, targets
@@ -177,7 +173,7 @@ class FACMACDiscreteLearner(Learner):
     def _log_learning(
             self, t_env, loss, critic_grad_norm, mask, masked_td_error, targets
     ):
-        if t_env - self.log_stats_t >= self.args.learner_log_interval:
+        if t_env - self.log_stats_t >= self.rl["learner_log_interval"]:
             self.logger.log_stat("critic_loss", loss.item(), t_env)
             self.logger.log_stat("critic_grad_norm", critic_grad_norm, t_env)
             mask_elems = mask.sum().item()
@@ -187,6 +183,18 @@ class FACMACDiscreteLearner(Learner):
                 t_env)
             self.logger.log_stat("target_mean",
                                  (targets * mask).sum().item()
-                                 / (mask_elems * self.args.n_agents),
+                                 / (mask_elems * self.n_agents),
                                  t_env)
             self.log_stats_t = t_env
+
+    def _compute_critic_chosen_actions_qvals(self, batch, t_env):
+        mac_out = []
+        self.mac.init_hidden(batch.batch_size)
+        for t in range(batch.max_seq_length - 1):
+            act_outs = self.mac.select_actions(
+                batch, t_ep=t, t_env=t_env, test_mode=False, explore=False)
+            mac_out.append(act_outs)
+        mac_out = th.stack(mac_out, dim=1)  # Concat over time
+        chosen_action_qvals, _ = self.critic(batch["obs"][:, :-1], mac_out)
+
+        return chosen_action_qvals

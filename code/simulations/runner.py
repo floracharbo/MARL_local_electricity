@@ -15,7 +15,6 @@ from typing import Tuple
 
 import numpy as np
 import torch as th
-
 from config.initialise_objects import initialise_objects
 from config.input_data import get_settings_i, input_paths, load_existing_prm
 from learners.DDPG import Learner_DDPG
@@ -106,8 +105,8 @@ class Runner():
         elif self.rl['type_learning'] == 'DQN':
             for t in self.rl['type_Qs']:
                 if self.rl['distr_learning'] == 'decentralised':
-                    for a in range(self.n):
-                        self.learner[t][a].target_update()
+                    for home in range(self.n):
+                        self.learner[t][home].target_update()
                 else:
                     self.learner[t].target_update()
 
@@ -198,9 +197,9 @@ class Runner():
             self.record.save(end_of='repeat')
             repeat += 1
 
-        for p in ['P', '']:
-            if len(self.explorer.data.seeds[p]) > len(self.rl['seeds'][p]):
-                self.rl['seeds'][p] = self.explorer.seeds[p].copy()
+        for passive_ext in ['P', '']:
+            if len(self.explorer.data.seeds[passive_ext]) > len(self.rl['seeds'][passive_ext]):
+                self.rl['seeds'][passive_ext] = self.explorer.seeds[passive_ext].copy()
 
     def _initialise_buffer_learner_mac_facmac(self, t):
         if 'buffer' not in self.__dict__.keys():
@@ -238,19 +237,19 @@ class Runner():
         if self.rl['distr_learning'] == 'decentralised':
             if t in self.learner.keys():
                 # the learner as already been intialised; simply reset
-                for a in range(self.n):
-                    self.learner[t][a].reset()
+                for home in range(self.n):
+                    self.learner[t][home].reset()
             else:
                 if self.rl['type_learning'] == 'DDPG':
                     self.learner[t] = [Learner_DDPG(
-                        self.rl, t + f'_{a}') for a in range(self.n)]
+                        self.rl, t + f'_{home}') for home in range(self.n)]
                 elif self.rl['type_learning'] == 'DDQN':
                     self.learner[t] = [Agent_DDQN(
                         self.env, self.rl, t) for _ in range(self.n)]
                 else:
                     self.learner[t] = [Agent_DQN(
-                        self.rl, t + f'_{a}', t, self.prm['syst']['N'])
-                        for a in range(self.n)]
+                        self.rl, t + f'_{home}', t, self.prm['syst']['N'])
+                        for home in range(self.n)]
         else:
             if t in self.learner.keys():
                 # the learner as already been intialised;
@@ -410,8 +409,8 @@ class Runner():
             if self.rl['distr_learning'] == 'centralised':
                 self.learner[t].epsilon_update()
             elif self.rl['distr_learning'] == 'decentralised':
-                for a in range(self.n_agents):
-                    self.learner[t][a].epsilon_update()
+                for home in range(self.n_homes):
+                    self.learner[t][home].epsilon_update()
 
     def _check_convergence(self, repeat, epoch, converged):
         if not converged and \
@@ -430,9 +429,9 @@ class Runner():
                     self.learner[t].ActionStateModel.T * \
                     self.rl['T_decay_param']
             elif self.rl['distr_learning'] == 'decentralised':
-                for a in range(self.n):
-                    self.learner[t][a].ActionStateModel.T = \
-                        self.learner[t][a].ActionStateModel.T * \
+                for home in range(self.n):
+                    self.learner[t][home].ActionStateModel.T = \
+                        self.learner[t][home].ActionStateModel.T * \
                         self.rl['T_decay_param']
 
     def _check_if_opt_needed(self, epoch, evaluation=False):

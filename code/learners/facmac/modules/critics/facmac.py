@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from learners.facmac.modules.critics.critic import Critic
 
-from learners.facmac.modules.critics.critic import Critic
 
 class FACMACCritic(Critic):
     def __init__(self, scheme, rl):

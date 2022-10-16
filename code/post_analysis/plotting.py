@@ -259,13 +259,13 @@ def _plot_cum_rewards(
 
 def _plot_indoor_air_temp(
         axs, methods_to_plot, last,
-        title_ylabel_dict, prm, a, row=0,
+        title_ylabel_dict, prm, home, row=0,
         col=0, alpha=1, display_labels=True, lw=2
 ):
     T_air_a = {}
     ax = axs[row, col]
     for t in methods_to_plot:
-        T_air_a[t] = [last['T_air'][t][step][a]
+        T_air_a[t] = [last['T_air'][t][step][home]
                       for step in range(len(last['T_air'][t]))]
         label = t if display_labels else None
         ax.step(range(24), T_air_a[t], where='post', label=label,
@@ -316,9 +316,9 @@ def _plot_grid_price(
     ax2.set_ylim([ylim[0], ylim[1] * 1.15])
 
 
-def _get_bands_EV_availability(bEV, a):
+def _get_bands_EV_availability(bEV, home):
     bands_bEV = []
-    non_avail = [i for i in range(24) if bEV[a][i] == 0]
+    non_avail = [i for i in range(24) if bEV[home][i] == 0]
     if len(non_avail) > 0:
         current_band = [non_avail[0]]
         if len(non_avail) > 1:
@@ -333,9 +333,9 @@ def _get_bands_EV_availability(bEV, a):
     return bands_bEV
 
 
-def _plot_ev_loads_and_availability(axs, xs, lEV, a, bands_bEV):
+def _plot_ev_loads_and_availability(axs, xs, lEV, home, bands_bEV):
     ax = axs[2, 1]
-    ax.step(xs[0:24], lEV[a][0:24], color='k', where='post')
+    ax.step(xs[0:24], lEV[home][0:24], color='k', where='post')
     for band in bands_bEV:
         ax.axvspan(band[0], band[1], alpha=0.3, color='grey')
     ax.set_ylabel('EV load [kWh]')
@@ -377,14 +377,15 @@ def _plot_indiv_agent_res(
             _get_repeat_data(repeat, all_methods_to_plot, root)
 
         # plot EV availability + EV cons on same plot
-        lEV, bEV = [[last['batch'][a][e]
-                     for a in range(prm['ntw']['n'])]
+        lEV, bEV = [[last['batch'][home][e]
+                     for home in range(prm['ntw']['n'])]
                     for e in ['loads_EV', 'avail_EV']]
 
-        for a in range(min(prm['ntw']['n'],
-                           prm['save']['max_n_profiles_plot'])):
-            xs = range(len(lEV[a]))
-            bands_bEV = _get_bands_EV_availability(bEV, a)
+        for home in range(
+                min(prm['ntw']['n'], prm['save']['max_n_profiles_pmlot'])
+        ):
+            xs = range(len(lEV[home]))
+            bands_bEV = _get_bands_EV_availability(bEV, home)
 
             fig, axs = plt.subplots(4, 2, figsize=(13, 13))
 
@@ -395,7 +396,7 @@ def _plot_indiv_agent_res(
                 colors_non_methods=colors_non_methods, lw=lw_indiv)
 
             axs = _plot_ev_loads_and_availability(
-                axs, xs, lEV, a, bands_bEV
+                axs, xs, lEV, home, bands_bEV
             )
 
             # cum rewards
@@ -406,7 +407,7 @@ def _plot_indiv_agent_res(
             # indoor air temp
             _plot_indoor_air_temp(
                 axs, methods_to_plot, last,
-                title_ylabel_dict, prm, a,
+                title_ylabel_dict, prm, home,
                 row=1, col=1, lw=lw_indiv
             )
 
@@ -418,7 +419,7 @@ def _plot_indiv_agent_res(
                 for t in methods_to_plot:
                     xs = [-0.01] + list(range(24))
                     ys = last[e][t]
-                    ys = [ys[step][a] for step in range(len(ys))]
+                    ys = [ys[step][home] for step in range(len(ys))]
                     if e == 'action':
                         ax = _plot_indiv_agent_res_action(
                             prm, ys, xs, lw_indiv, linestyles, t, ax
@@ -426,9 +427,9 @@ def _plot_indiv_agent_res(
 
                     else:
                         if e == 'store' and t == 'opt':
-                            ys = ys + [prm['bat']['store0'][a]]
+                            ys = ys + [prm['bat']['store0'][home]]
                         elif e == 'store':
-                            ys = [prm['bat']['store0'][a]] + ys
+                            ys = [prm['bat']['store0'][home]] + ys
                         else:
                             ys = [0] + ys
                         ax.step(xs, ys, where='post', label=t,
@@ -439,7 +440,7 @@ def _plot_indiv_agent_res(
                 axs[3, c].set_xlabel('Time [h]')
 
             fig.tight_layout()
-            title = f'subplots example day repeat {repeat} a {a}'
+            title = f'subplots example day repeat {repeat} home {home}'
             title_display = 'subplots example day'
             subtitles = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
@@ -474,24 +475,24 @@ def _plot_all_agents_all_repeats_res(
             display_labels=False)
         for t in all_methods_to_plot:
             all_cum_rewards[t].append(cum_rewards_repeat[t])
-        for a in range(prm['ntw']['n']):
+        for home in range(prm['ntw']['n']):
             T_air_a = _plot_indoor_air_temp(
                 axs, methods_to_plot, last, title_ylabel_dict,
-                prm, a, row=1, col=1, alpha=alpha_not_indiv,
+                prm, home, row=1, col=1, alpha=alpha_not_indiv,
                 display_labels=False, lw=lw_all)
-            # returned is a dictionary per method of
+            # returned is home dictionary per method of
             # 24 h profie for that last epoch
             for t in methods_to_plot:
                 all_T_air[t].append(T_air_a[t])
 
         for r, c, e in zip(rows, columns, entries):
-            for a in range(prm['ntw']['n']):
+            for home in range(prm['ntw']['n']):
                 for t in methods_to_plot:
                     xs, ys = list(range(24)), last[e][t]
-                    ys = [ys[step][a] for step in range(len(ys))]
+                    ys = [ys[step][home] for step in range(len(ys))]
                     if e == 'store':
                         xs = [-0.01] + xs
-                        ys = [prm['bat']['store0'][a]] + ys
+                        ys = [prm['bat']['store0'][home]] + ys
                     axs[r, c].step(xs, ys, where='post',
                                    color=prm['save']['colorse'][t],
                                    lw=lw_all, alpha=alpha_not_indiv)
@@ -828,19 +829,19 @@ def _plot_unique_state_best_psi(
         possible_states, q, repeat
 ):
     for t in eval_entries_plot_indiv:
-        na = prm['ntw']['n'] if distr_learning(t) in ['d', 'Cd'] else 1
-        best_theta[t] = initialise_dict(range(na), type_obj='empty_dict')
-        for a in range(na):
-            best_theta[t][a] = np.zeros((possible_states,))
+        n_homes = prm['ntw']['n'] if distr_learning(t) in ['d', 'Cd'] else 1
+        best_theta[t] = initialise_dict(range(n_homes), type_obj='empty_dict')
+        for home in range(n_homes):
+            best_theta[t][home] = np.zeros((possible_states,))
             for s in range(possible_states):
-                indmax = np.argmax(q[t][a][s])
-                best_theta[t][a][s] = \
+                indmax = np.argmax(q[t][home][s])
+                best_theta[t][home][s] = \
                     index_to_val([indmax], typev='action')[0]
 
             # plot historgram of best theta per method
             fig, ax = plt.subplots()
             y_pos = np.arange(len(eval_entries_plot_indiv))
-            i_tables = [a if distr_learning(t) == 'd' else 0
+            i_tables = [home if distr_learning(t) == 'd' else 0
                         for t in eval_entries_plot_indiv]
             best_thetas = \
                 [best_theta[eval_entries_plot_indiv[it]][i_tables[it]][0]
@@ -852,7 +853,7 @@ def _plot_unique_state_best_psi(
                    alpha=0.5, color=colors_bars)
             plt.ylim([0, 1])
             title = f'best theta per method state None ' \
-                    f'repeat {repeat} a {a}'
+                    f'repeat {repeat} home {home}'
 
             ax.set_ylabel(r'best $\theta$ [-]')
             _formatting_ticks(
@@ -868,16 +869,16 @@ def _plot_unique_state_best_psi(
 def _plot_1d_state_space_best_psi(
         prm, eval_entries_plot_indiv, best_theta, possible_states, repeat
 ):
-    for a in range(prm['ntw']['n']):
+    for home in range(prm['ntw']['n']):
         fig, ax = plt.subplots()
         theta_M = []
         for t in eval_entries_plot_indiv:
-            index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
+            index_a = home if distr_learning(t) in ['d', 'Cd'] else 0
             theta_M.append([best_theta[t][index_a][int(s)]
                             for s in range(possible_states)])
         im = ax.imshow(theta_M, vmin=0, vmax=1)
         title = f"best theta per method and per state state space " \
-                f"{prm['RL']['statecomb_str']} repeat {repeat} a {a}"
+                f"{prm['RL']['statecomb_str']} repeat {repeat} home {home}"
         _formatting_ticks(
             ax, fig, xs=eval_entries_plot_indiv,
             ys=range(possible_states),
@@ -894,12 +895,12 @@ def _plot_2d_state_space_best_psi(
         prm, eval_entries_plot_indiv, record, possible_states,
         spaces, best_theta, repeat
 ):
-    for a in range(prm['ntw']['n']):
+    for home in range(prm['ntw']['n']):
         for i_t in range(len(eval_entries_plot_indiv)):
             t = eval_entries_plot_indiv[i_t]
             M = np.zeros((record.granularity_state0,
                           record.granularity_state1))
-            index_a = a if distr_learning(t) in ['d', 'Cd'] else 0
+            index_a = home if distr_learning(t) in ['d', 'Cd'] else 0
             for s in range(possible_states):
                 s1, s2 = spaces.global_to_indiv_index(
                     'state', s, multipliers=granularity_to_multipliers(
@@ -912,7 +913,7 @@ def _plot_2d_state_space_best_psi(
             plt.ylabel(prm['RL']['state_space'][0])
             im = ax.imshow(M, vmin=0, vmax=1)
             title = f"best theta per state combination state space " \
-                    f"{prm['RL']['state_space']} repeat {repeat} a {a}"
+                    f"{prm['RL']['state_space']} repeat {repeat} home {home}"
             _formatting_ticks(
                 ax, fig, ys=record.granularity_state1,
                 xs=record.granularity_state0,
@@ -966,14 +967,14 @@ def _plot_q_values(
         return
     # plot all values in one figure if there is only one state
     if prm['RL']['state_space'] == [None] and prm['ntw']['n'] < 4:
-        for a in range(prm['ntw']['n']):
+        for home in range(prm['ntw']['n']):
             # plot heat map of value of each action for different methods
             # 2D array of best theta values
             M = np.zeros((len(eval_entries_plot_indiv), prm['RL']['n_action']))
 
             for i_t in range(len(eval_entries_plot_indiv)):
                 t = eval_entries_plot_indiv[i_t]
-                i_table = a if distr_learning(t) == 'd' else 0
+                i_table = home if distr_learning(t) == 'd' else 0
                 qvals = q_tables[repeat][prm['RL']['n_epochs'] - 1][t][i_table][
                     0]  # in final epoch, in 0-th (unique) state
                 M[i_t, :] = qvals
@@ -984,7 +985,7 @@ def _plot_q_values(
             ys = [m * i + b for i in range(prm['RL']['n_action'])]
             fig, ax = plt.subplots()
             im = ax.imshow(M)
-            title = "qval per action per t state None repeat {repeat} a {a}"
+            title = "qval per action per t state None repeat {repeat} home {home}"
             _formatting_ticks(
                 ax, fig, xs=xs, ys=ys, title=title, im=im, grid=False,
                 fig_folder=prm['paths']['fig_folder'],
@@ -998,25 +999,25 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, repeat):
     for e in batch_entries:
         fig, axs = plt.subplots(prm['ntw']['n'], 1, squeeze=0)
         axs = axs.ravel()
-        for a in range(prm['ntw']['n']):
+        for home in range(prm['ntw']['n']):
             n = len(np.load(f'batch_{int(seeds[0] + 1)}_a0_lds.npy',
                             mmap_mode='c'))
-            heatavail[a] = np.zeros((n,))
+            heatavail[home] = np.zeros((n,))
             for seed in record.seed[repeat]:
                 str_seed = str(int(seed)) if seed > seeds[0] + 1 else \
                     f'deterministic_{record.ind_seed_deterministic[repeat]}'
-                str_batch = f'batch_{str_seed}_a{a}_{e}.npy'
+                str_batch = f'batch_{str_seed}_a{home}_{e}.npy'
                 if os.path.exists(str_batch):
                     batch_a_e = np.load(str_batch, mmap_mode='c')
                     if e == 'avail_EV':
-                        heatavail[a] += batch_a_e
+                        heatavail[home] += batch_a_e
                     else:
-                        axs[a].plot(
+                        axs[home].plot(
                             batch_a_e, alpha=1 / prm['RL']['n_epochs'])
             if e == 'avail_EV':
-                heatavail_plot = np.reshape(heatavail[a], (1, n))
+                heatavail_plot = np.reshape(heatavail[home], (1, n))
                 sns.heatmap(heatavail_plot, cmap="YlGn",
-                            cbar=True, ax=axs[a])
+                            cbar=True, ax=axs[home])
         title = f"noisy repeat {repeat} {e}"
         _title_and_save(
             title, fig, prm['paths']['fig_folder'],
@@ -1050,9 +1051,9 @@ def _plot_env_input(repeat, prm, record):
         for e in batch_entries:
             fig, axs = plt.subplots(prm['ntw']['n'], 1, squeeze=0)
             axs = axs.ravel()
-            for a in range(prm['ntw']['n']):
-                axs[a].plot(batch[a][e])
-                axs[a].set_title('{a}')
+            for home in range(prm['ntw']['n']):
+                axs[home].plot(batch[home][e])
+                axs[home].set_title('{home}')
             title = f"deterministic repeat {repeat} {e}"
             _title_and_save(
                 title, fig, prm['paths']['fig_folder'],
@@ -1103,8 +1104,8 @@ def _video_visit_states(
                 plt.ylabel(rl['state_space'][0])
                 plt.xlabel(r'$\theta$ [-]')
                 for s in range(possible_states):
-                    for a in range(rl['n_action']):
-                        counters_per_state[s, a] = counters[epoch][t][s][a]
+                    for home in range(rl['n_action']):
+                        counters_per_state[s, home] = counters[epoch][t][s][home]
             else:
                 counters_per_state = [
                     sum(counters[epoch][t][s]) for s in range(possible_states)
@@ -1145,18 +1146,18 @@ def _plot_final_explorations(
 
     rl = prm['RL']
     for t in q_entries:
-        na = prm['ntw']['n'] if reward_type(t) == '1' else 1
-        for a in range(na):
-            action_state_space_0[repeat][a], state_space_0[repeat][a] =\
+        n_homes = prm['ntw']['n'] if reward_type(t) == '1' else 1
+        for home in range(n_homes):
+            action_state_space_0[repeat][home], state_space_0[repeat][home] =\
                 [initialise_dict(q_entries) for _ in range(2)]
             fig, ax = plt.subplots()
-            counters_plot = counters[repeat][rl['n_epochs'] - 1][t][a] \
-                if record.save_qtables else counters[repeat][t][a]
+            counters_plot = counters[repeat][rl['n_epochs'] - 1][t][home] \
+                if record.save_qtables else counters[repeat][t][home]
             im = ax.imshow(counters_plot, aspect='auto')
             fig.colorbar(im, ax=ax)
             title = f"Explorations per state action pair state space " \
                     f"{rl['statecomb_str']} repeat {repeat} " \
-                    f"method {t} a {a}"
+                    f"method {t} home {home}"
             _title_and_save(
                 title, fig, prm['paths']['fig_folder'], prm['save']['save_run']
             )
@@ -1168,9 +1169,9 @@ def _plot_final_explorations(
                 for ac in range(rl['n_discrete_actions']):
                     if counters_plot[s][ac] == 0:
                         sum_action_0 += 1
-            state_space_0[repeat][a][t] = \
+            state_space_0[repeat][home][t] = \
                 sum_state_0 / rl['n_total_discrete_states']
-            action_state_space_0[repeat][a][t] = \
+            action_state_space_0[repeat][home][t] = \
                 sum_action_0 / (rl['n_total_discrete_states']
                                 * rl['n_discrete_actions'])
 
@@ -1561,30 +1562,30 @@ def _barplot_indiv_savings(record, prm):
             [[] for _ in range(prm['ntw']['n'])]
             for _ in range(3)
         ]
-        for a in range(prm['ntw']['n']):
+        for home in range(prm['ntw']['n']):
             for t in eval_not_baseline:
                 savings_sc_a, savings_gc_a = [
-                    np.mean([[(reward[repeat]['baseline'][epoch][a]
+                    np.mean([[(reward[repeat]['baseline'][epoch][home]
                                - reward[repeat][t][epoch])
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  prm['RL']['n_epochs'])]
                              for repeat in range(prm['RL']['n_repeats'])])
                     for reward in [record.__dict__['indiv_sc'],
                                    record.__dict__['indiv_gc']]]
-                share_sc[a].append(
+                share_sc[home].append(
                     savings_sc_a / (savings_sc_a + savings_gc_a))
                 savings_a_all = \
-                    [[(record.__dict__['indiv_c'][repeat]['baseline'][epoch][a]
+                    [[(record.__dict__['indiv_c'][repeat]['baseline'][epoch][home]
                        - record.__dict__['indiv_c'][repeat][t][epoch])
                       for epoch in range(prm['RL']['start_end_eval'],
                                          prm['RL']['n_epochs'])]
                      for repeat in range(prm['RL']['n_repeats'])]
-                savings_a[a].append(np.mean(savings_a_all))
-                std_savings[a].append(np.std(savings_a_all))
+                savings_a[home].append(np.mean(savings_a_all))
+                std_savings[home].append(np.std(savings_a_all))
         for it in range(len(eval_not_baseline)):
             if eval_not_baseline[it] == 'opt_d_d':
-                savings_opt_d_d = [savings_a[a][it]
-                                   for a in range(prm['ntw']['n'])]
+                savings_opt_d_d = [savings_a[home][it]
+                                   for home in range(prm['ntw']['n'])]
                 print(f"savings per agent opt_d_d: {savings_opt_d_d}")
                 print(f"mean {np.mean(savings_opt_d_d)}, "
                       f"std {np.std(savings_opt_d_d)}, "
@@ -1596,13 +1597,13 @@ def _barplot_indiv_savings(record, prm):
         barWidth = 1 / (len(labels) + 1)
         rs = []
         rs.append(np.arange(len(prm['RL']['type_eval']) - 1))
-        for a in range(len(labels) - 1):
-            rs.append([x + barWidth for x in rs[a]])
+        for home in range(len(labels) - 1):
+            rs.append([x + barWidth for x in rs[home]])
 
         fig = plt.figure()
-        for a in range(len(labels)):
-            plt.bar(rs[a], savings_a[a], width=barWidth,
-                    label=labels[a], yerr=std_savings[a])
+        for home in range(len(labels)):
+            plt.bar(rs[home], savings_a[home], width=barWidth,
+                    label=labels[home], yerr=std_savings[home])
         plt.xlabel('savings per agent')
         plt.xticks([r + barWidth
                     for r in range(len(prm['RL']['type_eval']))],
@@ -1618,8 +1619,8 @@ def _barplot_indiv_savings(record, prm):
 
         # plot share of energy vs battery savings individually
         fig = plt.figure()
-        for a in range(len(labels)):
-            plt.bar(rs[a], share_sc[a], width=barWidth, label=labels[a])
+        for home in range(len(labels)):
+            plt.bar(rs[home], share_sc[home], width=barWidth, label=labels[home])
         plt.xlabel('share of individual savings from battery costs savings')
         plt.xticks([r + barWidth
                     for r in range(len(prm['RL']['type_eval']))],

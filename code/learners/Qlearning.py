@@ -9,7 +9,6 @@ tabular Q learner
 import math
 
 import numpy as np
-
 from utilities.userdeftools import (data_source, distr_learning,
                                     initialise_dict, reward_type)
 
@@ -20,9 +19,9 @@ class TabularQLearner:
     def __init__(self, env, rl):
         self.name = 'TabularQLearner'
         self.rl = rl
-        self.n_agents = env.n_agents
+        self.n_agents = env.n_homes
         self.n_states, self.n_actions = {}, {}
-        for str_frame, multiplier in zip(['1', 'all'], [1, env.n_agents]):
+        for str_frame, multiplier in zip(['1', 'all'], [1, self.n_agents]):
             self.n_states[str_frame], self.n_actions[str_frame] = \
                 [n ** multiplier for n in
                  [env.spaces.n['state'], env.spaces.n['action']]]
@@ -46,16 +45,18 @@ class TabularQLearner:
                 minq, maxq = np.load('minq.npy'), np.load('maxq.npy')
                 np.random.seed(self.rand_init_seed)
             self.rand_init_seed += 1
-            na = self.n_agents if (distr_learning(t) in ['d', 'Cd', 'd0']
-                                   or self.rl['competitive']) else 1
+            n_homes = self.n_agents if (
+                distr_learning(t) in ['d', 'Cd', 'd0']
+                or self.rl['competitive']
+            ) else 1
             if t[-1] == 'n' or self.rl['initialise_q'] == 'zeros':
                 # this is a count = copy of corresponding counter;
-                self.q_tables[t] = [np.zeros(shape) for _ in range(na)]
+                self.q_tables[t] = [np.zeros(shape) for _ in range(n_homes)]
             else:  # this is a normal q table - make random initialisation
                 self.q_tables[t] = \
                     [np.random.uniform(low=minq, high=maxq, size=shape)
-                     for _ in range(na)]
-            self.counter[t] = [np.zeros(shape) for a in range(na)]
+                     for _ in range(n_homes)]
+            self.counter[t] = [np.zeros(shape) for _ in range(n_homes)]
 
     def new_repeat(self, repeat):
         """ method called at the beginning of a new repeat
@@ -87,9 +88,9 @@ class TabularQLearner:
                 # for the tabular Q learner
                 self.learn(t, train_steps_vals[i_explore][t])
 
-    def sample_action(self, q, ind_state, a, eps_greedy=True):
+    def sample_action(self, q, ind_state, home, eps_greedy=True):
         ind_action = []
-        i_table = a if distr_learning(q) == 'd' else 0
+        i_table = home if distr_learning(q) == 'd' else 0
         q_table = self.q_tables[q][i_table]
         for s in ind_state:
             n_action = len(q_table[s])
@@ -123,10 +124,10 @@ class TabularQLearner:
                           for v in values_positive] \
                     if sum(values_positive) != 0 \
                     else [1 / len(actions) for _ in actions]
-                sum_exp = sum(math.exp(values[a] / self.T[q]) for a in actions)
+                sum_exp = sum(math.exp(values[home] / self.T[q]) for home in actions)
 
-                pAs = [math.exp(values[a] / self.T[q]) / sum_exp
-                       for a in actions]
+                pAs = [math.exp(values[action] / self.T[q]) / sum_exp
+                       for action in actions]
                 cumps = [sum(pAs[0:i]) for i in range(n_action)]
                 ind_action_bolztmann = \
                     [i for i in range(n_action)
@@ -285,11 +286,11 @@ class TabularQLearner:
                     if epoch >= self.rl['q_learning']['end_decay']:
                         self.eps[t] = 0
 
-    def _get_reward_a(self, diff_rewards, indiv_rewards, reward, q, a):
+    def _get_reward_a(self, diff_rewards, indiv_rewards, reward, q, home):
         if reward_type(q) == 'd':
-            reward_a = diff_rewards[a]
+            reward_a = diff_rewards[home]
         elif self.rl['competitive']:
-            reward_a = indiv_rewards[a]
+            reward_a = indiv_rewards[home]
         else:
             reward_a = reward
 
@@ -317,13 +318,13 @@ class TabularQLearner:
                                        ['state', 'next_state'])]
 
         if reward_type(q) == 'n':
-            for a in range(self.n_agents):
-                if indiv_ac[a] is not None:
-                    i_table = a if distr_learning(q) == 'd' else 0
-                    self.q_tables[q][i_table][ind_indiv_s[a]][
-                        ind_indiv_ac[a]] += 1
-                    self.counter[q][i_table][ind_indiv_s[a]][
-                        ind_indiv_ac[a]] += 1
+            for home in range(self.n_agents):
+                if indiv_ac[home] is not None:
+                    i_table = home if distr_learning(q) == 'd' else 0
+                    self.q_tables[q][i_table][ind_indiv_s[home]][
+                        ind_indiv_ac[home]] += 1
+                    self.counter[q][i_table][ind_indiv_s[home]][
+                        ind_indiv_ac[home]] += 1
         else:
             if reward_type(q) == 'A':
                 self.advantage_update_q_step(
@@ -342,28 +343,28 @@ class TabularQLearner:
                                   ind_next_global_s[0],
                                   i_table=0, q_table_name=q + '0')
 
-                    for a in range(self.n_agents):
-                        i_table = 0 if distr_learning == 'Cc' else a
+                    for home in range(self.n_agents):
+                        i_table = 0 if distr_learning == 'Cc' else home
                         local_q_val = self.q_tables[q][i_table][
-                            ind_indiv_s[a]][ind_indiv_ac[a]]
+                            ind_indiv_s[home]][ind_indiv_ac[home]]
                         global_q_val = self.q_tables[q + '0'][0][
                             ind_global_s[0]][ind_global_ac[0]]
                         error = global_q_val - local_q_val
                         lr = self.get_lr(error, q)
-                        self.q_tables[q][i_table][ind_indiv_s[a]][
-                            ind_indiv_ac[a]] += lr * error
-                        self.counter[q][i_table][ind_indiv_s[a]][
-                            ind_indiv_ac[a]] += 1
+                        self.q_tables[q][i_table][ind_indiv_s[home]][
+                            ind_indiv_ac[home]] += lr * error
+                        self.counter[q][i_table][ind_indiv_s[home]][
+                            ind_indiv_ac[home]] += 1
             else:
-                for a in range(self.n_agents):
-                    if indiv_ac[a] is not None:
-                        i_table = 0 if distr_learning(q) == 'c' else a
+                for home in range(self.n_agents):
+                    if indiv_ac[home] is not None:
+                        i_table = 0 if distr_learning(q) == 'c' else home
                         reward_a = self._get_reward_a(
-                            diff_rewards, indiv_rewards, reward, q, a
+                            diff_rewards, indiv_rewards, reward, q, home
                         )
                         self.update_q(
-                            reward_a, done, ind_indiv_s[a],
-                            ind_indiv_ac[a], ind_next_indiv_s[a],
+                            reward_a, done, ind_indiv_s[home],
+                            ind_indiv_ac[home], ind_next_indiv_s[home],
                             i_table=i_table, q_table_name=q)
 
     def advantage_update_q_step(
@@ -397,73 +398,73 @@ class TabularQLearner:
                 ind_global_ac[0], ind_next_global_s[0],
                 i_table=0, q_table_name=q + '0')
         indiv_ind_actions_baselinea = \
-            [[self.rl['dim_actions'] - 1 if i_a == a else ind_indiv_ac[a]
-              for i_a in range(self.n_agents)]
-             for a in range(self.n_agents)]
+            [[self.rl['dim_actions'] - 1 if i_home == home else ind_indiv_ac[home]
+              for i_home in range(self.n_agents)]
+             for home in range(self.n_agents)]
         ind_a_global_abaseline = \
             [self.indiv_to_global_index('action', indexes=iab)
              for iab in indiv_ind_actions_baselinea]
-        for a in range(self.n_agents):
-            if indiv_ac[a] is not None:
-                i_table = 0 if distr_learning(q) == 'Cc' else a
+        for home in range(self.n_agents):
+            if indiv_ac[home] is not None:
+                i_table = 0 if distr_learning(q) == 'Cc' else home
                 q0 = self.q_tables[q + '0'][0]
                 q0_a = q0[ind_global_s[0]][ind_global_ac[0]]
-                q0_baseline_a = q0[ind_global_s[0]][ind_a_global_abaseline[a]]
-                if type(self.q_tables[q][i_table][ind_indiv_s[a]][
-                    ind_indiv_ac[a]]) in [float, np.float64] \
+                q0_baseline_a = q0[ind_global_s[0]][ind_a_global_abaseline[home]]
+                if type(self.q_tables[q][i_table][ind_indiv_s[home]][
+                    ind_indiv_ac[home]]) in [float, np.float64] \
                         and type(q0_a) in [float, np.float64] \
                         and type(q0_baseline_a) in [float, np.float64]:
                     reward_a = q0_a - q0_baseline_a
                     error = reward_a - self.q_tables[q][i_table][
-                        ind_indiv_s[a]][ind_indiv_ac[a]]
+                        ind_indiv_s[home]][ind_indiv_ac[home]]
                     if type(error) is list:
                         print(f'type(error) if list,'
                               f' q = {q}  reward_a = {reward_a}')
                     lr = self.get_lr(error, q)
-                    self.q_tables[q][i_table][ind_indiv_s[a]][
-                        ind_indiv_ac[a]] += lr * error
-                    self.counter[q][i_table][ind_indiv_s[a]][
-                        ind_indiv_ac[a]] += 1
+                    self.q_tables[q][i_table][ind_indiv_s[home]][
+                        ind_indiv_ac[home]] += lr * error
+                    self.counter[q][i_table][ind_indiv_s[home]][
+                        ind_indiv_ac[home]] += 1
 
     def _advantage_centralised_table(
             self, reward, done, ind_indiv_s, ind_indiv_ac,
             ind_next_indiv_s, indiv_ac, q
     ):
-        for a in range(self.n_agents):
-            if ind_indiv_ac[a] is not None:
-                self.update_q(reward, done, ind_indiv_s[a],
-                              ind_indiv_ac[a], ind_next_indiv_s[a],
+        for home in range(self.n_agents):
+            if ind_indiv_ac[home] is not None:
+                self.update_q(reward, done, ind_indiv_s[home],
+                              ind_indiv_ac[home], ind_next_indiv_s[home],
                               i_table=0, q_table_name=q + '0')
                 q0 = self.q_tables[q + '0'][0]
                 reward_a \
-                    = q0[ind_indiv_s[a]][ind_indiv_ac[a]] \
-                    - q0[ind_indiv_s[a]][-1]
+                    = q0[ind_indiv_s[home]][ind_indiv_ac[home]] \
+                    - q0[ind_indiv_s[home]][-1]
                 error = reward_a - \
-                    self.q_tables[q][0][ind_indiv_s[a]][ind_indiv_ac[a]]
+                    self.q_tables[q][0][ind_indiv_s[home]][ind_indiv_ac[home]]
                 lr = self.get_lr(error, q)
-                self.q_tables[q][0][ind_indiv_s[a]][
-                    ind_indiv_ac[a]] += lr * error
-                self.counter[q][0][ind_indiv_s[a]][
-                    ind_indiv_ac[a]] += 1
+                self.q_tables[q][0][ind_indiv_s[home]][
+                    ind_indiv_ac[home]] += lr * error
+                self.counter[q][0][ind_indiv_s[home]][
+                    ind_indiv_ac[home]] += 1
 
     def _advantage_decentralised_table(
             self, reward, done, ind_indiv_s, ind_indiv_ac,
             ind_next_indiv_s, indiv_ac, q
     ):
-        for a in range(self.n_agents):
-            if ind_indiv_ac[a] is not None:
+        for home in range(self.n_agents):
+            if ind_indiv_ac[home] is not None:
                 self.update_q(
-                    reward, done, ind_indiv_s[a], ind_indiv_ac[a],
-                    ind_next_indiv_s[a], i_table=a, q_table_name=q + '0')
-                q0 = self.q_tables[q + '0'][a][ind_indiv_s[a]][
-                    ind_indiv_ac[a]]
-                q0_baseline_a = self.q_tables[q + '0'][a][
-                    ind_indiv_s[a]][
+                    reward, done, ind_indiv_s[home], ind_indiv_ac[home],
+                    ind_next_indiv_s[home], i_table=home, q_table_name=q + '0')
+                q0 = self.q_tables[q + '0'][home][ind_indiv_s[home]][
+                    ind_indiv_ac[home]]
+                q0_baseline_a = self.q_tables[q + '0'][home][
+                    ind_indiv_s[home]][
                     self.rl['dim_actions'] - 1]
                 reward_a = q0 - q0_baseline_a
                 error = reward_a \
-                    - self.q_tables[q][a][ind_indiv_s[a]][ind_indiv_ac[a]]
+                    - self.q_tables[q][home][ind_indiv_s[home]][ind_indiv_ac[home]]
                 lr = self.get_lr(error, q)
-                self.q_tables[q][a][ind_indiv_s[a]][
-                    ind_indiv_ac[a]] += lr * error
-                self.counter[q][a][ind_indiv_s[a]][ind_indiv_ac[a]] += 1
+                self.q_tables[q][home][ind_indiv_s[home]][
+                    ind_indiv_ac[home]] += lr * error
+                self.counter[q][home][ind_indiv_s[home]][ind_indiv_ac[home]] += 1

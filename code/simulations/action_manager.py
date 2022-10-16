@@ -34,7 +34,7 @@ class Action_manager:
         self.plotting = prm['RL']['plotting_action']
         self.server = prm['RL']['server']
         self.colors = [(0, 0, 0)] + prm['save']['colors']
-        self.n_agents = env.n_agents
+        self.n_homes = env.n_homes
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
         self.z_orders = [1, 3, 2, 0, 4]
         self.H = prm['syst']['H']
@@ -53,42 +53,42 @@ class Action_manager:
         """
         # loads: l_flex, l_fixed
 
-        as_ = range(self.n_agents)
+        homes = range(self.n_homes)
 
         self.bat.min_max_charge_t(h, date)
         self.initial_processing(loads, home)
 
-        error = [False for _ in as_]
+        error = [False for _ in homes]
         bool_flex, actions = [], []
-        for a in as_:
+        for home in homes:
             if self.aggregate_actions:
                 actions, bool_flex = self._get_aggregate_mu(
-                    actions, bool_flex, netp, a
+                    actions, bool_flex, netp, home
                 )
             else:
                 actions, bool_flex = self._get_disaggregated_mus(
-                    actions, bool_flex, res, loads, a, h
+                    actions, bool_flex, res, loads, home, h
                 )
 
             error = self._check_action_errors(
-                actions, error, res, loads, a, h, bool_flex
+                actions, error, res, loads, home, h, bool_flex
             )
 
         return bool_flex, actions, error
 
-    def initial_processing(self, loads, home):
+    def initial_processing(self, loads, home_vars):
         """Compute current flexibility variables."""
         # inputs
         # loads: l_flex, l_fixed
-        # home: gen0
+        # home_vars: gen0
         eta_dis, eta_ch = self.bat.eta_dis, self.bat.eta_ch
-        as_ = range(self.n_agents)
+        homes = range(self.n_homes)
 
         s_avail_dis, s_add_0, s_remove_0, C_avail = \
             self.bat.initial_processing()
 
         self._check_input_types(
-            loads, home, s_add_0, s_avail_dis, C_avail, s_remove_0
+            loads, home_vars, s_add_0, s_avail_dis, C_avail, s_remove_0
         )
 
         # translate inputs into relevant quantities
@@ -96,10 +96,10 @@ class Action_manager:
         tot_l_flex = loads['l_flex'] + self.heat.potential_E_flex()
 
         # gen to min charge
-        g_to_add0 = np.minimum(home['gen'], s_add_0 / eta_dis)
+        g_to_add0 = np.minimum(home_vars['gen'], s_add_0 / eta_dis)
 
         # gen left after contributing to reaching min charge
-        g_net_add0 = home['gen'] - g_to_add0
+        g_net_add0 = home_vars['gen'] - g_to_add0
 
         # required addition to storage for min charge left
         # after contribution from gen
@@ -128,7 +128,7 @@ class Action_manager:
 
         # How much generation left after storing as much as possible
         gnet_store = gnet_flex - g_to_store
-        self.k = initialise_dict(as_, 'empty_dict')
+        self.k = initialise_dict(homes, 'empty_dict')
 
         # get relevant points in graph
         d = initialise_dict(self.entries, 'empty_dict')
@@ -143,8 +143,8 @@ class Action_manager:
         d['ds']['C'] = s_add_0 - s_remove_0
         d['ds']['D'] = s_add_0 - s_remove_0
         dsE = np.maximum(np.minimum(gnet_flex * eta_ch, C_avail), s_add_0)
-        d['ds']['E'] = [min(dsE[a], - s_remove_0[a])
-                        if s_remove_0[a] > 1e-2 else dsE[a] for a in as_]
+        d['ds']['E'] = [min(dsE[home], - s_remove_0[home])
+                        if s_remove_0[home] > 1e-2 else dsE[home] for home in homes]
         d['ds']['F'] = np.where(s_remove_0 > 1e-2, - s_remove_0, C_avail)
         d['dp']['A'] = - s_avail_dis * eta_dis - g_net_add0 \
             + s_add0_net / eta_ch + self.tot_l_fixed
@@ -175,36 +175,36 @@ class Action_manager:
         a_dp = d['dp']['F'] - d['dp']['A']
         b_dp = d['dp']['A']
 
-        action_points['A'], action_points['F'] = np.zeros(self.n_agents), np.ones(self.n_agents)
+        action_points['A'], action_points['F'] = np.zeros(self.n_homes), np.ones(self.n_homes)
         for i in ['B', 'C', 'D', 'E']:
-            action_points[i] = np.zeros(self.n_agents)
+            action_points[i] = np.zeros(self.n_homes)
             mask = a_dp > 1e-3
             action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
-            for a in as_:
-                assert action_points[i][a] > - 1e-4, \
-                    f"action_points[{i}][{a}] {action_points[i][a]} < 0"
-                assert action_points[i][a] < 1 + 1e-4, \
-                    f"action_points[{i}][{a}] {action_points[i][a]} > 1"
-                if - 1e-4 < action_points[i][a] < 0:
-                    action_points[i][a] = 0
-                if 1 < action_points[i][a] < 1 + 1e-4:
-                    action_points[i][a] = 1
+            for home in homes:
+                assert action_points[i][home] > - 1e-4, \
+                    f"action_points[{i}][{home}] {action_points[i][home]} < 0"
+                assert action_points[i][home] < 1 + 1e-4, \
+                    f"action_points[{i}][{home}] {action_points[i][home]} > 1"
+                if - 1e-4 < action_points[i][home] < 0:
+                    action_points[i][home] = 0
+                if 1 < action_points[i][home] < 1 + 1e-4:
+                    action_points[i][home] = 1
         self.d = d
         self.k, self.action_intervals = [[] for _ in range(2)]
 
-        for a in as_:
-            self._compute_k(a, a_dp, b_dp, action_points, d)
-            assert self.heat.E_heat_min[a] + loads['l_fixed'][a] \
-                   <= self.k[a]['c'][0][1] + 1e-3,\
+        for home in homes:
+            self._compute_k(home, a_dp, b_dp, action_points, d)
+            assert self.heat.E_heat_min[home] + loads['l_fixed'][home] \
+                   <= self.k[home]['c'][0][1] + 1e-3,\
                    "min c smaller than min required"
 
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
         self.max_discharge = np.array(
-            [(self.k[a]['ds'][0][0] * 0 + self.k[a]['ds'][0][1]) for a in as_]
+            [(self.k[home]['ds'][0][0] * 0 + self.k[home]['ds'][0][1]) for home in homes]
         )
         self.max_charge = np.array(
-            [self.k[a]['ds'][-1][0] * 1 + self.k[a]['ds'][-1][1] for a in as_]
+            [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
         )
         self.min_charge = np.where(
             self.max_discharge > 0, self.max_discharge, 0
@@ -216,54 +216,54 @@ class Action_manager:
             self.max_discharge > 0, 0, self.max_discharge
         )
 
-    def actions_to_env_vars(self, loads, home, action, date, h):
+    def actions_to_env_vars(self, loads, home_vars, action, date, h):
         """Update variables after non flexible consumption is met."""
         # other variables
         self.error = False
-        as_ = range(self.n_agents)
+        homes = range(self.n_homes)
 
         # problem variables
         bool_penalty = self.bat.min_max_charge_t(h, date)
         for e in ['netp', 'tot_cons']:
-            home[e] = np.zeros(self.n_agents)
+            home_vars[e] = np.zeros(self.n_homes)
 
-        self.initial_processing(loads, home)
+        self.initial_processing(loads, home_vars)
 
         # check initial errors
         self.res = {}
-        [home['bool_flex'], loads['flex_cons'],
+        [home_vars['bool_flex'], loads['flex_cons'],
          loads['tot_cons_loads'], self.heat.tot_E] \
             = [[] for _ in range(4)]
         self.l_flex = loads['l_flex']
         flex_heat = []
-        for a in as_:
+        for home in homes:
             # boolean for whether or not we have flexibility
-            home['bool_flex'].append(abs(self.k[a]['dp'][0][0]) > 1e-2)
+            home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
             if self.aggregate_actions:
                 flex_heat = None
                 # update variables for given action
                 # obtain the interval in which action_points lies
-                ik = [i for i in range(len(self.action_intervals[a]) - 1)
-                      if action[a][0] >= self.action_intervals[a][i]][-1]
+                ik = [i for i in range(len(self.action_intervals[home]) - 1)
+                      if action[home][0] >= self.action_intervals[home][i]][-1]
                 res = {}  # resulting values (for dp, ds, fl, l)
                 for e in self.entries:
                     ik_ = 0 if e == 'dp' else ik
                     # use coefficients to obtain value
-                    res[e] = self.k[a][e][ik_][0] * action[a][0] \
-                        + self.k[a][e][ik_][1]
+                    res[e] = self.k[home][e][ik_][0] * action[home][0] \
+                        + self.k[home][e][ik_][1]
 
-                home['tot_cons'][a] = res['c']
-                home['netp'][a] = res['dp']
-                if res['c'] > loads['l_flex'][a] + self.tot_l_fixed[a]:
-                    loads['flex_cons'].append(loads['l_flex'][a])
+                home_vars['tot_cons'][home] = res['c']
+                home_vars['netp'][home] = res['dp']
+                if res['c'] > loads['l_flex'][home] + self.tot_l_fixed[home]:
+                    loads['flex_cons'].append(loads['l_flex'][home])
                 else:
-                    loads['flex_cons'].append(res['c'] - self.tot_l_fixed[a])
+                    loads['flex_cons'].append(res['c'] - self.tot_l_fixed[home])
                     assert loads['flex_cons'][-1] > - 1e-2, \
                         f"loads['flex_cons'][-1] {loads['flex_cons'][-1]} < 0"
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
                         loads['flex_cons'][-1] = 0
             else:
-                flexible_cons_action, flexible_heat_action, battery_action = action[a]
+                flexible_cons_action, flexible_heat_action, battery_action = action[home]
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
@@ -272,30 +272,30 @@ class Action_manager:
                 # 1 max charge
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
-                loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][a])
+                loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
                 flex_heat.append(flexible_heat_action
-                                 * self.heat.potential_E_flex()[a])
-                home['tot_cons'][a] = self.tot_l_fixed[a] \
-                    + loads['flex_cons'][a] \
-                    + flex_heat[a]
-                res['c'] = home['tot_cons'][a]
-                res = self._battery_action_to_ds(a, battery_action, res)
+                                 * self.heat.potential_E_flex()[home])
+                home_vars['tot_cons'][home] = self.tot_l_fixed[home] \
+                    + loads['flex_cons'][home] \
+                    + flex_heat[home]
+                res['c'] = home_vars['tot_cons'][home]
+                res = self._battery_action_to_ds(home, battery_action, res)
 
                 discharge = - res['ds'] * self.bat.eta_dis \
                     if res['ds'] < 0 else 0
                 charge = res['ds'] if res['ds'] > 0 else 0
-                home['netp'][a] = loads['flex_cons'][a] \
-                    + loads['l_fixed'][a] \
-                    + self.heat.E_heat_min[a] \
-                    + flex_heat[a] \
+                home_vars['netp'][home] = loads['flex_cons'][home] \
+                    + loads['l_fixed'][home] \
+                    + self.heat.E_heat_min[home] \
+                    + flex_heat[home] \
                     + charge - discharge + res['l_ch'] \
-                    - home['gen'][a]
+                    - home_vars['gen'][home]
 
-                res['dp'] = home['netp'][a]
+                res['dp'] = home_vars['netp'][home]
 
             loads['tot_cons_loads'].append(
-                loads['flex_cons'][a] + loads['l_fixed'][a])
-            self.res[a] = copy.copy(res)
+                loads['flex_cons'][home] + loads['l_fixed'][home])
+            self.res[home] = copy.copy(res)
 
         self.bat.actions_to_env_vars(self.res)
         self.heat.actions_to_env_vars(
@@ -303,53 +303,53 @@ class Action_manager:
         )
 
         # check for errors
-        for a in as_:
+        for home in homes:
             # energy balance
-            e_balance = abs((self.res[a]['dp'] + home['gen'][a]
-                             + self.bat.discharge[a] - self.bat.charge[a]
-                             - self.bat.loss_ch[a] - home['tot_cons'][a]))
+            e_balance = abs((self.res[home]['dp'] + home_vars['gen'][home]
+                             + self.bat.discharge[home] - self.bat.charge[home]
+                             - self.bat.loss_ch[home] - home_vars['tot_cons'][home]))
             assert e_balance <= 1e-3, f"energy balance {e_balance}"
-            assert abs(loads['tot_cons_loads'][a] + self.heat.tot_E[a]
-                   - home['tot_cons'][a]) <= 1e-3, \
-                f"tot_cons_loads {loads['tot_cons_loads'][a]}, "\
-                f"self.heat.tot_E[a] {self.heat.tot_E[a]}, " \
-                f"home['tot_cons'][a] {home['tot_cons'][a]}"
+            assert abs(loads['tot_cons_loads'][home] + self.heat.tot_E[home]
+                   - home_vars['tot_cons'][home]) <= 1e-3, \
+                f"tot_cons_loads {loads['tot_cons_loads'][home]}, "\
+                f"self.heat.tot_E[home] {self.heat.tot_E[home]}, " \
+                f"home_vars['tot_cons'][home] {home_vars['tot_cons'][home]}"
 
         bool_penalty = self.bat.check_errors_apply_step(
-            as_, bool_penalty, action, self.res)
+            homes, bool_penalty, action, self.res)
         if sum(bool_penalty) > 0:
             self.error = True
         if not self.error and self.plotting:
             self._plot_graph_actions()
         # outputs
         # loads: flex_cons, tot_cons_loads
-        # home: netp, bool_flex, tot_cons
+        # home_vars: netp, bool_flex, tot_cons
         # bool_penalty
 
-        return loads, home, bool_penalty
+        return loads, home_vars, bool_penalty
 
-    def _battery_action_to_ds(self, a, battery_action, res):
+    def _battery_action_to_ds(self, home, battery_action, res):
         if battery_action is None:
-            assert abs(self.min_charge[a] - self.max_charge[a]) <= 1e-4, \
+            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-4, \
                 "battery_action is None but " \
-                "self.min_charge[a] != self.max_charge[a]"
-            res['ds'] = self.min_charge[a]
+                "self.min_charge[home] != self.max_charge[home]"
+            res['ds'] = self.min_charge[home]
         elif battery_action < 0:
-            if self.min_charge[a] > 0:
-                res['ds'] = self.min_charge[a]
-            elif self.min_discharge[a] > 0:
-                res['ds'] = self.min_discharge[a]
-            elif self.min_discharge[a] <= 0:
-                res['ds'] = self.min_discharge[a] + abs(battery_action) \
-                    * (self.max_discharge[a] - self.min_discharge[a])
+            if self.min_charge[home] > 0:
+                res['ds'] = self.min_charge[home]
+            elif self.min_discharge[home] > 0:
+                res['ds'] = self.min_discharge[home]
+            elif self.min_discharge[home] <= 0:
+                res['ds'] = self.min_discharge[home] + abs(battery_action) \
+                    * (self.max_discharge[home] - self.min_discharge[home])
         elif battery_action >= 0:
-            if self.min_discharge[a] < 0:
-                res['ds'] = self.min_discharge[a]
-            elif self.max_charge[a] < 0:
-                res['ds'] = self.max_charge[a]
-            elif self.max_charge[a] >= 0:
-                res['ds'] = self.min_charge[a] + battery_action \
-                    * (self.max_charge[a] - self.min_charge[a])
+            if self.min_discharge[home] < 0:
+                res['ds'] = self.min_discharge[home]
+            elif self.max_charge[home] < 0:
+                res['ds'] = self.max_charge[home]
+            elif self.max_charge[home] >= 0:
+                res['ds'] = self.min_charge[home] + battery_action \
+                    * (self.max_charge[home] - self.min_charge[home])
         res['l_ch'] = 0 if res['ds'] < 0 \
             else (1 - self.bat.eta_ch) / self.bat.eta_ch * res['ds']
         res['l_dis'] = - res['ds'] * (1 - self.bat.eta_dis) \
@@ -457,44 +457,44 @@ class Action_manager:
             fig.save_fig(name_fig + '.svg',
                          bbox_inches='tight', format='svg', dpi=1200)
 
-    def _compute_k(self, a, a_dp, b_dp, action_points, d):
+    def _compute_k(self, home, a_dp, b_dp, action_points, d):
         letters = ['A', 'B', 'C', 'D', 'E', 'F']
 
         self.k.append(initialise_dict(self.entries))
         # reference line - dp
-        self.k[a]['dp'] = [[a_dp[a], b_dp[a]]]
+        self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
         for i in range(2):
-            if abs(self.k[a]['dp'][0][i]) < 0:
-                if abs(self.k[a]['dp'][0][i]) > - 1e-3:
-                    self.k[a]['dp'][0][i] = 0
+            if abs(self.k[home]['dp'][0][i]) < 0:
+                if abs(self.k[home]['dp'][0][i]) > - 1e-3:
+                    self.k[home]['dp'][0][i] = 0
                 else:
-                    print(f"self.k[{a}]['dp'][0][{i}] = "
-                          f"{self.k[a]['dp'][0][i]}")
+                    print(f"self.k[{home}]['dp'][0][{i}] = "
+                          f"{self.k[home]['dp'][0][i]}")
 
         self.action_intervals.append([0])
 
         for e in ['ds', 'c', 'l_ch', 'l_dis']:
-            self.k[a][e] = []
+            self.k[home][e] = []
         for z in range(5):
             l1, l2 = letters[z: z + 2]
-            if action_points[l2][a] > action_points[l1][a]:
-                self.action_intervals[a].append(action_points[l2][a])
+            if action_points[l2][home] > action_points[l1][home]:
+                self.action_intervals[home].append(action_points[l2][home])
                 for e in ['ds', 'c', 'losses']:
                     if e == 'losses':
                         self.k = self.bat.k_losses(
-                            a,
+                            home,
                             self.k,
-                            action_points[l1][a],
-                            action_points[l2][a]
+                            action_points[l1][home],
+                            action_points[l2][home]
                         )
                     else:
-                        ad = (d[e][l2][a] - d[e][l1][a]) / \
-                             (action_points[l2][a] - action_points[l1][a])
-                        bd = d[e][l2][a] - action_points[l2][a] * ad
-                        self.k[a][e].append([ad, bd])
+                        ad = (d[e][l2][home] - d[e][l1][home]) / \
+                             (action_points[l2][home] - action_points[l1][home])
+                        bd = d[e][l2][home] - action_points[l2][home] * ad
+                        self.k[home][e].append([ad, bd])
 
     def _check_input_types(
-            self, loads, home, s_add_0, s_avail_dis, C_avail, s_remove_0
+            self, loads, home_vars, s_add_0, s_avail_dis, C_avail, s_remove_0
     ):
         assert isinstance(loads['l_fixed'], np.ndarray), \
             f"type(loads['l_fixed']) {type(loads['l_fixed'])}"
@@ -502,8 +502,8 @@ class Action_manager:
             f"type(loads['l_flex']) {type(loads['l_flex'])}"
         assert isinstance(self.heat.E_heat_min, np.ndarray), \
             f"type(self.heat.E_heat_min) {type(self.heat.E_heat_min)}"
-        assert isinstance(home['gen'], np.ndarray), \
-            f"type(home['gen']) = {type(home['gen'])}"
+        assert isinstance(home_vars['gen'], np.ndarray), \
+            f"type(home_vars['gen']) = {type(home_vars['gen'])}"
         assert isinstance(s_add_0, np.ndarray), \
             f"type(s_add_0) = {type(s_add_0)}"
         assert isinstance(s_avail_dis, np.ndarray), \
@@ -513,69 +513,69 @@ class Action_manager:
         assert isinstance(s_remove_0, np.ndarray), \
             f"type(s_remove_0) = {type(s_remove_0)}"
 
-    def _get_aggregate_mu(self, actions, bool_flex, netp, a):
-        if abs(self.k[a]['dp'][0][0]) < 1e-2:
-            self.k[a]['dp'][0][0] = 0
-        if self.k[a]['dp'][0][0] == 0:  # there is not flexibility
+    def _get_aggregate_mu(self, actions, bool_flex, netp, home):
+        if abs(self.k[home]['dp'][0][0]) < 1e-2:
+            self.k[home]['dp'][0][0] = 0
+        if self.k[home]['dp'][0][0] == 0:  # there is not flexibility
             # boolean for whether or not we have flexibility
             bool_flex.append(0)
             actions.append([None])
         else:
             bool_flex.append(1)
             # action none if no flexibility
-            assert netp[a] - self.k[a]['dp'][0][1] > - 1e-2, \
+            assert netp[home] - self.k[home]['dp'][0][1] > - 1e-2, \
                 "netp smaller than k['dp'][0]"
-            delta = 0 if abs(netp[a] - self.k[a]['dp'][0][1]) < 1e-2 \
-                else netp[a] - self.k[a]['dp'][0][1]
+            delta = 0 if abs(netp[home] - self.k[home]['dp'][0][1]) < 1e-2 \
+                else netp[home] - self.k[home]['dp'][0][1]
             actions.append(
                 [
-                    None if self.k[a]['dp'][0][0] == 0
-                    else delta / self.k[a]['dp'][0][0]
+                    None if self.k[home]['dp'][0][0] == 0
+                    else delta / self.k[home]['dp'][0][0]
                 ]
             )
-        if actions[a] is not None:
-            assert - 1e-2 < actions[a][0] < 1 + 1e-2, \
+        if actions[home] is not None:
+            assert - 1e-2 < actions[home][0] < 1 + 1e-2, \
                 "action should be between 0 and 1"
 
         return actions, bool_flex
 
-    def _get_disaggregated_mus(self, actions, bool_flex, res, loads, a, h):
-        cons = res['totcons'][a, h] - res['E_heat'][a, h]
+    def _get_disaggregated_mus(self, actions, bool_flex, res, loads, home, h):
+        cons = res['totcons'][home, h] - res['E_heat'][home, h]
         if cons < 1e-3:
             cons = 0
-        flex_cons = cons - loads['l_fixed'][a]
+        flex_cons = cons - loads['l_fixed'][home]
 
         if flex_cons < 1e-3:
             flex_cons = 0
-        elif loads['l_flex'][a] < flex_cons < loads['l_flex'][a] + 1e-3:
-            flex_cons = loads['l_flex'][a]
+        elif loads['l_flex'][home] < flex_cons < loads['l_flex'][home] + 1e-3:
+            flex_cons = loads['l_flex'][home]
 
-        if loads['l_flex'][a] > 0:
-            flexible_cons_action = flex_cons / loads['l_flex'][a]
+        if loads['l_flex'][home] > 0:
+            flexible_cons_action = flex_cons / loads['l_flex'][home]
         else:
             flexible_cons_action = None
 
         E_heat \
-            = 0 if res['E_heat'][a][h] < 1e-3 else res['E_heat'][a][h]
-        if self.heat.potential_E_flex()[a] > 0:
+            = 0 if res['E_heat'][home][h] < 1e-3 else res['E_heat'][home][h]
+        if self.heat.potential_E_flex()[home] > 0:
             flexible_heat_action = \
-                (E_heat - self.heat.E_heat_min[a]) / \
-                (self.heat.E_heat_max[a] - self.heat.E_heat_min[a])
+                (E_heat - self.heat.E_heat_min[home]) / \
+                (self.heat.E_heat_max[home] - self.heat.E_heat_min[home])
         else:
             flexible_heat_action = None
         max_charge_a, min_charge_a = [
-            self.max_charge[a], self.min_charge[a]
+            self.max_charge[home], self.min_charge[home]
         ]
         max_discharge_a, min_discharge_a = [
-            self.max_discharge[a], self.min_discharge[a]
+            self.max_discharge[home], self.min_discharge[home]
         ]
-        assert min_charge_a - 1e-3 <= res['charge'][a, h] \
+        assert min_charge_a - 1e-3 <= res['charge'][home, h] \
                <= max_charge_a + 1e-3, \
-               f"res charge {res['charge'][a, h]} " \
+               f"res charge {res['charge'][home, h]} " \
                f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-        assert max_discharge_a - 1e-3 <= - res['discharge_other'][a, h] \
+        assert max_discharge_a - 1e-3 <= - res['discharge_other'][home, h] \
                <= min_discharge_a + 1e-3, \
-               f"res discharge_other {res['discharge_other'][a, h]} " \
+               f"res discharge_other {res['discharge_other'][home, h]} " \
                f"min_discharge_a {min_discharge_a} " \
                f"max_discharge_a {max_discharge_a}"
 
@@ -586,69 +586,69 @@ class Action_manager:
             )
             or (
                 abs(min_discharge_a - max_discharge_a) < 1e-3
-                and res['discharge_other'][a, h] > 1e-3
+                and res['discharge_other'][home, h] > 1e-3
             )
             or (
                 abs(max_charge_a - min_charge_a) < 1e-3
-                and res['charge'][a, h] > 1e-3
+                and res['charge'][home, h] > 1e-3
             )
         ):
             # abs(max_charge_a - max_discharge_a) < 1e-3 or
             # no flexibility in charging
             battery_action = 0 if self.type_env == 'discrete' else None
-            assert abs(self.min_charge[a] - self.max_charge[a]) <= 1e-4, \
+            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-4, \
                 "battery_action is None but " \
-                "self.min_charge[a] != self.max_charge[a]"
-        elif abs(res['discharge_other'][a, h] < 1e-3
-                 and abs(res['charge'][a, h]) < 1e-3):
+                "self.min_charge[home] != self.max_charge[home]"
+        elif abs(res['discharge_other'][home, h] < 1e-3
+                 and abs(res['charge'][home, h]) < 1e-3):
             battery_action = 0
-        elif res['discharge_other'][a, h] > 1e-3:
+        elif res['discharge_other'][home, h] > 1e-3:
             battery_action = \
-                (min_discharge_a - res['charge'][a, h]) \
+                (min_discharge_a - res['charge'][home, h]) \
                 / (min_discharge_a - max_discharge_a)
         else:
-            battery_action = (res['charge'][a, h] - min_charge_a) \
+            battery_action = (res['charge'][home, h] - min_charge_a) \
                 / (max_charge_a - min_charge_a)
         actions.append(
             [flexible_cons_action, flexible_heat_action, battery_action]
         )
         bool_flex.append(
-            False if sum(action is None for action in actions[a]) == 3
+            False if sum(action is None for action in actions[home]) == 3
             else True)
 
         return actions, bool_flex
 
     def _check_action_errors(
-            self, actions, error, res, loads, a, h, bool_flex
+            self, actions, error, res, loads, home, h, bool_flex
     ):
         for i in range(self.dim_actions):
-            if actions[a][i] is not None \
-                    and actions[a][i] < self.low_action[i]:
-                if actions[a][i] < self.low_action[i] - 1e-2:
-                    error[a] = True
+            if actions[home][i] is not None \
+                    and actions[home][i] < self.low_action[i]:
+                if actions[home][i] < self.low_action[i] - 1e-2:
+                    error[home] = True
                 else:
-                    actions[a][i] = 0
+                    actions[home][i] = 0
 
-            if actions[a][i] is not None \
-                    and actions[a][i] > self.high_action[i]:
-                if actions[a][i] > self.high_action[i] + 1e-2:
-                    error[a] = True
+            if actions[home][i] is not None \
+                    and actions[home][i] > self.high_action[i]:
+                if actions[home][i] > self.high_action[i] + 1e-2:
+                    error[home] = True
                 else:
-                    actions[a][i] = self.high_action[i]
+                    actions[home][i] = self.high_action[i]
 
-            if error[a]:
-                print(f"h {h} action[{a}] = {actions[a]}")
+            if error[home]:
+                print(f"h {h} action[{home}] = {actions[home]}")
                 np.save('res_error', res)
                 np.save('loads', loads)
                 np.save('E_heat_min', self.heat.E_heat_min)
                 np.save('E_heat_max', self.heat.E_heat_max)
                 np.save('action_error', actions)
 
-        actions_none = (self.aggregate_actions and actions[a] is None) \
+        actions_none = (self.aggregate_actions and actions[home] is None) \
             or (not self.aggregate_actions
-                and all(action is None for action in actions[a]))
-        assert not (bool_flex[a] is True and actions_none), \
-            f"actions[{a}] are none whereas there is flexibility"
+                and all(action is None for action in actions[home]))
+        assert not (bool_flex[home] is True and actions_none), \
+            f"actions[{home}] are none whereas there is flexibility"
 
         return error
 
@@ -675,7 +675,7 @@ class Action_manager:
 
 # figs2
 # def initial_processing(self, store0, l_flex, gen0,
-# avail_EV, E_flex, l_fixed, E_heat_min, as_):
+# avail_EV, E_flex, l_fixed, E_heat_min, homes):
 
 # env.action_manager.mincharge=[7.5,7.5]
 # env.action_manager.maxcharge=[75,75]

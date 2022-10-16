@@ -53,7 +53,7 @@ class Battery:
             are the current agents passive? '' is not, 'P' if yes
         """
         # number of agents / households
-        self.n_agents = prm['ntw']['n']
+        self.n_homes = prm['ntw']['n']
 
         # very large number for enforcing constraints
         self.M = prm['syst']['M']
@@ -84,14 +84,14 @@ class Battery:
 
         if passive_ext is not None:
             # passive extension
-            self.p = passive_ext
-            self.n_agents = prm["ntw"]["n" + self.p]
+            self.passive_ext = passive_ext
+            self.n_homes = prm["ntw"]["n" + self.passive_ext]
 
             # initial state
             self.store = {}
-            for a in range(self.n_agents):
-                self.store[a] = prm['bat']['store0' + passive_ext][a] \
-                    if prm['bat']['own_EV'][a] else 0
+            for home in range(self.n_homes):
+                self.store[home] = prm['bat']['store0' + passive_ext][home] \
+                    if prm['bat']['own_EV'][home] else 0
 
             # storage at the start of current time step
             self.start_store = self.store.copy()
@@ -102,15 +102,15 @@ class Battery:
             # min_charge is the minimum state of charge / base load
             # that needs to always be available
             for e in ['store0', 'cap', 'min_charge']:
-                self.__dict__[e] = prm['bat'][e + self.p]
+                self.__dict__[e] = prm['bat'][e + self.passive_ext]
 
     def update_step(self, res=None):
         """Update current object variables for new step."""
         self.i_step += 1
         self._current_batch_step()
         if res is not None and self.i_step < self.N:
-            self.store = [res['store'][a][self.i_step]
-                          for a in range(self.n_agents)]
+            self.store = [res['store'][home][self.i_step]
+                          for home in range(self.n_homes)]
         self.start_store = self.store.copy()
 
     def compute_bat_dem_agg(
@@ -118,26 +118,26 @@ class Battery:
             batch: dict
     ) -> dict:
         """Compute bat_dem_agg, i.e. having all demand at start of trip."""
-        for a in range(self.n_agents):
-            batch[a]['bat_dem_agg'] = \
-                [0 for _ in range(len(batch[a]['avail_EV']))]
-            if self.own_EV[a]:
+        for home in range(self.n_homes):
+            batch[home]['bat_dem_agg'] = \
+                [0 for _ in range(len(batch[home]['avail_EV']))]
+            if self.own_EV[home]:
                 start_trip, end_trip = [], []
-                if batch[a]['avail_EV'][0] == 0:
+                if batch[home]['avail_EV'][0] == 0:
                     start_trip.append(0)
-                for t in range(len(batch[a]['avail_EV']) - 1):
-                    if batch[a]['avail_EV'][t] == 0 \
-                            and batch[a]['avail_EV'][t + 1] == 1:
+                for t in range(len(batch[home]['avail_EV']) - 1):
+                    if batch[home]['avail_EV'][t] == 0 \
+                            and batch[home]['avail_EV'][t + 1] == 1:
                         end_trip.append(t)
-                    if t > 0 and batch[a]['avail_EV'][t] == 0 \
-                            and batch[a]['avail_EV'][t - 1] == 1:
+                    if t > 0 and batch[home]['avail_EV'][t] == 0 \
+                            and batch[home]['avail_EV'][t - 1] == 1:
                         start_trip.append(t)
                 if len(start_trip) > len(end_trip) \
-                        and batch[a]['avail_EV'][t] == 0:
+                        and batch[home]['avail_EV'][t] == 0:
                     end_trip.append(self.N - 1)
                 for start, end in zip(start_trip, end_trip):
-                    batch[a]['bat_dem_agg'][start] = \
-                        sum(batch[a]['loads_EV'][start: end + 1])
+                    batch[home]['bat_dem_agg'][start] = \
+                        sum(batch[home]['loads_EV'][start: end + 1])
 
         return batch
 
@@ -145,14 +145,14 @@ class Battery:
         """Once batch data computed, update in battery data batch."""
         for e in self.batch_entries:
             e_batch = e if e in batch[0] else 'lds_EV'
-            self.batch[e] = [batch[a][e_batch] for a in range(self.n_agents)]
+            self.batch[e] = [batch[home][e_batch] for home in range(self.n_homes)]
         self._current_batch_step()
 
-    def next_trip_details(self, start_h, date, a):
+    def next_trip_details(self, start_h, date, home):
         """Get next trip's load requirements, time until trip, and end."""
         # next time the EV is on a trip
-        iT = [i for i in range(len(self.batch['avail_EV'][a][start_h:])) if
-              self.batch['avail_EV'][a][start_h + i] == 0]
+        iT = [i for i in range(len(self.batch['avail_EV'][home][start_h:])) if
+              self.batch['avail_EV'][home][start_h + i] == 0]
         d_to_end = self.date_end - date
         h_end = start_h + d_to_end.days * 24 + (d_to_end.seconds) / 3600
         if len(iT) > 0 and start_h + iT[0] < h_end:
@@ -160,21 +160,21 @@ class Battery:
             iT = int(start_h + iT[0])
 
             # next time the EV is back from the trip to the garage
-            iG = [iT + i for i in range(len(self.batch['avail_EV'][a][iT:])) if
-                  self.batch['avail_EV'][a][iT + i] == 1]
-            iG = int(iG[0]) if len(iG) > 0 else len(self.batch['avail_EV'][a])
+            iG = [iT + i for i in range(len(self.batch['avail_EV'][home][iT:])) if
+                  self.batch['avail_EV'][home][iT + i] == 1]
+            iG = int(iG[0]) if len(iG) > 0 else len(self.batch['avail_EV'][home])
             deltaT = iT - start_h  # time until trip
             i_endtrip = int(min(iG, h_end))
             # EV load while on trip
-            loads_T = np.sum(self.batch['loads_EV'][a][iT: i_endtrip])
+            loads_T = np.sum(self.batch['loads_EV'][home][iT: i_endtrip])
 
             return loads_T, deltaT, i_endtrip
         else:
             return None, None, None
 
-    def EV_tau(self, hour, date, a, store_a):
+    def EV_tau(self, hour, date, home, store_a):
         """Compute EV_tau, i.e. how much charge is needed over in how long."""
-        loads_T, deltaT, i_endtrip = self.next_trip_details(hour, date, a)
+        loads_T, deltaT, i_endtrip = self.next_trip_details(hour, date, home)
         if loads_T is not None and deltaT > 0:
             val = (loads_T - store_a) / deltaT
         else:
@@ -183,40 +183,40 @@ class Battery:
         return val
 
     def _check_trip_feasible(
-            self, loads_T, deltaT, bool_penalty, print_error, a, h
+            self, loads_T, deltaT, bool_penalty, print_error, home, h
     ):
-        if loads_T > self.cap[a] + 1e-2:
+        if loads_T > self.cap[home] + 1e-2:
             # load during trip larger than whole
-            bool_penalty[a] = True
+            bool_penalty[home] = True
             if print_error:
-                print(f"a = {a}, h = {h} deltaT {deltaT} "
+                print(f"home = {home}, h = {h} deltaT {deltaT} "
                       f"load EV trip {loads_T} larger than"
-                      f" cap, self.batch['loads_EV'][{a}] "
-                      f"= {self.batch['loads_EV'][a]}")
+                      f" cap, self.batch['loads_EV'][{home}] "
+                      f"= {self.batch['loads_EV'][home]}")
         elif deltaT > 0 \
-                and sum(self.batch['avail_EV'][a][0: h]) == 0 \
+                and sum(self.batch['avail_EV'][home][0: h]) == 0 \
                 and loads_T / deltaT \
-                > self.store0[a] + self.c_max:
-            bool_penalty[a] = True
+                > self.store0[home] + self.c_max:
+            bool_penalty[home] = True
             if print_error:
-                print(f'a = {a}, loads_T {loads_T} '
+                print(f'home = {home}, loads_T {loads_T} '
                       f'deltaT {deltaT} not enough '
                       f'steps to fill what is needed')
 
         return bool_penalty
 
-    def _get_list_future_trips(self, h, date_a, a, bool_penalty, print_error):
+    def _get_list_future_trips(self, h, date_a, home, bool_penalty, print_error):
         trips = []
         end = False
         h_trip = h
         while not end:
             loads_T, deltaT, i_endtrip = self.next_trip_details(
-                h_trip, date_a, a)
+                h_trip, date_a, home)
             if loads_T is None or h_trip + deltaT > self.N:
                 end = True
             else:
                 self._check_trip_feasible(
-                    loads_T, deltaT, bool_penalty, print_error, a, h
+                    loads_T, deltaT, bool_penalty, print_error, home, h
                 )
                 trips.append([loads_T, deltaT, i_endtrip])
                 date_a += datetime.timedelta(
@@ -240,33 +240,33 @@ class Battery:
             h = self.i_step
         if date is None:
             date = self.date0 + datetime.timedelta(hours=h)
-        avail_EV = [self.batch['avail_EV'][a][h] for a in range(self.n_agents)]
-        bool_penalty = np.zeros(self.n_agents, dtype=bool)
+        avail_EV = [self.batch['avail_EV'][home][h] for home in range(self.n_homes)]
+        bool_penalty = np.zeros(self.n_homes, dtype=bool)
         last_step = self._last_step(date)
         # regular initial minimum charge
         min_charge_t_0 = [
-            self.store0[a] * avail_EV[a] if last_step else
-            self.min_charge[a] * avail_EV[a] for a in range(self.n_agents)]
+            self.store0[home] * avail_EV[home] if last_step else
+            self.min_charge[home] * avail_EV[home] for home in range(self.n_homes)]
 
         # min_charge if need to charge up ahead of last step
         Creq = []
-        for a in range(self.n_agents):
+        for home in range(self.n_homes):
             date_a = copy.deepcopy(date)
-            if not self.avail_EV[a]:
+            if not self.avail_EV[home]:
                 # if EV not currently in garage
                 Creq.append(0)
                 continue
 
             # obtain all future trips
             trips = self._get_list_future_trips(
-                h, date_a, a, bool_penalty, print_error
+                h, date_a, home, bool_penalty, print_error
             )
             # trips[i] = [loads_T, deltaT, i_endtrip]
 
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else h
             n_avail_until_end = sum(
-                self.batch['avail_EV'][a][h_]
+                self.batch['avail_EV'][home][h_]
                 for h_ in range(final_i_endtrip, self.N)
             )
 
@@ -274,7 +274,7 @@ class Battery:
                 n_avail_until_end -= 1
 
             Creq.append(
-                max(0, self.store0[a] - self.c_max * n_avail_until_end)
+                max(0, self.store0[home] - self.c_max * n_avail_until_end)
             )
 
             for it in range(len(trips)):
@@ -284,34 +284,34 @@ class Battery:
                 # this is the required charge at the current step
                 # if this is the most recent trip, or right after
                 # the previous trip
-                Creq[a] = max(0, Creq[a] + loads_T - deltaT * self.c_max)
+                Creq[home] = max(0, Creq[home] + loads_T - deltaT * self.c_max)
 
-        min_charge_t = [max(min_charge_t_0[a], Creq[a])
-                        for a in range(self.n_agents)]
+        min_charge_t = [max(min_charge_t_0[home], Creq[home])
+                        for home in range(self.n_homes)]
 
         self._check_min_charge_t_feasible(
             min_charge_t, h, date, bool_penalty, print_error, simulation
         )
-        for a in range(self.n_agents):
-            if h == 22 and avail_EV[a]:
-                assert min_charge_t[a] >= self.store0[a] - self.c_max, \
+        for home in range(self.n_homes):
+            if h == 22 and avail_EV[home]:
+                assert min_charge_t[home] >= self.store0[home] - self.c_max, \
                     f"h == 22 and min_charge_t {min_charge_t} " \
-                    f"< {self.store0[a]} - {self.c_max}"
+                    f"< {self.store0[home]} - {self.c_max}"
 
         self.min_charge_t = min_charge_t
 
         self.max_charge_t = \
-            [self.store0[a] if last_step and self.avail_EV[a]
-             else self.cap[a] for a in range(self.n_agents)]
+            [self.store0[home] if last_step and self.avail_EV[home]
+             else self.cap[home] for home in range(self.n_homes)]
 
         return bool_penalty
 
-    def check_constraints(self, a, date, h):
+    def check_constraints(self, home, date, h):
         """
         From env.policy_to_rewardvar, check battery constraints.
 
         Inputs:
-        a:
+        home:
             index relative to agent
         h:
             time step
@@ -324,142 +324,146 @@ class Battery:
         last_step = self._last_step(date)
 
         # battery energy balance
-        bat_e_balance = self.charge[a] - self.discharge[a] \
-            - self.loads_EV[a] - self.loss_dis[a] \
-            - (self.store[a] - self.start_store[a])
+        bat_e_balance = self.charge[home] - self.discharge[home] \
+            - self.loads_EV[home] - self.loss_dis[home] \
+            - (self.store[home] - self.start_store[home])
         assert abs(bat_e_balance) < 1e-2, \
-            f"a = {a}, battery energy balance sum = {bat_e_balance}"
+            f"home = {home}, battery energy balance sum = {bat_e_balance}"
 
         # initial and final storage level
         if date == self.date0:
-            assert self.start_store[a] == self.store0[a], \
-                f'start_store[{a}] {self.start_store[a]} not store0'
+            assert self.start_store[home] == self.store0[home], \
+                f'start_store[{home}] {self.start_store[home]} not store0'
 
         if date == self.date_end - datetime.timedelta(hours=1) \
-                and self.avail_EV[a]:
-            assert self.store[a] >= self.store0[a] - 1e-2, \
-                f"a = {a}, store end {self.store[a]} " \
-                f"smaller than store0 {self.store0[a]}"
+                and self.avail_EV[home]:
+            assert self.store[home] >= self.store0[home] - 1e-2, \
+                f"home = {home}, store end {self.store[home]} " \
+                f"smaller than store0 {self.store0[home]}"
 
         # max storage level
-        assert self.store[a] <= self.cap[a] + 1e-2, \
-            f'store[{a}] {self.store[a]} larger than cap'
+        assert self.store[home] <= self.cap[home] + 1e-2, \
+            f'store[{home}] {self.store[home]} larger than cap'
 
-        if self.max_charge_t[a] is not None \
-                and self.avail_EV[a]:
-            assert self.store[a] <= self.max_charge_t[a] + 1e-2, \
-                f'store[{a}] {self.store[a]} > max_charge_t[a] ' \
-                f'{self.max_charge_t[a]} after flex, ' \
+        if self.max_charge_t[home] is not None \
+                and self.avail_EV[home]:
+            assert self.store[home] <= self.max_charge_t[home] + 1e-2, \
+                f'store[{home}] {self.store[home]} > max_charge_t[home] ' \
+                f'{self.max_charge_t[home]} after flex, ' \
                 f'last_step = {last_step}'
 
         # minimum storage level
-        assert self.store[a] \
-               >= self.SoCmin * self.cap[a] * self.avail_EV[a] - 1e-2, \
-               f"store[{a}] {self.store[a]} " \
+        assert self.store[home] \
+               >= self.SoCmin * self.cap[home] * self.avail_EV[home] - 1e-2, \
+               f"store[{home}] {self.store[home]} " \
                f"smaller than SoCmin and no bool_penalty, " \
-               f"availEV[a] = {self.avail_EV[a]}, " \
-               f"charge[a] = {self.charge[a]}, " \
+               f"availEV[home] = {self.avail_EV[home]}, " \
+               f"charge[home] = {self.charge[home]}, " \
                f"c_max = {self.c_max}"
 
         assert \
-            self.store[a] >= self.min_charge_t[a] * self.avail_EV[a] - 1e-2, \
-            f'store[{a}] {self.store[a]} ' \
-            f'smaller than min_charge_t[a] {self.min_charge_t[a]} ' \
-            f'avail_EV[a] {self.avail_EV[a]}'
+            self.store[home] >= self.min_charge_t[home] * self.avail_EV[home] - 1e-2, \
+            f'store[{home}] {self.store[home]} ' \
+            f'smaller than min_charge_t[home] {self.min_charge_t[home]} ' \
+            f'avail_EV[home] {self.avail_EV[home]}'
 
         # charge and discharge losses
         abs_loss_charge = \
-            self.loss_ch[a] - ((self.charge[a] + self.loss_ch[a])
-                               * (1 - self.eta_ch))
+            self.loss_ch[home] - (
+                (self.charge[home] + self.loss_ch[home])
+                * (1 - self.eta_ch)
+            )
         assert abs(abs_loss_charge) <= 1e-2, \
-            f"self.cap = {self.cap}, h = {h}, a = {a} " \
+            f"self.cap = {self.cap}, h = {h}, home = {home} " \
             f"sum loss charge = {abs_loss_charge}"
 
         abs_loss_charge = \
-            self.loss_dis[a] - ((self.discharge[a] + self.loss_dis[a])
-                                * (1 - self.eta_dis))
+            self.loss_dis[home] - (
+                (self.discharge[home] + self.loss_dis[home])
+                * (1 - self.eta_dis)
+            )
         assert abs(abs_loss_charge) <= 1e-2, \
-            f"h = {h}, a = {a} sum loss charge = {abs_loss_charge}"
+            f"h = {h}, home = {home} sum loss charge = {abs_loss_charge}"
 
         # only charge and discharge if EV is available
-        assert self.charge[a] <= self.avail_EV[a] * self.M, \
+        assert self.charge[home] <= self.avail_EV[home] * self.M, \
             'charge but EV not available and no bool_penalty'
-        assert self.discharge[a] <= self.avail_EV[a] * self.M, \
-            f'a = {a} discharge (else than EV cons) but ' \
+        assert self.discharge[home] <= self.avail_EV[home] * self.M, \
+            f'home = {home} discharge (else than EV cons) but ' \
             f'EV not available'
 
         # max charge rate
-        assert self.charge[a] <= self.c_max + 1e-2, \
+        assert self.charge[home] <= self.c_max + 1e-2, \
             f"charge {self.charge} > c_max {self.c_max}"
 
         # max discharge rate
-        assert self.discharge[a] + self.loss_dis[a] + self.loads_EV[a] \
+        assert self.discharge[home] + self.loss_dis[home] + self.loads_EV[home] \
                <= self.d_max + 1e-2, \
-               f'a = {a}, discharge[a] {self.discharge[a]} > self.d_max'
+               f'home = {home}, discharge[home] {self.discharge[home]} > self.d_max'
 
         # positivity
         for e in ['store', 'charge', 'discharge', 'loss_ch', 'loss_dis']:
-            assert self.__dict__[e][a] >= - 1e-2, \
-                f'a = {a} negative {e}[a] {self.__dic__[e][a]}'
+            assert self.__dict__[e][home] >= - 1e-2, \
+                f'home = {home} negative {e}[home] {self.__dic__[e][home]}'
 
     def actions_to_env_vars(self, res):
         """Update battery state for current actions."""
         for e in ['store', 'charge', 'discharge', 'loss_ch',
                   'loss_dis', 'store_out_tot', 'discharge_tot']:
-            self.__dict__[e] = [None for a in range(self.n_agents)]
-        for a in range(self.n_agents):
-            self.store[a] = self.start_store[a] \
-                + res[a]['ds'] - self.loads_EV[a]
-            if self.store[a] < self.min_charge_t[a] - 1e-3:
-                print(f"a {a} store[{a}] {self.store[a]} "
-                      f"self.start_store[a] {self.start_store[a]} "
-                      f"res[{a}['ds'] {res[a]['ds']} "
-                      f"self.loads_EV[a] {self.loads_EV[a]} "
-                      f"self.min_charge_t[a] {self.min_charge_t[a]}")
-            self.charge[a] = res[a]['ds'] if res[a]['ds'] > 0 else 0
-            self.discharge[a] = - res[a]['ds'] * self.eta_dis \
-                if res[a]['ds'] < 0 else 0
-            self.loss_ch[a] = res[a]['l_ch']
-            self.loss_dis[a] = res[a]['l_dis']
-            self.store_out_tot[a] = self.discharge[a] \
-                + self.loss_dis[a] + self.loads_EV[a]
-            self.discharge_tot[a] = self.discharge[a] / self.eta_dis \
-                + self.loads_EV[a]
+            self.__dict__[e] = [None for home in range(self.n_homes)]
+        for home in range(self.n_homes):
+            self.store[home] = self.start_store[home] \
+                + res[home]['ds'] - self.loads_EV[home]
+            if self.store[home] < self.min_charge_t[home] - 1e-3:
+                print(f"home {home} store[{home}] {self.store[home]} "
+                      f"self.start_store[home] {self.start_store[home]} "
+                      f"res[{home}['ds'] {res[home]['ds']} "
+                      f"self.loads_EV[home] {self.loads_EV[home]} "
+                      f"self.min_charge_t[home] {self.min_charge_t[home]}")
+            self.charge[home] = res[home]['ds'] if res[home]['ds'] > 0 else 0
+            self.discharge[home] = - res[home]['ds'] * self.eta_dis \
+                if res[home]['ds'] < 0 else 0
+            self.loss_ch[home] = res[home]['l_ch']
+            self.loss_dis[home] = res[home]['l_dis']
+            self.store_out_tot[home] = self.discharge[home] \
+                + self.loss_dis[home] + self.loads_EV[home]
+            self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
+                + self.loads_EV[home]
 
     def initial_processing(self):
         """Get current available battery flexibility."""
         # storage available above minimum charge that can be discharged
         s_avail_dis = np.array(
             [min(
-                max(self.start_store[a] - self.min_charge_t[a], 0),
+                max(self.start_store[home] - self.min_charge_t[home], 0),
                 self.d_max
-            ) * self.avail_EV[a] for a in range(self.n_agents)]
+            ) * self.avail_EV[home] for home in range(self.n_homes)]
         )
 
         # how much i need to add to store
         s_add_0 = np.array(
-            [max(self.min_charge_t[a] - self.start_store[a], 0)
-             * self.avail_EV[a] for a in range(self.n_agents)]
+            [max(self.min_charge_t[home] - self.start_store[home], 0)
+             * self.avail_EV[home] for home in range(self.n_homes)]
         )
 
         # how much i need to remove from store
         s_remove_0 = np.array(
-            [max(self.start_store[a] - self.max_charge_t[a], 0)
-             * self.avail_EV[a] for a in range(self.n_agents)]
+            [max(self.start_store[home] - self.max_charge_t[home], 0)
+             * self.avail_EV[home] for home in range(self.n_homes)]
         )
 
         # how much can I charge it by rel. to current level
         C_avail = np.array(
-            [min(self.c_max, self.max_charge_t[a] - self.start_store[a])
-             * self.avail_EV[a] for a in range(self.n_agents)]
+            [min(self.c_max, self.max_charge_t[home] - self.start_store[home])
+             * self.avail_EV[home] for home in range(self.n_homes)]
         )
 
         return s_avail_dis, s_add_0, s_remove_0, C_avail
 
-    def k_losses(self, a, k, action_prev, action_next):
+    def k_losses(self, home, k, action_prev, action_next):
         """Get charge/discharge loss slope parameters between 2 action points."""
-        ds_start = k[a]['ds'][-1][0] * action_prev + k[a]['ds'][-1][1]
-        ds_end = k[a]['ds'][-1][0] * action_next + k[a]['ds'][-1][1]
+        ds_start = k[home]['ds'][-1][0] * action_prev + k[home]['ds'][-1][1]
+        ds_end = k[home]['ds'][-1][0] * action_next + k[home]['ds'][-1][1]
         loss, a_loss, b_loss = [{} for _ in range(3)]
         loss['ch'] = [0 if ds < 0
                       else ds / self.eta_ch * (1 - self.eta_ch)
@@ -469,68 +473,68 @@ class Battery:
         for e in ['ch', 'dis']:
             a_loss[e] = (loss[e][1] - loss[e][0]) / (action_next - action_prev)
             b_loss[e] = loss[e][1] - a_loss[e] * action_next
-            k[a]['l_' + e].append([a_loss[e], b_loss[e]])
+            k[home]['l_' + e].append([a_loss[e], b_loss[e]])
 
         return k
 
-    def check_errors_apply_step(self, as_, bool_penalty, action, res):
+    def check_errors_apply_step(self, homes, bool_penalty, action, res):
         """From action_manager.actions_to_env_vars, check battery constraints."""
-        for a in as_:
+        for home in homes:
             # bat
-            if self.min_charge_t[a] - self.start_store[a] > self.c_max + 1e-2:
-                print(f"self.min_charge_t[{a}] = {self.min_charge_t[a]},"
-                      f"start_store[a] = {self.start_store[a]}")
-                bool_penalty[a] = True
+            if self.min_charge_t[home] - self.start_store[home] > self.c_max + 1e-2:
+                print(f"self.min_charge_t[{home}] = {self.min_charge_t[home]},"
+                      f"start_store[home] = {self.start_store[home]}")
+                bool_penalty[home] = True
 
-            if abs(self.loss_ch[a]
-                   - ((self.charge[a] + self.loss_ch[a])
+            if abs(self.loss_ch[home]
+                   - ((self.charge[home] + self.loss_ch[home])
                       * (1 - self.eta_ch))) > 1e-2:
-                print(f'in actions_to_env_vars loss_ch[a] = '
-                      f'{self.loss_ch[a]} charge[a] = {self.charge[a]}')
-                bool_penalty[a] = True
+                print(f'in actions_to_env_vars loss_ch[home] = '
+                      f'{self.loss_ch[home]} charge[home] = {self.charge[home]}')
+                bool_penalty[home] = True
 
             # with discharge / loss_dis ratio
-            if abs(self.loss_dis[a]
-                   - ((self.discharge[a] + self.loss_dis[a])
+            if abs(self.loss_dis[home]
+                   - ((self.discharge[home] + self.loss_dis[home])
                       * (1 - self.eta_dis))) > 1e-2:
-                print(f'in actions_to_env_vars loss_dis[{a}] = '
-                      f'{self.loss_dis[a]} '
-                      f'discharge[a] = {self.discharge[a]}')
-                bool_penalty[a] = True
+                print(f'in actions_to_env_vars loss_dis[{home}] = '
+                      f'{self.loss_dis[home]} '
+                      f'discharge[home] = {self.discharge[home]}')
+                bool_penalty[home] = True
 
             # discharge rate
-            if self.discharge[a] + self.loads_EV[a] > self.d_max + 1e-2:
-                print(f"discharge[{a}] {self.discharge[a]} > "
+            if self.discharge[home] + self.loads_EV[home] > self.d_max + 1e-2:
+                print(f"discharge[{home}] {self.discharge[home]} > "
                       f"self.d_max {self.d_max}")
-                bool_penalty[a] = True
+                bool_penalty[home] = True
 
-            if not self.avail_EV[a] and self.loads_EV[a] > 1e-2 \
-                    and self.loads_EV[a] > self.start_store[a] + 1e-2:
-                print(f"self.loads_EV[{a}] = {self.loads_EV[a]}, "
-                      f"self.start_store[a] = {self.start_store[a]}")
-                bool_penalty[a] = True
+            if not self.avail_EV[home] and self.loads_EV[home] > 1e-2 \
+                    and self.loads_EV[home] > self.start_store[home] + 1e-2:
+                print(f"self.loads_EV[{home}] = {self.loads_EV[home]}, "
+                      f"self.start_store[home] = {self.start_store[home]}")
+                bool_penalty[home] = True
 
-            if self.avail_EV[a] == 0 and res[a]['ds'] > 0:
+            if self.avail_EV[home] == 0 and res[home]['ds'] > 0:
                 print('in update action dch > 0, EVavail = 0')
-                bool_penalty[a] = True
+                bool_penalty[home] = True
 
-            if self.max_charge_t[a] is not None \
-                    and self.store[a] > self.max_charge_t[a] + 1e-2:
-                print(f'self.max_charge_t[{a}] = {self.max_charge_t[a]} '
-                      f'store[a] = {self.store[a]}')
-                print(f'action[a] = {action[a]}')
-                bool_penalty[a] = True
+            if self.max_charge_t[home] is not None \
+                    and self.store[home] > self.max_charge_t[home] + 1e-2:
+                print(f'self.max_charge_t[{home}] = {self.max_charge_t[home]} '
+                      f'store[home] = {self.store[home]}')
+                print(f'action[home] = {action[home]}')
+                bool_penalty[home] = True
 
         if not type(self.store[0]) in [float, np.float64]:
             print('not type(store[0]) in [float, np.float64]')
-            bool_penalty[a] = True
+            bool_penalty[home] = True
 
         return bool_penalty
 
     def _current_batch_step(self):
         for e in self.batch_entries:
-            self.__dict__[e] = [self.batch[e][a][self.i_step]
-                                for a in range(self.n_agents)]
+            self.__dict__[e] = [self.batch[e][home][self.i_step]
+                                for home in range(self.n_homes)]
 
     def _last_step(self, date):
         return date == self.date_end - datetime.timedelta(hours=1)
@@ -538,37 +542,37 @@ class Battery:
     def _check_first_time_step_feasibility(
             self, h, date, bool_penalty, print_error
     ):
-        for a in range(self.n_agents):
+        for home in range(self.n_homes):
             # check if opportunity to charge before trip > 37.5
-            if h == 0 and not self.batch['avail_EV'][a][0]:
-                loads_T, deltaT, i_endtrip = self.next_trip_details(h, date, a)
-                if loads_T > self.store0[a]:
+            if h == 0 and not self.batch['avail_EV'][home][0]:
+                loads_T, deltaT, i_endtrip = self.next_trip_details(h, date, home)
+                if loads_T > self.store0[home]:
                     # trip larger than initial charge and straight
                     # away not available
-                    bool_penalty[a] = True
+                    bool_penalty[home] = True
                     error_message = \
-                        f'a = {a}, trip {loads_T} larger than ' \
+                        f'home = {home}, trip {loads_T} larger than ' \
                         f'initial charge - straight away not available'
                     self._print_error(error_message, print_error)
-                if sum(self.batch['avail_EV'][a][0:23]) == 0 \
-                        and sum(self.batch['loads_EV'][a][0:23]) \
+                if sum(self.batch['avail_EV'][home][0:23]) == 0 \
+                        and sum(self.batch['loads_EV'][home][0:23]) \
                         > self.c_max + 1e-2:
-                    bool_penalty[a] = True
+                    bool_penalty[home] = True
                     error_message = \
-                        f'a = {a}, only last step available, ' \
+                        f'home = {home}, only last step available, ' \
                         'not enough to go back to initial charge ' \
                         'at the last time step'
                     self._print_error(error_message, print_error)
                 loads_T_next, deltaT_next, i_endtrip_next = \
                     self.next_trip_details(
-                        deltaT, date + datetime.timedelta(hours=deltaT), a)
+                        deltaT, date + datetime.timedelta(hours=deltaT), home)
                 if deltaT_next > 0 \
-                        and loads_T_next - (self.store0[a] - loads_T) \
+                        and loads_T_next - (self.store0[home] - loads_T) \
                         < self.c_max / deltaT_next:
                     # trip larger than initial charge and straight
                     # away not available
-                    bool_penalty[a] = True
-                    error_message = f'a = {a}, directly initial trip ' \
+                    bool_penalty[home] = True
+                    error_message = f'home = {home}, directly initial trip ' \
                                     f'{loads_T} then {loads_T_next} ' \
                                     f'with only {deltaT_next} to charge'
                     self._print_error(error_message, print_error)
@@ -582,64 +586,64 @@ class Battery:
             h, date, bool_penalty, print_error
         )
 
-        for a in range(self.n_agents):
+        for home in range(self.n_homes):
             # check if any hourly load is larger than d_max
-            if any(self.batch['loads_EV'][a][h] > self.d_max + 1e-2
+            if any(self.batch['loads_EV'][home][h] > self.d_max + 1e-2
                    for h in range(self.N)):
                 # you would have to break constraints to meet demand
-                bool_penalty[a] = True
+                bool_penalty[home] = True
                 self._print_error(
-                    f'a = {a}, load EV larger than d_max',
+                    f'home = {home}, load EV larger than d_max',
                     print_error
                 )
 
-            if min_charge_t[a] > self.cap[a] + 1e-2:
-                bool_penalty[a] = True  # min_charge_t larger than total cap
-                error_message = f'a = {a}, min_charge_t {min_charge_t[a]} ' \
+            if min_charge_t[home] > self.cap[home] + 1e-2:
+                bool_penalty[home] = True  # min_charge_t larger than total cap
+                error_message = f'home = {home}, min_charge_t {min_charge_t[home]} ' \
                     'larger than cap'
                 self._print_error(error_message, print_error)
-            if min_charge_t[a] > self.store0[a] \
-                    - sum(self.batch['loads_EV'][a][0:h]) + (
-                    sum(self.batch['loads_EV'][a][0:h]) + 1) \
+            if min_charge_t[home] > self.store0[home] \
+                    - sum(self.batch['loads_EV'][home][0:h]) + (
+                    sum(self.batch['loads_EV'][home][0:h]) + 1) \
                     * self.c_max + 1e-3:
-                bool_penalty[a] = True
-                error_message = f'a = {a}, min_charge_t {min_charge_t[a]} ' \
+                bool_penalty[home] = True
+                error_message = f'home = {home}, min_charge_t {min_charge_t[home]} ' \
                     'larger what car can be charged to'
                 self._print_error(error_message, print_error)
 
             if simulation \
-                    and min_charge_t[a] > self.store[a] + self.c_max + 1e-3:
-                bool_penalty[a] = True
+                    and min_charge_t[home] > self.store[home] + self.c_max + 1e-3:
+                bool_penalty[home] = True
                 error_message = \
                     f"date {date} h {h} " \
-                    f"min_charge_t[{a}] {min_charge_t[a]} " \
-                    f"> self.store[{a}] {self.store[a]} " \
+                    f"min_charge_t[{home}] {min_charge_t[home]} " \
+                    f"> self.store[{home}] {self.store[home]} " \
                     f"+ self.c_max {self.c_max}"
                 self._print_error(error_message, print_error)
 
             elif not simulation \
                     and h > 0 \
-                    and sum(self.batch['avail_EV'][a][0: h]) == 0:
+                    and sum(self.batch['avail_EV'][home][0: h]) == 0:
                 # the EV has not been available at home to recharge until now
-                store_t_a = self.store0[a] \
-                    - sum(self.batch['loads_EV'][a][0: h])
-                if min_charge_t[a] > store_t_a + self.c_max + 1e-3:
-                    bool_penalty[a] = True
+                store_t_a = self.store0[home] \
+                    - sum(self.batch['loads_EV'][home][0: h])
+                if min_charge_t[home] > store_t_a + self.c_max + 1e-3:
+                    bool_penalty[home] = True
 
     def _print_error(self, error_message, print_error):
         if print_error:
             print(error_message)
 
-    def check_feasible_bat(self, prm, ntw, p, bat, syst):
+    def check_feasible_bat(self, prm, ntw, passive_ext, bat, syst):
         """Check charging constraints for proposed data batch."""
-        feasible = np.ones(ntw['n' + p], dtype=bool)
-        for a in range(ntw['n' + p]):
-            if bat['d_max'] < np.max(bat['batch_loads_EV'][a]):
-                feasible[a] = False
-                print("bat['d_max'] < np.max(bat['batch_loads_EV'][a])")
-                for t in range(len(bat['batch_loads_EV'][a])):
-                    if bat['batch_loads_EV'][a, t] > bat['d_max']:
-                        bat['batch_loads_EV'][a, t] = bat['d_max']
+        feasible = np.ones(ntw['n' + passive_ext], dtype=bool)
+        for home in range(ntw['n' + passive_ext]):
+            if bat['d_max'] < np.max(bat['batch_loads_EV'][home]):
+                feasible[home] = False
+                print("bat['d_max'] < np.max(bat['batch_loads_EV'][home])")
+                for t in range(len(bat['batch_loads_EV'][home])):
+                    if bat['batch_loads_EV'][home, t] > bat['d_max']:
+                        bat['batch_loads_EV'][home, t] = bat['d_max']
 
         t = 0
 

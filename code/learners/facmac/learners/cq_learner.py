@@ -16,7 +16,7 @@ class CQLearner(Learner):
 
         self.last_target_update_episode = 0
 
-        if rl['mixer'] is not None and rl['n_agents'] > 1:
+        if rl['mixer'] is not None and rl['n_homes'] > 1:
             self.agent_params += list(self.mixer.parameters())
             self.named_params.update(dict(self.mixer.named_parameters()))
             self.target_mixer = copy.deepcopy(self.mixer)
@@ -66,19 +66,19 @@ class CQLearner(Learner):
         # Mix
         if self.mixer is not None:
             chosen_action_qvals = self.mixer(
-                chosen_action_qvals.view(-1, self.rl['n_agents'], 1),
+                chosen_action_qvals.view(-1, self.n_agents, 1),
                 batch["state"][:, :-1])
             target_max_qvals = self.target_mixer(
-                target_max_qvals.view(-1, self.rl['n_agents'], 1),
+                target_max_qvals.view(-1, self.n_agents, 1),
                 batch["state"][:, 1:])
             chosen_action_qvals = chosen_action_qvals.view(
                 batch.batch_size, -1, 1)
             target_max_qvals = target_max_qvals.view(batch.batch_size, -1, 1)
         else:
             chosen_action_qvals = chosen_action_qvals.view(
-                batch.batch_size, -1, self.rl['n_agents'])
+                batch.batch_size, -1, self.n_agents)
             target_max_qvals = target_max_qvals.view(
-                batch.batch_size, -1, self.rl['n_agents'])
+                batch.batch_size, -1, self.n_agents)
 
         # Calculate 1-step Q-Learning targets
         targets = rewards.expand_as(target_max_qvals) \

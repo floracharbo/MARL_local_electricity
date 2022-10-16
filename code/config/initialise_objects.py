@@ -99,13 +99,13 @@ def _make_action_space(rl):
             low=np.array(rl["low_action"], dtype=np.float32),
             high=np.array(rl["high_action"], dtype=np.float32),
             shape=(rl["dim_actions"],), dtype=np.float32)
-    rl["action_space"] = [action_space] * rl["n_agents"]
+    rl["action_space"] = [action_space] * rl["n_homes"]
 
     ttype = th.FloatTensor if not rl["use_cuda"] else th.cuda.FloatTensor
-    mult_coef_tensor = ttype(rl["n_agents"], rl["dim_actions"])
-    action_min_tensor = ttype(rl["n_agents"], rl["dim_actions"])
+    mult_coef_tensor = ttype(rl["n_homes"], rl["dim_actions"])
+    action_min_tensor = ttype(rl["n_homes"], rl["dim_actions"])
     if not rl["discretize_actions"]:
-        for _aid in range(rl["n_agents"]):
+        for _aid in range(rl["n_homes"]):
             for _actid in range(rl["dim_actions"]):
                 _action_min = rl["action_space"][_aid].low[_actid]
                 _action_max = rl["action_space"][_aid].high[_actid]
@@ -119,7 +119,7 @@ def _make_action_space(rl):
     rl["actions_min"] = action_min_tensor
     rl["actions_min_cpu"] = action_min_tensor.cpu()
     rl["actions_min_numpy"] = action_min_tensor.cpu().numpy()
-    rl["avail_actions"] = np.ones((rl["n_agents"], rl["dim_actions"]))
+    rl["avail_actions"] = np.ones((rl["n_homes"], rl["dim_actions"]))
 
     # make conversion functions globally available
     rl["actions2unit"] = _actions_to_unit_box
@@ -154,7 +154,7 @@ def _make_scheme(rl):
         "terminated": {"vshape": (1,), "dtype": th.uint8},
     }
     rl["groups"] = {
-        "agents": rl["n_agents"]
+        "agents": rl["n_homes"]
     }
 
     if not rl["actions_dtype"] == np.float32:
@@ -167,7 +167,7 @@ def _make_scheme(rl):
     rl["env_info"] = {"state_shape": rl["state_shape"],
                       "obs_shape": rl["obs_shape"],
                       "n_actions": rl["dim_actions"],
-                      "n_agents": rl["n_agents"],
+                      "n_homes": rl["n_homes"],
                       "episode_limit": rl["episode_limit"],
                       "actions_dtype": np.float32
                       }
@@ -186,10 +186,10 @@ def _facmac_initialise(prm):
         corresponding to prm["RL"]; with updated parameters
     """
     rl = prm["RL"]
-    rl["n_agents"] = prm["ntw"]["n"]
+    rl["n_homes"] = prm["ntw"]["n"]
 
     rl["obs_shape"] = len(rl["state_space"])
-    rl["state_shape"] = rl["obs_shape"] * rl["n_agents"]
+    rl["state_shape"] = rl["obs_shape"] * rl["n_homes"]
 
     if not rl["server"]:
         rl["use_cuda"] = False
@@ -247,10 +247,10 @@ def _load_data_dictionaries(loads, gen, bat, paths, syst):
                         factors_path / f"prm_{dict_label[d]}_{dtt}.npy")[0]
                     dicts[d]["f_mean"][dtt] = np.load(
                         factors_path / f"meandistr_{dict_label[d]}_{dtt}.npy")
-            for p in ["pclus", "ptrans"]:
-                dicts[d][p] = np.reshape(
+            for probabilities in ["pclus", "ptrans"]:
+                dicts[d][probabilities] = np.reshape(
                     np.load(paths["hedge_inputs"] / paths["clusfolder"]
-                            / f"{p}_{dict_label[d]}.npy",
+                            / f"{probabilities}_{dict_label[d]}.npy",
                             allow_pickle=True), 1)[0]
             dicts[d]["n_clus"] = len(dicts[d]["pclus"]["wd"])
 
@@ -383,15 +383,15 @@ def _update_bat_prm(prm):
     bat = _load_bat_factors_parameters(syst, paths, bat)
 
     # battery characteristics
-    bat["min_charge"] = [bat["cap"][a] * max(bat["SoCmin"], bat["baseld"])
-                         for a in range(ntw["n"])]
-    bat["store0"] = [bat["SoC0"] * bat["cap"][a] for a in range(ntw["n"])]
+    bat["min_charge"] = [bat["cap"][home] * max(bat["SoCmin"], bat["baseld"])
+                         for home in range(ntw["n"])]
+    bat["store0"] = [bat["SoC0"] * bat["cap"][home] for home in range(ntw["n"])]
     if "capP" not in bat:
         bat["capP"] = [bat["cap"][0] for _ in range(ntw["nP"])]
-    bat["store0P"] = [bat["SoC0"] * bat["capP"][a] for a in range(ntw["nP"])]
+    bat["store0P"] = [bat["SoC0"] * bat["capP"][home] for home in range(ntw["nP"])]
     bat["min_chargeP"] = [
-        bat["capP"][a] * max(bat["SoCmin"], bat["baseld"])
-        for a in range(ntw["nP"])
+        bat["capP"][home] * max(bat["SoCmin"], bat["baseld"])
+        for home in range(ntw["nP"])
     ]
     bat["phi0"] = np.arctan(bat["c_max"])
 
@@ -492,7 +492,7 @@ def _dims_states_actions(rl, syst):
     if "trajectory" not in rl:
         rl["trajectory"] = False
     if rl["distr_learning"] == "joint":
-        rl["dim_actions"] *= rl["n_agents"]
+        rl["dim_actions"] *= rl["n_homes"]
         rl["trajectory"] = False
     if rl["trajectory"]:
         for key in ["dim_states", "dim_actions"]:
@@ -531,10 +531,10 @@ def _update_rl_prm(prm, initialise_all):
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
         rl["high_action"] = rl["high_actions"]
-    for p in ["P", ""]:
-        rl["default_action" + p] = [
+    for passive_ext in ["P", ""]:
+        rl["default_action" + passive_ext] = [
             [rl["default_action"] for _ in range(rl["dim_actions"])]
-            for _ in range(ntw["n" + p])
+            for _ in range(ntw["n" + passive_ext])
         ]
 
     _exploration_parameters(rl)
@@ -669,14 +669,14 @@ def _time_info(prm, initialise_all):
 
 def _homes_info(loads, ntw, gen, heat):
     ntw["n_all"] = ntw["n"] + ntw["nP"]
-    for p in ["", "P"]:
-        gen["own_PV" + p] = [1 for _ in range(ntw["n" + p])] \
-            if gen["own_PV" + p] == 1 else gen["own_PV" + p]
-        heat["own_heat" + p] = [1 for _ in range(ntw["n" + p])] \
-            if heat["own_heat" + p] == 1 else heat["own_heat" + p]
-        for e in ["own_loads" + p, "own_flex" + p]:
+    for passive_ext in ["", "P"]:
+        gen["own_PV" + passive_ext] = [1 for _ in range(ntw["n" + passive_ext])] \
+            if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
+        heat["own_heat" + passive_ext] = [1 for _ in range(ntw["n" + passive_ext])] \
+            if heat["own_heat" + passive_ext] == 1 else heat["own_heat" + passive_ext]
+        for e in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
             if e in loads:
-                loads[e] = [1 for _ in range(ntw["n" + p])] \
+                loads[e] = [1 for _ in range(ntw["n" + passive_ext])] \
                     if loads[e] == 1 else loads[e]
 
 
@@ -727,8 +727,8 @@ def initialise_prm(prm, no_run, initialise_all=True):
                 paths, bat, syst, loads, gen)
             loads["share_flex"], loads["max_delay"] = loads["flex"]
             loads["share_flexs"] = \
-                [0 if not loads["own_flex"][a]
-                 else loads["share_flex"] for a in range(ntw["n"])]
+                [0 if not loads["own_flex"][home]
+                 else loads["share_flex"] for home in range(ntw["n"])]
         else:
             profiles = None
     else:

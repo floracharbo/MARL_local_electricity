@@ -10,7 +10,6 @@ take saved MARL runs and compare what inputs are different
 
 # packages
 import os
-import traceback
 
 import numpy as np
 
@@ -90,52 +89,58 @@ def _check_shape_array_vals(obj_a, obj_b, label_a, label_b):
         print(ex)
 
 
+def replace_outdated_labels(k1, objs):
+    k1_ = k1
+    if k1_ not in objs[1]:
+        k1_ = _find_interchangeable_val(k1_)
+        if k1_ is None:
+            print(f"{k1} not in objs[1] = {objs[1].keys()}")
+
+    return k1_
+
+
+def check_if_two_dicts_match_for_individual_key(objs, k1, k1_, label):
+    for k2 in objs[0][k1].keys():
+        k2_ = k2
+        if k2_ not in objs[1][k1_]:
+            replacement_val = _find_interchangeable_val(k2_)
+            if replacement_val is None:
+                print(f"{k2} not in {label[1]}[{k1_}] "
+                      f"= {objs[1][k1_].keys()}")
+            else:
+                k2_ = replacement_val
+
+        elif isinstance(objs[0][k1][k2], dict):
+            for k3 in objs[0][k1][k2].keys():
+                k3_ = k3
+                if k3_ not in objs[1][k1_][k2_]:
+                    k3_ = _find_interchangeable_val(k3_)
+                    if k3_ is None:
+                        print(f"{k3} not in "
+                              f"objs[1][{k1_}][{k2_}] "
+                              f"= {objs[1][k1_][k2_].keys()}")
+                if k3_ is not None:
+                    _check_shape_array_vals(
+                        objs[0][k1][k2][k3],
+                        objs[1][k1_][k2_][k3_],
+                        f'{RUN_A}_{label}_{k1}_{k2}_{k3}',
+                        f'{RUN_B}_{label}_{k1_}_{k2}_{k3_}')
+
+        else:
+            _check_shape_array_vals(
+                objs[0][k1][k2],
+                objs[1][k1_][k2_],
+                f'{RUN_A}_{label}_{k1}_{k2}',
+                f'{RUN_B}_{label}_{k1_}_{k2_}')
+
+
 for objs, label in zip([list_objs], [labels]):
     for k1 in objs[0].keys():
-        k1_ = k1
-        if k1_ not in objs[1]:
-            k1_ = _find_interchangeable_val(k1_)
-            if k1_ is None:
-                print(f"{k1} not in objs[1] = {objs[1].keys()}")
+        k1_ = replace_outdated_labels(k1, objs)
 
         if k1_ is not None:
             if isinstance(objs[0][k1], dict):
-                for k2 in objs[0][k1].keys():
-                    k2_ = k2
-                    if k2_ not in objs[1][k1_]:
-                        replacement_val = _find_interchangeable_val(k2_)
-                        if replacement_val is None:
-                            print(f"{k2} not in {label[1]}[{k1_}] "
-                                  f"= {objs[1][k1_].keys()}")
-                        else:
-                            k2_ = replacement_val
-
-                    elif isinstance(objs[0][k1][k2], dict):
-                        for k3 in objs[0][k1][k2].keys():
-                            k3_ = k3
-                            if k3_ not in objs[1][k1_][k2_]:
-                                k3_ = _find_interchangeable_val(k3_)
-                                if k3_ is None:
-                                    print(f"{k3} not in "
-                                          f"objs[1][{k1_}][{k2_}] "
-                                          f"= {objs[1][k1_][k2_].keys()}")
-                            if k3_ is not None:
-                                try:
-                                    _check_shape_array_vals(
-                                        objs[0][k1][k2][k3],
-                                        objs[1][k1_][k2_][k3_],
-                                        f'{RUN_A}_{label}_{k1}_{k2}_{k3}',
-                                        f'{RUN_B}_{label}_{k1_}_{k2}_{k3_}')
-                                except Exception as ex:
-                                    print(f"ex {ex}")
-                                    print(traceback.format_exc())
-
-                    else:
-                        _check_shape_array_vals(
-                            objs[0][k1][k2],
-                            objs[1][k1_][k2_],
-                            f'{RUN_A}_{label}_{k1}_{k2}',
-                            f'{RUN_B}_{label}_{k1_}_{k2_}')
+                check_if_two_dicts_match_for_individual_key(objs, k1, k1_, label)
             else:
                 _check_shape_array_vals(
                     objs[0][k1],

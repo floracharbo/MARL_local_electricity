@@ -9,7 +9,7 @@ from tensorflow.keras.losses import MeanSquaredError
 class Agent_DDQN():
     """ Tabular Q-learning learner """
     def __init__(self, env, rl, t):
-        self.n_agents = env.n_agents
+        self.n_agents = env.n_homes
         self.state_dim = len(rl['state_space'])
         # action_dim is discrete number of possible actions
         # per agent per time step

@@ -11,8 +11,8 @@ install:
 lint:
 	isort code
 	flake8 --ignore=W605,W503 --exclude learners --exclude tests --max-line-length=100 code
-	pylama --ignore code/tests/run_test.py,code/learners/facmac --ignore=E501 code
-	find code -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201
+	pylama --skip code/tests/run_test.py,code/learners/facmac --ignore=E501 code
+	find code -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201,E1101
 	mypy --show-error-codes --exclude code/learners/facmac --disable-error-code import --disable-error-code attr-defined code --disable-error-code no-member --disable-error-code duplicate-code
 
 

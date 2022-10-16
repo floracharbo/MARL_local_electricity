@@ -23,8 +23,8 @@ from utilities.userdeftools import distr_learning
 def _max_min_q(q_table, n_states, minq, maxq, prm):
     """Compare min/max q values with saved ones. Update if necessary."""
     for type_q in q_table.keys():
-        n_agents = prm["ntw"]["n"] if distr_learning(type_q) == "d" else 1
-        for agent in range(n_agents):
+        n_homes = prm["ntw"]["n"] if distr_learning(type_q) == "d" else 1
+        for agent in range(n_homes):
             for state in range(n_states):
                 if min(q_table[type_q][agent][state]) < minq:
                     minq = min(q_table[type_q][agent][state])
@@ -158,34 +158,6 @@ def get_prm_save_RL(prm_save, prm):
                     prm_save["RL"][e][key] = val[key]
         elif isinstance(val, (int, float, bool)):
             prm_save["RL"][e] = val
-
-    return prm_save
-
-
-def add_prm_save_list(val, dict_, key):
-    if isinstance(val, list):
-        dict_[key] = []
-        for item in val:
-            if isinstance(item, (int, float, bool)):
-                dict_[key].append(item)
-
-    return dict_
-
-
-def get_prm_save_RL(prm_save, prm):
-    prm_save['RL'] = {}
-    for e, val in prm['RL'].items():
-        prm_save['RL'] = add_prm_save_list(val, prm_save['RL'], e)
-        if isinstance(val, dict):
-            prm_save['RL'][e] = {}
-            for key in val.keys():
-                prm_save['RL'][e] = add_prm_save_list(
-                    val[key], prm_save['RL'][e], key
-                )
-                if isinstance(val[key], (int, float, bool)):
-                    prm_save['RL'][e][key] = val[key]
-        elif isinstance(val, (int, float, bool)):
-            prm_save['RL'][e] = val
 
     return prm_save
 

@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-
 from utilities.userdeftools import granularity_to_multipliers
 
 
@@ -28,7 +27,7 @@ class EnvSpaces():
 
     def __init__(self, env):
         """Initialise EnvSpaces class, add properties."""
-        self.n_agents = env.n_agents
+        self.n_homes = env.n_homes
         self.n_actions = env.prm["RL"]["n_discrete_actions"]
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["bat"]["c_max"]
@@ -146,7 +145,7 @@ class EnvSpaces():
                 if any(t[-2] == 'C' for t in self.type_eval):
                     self.global_multipliers[space] = \
                         granularity_to_multipliers(
-                            [self.n[space] for _ in range(self.n_agents)])
+                            [self.n[space] for _ in range(self.n_homes)])
 
         # need to first define descriptors to define brackets
         self.brackets = self._init_brackets()
@@ -159,12 +158,12 @@ class EnvSpaces():
             if multipliers is None:
                 if typev == "global_state":
                     granularity = [self.n["state"]
-                                   for _ in range(self.n_agents)]
+                                   for _ in range(self.n_homes)]
                     multipliers = granularity_to_multipliers(granularity)
 
                 elif typev == "global_action":
                     granularity = [self.n["action"]
-                                   for _ in range(self.n_agents)]
+                                   for _ in range(self.n_homes)]
                     multipliers = granularity_to_multipliers(granularity)
                 else:
                     multipliers = self.multipliers[typev]
@@ -183,7 +182,7 @@ class EnvSpaces():
         """From discrete space indexes, get global combined index."""
         if indexes is None and type_descriptor == "state":
             if done:
-                indexes = [None for _ in range(self.n_agents)]
+                indexes = [None for _ in range(self.n_homes)]
             else:
                 indexes = self.get_space_indexes(
                     done=done, all_vals=self.get_state_vals())
@@ -228,7 +227,7 @@ class EnvSpaces():
         Return array of indexes of current agents' states/actions.
 
         Inputs:
-                all_vals : all_vals[a][descriptor] =
+                all_vals : all_vals[home][descriptor] =
                 env.get_state_vals() / or values directly for action or
                 if values inputted are not that of the current environment
                 info : optional -
@@ -241,42 +240,42 @@ class EnvSpaces():
         if type_ == "state":
             if t == "next_state" and done:
                 # if the sequence is over, return None
-                return [None for _ in range(self.n_agents)]
+                return [None for _ in range(self.n_homes)]
             if self.descriptors["state"] == [None]:
                 # if the state space is None, return 0
-                return [0 for _ in range(self.n_agents)]
+                return [0 for _ in range(self.n_homes)]
 
         # translate values into indexes
         index = []  # one global index per agent
-        for a in range(self.n_agents):
-            vals_a = all_vals[a]
+        for home in range(self.n_homes):
+            vals_home = all_vals[home]
 
             indexes = []  # one index per value - for current agent
-            for v in range(len(vals_a)):
+            for v in range(len(vals_home)):
                 if self.discrete[type_][v] == 1:
-                    indexes.append(int(vals_a[v]))
+                    indexes.append(int(vals_home[v]))
                 else:
                     # correct if value is smaller than smallest bracket
-                    if vals_a[v] is None:
+                    if vals_home[v] is None:
                         indexes.append(None)
                     else:
                         brackets = self.brackets[type_][v]
                         brackets_v = brackets \
                             if len(np.shape(brackets)) == 1 \
-                            else brackets[a]
-                        assert vals_a[v] > brackets_v[0] - 1e-2, \
+                            else brackets[home]
+                        assert vals_home[v] > brackets_v[0] - 1e-2, \
                             f"brackets_v0 = {brackets_v[0]} " \
-                            f"vals_a[v] = {vals_a[v]}"
-                        if vals_a[v] < brackets_v[0]:
-                            vals_a[v] = 0
-                        mask = vals_a[v] >= np.array(brackets_v[:-1])
+                            f"vals_home[v] = {vals_home[v]}"
+                        if vals_home[v] < brackets_v[0]:
+                            vals_home[v] = 0
+                        mask = vals_home[v] >= np.array(brackets_v[:-1])
                         interval = np.where(mask)[0][-1]
                         indexes.append(interval)
 
             if indiv_indexes:
                 index.append(indexes)
             else:
-                # global index for all values of current agent a
+                # global index for all values of current agent home
                 index.append(
                     self.indiv_to_global_index(
                         type_, indexes=indexes,
@@ -285,7 +284,7 @@ class EnvSpaces():
                 )
                 assert not (
                     index[-1] is not None and index[-1] >= self.n[type_]
-                ), f"index larger than total size of space agent {a}"
+                ), f"index larger than total size of space agent {home}"
 
         return index
 
@@ -357,16 +356,16 @@ class EnvSpaces():
                     if type(self.maxval[typev][s]) is list:
                         brackets[typev].append(
                             [[self.minval[typev][s]
-                              + (self.maxval[typev][s][a]
+                              + (self.maxval[typev][s][home]
                                  - self.minval[typev][s]) / n_bins * i
                               for i in range(n_bins + 1)]
-                             for a in range(self.n_agents)])
+                             for home in range(self.n_homes)])
                     else:
                         brackets[typev].append(
                             [[self.minval[typev][s]
                               + (self.maxval[typev][s]
                                  - self.minval[typev][s]) / n_bins * i
                               for i in range(n_bins + 1)]
-                             for _ in range(self.n_agents)])
+                             for _ in range(self.n_homes)])
 
         return brackets

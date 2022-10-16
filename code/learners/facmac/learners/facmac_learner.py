@@ -24,7 +24,7 @@ class FACMACLearner(Learner):
         self.critic_params = list(self.critic.parameters())
 
         if rl['mixer'] is not None \
-                and self.rl['n_agents'] > 1:
+                and self.n_agents > 1:
             self.critic_params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 
@@ -190,18 +190,18 @@ class FACMACLearner(Learner):
             # The individual Q conditions on the global
             # action-observation history and individual action
             inputs.append(batch["obs"][:, t].repeat(
-                1, self.rl['n_agents'], 1).view(
-                bs, self.rl['n_agents'], -1))
+                1, self.n_agents, 1).view(
+                bs, self.n_agents, -1))
             if self.rl['obs_last_action']:
                 if t == 0:
                     inputs.append(th.zeros_like(
                         batch["actions"][:, t].repeat(
-                            1, self.rl['n_agents'], 1).
-                        view(bs, self.rl['n_agents'], -1)))
+                            1, self.n_agents, 1).
+                        view(bs, self.n_agents, -1)))
                 else:
                     inputs.append(batch["actions"][:, t - 1].repeat(
-                        1, self.rl['n_agents'], 1).view(
-                        bs, self.rl['n_agents'], -1))
+                        1, self.n_agents, 1).view(
+                        bs, self.n_agents, -1))
 
         else:
             inputs.append(batch["obs"][:, t])

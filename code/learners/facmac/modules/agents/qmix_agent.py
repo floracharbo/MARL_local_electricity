@@ -5,8 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from learners.facmac.modules.agents.agent import Agent
 
-from learners.facmac.modules.agents.agent import Agent
-
 
 class QMIXRNNAgent(nn.Module):
     def __init__(self, input_shape, rl):

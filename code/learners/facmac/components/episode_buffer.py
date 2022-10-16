@@ -8,8 +8,6 @@ import numpy as np
 import torch as th
 from learners.facmac.utils.rl_utils import preprocess_scheme
 
-from learners.facmac.utils.rl_utils import preprocess_scheme
-
 
 class EpisodeBatch:
 

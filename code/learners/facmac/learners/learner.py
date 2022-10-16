@@ -1,11 +1,10 @@
 import copy
 
 import torch as th
-from torch.optim import Adam, RMSprop
-
 from learners.facmac.modules.critics.maddpg import MADDPGCritic
 from learners.facmac.modules.mixers.qmix import QMixer
 from learners.facmac.modules.mixers.vdn import VDNMixer
+from torch.optim import Adam, RMSprop
 
 
 class Learner():
@@ -13,7 +12,7 @@ class Learner():
         self.mixer = None
         self.critic = None
         self.rl = rl
-        self.n_agents = rl['n_agents']
+        self.n_agents = rl['n_homes']
         self.n_actions = rl['dim_actions']
         self.mac = mac
         self.target_mac = copy.deepcopy(self.mac)
@@ -28,7 +27,7 @@ class Learner():
 
     def init_mixer(self, rl):
         if rl['mixer'] is not None \
-                and self.rl['n_agents'] > 1:
+                and self.n_agents > 1:
             # if just 1 agent do not mix anything
             if rl['mixer'] == "vdn":
                 self.mixer = VDNMixer()
@@ -88,7 +87,6 @@ class Learner():
                                            self.mixer.parameters()):
                 target_param.data.copy_(target_param.data * (1.0 - tau)
                                         + param.data * tau)
-
 
     def _get_target_actions_batch(self, batch, t_env):
         target_mac_out = []

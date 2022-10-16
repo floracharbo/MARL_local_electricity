@@ -7,7 +7,7 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
         self.rl = rl
         self.n_actions = rl['dim_actions']
-        self.n_agents = rl['n_agents']
+        self.n_homes = rl['n_homes']
         self.output_type = "q"
 
     def set_up_network_layers(self, rl):

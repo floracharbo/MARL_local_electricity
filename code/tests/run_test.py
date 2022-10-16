@@ -1,8 +1,8 @@
+import pickle
 from datetime import timedelta
 from unittest import mock
 
 import numpy as np
-import pickle
 import pytest
 from config.generate_colors import _check_color_diffs, generate_colors
 from simulations.runner import run
@@ -49,10 +49,10 @@ def patch_find_feasible_data(
                   / self.res_name,
                   allow_pickle=True).item()
     cluss = np.load(self.paths['res_path']
-                  / "cluss_test.npy",
+                  / "clusters_test.npy",
                   allow_pickle=True).item()
-    fs = np.load(self.paths['res_path']
-                  / "fs_test.npy",
+    factors = np.load(self.paths['res_path']
+                  / "factors_test.npy",
                   allow_pickle=True).item()
     self.batch_file, batch = self.env.reset(
             seed=0,
@@ -64,10 +64,10 @@ def patch_find_feasible_data(
         # exploration through optimisation
         step_vals, mus_opt, data_feasible = self.get_steps_opt(
             res, step_vals, evaluation, cluss,
-            fs, batch, self.seed[self.p],
+            factors, batch, self.seed[self.passive_ext],
             last_epoch=epoch == self.prm['RL']['n_epochs'] - 1)
 
-    seed_data = res, fs, cluss, batch
+    seed_data = res, factors, cluss, batch
 
     return seed_data, step_vals, mus_opt
 
@@ -99,7 +99,7 @@ def patch_set_date(
     set_seeds_rdn(0)
     delta_days = 12
     date0 = self.prm['syst']['date0'] \
-            + timedelta(days=delta_days)
+        + timedelta(days=delta_days)
     self.prm['syst']['current_date0'] = date0
     delta = date0 - self.prm['syst']['date0_dates']
     i0_costs = int(delta.days * 24 + delta.seconds / 3600)
@@ -133,9 +133,11 @@ def patch_init_factors_profiles_parameters(self, env, prm):
     }
 
 
-def patch_reinitialise_envfactors(self, date0, epoch, i_explore,
-                                evaluation_add1=False):
+def patch_reinitialise_envfactors(
+        self, date0, epoch, i_explore, evaluation_add1=False
+):
     return
+
 
 def patch_load_profiles(paths, bat, syst, loads, gen):
     profiles = {}

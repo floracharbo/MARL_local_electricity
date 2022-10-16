@@ -15,7 +15,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
-
 from utilities.userdeftools import comb
 
 
@@ -48,7 +47,7 @@ class Solver():
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
                 if prm['ntw']['dem'][0][0][0] < res['constl(0, 0)'][0][0]:
-                    print('fixed dem smaller than fixed onsumption a=0 t=0')
+                    print('fixed dem smaller than fixed onsumption home=0 t=0')
                 if abs(np.sum(res['totcons']) - np.sum(res['E_heat'])
                        - np.sum(prm['ntw']['dem'])) > 1e-3:
                     print(f"tot load cons "
@@ -485,15 +484,15 @@ class Solver():
         x = Symbol('x')
         i_cell = np.zeros(np.shape(P))
         eta = np.zeros(np.shape(P))
-        for a in range(self.n_homes):
+        for home in range(self.n_homes):
             for t in range(prm['N']):
                 s = solve(
-                    P[a, t]
-                    + (x ** 2 - x * (Voc[a, t] / Rt[a, t])) * kappa * Rt[a, t],
+                    P[home, t]
+                    + (x ** 2 - x * (Voc[home, t] / Rt[home, t])) * kappa * Rt[home, t],
                     x)
-                A = Rt[a, t] * kappa
-                B = - Voc[a, t] * kappa
-                C = P[a, t]
+                A = Rt[home, t] * kappa
+                B = - Voc[home, t] * kappa
+                C = P[home, t]
                 s2_pos = (- B + np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
                     if A > 0 else 0
                 s2_neg = (- B - np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
@@ -506,16 +505,16 @@ class Solver():
                         etas2.append(0)
                     else:
                         etas.append(np.divide(
-                            s[sign] * Voc[a, t],
-                            s[sign] * (Voc[a, t] - s[sign] * Rt[a, t]))
+                            s[sign] * Voc[home, t],
+                            s[sign] * (Voc[home, t] - s[sign] * Rt[home, t]))
                         )
                         etas2.append(np.divide(
-                            s2[sign] * Voc[a, t],
-                            s2[sign] * (Voc[a, t] - s2[sign] * Rt[a, t]))
+                            s2[sign] * Voc[home, t],
+                            s2[sign] * (Voc[home, t] - s2[sign] * Rt[home, t]))
                         )
                 print(f'etas = {etas}, etas2={etas2}')
-                eta[a, t] = etas[np.argmin(abs(etas - 1))]
-                i_cell[a, t] = s[np.argmin(abs(etas - 1))]
+                eta[home, t] = etas[np.argmin(abs(etas - 1))]
+                i_cell[home, t] = s[np.argmin(abs(etas - 1))]
 
         return eta, s, s2
 
@@ -575,43 +574,43 @@ class Solver():
 
     def _temperature_constraints(self, p, T, E_heat, T_air):
         heat = self.heat
-        for a in range(self.n_homes):
-            if heat['own_heat'][a]:
-                p.add_constraint(T[a, 0] == heat['T0'])
+        for home in range(self.n_homes):
+            if heat['own_heat'][home]:
+                p.add_constraint(T[home, 0] == heat['T0'])
                 p.add_list_of_constraints(
-                    [T[a, t + 1] == heat['T_coeff'][a][0]
-                        + heat['T_coeff'][a][1] * T[a, t]
-                        + heat['T_coeff'][a][2] * heat['T_out'][t]
-                        # heat['T_coeff'][a][3] * heat['phi_sol'][t]
-                        + heat['T_coeff'][a][4] * E_heat[a, t]
+                    [T[home, t + 1] == heat['T_coeff'][home][0]
+                        + heat['T_coeff'][home][1] * T[home, t]
+                        + heat['T_coeff'][home][2] * heat['T_out'][t]
+                        # heat['T_coeff'][home][3] * heat['phi_sol'][t]
+                        + heat['T_coeff'][home][4] * E_heat[home, t]
                         * 1e3 * self.syst['H'] / 24
                         for t in range(self.N - 1)])
 
                 p.add_list_of_constraints(
-                    [T_air[a, t] == heat['T_air_coeff'][a][0]
-                        + heat['T_air_coeff'][a][1] * T[a, t]
-                        + heat['T_air_coeff'][a][2] * heat['T_out'][t]
-                        # heat['T_air_coeff'][a][3] * heat['phi_sol'][t] +
-                        + heat['T_air_coeff'][a][4] * E_heat[a, t]
+                    [T_air[home, t] == heat['T_air_coeff'][home][0]
+                        + heat['T_air_coeff'][home][1] * T[home, t]
+                        + heat['T_air_coeff'][home][2] * heat['T_out'][t]
+                        # heat['T_air_coeff'][home][3] * heat['phi_sol'][t] +
+                        + heat['T_air_coeff'][home][4] * E_heat[home, t]
                         * 1e3 * self.syst['H'] / 24
                         for t in range(self.N)])
 
                 p.add_list_of_constraints(
-                    [T_air[a, t] <= heat['T_UB'][a][t]
+                    [T_air[home, t] <= heat['T_UB'][home][t]
                         for t in range(self.N)])
                 p.add_list_of_constraints(
-                    [T_air[a, t] >= heat['T_LB'][a][t]
+                    [T_air[home, t] >= heat['T_LB'][home][t]
                         for t in range(self.N)])
             else:
                 p.add_list_of_constraints(
-                    [E_heat[a, t] == 0 for t in
+                    [E_heat[home, t] == 0 for t in
                      range(self.N)])
                 p.add_list_of_constraints(
-                    [T_air[a, t]
-                     == (heat['T_LB'][a][t] + heat['T_UB'][a][t]) / 2
+                    [T_air[home, t]
+                     == (heat['T_LB'][home][t] + heat['T_UB'][home][t]) / 2
                      for t in range(self.N)])
                 p.add_list_of_constraints(
-                    [T[a, t] == (heat['T_LB'][a][t] + heat['T_UB'][a][t]) / 2
+                    [T[home, t] == (heat['T_LB'][home][t] + heat['T_UB'][home][t]) / 2
                      for t in range(self.N)])
 
         return p

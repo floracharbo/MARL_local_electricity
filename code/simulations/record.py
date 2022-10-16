@@ -15,7 +15,6 @@ from typing import Tuple
 
 import numpy as np
 import scipy as sp
-
 from utilities.userdeftools import get_moving_average, initialise_dict
 
 
@@ -48,7 +47,7 @@ class Record():
 
         for e in ["gamma", "epsilon_decay"]:
             self.__dict__[e] = rl[rl["type_learning"]]
-        self.n_agents = prm["ntw"]["n"]
+        self.n_homes = prm["ntw"]["n"]
         # save q tables at each step in record
         # depending on the dimension of the q tables
         self.save_qtables = True \
@@ -117,7 +116,7 @@ class Record():
         if rl["type_learning"] == "DQN"\
                 and rl["distr_learning"] == "decentralised":
             for t in rl["type_eval"]:
-                self.eps[repeat][t] = initialise_dict(range(self.n_agents))
+                self.eps[repeat][t] = initialise_dict(range(self.n_homes))
 
         for e in ["eval_rewards", "mean_eval_rewards", "eval_actions"] \
                 + self.break_down_rewards_entries:
@@ -530,12 +529,13 @@ class Record():
                 if rl["distr_learning"] == "centralised":
                     self.eps[self.repeat][t].append(copy.copy(learner[t].eps))
                 else:
-                    for a in range(self.n_agents):
-                        self.eps[self.repeat][t][a].append(
-                            copy.copy(learner[t][a].eps))
+                    for home in range(self.n_homes):
+                        self.eps[self.repeat][t][home].append(
+                            copy.copy(learner[t][home].eps))
 
         elif rl["type_learning"] == "q_learning" and not end_test:
-            if rl["q_learning"]["epsilon_decay"]:
-                self.eps[self.repeat][t].append(copy.copy(learner.eps[t]))
-            else:
-                self.eps[self.repeat][epoch] = copy.copy(learner.eps)
+            for t in rl["type_Qs"]:
+                if rl["q_learning"]["epsilon_decay"]:
+                    self.eps[self.repeat][t].append(copy.copy(learner.eps[t]))
+                else:
+                    self.eps[self.repeat][epoch] = copy.copy(learner.eps)

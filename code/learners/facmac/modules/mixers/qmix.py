@@ -12,7 +12,7 @@ class QMixer(nn.Module):
         super(QMixer, self).__init__()
 
         self.rl = rl
-        self.n_agents = rl['n_agents']
+        self.n_agents = rl['n_homes']
         self.state_dim = int(np.prod(rl['state_shape']))
         self.cuda_available = True if th.cuda.is_available() else False
         device = th.device("cuda") if self.cuda_available else th.device("cpu")
