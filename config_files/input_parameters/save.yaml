@@ -1,0 +1,23 @@
+saveresdata: 1
+plot_type: 2  # if 0 only plot learning curves, if 1 if also smoothing, 2 if all plots
+high_res: False  # printing figures in high resolution
+make_video: False # make vidoe of state space exploration
+plot_profiles: True
+max_n_profiles_plot: 3
+save_run: True
+learner_log_interval: 2000 # Log training stats every {} timesteps
+plot_indiv_repeats_rewards: False
+last_entries: [
+  'netp','store_outs','action','reward', 'break_down_rewards', 'store', # values i want to store from last epoch so that i can plot
+  'ldflex', 'ldfixed','totcons','tot_cons_loads',
+  'tot_E_heat','T', 'T_air', 'grdC','wholesale',
+  'cintensity'
+]
+repeat_entries: ['train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',
+             'stability', 'last', 'seed', 'eps', 'ind_seed_deterministic',
+             'duration_epoch', 'n_not_feas', 'not_feas_vars', 'train_actions',
+             'train_states', 'q_tables', 'counter']
+stateind_entries: ['possible_states', 'granularity_state0',
+                                 'granularity_state1', 'multipliers_state']
+save_nns: True
+plotting_batch: True
