@@ -9,14 +9,14 @@ plots summary of results for different number of agents
 """
 # packages
 import os
+from code.initialisation.initialise_objects import initialise_objects
+from code.utilities.userdeftools import (data_source, distr_learning,
+                                         initialise_dict, reward_type)
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
-from config.initialise_objects import initialise_objects
-from utilities.userdeftools import (data_source, distr_learning,
-                                    initialise_dict, reward_type)
 
 
 def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):

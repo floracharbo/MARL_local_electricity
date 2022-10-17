@@ -1,11 +1,12 @@
 import os
+from code.post_analysis.plotting.plotting_utils import (formatting_ticks,
+                                                        title_and_save)
+from code.utilities.env_spaces import granularity_to_multipliers
+from code.utilities.userdeftools import (distr_learning, initialise_dict,
+                                         reward_type)
 
 import matplotlib.pyplot as plt
 import numpy as np
-from post_analysis.plotting.plotting_utils import (formatting_ticks,
-                                                   title_and_save)
-from utilities.env_spaces import granularity_to_multipliers
-from utilities.userdeftools import distr_learning, initialise_dict, reward_type
 
 
 def _plot_1d_state_space_best_psi(

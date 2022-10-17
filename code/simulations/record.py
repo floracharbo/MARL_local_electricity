@@ -10,12 +10,12 @@ record - keeping record of learning trajectories
 import copy
 # packages
 import os
+from code.utilities.userdeftools import get_moving_average, initialise_dict
 from pathlib import Path
 from typing import Tuple
 
 import numpy as np
 import scipy as sp
-from utilities.userdeftools import get_moving_average, initialise_dict
 
 
 class Record():

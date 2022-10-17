@@ -1,7 +1,8 @@
+from code.post_analysis.plotting.plotting_utils import formatting_figure
+from code.utilities.userdeftools import get_moving_average
+
 import matplotlib.pyplot as plt
 import numpy as np
-from post_analysis.plotting.plotting_utils import formatting_figure
-from utilities.userdeftools import get_moving_average
 
 
 def plot_results_all_repeats(

@@ -1,8 +1,10 @@
+from code.initialisation.generate_colors import generate_colors
+from code.post_analysis.plotting.plotting_utils import (formatting_figure,
+                                                        title_and_save)
+from code.utilities.userdeftools import (data_source, distr_learning,
+                                         reward_type)
+
 import matplotlib.pyplot as plt
-from config.generate_colors import generate_colors
-from post_analysis.plotting.plotting_utils import (formatting_figure,
-                                                   title_and_save)
-from utilities.userdeftools import data_source, distr_learning, reward_type
 
 
 def _barplot_text_labels(ax, text_labels):

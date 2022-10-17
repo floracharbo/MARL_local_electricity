@@ -1,7 +1,7 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-from learners.facmac.learners.facmac_learner import FACMACLearner
+from code.learners.facmac.learners.facmac_learner import FACMACLearner
 
 from .cq_learner import CQLearner
 # from .facmac_learner_discrete import FACMACDiscreteLearner

@@ -8,9 +8,9 @@ comparison of results.
 """
 
 import random
+from code.utilities.userdeftools import distr_learning
 
 import matplotlib.pyplot as plt
-from utilities.userdeftools import distr_learning
 
 
 def _check_color_diffs(colors, new_color, min_diffs=None):

@@ -7,10 +7,10 @@ Created on Wed May 19 11:21:17 2021
 tabular Q learner
 """
 import math
+from code.utilities.userdeftools import (data_source, distr_learning,
+                                         initialise_dict, reward_type)
 
 import numpy as np
-from utilities.userdeftools import (data_source, distr_learning,
-                                    initialise_dict, reward_type)
 
 
 # %% TabularQLearner

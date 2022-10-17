@@ -4,13 +4,13 @@ This file contains the ActionSelector class.
 Author: Flora Charbonnier
 """
 
+from code.utilities.env_spaces import granularity_to_multipliers
 from datetime import timedelta
 from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
 import torch as th
-from utilities.env_spaces import granularity_to_multipliers
 
 
 class ActionSelector:

@@ -1,6 +1,7 @@
+from code.utilities.userdeftools import distr_learning, initialise_dict
+
 import matplotlib.pyplot as plt
 import numpy as np
-from utilities.userdeftools import distr_learning, initialise_dict
 
 
 def _save(prm):
@@ -37,16 +38,22 @@ def _eval_entries_plot_colors(prm):
             evaluation_method for evaluation_method in evaluation_methods
             if distr_learning(evaluation_method) == 'd'
             or evaluation_method in ['baseline', 'opt']]
-        if len([evaluation_method for evaluation_method in evaluation_methods if len(evaluation_method.split('_')) > 1]) == 0:
+        if len([
+            evaluation_method for evaluation_method in evaluation_methods
+            if len(evaluation_method.split('_')) > 1
+        ]) == 0:
             evaluation_methods = [
                 evaluation_method for evaluation_method in rl['evaluation_methods']
                 if distr_learning(evaluation_method) == 'c'
                 or evaluation_method in ['baseline', 'opt']
             ]
 
-    prm["save"]["eval_entries_plot"] = \
-        [evaluation_method for evaluation_method in evaluation_methods if evaluation_method != 'baseline'] \
-        + ['baseline'] if 'baseline' in evaluation_methods else evaluation_methods
+    prm["save"]["eval_entries_plot"] = [
+        evaluation_method
+        for evaluation_method in evaluation_methods
+        if evaluation_method != 'baseline'
+    ] + ['baseline'] if 'baseline' in evaluation_methods \
+        else evaluation_methods
     methods_to_plot = {}
     for evaluation_method in evaluation_methods:
         methods_to_plot[evaluation_method] = '-'
@@ -59,7 +66,9 @@ def _eval_entries_plot_colors(prm):
         if len(evaluation_method.split('_')) > 1 and distr_learning(evaluation_method) == 'c'
     ]
     other_eval_entries = [
-        evaluation_method for evaluation_method in evaluation_methods if len(evaluation_method.split("_")) == 1
+        evaluation_method
+        for evaluation_method in evaluation_methods
+        if len(evaluation_method.split("_")) == 1
     ]
 
     prm["save"]["eval_entries_plot_indiv"] = [

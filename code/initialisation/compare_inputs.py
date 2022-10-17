@@ -90,6 +90,7 @@ def _check_shape_array_vals(obj_a, obj_b, label_a, label_b):
 
 
 def replace_outdated_labels(k1, objs):
+    """Replace dictionary keys with more recent labels."""
     k1_ = k1
     if k1_ not in objs[1]:
         k1_ = _find_interchangeable_val(k1_)

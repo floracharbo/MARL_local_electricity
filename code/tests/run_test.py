@@ -1,12 +1,13 @@
 import pickle
+from code.initialisation.generate_colors import (_check_color_diffs,
+                                                 generate_colors)
+from code.simulations.runner import run
+from code.utilities.userdeftools import set_seeds_rdn
 from datetime import timedelta
 from unittest import mock
 
 import numpy as np
 import pytest
-from config.generate_colors import _check_color_diffs, generate_colors
-from simulations.runner import run
-from utilities.userdeftools import set_seeds_rdn
 
 
 def random_True_False(colors, color, min_diffs=None):
@@ -23,7 +24,7 @@ def test_generate_colors(mocker):
     save, prm = None, None
 
     patched_check_color_diffs = mocker.patch(
-        "config.generate_colors._check_color_diffs",
+        "initialisation.generate_colors._check_color_diffs",
         side_effect=random_True_False
     )
 
@@ -202,15 +203,15 @@ def test_all(mocker):
         autospec=True
     )
     mocker.patch(
-        "config.initialise_objects._load_data_dictionaries",
+        "initialisation.initialise_objects._load_data_dictionaries",
         side_effect=patch_load_data_dictionaries
     )
     mocker.patch(
-        "config.initialise_objects._load_profiles",
+        "initialisation.initialise_objects._load_profiles",
         side_effect=patch_load_profiles
     )
     mocker.patch(
-        "config.initialise_objects._load_bat_factors_parameters",
+        "initialisation.initialise_objects._load_bat_factors_parameters",
         side_effect=_load_bat_factors_parameters
     )
     mocker.patch(

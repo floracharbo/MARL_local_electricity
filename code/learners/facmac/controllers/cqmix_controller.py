@@ -1,11 +1,12 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
+from code.learners.facmac.utils.rl_utils import input_last_action
+
 import numpy as np
 import torch as th
 import torch.distributions as tdist
 from gym import spaces
-from learners.facmac.utils.rl_utils import input_last_action
 
 from .basic_controller import BasicMAC
 

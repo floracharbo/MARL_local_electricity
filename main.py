@@ -10,15 +10,15 @@ Created on Sat Feb  1 15:14:20 2020.
 # # packages
 # =============================================================================
 
-from simulations.runner import run
+from code.simulations.runner import run
 
 #  Inputs
 settings = {
     'heat': {'file': 'heat2'},
 
     'RL': {
-        'type_learning': 'q_learning',
-        # 'explo_reward_type': 'env_r_d',
+        'type_learning': 'facmac',
+        'explo_reward_type': 'env_r_c',
         'gamma': {'q_learning': 0.99, 'facmac': 0.99},
         'aggregate_actions': False,
         'mixer': 'qmix',
@@ -42,6 +42,9 @@ settings = {
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 RUN_MODE = 1
 no_runs = [610]  # if plotting
+
+
+# run(RUN_MODE, settings)
 
 for type_learning in ['facmac', 'q_learning']:
     settings['RL']['type_learning'] = type_learning

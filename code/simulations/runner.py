@@ -9,29 +9,31 @@ import datetime
 import os
 import random
 import time  # to record time it takes to run simulations
+from code.initialisation.initialise_objects import initialise_objects
+from code.initialisation.input_data import (get_settings_i, input_paths,
+                                            load_existing_prm)
+from code.learners.DDPG import Learner_DDPG
+from code.learners.DDQN import Agent_DDQN
+from code.learners.DQN import Agent_DQN
+from code.learners.facmac.components.episode_buffer import (EpisodeBatch,
+                                                            ReplayBuffer)
+from code.learners.facmac.controllers import REGISTRY as mac_REGISTRY
+from code.learners.facmac.learners import REGISTRY as le_REGISTRY
+from code.learners.Qlearning import TabularQLearner
+from code.post_analysis.plotting.plot_summary_no_agents import \
+    plot_results_vs_nag
+from code.post_analysis.post_processing import post_processing
+from code.simulations.explorer import Explorer
+from code.simulations.local_elec import LocalElecEnv
+from code.utilities.userdeftools import (data_source, initialise_dict,
+                                         reward_type, set_seeds_rdn)
 from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
 
 import numpy as np
 import torch as th
-from config.initialise_objects import initialise_objects
-from config.input_data import get_settings_i, input_paths, load_existing_prm
-from learners.DDPG import Learner_DDPG
-from learners.DDQN import Agent_DDQN
-from learners.DQN import Agent_DQN
-from learners.facmac.components.episode_buffer import (EpisodeBatch,
-                                                       ReplayBuffer)
-from learners.facmac.controllers import REGISTRY as mac_REGISTRY
-from learners.facmac.learners import REGISTRY as le_REGISTRY
-from learners.Qlearning import TabularQLearner
-from post_analysis.plotting.plot_summary_no_agents import plot_results_vs_nag
-from post_analysis.post_processing import post_processing
-from simulations.explorer import Explorer
-from simulations.local_elec import LocalElecEnv
 from tqdm import tqdm
-from utilities.userdeftools import (data_source, initialise_dict, reward_type,
-                                    set_seeds_rdn)
 
 
 class Runner():

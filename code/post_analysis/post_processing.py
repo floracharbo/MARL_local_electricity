@@ -12,12 +12,12 @@ import os  # path management
 import shutil  # to copy/remove files
 import sys
 import time  # to record time it takes to run simulations
+from code.post_analysis.plotting.plotting import plotting
+from code.post_analysis.print_results import print_results
+from code.utilities.userdeftools import distr_learning
 from pathlib import Path
 
 import numpy as np
-from post_analysis.plotting.plotting import plotting
-from post_analysis.print_results import print_results
-from utilities.userdeftools import distr_learning
 
 
 def _max_min_q(q_table, n_states, minq, maxq, prm):

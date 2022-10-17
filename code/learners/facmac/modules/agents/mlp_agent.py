@@ -1,9 +1,9 @@
-# adapted from
-# https://github.com/oxwhirl/facmac
+# adapted from https://github.com/oxwhirl/facmac
+
+from code.learners.facmac.modules.agents.agent import Agent
 
 import torch as th
 import torch.nn.functional as F
-from learners.facmac.modules.agents.agent import Agent
 
 
 class MLPAgent(Agent):

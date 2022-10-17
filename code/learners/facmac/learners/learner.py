@@ -1,9 +1,9 @@
 import copy
+from code.learners.facmac.modules.critics.maddpg import MADDPGCritic
+from code.learners.facmac.modules.mixers.qmix import QMixer
+from code.learners.facmac.modules.mixers.vdn import VDNMixer
 
 import torch as th
-from learners.facmac.modules.critics.maddpg import MADDPGCritic
-from learners.facmac.modules.mixers.qmix import QMixer
-from learners.facmac.modules.mixers.vdn import VDNMixer
 from torch.optim import Adam, RMSprop
 
 

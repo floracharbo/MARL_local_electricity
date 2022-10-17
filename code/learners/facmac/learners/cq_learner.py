@@ -2,10 +2,10 @@
 # https://github.com/oxwhirl/facmac
 
 import copy
+from code.learners.facmac.components.episode_buffer import EpisodeBatch
+from code.learners.facmac.learners.learner import Learner
 
 import torch as th
-from learners.facmac.components.episode_buffer import EpisodeBatch
-from learners.facmac.learners.learner import Learner
 from torch.optim import Adam, RMSprop
 
 

@@ -8,19 +8,19 @@ Created on Mon Feb  3 10:47:57 2020.
 """
 
 import copy
+from code.home_components.battery import Battery
+from code.home_components.heat import Heat
+from code.simulations.action_translator import Action_translator
+from code.utilities.env_spaces import EnvSpaces
+from code.utilities.userdeftools import initialise_dict
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
-from home_components.battery import Battery
-from home_components.heat import Heat
 from scipy.stats import gamma
-from simulations.action_translator import Action_translator
 from six import integer_types
-from utilities.env_spaces import EnvSpaces
-from utilities.userdeftools import initialise_dict
 
 
 class LocalElecEnv():
@@ -93,7 +93,7 @@ class LocalElecEnv():
             self.envseed = self._seed(seed)
             self.random_seeds_use[seed] = 0
 
-        # different agent caracteristics for passive and active agents
+        # different agent caracteristics for passive and active homes
         self.set_passive_active(passive)
 
         # initialise environment time
@@ -299,8 +299,8 @@ class LocalElecEnv():
     ) -> list:
         """Compute environment updates and reward from selected action."""
         h = self._get_h()
-        agents = self.homes
-        batch_flex = [self.batch[home]['flex'] for home in agents]
+        homes = self.homes
+        batch_flex = [self.batch[home]['flex'] for home in homes]
         self._batch_tests(batch_flex, h)
 
         # update batch if needed
@@ -333,9 +333,9 @@ class LocalElecEnv():
                                  new_batch_flex, self.bat.store]
             next_state = self.get_state_vals(inputs=inputs_next_state) \
                 if not self.done \
-                else [None for home in agents]
+                else [None for home in homes]
             if implement:
-                for home in agents:
+                for home in homes:
                     batch_flex[home][h: h + 2] = new_batch_flex[home]
                 self.time += 1
                 self.date = next_date
@@ -350,14 +350,15 @@ class LocalElecEnv():
                     <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
                     for home in self.homes
                 ), f"h {h} ih {ih}"
+
             if record or evaluation:
-                ld_fixed = [sum(batch_flex[home][h][:]) for home in agents] \
+                ld_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
                     if self.date == self.date_end - timedelta(hours=2) \
-                    else [batch_flex[home][h][0] for home in agents]
+                    else [batch_flex[home][h][0] for home in homes]
 
             if record:
-                ldflex = [0 for home in agents] if self.date == self.date_end \
-                    else [sum(batch_flex[home][h][1:]) for home in agents]
+                ldflex = [0 for home in homes] if self.date == self.date_end \
+                    else [sum(batch_flex[home][h][1:]) for home in homes]
                 record_output = \
                     [home_vars['netp'], self.bat.discharge, action, reward,
                      break_down_rewards, self.bat.store, ldflex, ld_fixed,
@@ -1026,10 +1027,10 @@ class LocalElecEnv():
         self.dloaded = 0
         self.add_noise = False
 
-    def _initialise_batch_entries(self, agents=[]):
-        if len(agents) == 0:
-            agents = self.homes
-        for home in agents:
+    def _initialise_batch_entries(self, homes=[]):
+        if len(homes) == 0:
+            homes = self.homes
+        for home in homes:
             self.batch[home] = initialise_dict(self.batch_entries)
             self.bat.batch[home] = initialise_dict(self.bat.batch_entries)
             self.batch[home]['flex'] = np.zeros((0, self.max_delay + 1))

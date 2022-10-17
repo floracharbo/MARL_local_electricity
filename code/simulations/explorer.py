@@ -10,15 +10,15 @@ Created on Mon Feb 16 10:47:57 2022.
 import copy
 import glob
 import os
+from code.simulations.data_manager import DataManager
+from code.simulations.learning import LearningManager
+from code.simulations.select_actions import ActionSelector
+from code.utilities.userdeftools import (data_source, initialise_dict,
+                                         reward_type, set_seeds_rdn)
 from datetime import timedelta
 from typing import Tuple
 
 import numpy as np
-from simulations.data_manager import DataManager
-from simulations.learning import LearningManager
-from simulations.select_actions import ActionSelector
-from utilities.userdeftools import (data_source, initialise_dict, reward_type,
-                                    set_seeds_rdn)
 
 
 # %% Environment exploration

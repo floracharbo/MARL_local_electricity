@@ -1,8 +1,9 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
+from code.learners.facmac.modules.agents import REGISTRY as agent_REGISTRY
+
 import torch as th
-from learners.facmac.modules.agents import REGISTRY as agent_REGISTRY
 
 
 # This multi-agent controller shares parameters between agents

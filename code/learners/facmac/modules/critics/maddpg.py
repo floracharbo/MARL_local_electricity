@@ -1,9 +1,10 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
+from code.learners.facmac.modules.critics.critic import Critic
+
 import torch as th
 import torch.nn.functional as F
-from learners.facmac.modules.critics.critic import Critic
 
 
 class MADDPGCritic(Critic):
