@@ -26,4 +26,4 @@ facmac:
 	python code/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.000001
 
 test:
-	pytest code/tests
+	python -m pytest code/tests

@@ -24,7 +24,7 @@ def test_generate_colors(mocker):
     save, prm = None, None
 
     patched_check_color_diffs = mocker.patch(
-        "initialisation.generate_colors._check_color_diffs",
+        "code.initialisation.generate_colors._check_color_diffs",
         side_effect=random_True_False
     )
 
@@ -178,59 +178,59 @@ def test_all(mocker):
     run_mode = 1
 
     mocker.patch(
-        "simulations.data_manager.DataManager.find_feasible_data",
+        "code.simulations.data_manager.DataManager.find_feasible_data",
         side_effect=patch_find_feasible_data,
         autospec=True
     )
     mocker.patch(
-        "simulations.local_elec.LocalElecEnv.update_date",
+        "code.simulations.local_elec.LocalElecEnv.update_date",
         side_effect=patch_update_date,
         autospec=True
     )
     mocker.patch(
-        "simulations.local_elec.LocalElecEnv._file_id",
+        "code.simulations.local_elec.LocalElecEnv._file_id",
         side_effect=patch_self_id,
         autospec=True
     )
     mocker.patch(
-        "simulations.explorer.Explorer._init_i0_costs",
+        "code.simulations.explorer.Explorer._init_i0_costs",
         side_effect=patch_init_i0_costs,
         autospec=True
     )
     mocker.patch(
-        "simulations.runner.Runner._set_date",
+        "code.simulations.runner.Runner._set_date",
         side_effect=patch_set_date,
         autospec=True
     )
     mocker.patch(
-        "initialisation.initialise_objects._load_data_dictionaries",
+        "code.initialisation.initialise_objects._load_data_dictionaries",
         side_effect=patch_load_data_dictionaries
     )
     mocker.patch(
-        "initialisation.initialise_objects._load_profiles",
+        "code.initialisation.initialise_objects._load_profiles",
         side_effect=patch_load_profiles
     )
     mocker.patch(
-        "initialisation.initialise_objects._load_bat_factors_parameters",
+        "code.initialisation.initialise_objects._load_bat_factors_parameters",
         side_effect=_load_bat_factors_parameters
     )
     mocker.patch(
-        "simulations.local_elec.LocalElecEnv._init_factors_clusters_profiles_parameters",
+        "code.simulations.local_elec.LocalElecEnv._init_factors_clusters_profiles_parameters",
         side_effect=patch_init_factors_clusters_profiles_parameters,
         autospec=True
     )
     mocker.patch(
-        "simulations.local_elec.LocalElecEnv.reinitialise_envfactors",
+        "code.simulations.local_elec.LocalElecEnv.reinitialise_envfactors",
         side_effect=patch_reinitialise_envfactors,
         autospec=True
     )
     mocker.patch(
-        "utilities.env_spaces.EnvSpaces._init_factors_profiles_parameters",
+        "code.utilities.env_spaces.EnvSpaces._init_factors_profiles_parameters",
         side_effect=patch_init_factors_profiles_parameters,
         autospec=True
     )
     mocker.patch(
-        "utilities.env_spaces.compute_max_EV_cons_gen_values",
+        "code.utilities.env_spaces.compute_max_EV_cons_gen_values",
         side_effect=patch_compute_max_EV_cons_gen_values
     )
 
