@@ -1,10 +1,11 @@
 import copy
-from src.learners.facmac.modules.critics.maddpg import MADDPGCritic
-from src.learners.facmac.modules.mixers.qmix import QMixer
-from src.learners.facmac.modules.mixers.vdn import VDNMixer
 
 import torch as th
 from torch.optim import Adam, RMSprop
+
+from src.learners.facmac.modules.critics.maddpg import MADDPGCritic
+from src.learners.facmac.modules.mixers.qmix import QMixer
+from src.learners.facmac.modules.mixers.vdn import VDNMixer
 
 
 class Learner():

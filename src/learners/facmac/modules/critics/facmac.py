@@ -1,11 +1,11 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-from src.learners.facmac.modules.critics.critic import Critic
-
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
+
+from src.learners.facmac.modules.critics.critic import Critic
 
 
 class FACMACCritic(Critic):

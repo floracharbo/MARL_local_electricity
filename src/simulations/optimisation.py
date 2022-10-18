@@ -10,12 +10,13 @@ Created on Tue Jan  7 17:10:28 2020.
 
 import copy
 import os
-from src.utilities.userdeftools import comb
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
+
+from src.utilities.userdeftools import comb
 
 
 class Optimiser():

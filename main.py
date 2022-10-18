@@ -18,7 +18,7 @@ settings = {
 
     'RL': {
         'type_learning': 'facmac',
-        'explo_reward_type': 'env_r_c',
+        # '': 'env_r_c',
         'gamma': {'q_learning': 0.99, 'facmac': 0.99},
         'aggregate_actions': False,
         'mixer': 'qmix',
@@ -43,11 +43,11 @@ settings = {
 RUN_MODE = 1
 no_runs = [610]  # if plotting
 
-run(RUN_MODE, settings)
+# run(RUN_MODE, settings)
 
-# for type_learning in ['facmac', 'q_learning']:
-#     settings['RL']['type_learning'] = type_learning
-#     for aggregate_actions in [True, False]:
-#         settings['RL']['aggregate_actions'] = aggregate_actions
-#         print(f"test {type_learning} aggregate_actions {aggregate_actions}")
-#         run(RUN_MODE, settings)
+for type_learning in ['facmac', 'q_learning']:
+    settings['RL']['type_learning'] = type_learning
+    for aggregate_actions in [True, False]:
+        settings['RL']['aggregate_actions'] = aggregate_actions
+        print(f"test {type_learning} aggregate_actions {aggregate_actions}")
+        run(RUN_MODE, settings)

@@ -23,11 +23,12 @@ import copy
 import glob
 import os
 import traceback
-from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import set_seeds_rdn
 from typing import List, Optional, Tuple
 
 import numpy as np
+
+from src.simulations.optimisation import Optimiser
+from src.utilities.userdeftools import set_seeds_rdn
 
 
 def format_ntw(ntw, loads, syst, bat, batch, passive_ext):

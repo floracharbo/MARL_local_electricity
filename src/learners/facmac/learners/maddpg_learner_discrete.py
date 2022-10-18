@@ -1,11 +1,11 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
+import torch as th
+
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
 from src.learners.facmac.utils.rl_utils import build_td_lambda_targets
-
-import torch as th
 
 
 class MADDPGDiscreteLearner(Learner):

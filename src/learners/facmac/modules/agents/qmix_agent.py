@@ -1,10 +1,10 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-from src.learners.facmac.modules.agents.agent import Agent
-
 import torch.nn as nn
 import torch.nn.functional as F
+
+from src.learners.facmac.modules.agents.agent import Agent
 
 
 class QMIXRNNAgent(nn.Module):

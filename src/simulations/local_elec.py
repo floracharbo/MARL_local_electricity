@@ -8,11 +8,6 @@ Created on Mon Feb  3 10:47:57 2020.
 """
 
 import copy
-from src.home_components.battery import Battery
-from src.home_components.heat import Heat
-from src.simulations.action_translator import Action_translator
-from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import initialise_dict
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
@@ -21,6 +16,12 @@ from gym import spaces
 from gym.utils import seeding
 from scipy.stats import gamma
 from six import integer_types
+
+from src.home_components.battery import Battery
+from src.home_components.heat import Heat
+from src.simulations.action_translator import Action_translator
+from src.utilities.env_spaces import EnvSpaces
+from src.utilities.userdeftools import initialise_dict
 
 
 class LocalElecEnv():
@@ -171,20 +172,20 @@ class LocalElecEnv():
 
         i_dt = 0 if date0.weekday() < 5 else 1
         next_dt = 0 if (date0 + timedelta(days=1)).weekday() < 5 else 1
-        dtt = self.labels_day_trans[i_dt * 2 + next_dt * 1]
+        transition_type = self.labels_day_trans[i_dt * 2 + next_dt * 1]
 
         for passive_ext in ['', 'P']:
             for i, label in enumerate(self.labels_clus):
-                dt = self.prm['syst']['labels_day'][i_dt]
+                day_type = self.prm['syst']['labels_day'][i_dt]
                 clusas = []
                 da = self.prm['ntw']['n'] if passive_ext == 'P' else 0
-                dtt_ = self._p_trans_label(dtt, label)
+                transition_type_ = self._p_trans_label(transition_type, label)
                 for home in range(self.prm['ntw']['n' + passive_ext]):
                     if epoch == 0 and i_explore == 0:
-                        psclus = self.prm[label]['pclus'][dt]
+                        psclus = self.prm[label]['pclus'][day_type]
                     else:
                         clus = self.clus[f"{label}{passive_ext}"][home]
-                        psclus = self.prm[label]['ptrans'][dtt_][clus]
+                        psclus = self.prm[label]['ptrans'][transition_type_][clus]
                     choice = self._ps_rand_to_choice(
                         psclus, random_clus[i][home + da])
                     clusas.append(choice)
@@ -201,7 +202,7 @@ class LocalElecEnv():
                 iaend = ia0 + self.prm['ntw']['nP'] if passive_ext == 'P' \
                     else ia0 + self.prm['ntw']['n']
                 self._next_factors(
-                    passive_ext=passive_ext, dtt=dtt,
+                    passive_ext=passive_ext, transition_type=transition_type,
                     rands=[random_f[ie][ia0: iaend]
                            for ie in range(len(self.labels))])
 
@@ -552,15 +553,15 @@ class LocalElecEnv():
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def _p_trans_label(self, dtt, e):
-        if dtt == 'wd2wd' and 'wd2wd' not in self.prm[e]['ptrans']:
-            dtt_ = 'wd'
-        elif dtt == 'we2we' and 'we2we' not in self.prm[e]['ptrans']:
-            dtt_ = 'we'
+    def _p_trans_label(self, transition_type, e):
+        if transition_type == 'wd2wd' and 'wd2wd' not in self.prm[e]['ptrans']:
+            transition_type_ = 'wd'
+        elif transition_type == 'we2we' and 'we2we' not in self.prm[e]['ptrans']:
+            transition_type_ = 'we'
         else:
-            dtt_ = dtt
+            transition_type_ = transition_type
 
-        return dtt_
+        return transition_type_
 
     def _file_id(self):
         return f"{self.nonamefile}{self.passive_ext}{self.opt_res_file}"
@@ -572,56 +573,63 @@ class LocalElecEnv():
                   if rand > p_intervals[ip]][-1]
         return choice
 
-    def _next_factors(self, passive_ext=None, dtt=None, rands=None, homes=[]):
+    def _next_factors(self, passive_ext=None, transition_type=None, rands=None, homes=[]):
         """Compute self-correlated random scaling factors for data profiles."""
         homes = range(self.prm['ntw']['n' + passive_ext]) if len(homes) == 0 else homes
         if passive_ext is None:
             passive_ext = '' if self.bat_p == 'bat' else 'P'
-        dtt = dtt if dtt is not None \
+        transition_type = transition_type if transition_type is not None \
             else self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
-        dtt_ = dtt[0:2] if dtt not in self.f_prm['loads'] else dtt
+        transition_type_ = transition_type[0:2] \
+            if transition_type not in self.f_prm['loads'] \
+            else transition_type
         fEV_new_interval = np.zeros((len(homes),))
         for i_home in range(len(homes)):
             home = homes[i_home]
             # factor for demand - differentiate between day types
-            df = gamma.ppf(rands[0][i_home], *list(self.f_prm['loads'][dtt_]))
+            df = gamma.ppf(rands[0][i_home], *list(self.f_prm['loads'][transition_type_]))
             self.f['loads' + passive_ext][home] = \
-                self.f['loads' + passive_ext][home] + df - self.f_mean['loads'][dtt_]
+                self.f['loads' + passive_ext][home] + df - self.f_mean['loads'][transition_type_]
             # factor for generation - without differentiation between day types
             df = gamma.ppf(rands[2][i_home], * self.f_prm['gen'])
             self.f['gen' + passive_ext][home] = \
                 self.f['gen' + passive_ext][home] + df - self.f_mean['gen']
 
             # factor for EV consumption
-            bracket_fs = self.prm['bat']['bracket_fs'][dtt_]
+            bracket_fs = self.prm['bat']['bracket_fs'][transition_type_]
             current_interval = \
                 [i for i in range(self.prm['bat']['intervals_fprob'] - 1)
                  if bracket_fs[i] <= self.f['bat' + passive_ext][home]][-1]
             choice = self._ps_rand_to_choice(
-                self.prm['bat']['f_prob'][dtt_][current_interval],
+                self.prm['bat']['f_prob'][transition_type_][current_interval],
                 rands[1][i_home])
             fEV_new_interval[i_home] = choice
-            self.f['bat' + passive_ext][home] = self.prm['bat']['mid_fs'][dtt_][int(choice)]
+            self.f['bat' + passive_ext][home] \
+                = self.prm['bat']['mid_fs'][transition_type_][int(choice)]
             for e in ['loads', 'gen', 'bat']:
                 self.f[e + passive_ext][home] = min(
                     max(self.min_f[e], self.f[e + passive_ext][home]), self.max_f[e])
 
         return fEV_new_interval
 
-    def _get_next_clusters(self, dtt, homes):
+    def _get_next_clusters(self, transition_type, homes):
         for home in homes:
             for e in self.labels_clus:
                 # get next cluster
-                dtt_ = dtt[0:2] if dtt not in self.ptrans[e] else dtt
+                transition_type_ = transition_type[0:2] \
+                    if transition_type not in self.ptrans[e] \
+                    else transition_type
                 clus_a = self.clus[self.__dict__[e + '_p']][home]
-                ps = self.ptrans[e][dtt_][clus_a]
+                ps = self.ptrans[e][transition_type_][clus_a]
                 cump = [sum(ps[0:i]) for i in range(1, len(ps))] + [1]
                 rdn = self.np_random.rand()
                 self.clus[self.__dict__[e + '_p']][home] = \
                     [c > rdn for c in cump].index(True)
 
-    def _adjust_EV_cons(self, homes, dt, dtt, day, i_EV, fEV_new_interval):
-        dtt_ = dtt[0:2] if dtt not in self.prm['bat']['mid_fs'] else dtt
+    def _adjust_EV_cons(self, homes, day_type, transition_type, day, i_EV, fEV_new_interval):
+        transition_type_ = transition_type[0:2] \
+            if transition_type not in self.prm['bat']['mid_fs'] \
+            else transition_type
         for i_home in range(len(homes)):
             home = homes[i_home]
             clus = self.clus[self.bat_p][home]
@@ -635,14 +643,14 @@ class LocalElecEnv():
                     fEV_new_interval[i_home] -= 1
                     interval = int(fEV_new_interval[i_home])
                     self.f[self.bat_p][home] = \
-                        self.prm['bat']['mid_fs'][dtt_][interval]
-                    prof = self.prof['bat']['cons'][dt][clus][i_EV[i_home]]
+                        self.prm['bat']['mid_fs'][transition_type_][interval]
+                    prof = self.prof['bat']['cons'][day_type][clus][i_EV[i_home]]
                     day['loads_EV'][i_home] = [
                         x * self.f[self.bat_p][home] for x in prof
                     ]
                 else:
                     i_EV[i_home] = self.np_random.choice(
-                        np.arange(self.n_prof['bat'][dt][clus]))
+                        np.arange(self.n_prof['bat'][day_type][clus]))
                 it += 1
 
         return day, i_EV
@@ -652,8 +660,8 @@ class LocalElecEnv():
         # intialise variables
         homes = self.homes if len(homes) == 0 else homes
         day = {}
-        dt = self.prm['syst']['labels_day'][self.idt]
-        dtt = self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
+        day_type = self.prm['syst']['labels_day'][self.idt]
+        transition_type = self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
         loads_p = self.loads_p if self.loads_p in self.factors[0] \
             else 'lds' + self.loads_p[5:]
 
@@ -665,12 +673,12 @@ class LocalElecEnv():
                 self.clusters[home][e].append(self.clus[e][home])
 
         # get next clusters (for load and EV)
-        self._get_next_clusters(dtt, homes)
+        self._get_next_clusters(transition_type, homes)
 
         # get load profile indexes, normalised profile, and scaled profile
-        i_prof_load = self._compute_i_profs('loads', dt, homes=homes)
+        i_prof_load = self._compute_i_profs('loads', day_type, homes=homes)
         load_prof = [
-            self.prof['loads'][dt][self.clus[self.loads_p][home]][i_prof_load[i_home]]
+            self.prof['loads'][day_type][self.clus[self.loads_p][home]][i_prof_load[i_home]]
             for i_home, home in enumerate(homes)
         ]
         day['loads'] = \
@@ -685,21 +693,23 @@ class LocalElecEnv():
             month += 1
             month = 1 if month == 12 else month
         i_prof_gen = self._compute_i_profs('gen', idx_month=month - 1, homes=homes)
-        day['gen'] = [[g * self.f[self.gen_p][home]
-                       for g in self.prof['gen'][month - 1][i_prof_gen[i_home]]]
-                      if self.prm['gen']['own_PV'][home]
-                      else [0 for _ in range(self.N)]
-                      for i_home, home in zip(range(len(homes)), homes)]
+        day['gen'] = [
+            [g * self.f[self.gen_p][home]
+             for g in self.prof['gen'][month - 1][i_prof_gen[i_home]]]
+            if self.prm['gen']['own_PV'][home]
+            else [0 for _ in range(self.N)]
+            for i_home, home in zip(range(len(homes)), homes)
+        ]
 
         # get EV cons factor, profile index, normalised profile, scaled profile
         fEV_new_interval = self._next_factors(
-            dtt=dtt,
+            transition_type=transition_type,
             rands=[[self.np_random.rand() for _ in range(len(homes))]
                    for _ in range(len(self.labels))],
             homes=homes)
-        i_EV = self._compute_i_profs('bat', dt=dt, homes=homes)
+        i_EV = self._compute_i_profs('bat', day_type=day_type, homes=homes)
         prof = [
-            self.prof['bat']['cons'][dt][self.clus[self.bat_p][home]][i_EV[i_home]]
+            self.prof['bat']['cons'][day_type][self.clus[self.bat_p][home]][i_EV[i_home]]
             for i_home, home in enumerate(homes)
         ]
         day['loads_EV'] = \
@@ -709,12 +719,12 @@ class LocalElecEnv():
 
         # check EV consumption is not larger than capacity - if so, correct
         day, i_EV = self._adjust_EV_cons(
-            homes, dt, dtt, day, i_EV, fEV_new_interval
+            homes, day_type, transition_type, day, i_EV, fEV_new_interval
         )
 
         # get EV availability profile
         day['avail_EV'] = \
-            [self.prof['bat']['avail'][dt][self.clus[self.bat_p][home]][i_EV[i_home]]
+            [self.prof['bat']['avail'][day_type][self.clus[self.bat_p][home]][i_EV[i_home]]
              for i_home, home in zip(range(len(homes)), homes)]
         for i_home in range(len(homes)):
             if sum(day['loads_EV'][i_home]) == 0 and sum(day["avail_EV"][i_home]) == 0:
@@ -752,15 +762,15 @@ class LocalElecEnv():
 
     def _compute_i_profs(self,
                          type_clus: str,
-                         dt: str = None,
+                         day_type: str = None,
                          idx_month: int = None,
                          homes: list = None
                          ) -> list:
         """Get random indexes for profile selection."""
         homes = self.homes if len(homes) == 0 else homes
         iprofs = []
-        n_profs = self.n_prof[type_clus][dt] \
-            if dt is not None \
+        n_profs = self.n_prof[type_clus][day_type] \
+            if day_type is not None \
             else [self.n_prof[type_clus][idx_month]]
         n_profs = [int(self.prm['syst']['share_centroid'] * n_prof)
                    for n_prof in n_profs]
@@ -1047,10 +1057,12 @@ class LocalElecEnv():
             self.f_prm[labobj] = obj['f_prms']
             self.f_mean[labobj] = obj['f_mean']
         self.min_f['bat'] = min(
-            min(prm['bat']['bracket_fs'][dtt]) for dtt in self.labels_day_trans
+            min(prm['bat']['bracket_fs'][transition_type])
+            for transition_type in self.labels_day_trans
         )
         self.max_f['bat'] = max(
-            max(prm['bat']['bracket_fs'][dtt]) for dtt in self.labels_day_trans
+            max(prm['bat']['bracket_fs'][transition_type])
+            for transition_type in self.labels_day_trans
         )
 
         for obj, labobj in zip([prm['loads'], prm['bat']], self.labels_clus):

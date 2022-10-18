@@ -1,16 +1,15 @@
+import pickle
 from datetime import timedelta
 from pathlib import Path
-import pickle
 from unittest import mock
 
 import numpy as np
 import pytest
 
-from src.initialisation.generate_colors import (
-    _check_color_diffs, generate_colors
-)
+from src.initialisation.generate_colors import (_check_color_diffs,
+                                                generate_colors)
 from src.simulations.runner import run
-from src.utilities.userdeftools import set_seeds_rdn, current_no_run
+from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
 
 def random_True_False(colors, color, min_diffs=None):

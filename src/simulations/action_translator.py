@@ -7,12 +7,13 @@ Created on Tues 14 Dec 15:40:20 2021.
 """
 
 import copy
-from src.utilities.userdeftools import initialise_dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from matplotlib import gridspec
+
+from src.utilities.userdeftools import initialise_dict
 
 
 class Action_translator:

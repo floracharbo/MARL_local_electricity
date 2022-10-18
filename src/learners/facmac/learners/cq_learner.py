@@ -2,11 +2,12 @@
 # https://github.com/oxwhirl/facmac
 
 import copy
-from src.learners.facmac.components.episode_buffer import EpisodeBatch
-from src.learners.facmac.learners.learner import Learner
 
 import torch as th
 from torch.optim import Adam, RMSprop
+
+from src.learners.facmac.components.episode_buffer import EpisodeBatch
+from src.learners.facmac.learners.learner import Learner
 
 
 class CQLearner(Learner):

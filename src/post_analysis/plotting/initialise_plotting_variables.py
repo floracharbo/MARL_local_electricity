@@ -1,7 +1,7 @@
-from src.utilities.userdeftools import distr_learning, initialise_dict
-
 import matplotlib.pyplot as plt
 import numpy as np
+
+from src.utilities.userdeftools import distr_learning, initialise_dict
 
 
 def _save(prm):

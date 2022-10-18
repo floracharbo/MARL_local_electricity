@@ -6,10 +6,10 @@ Created on Tue Jan  7 16:56:31 2020.
 @author: floracharbonnier
 """
 
+import os
 import random
 
 import numpy as np
-import os
 import pandas as pd
 import torch as th
 
@@ -146,6 +146,7 @@ def reward_type(q):
 
 def distr_learning(q):
     return q.split('_')[2]
+
 
 def current_no_run(results_path):
     prev_runs = \

@@ -2,13 +2,14 @@
 # https://github.com/oxwhirl/facmac
 
 import copy
-from src.learners.facmac.components.episode_buffer import EpisodeBatch
-from src.learners.facmac.learners.learner import Learner
-from src.learners.facmac.modules.critics.facmac import FACMACCritic
 
 import numpy as np
 import torch as th
 from torch.optim import Adam, RMSprop
+
+from src.learners.facmac.components.episode_buffer import EpisodeBatch
+from src.learners.facmac.learners.learner import Learner
+from src.learners.facmac.modules.critics.facmac import FACMACCritic
 
 
 class FACMACLearner(Learner):
