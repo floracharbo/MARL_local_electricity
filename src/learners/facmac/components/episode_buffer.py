@@ -1,12 +1,13 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-from src.learners.facmac.utils.rl_utils import preprocess_scheme
 from types import SimpleNamespace as SN
 
 import blosc
 import numpy as np
 import torch as th
+
+from src.learners.facmac.utils.rl_utils import preprocess_scheme
 
 
 class EpisodeBatch:
@@ -426,12 +427,11 @@ class CompressibleBatchTensor():
             stats["compression_ratio"] \
             * self.chunk_size \
             * len(self._storage.keys()) \
-            * (np.prod(np.array(self.shape))
-               * self.np_dtype.itemsize).item()
+            * (np.prod(np.array(self.shape)) * self.np_dtype.itemsize).item()
         stats["predicted_full_size_uncompressed"] = \
             self.chunk_size * len(self._storage.keys()) \
-            * (np.prod(np.array(self.shape))
-               * self.np_dtype.itemsize).item()
+            * (np.prod(np.array(self.shape)) * self.np_dtype.itemsize).item()
+
         return stats
 
     pass

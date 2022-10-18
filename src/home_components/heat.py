@@ -63,6 +63,9 @@ class Heat:
         # number of hours (time intervals) in episode
         self.N = prm["syst"]['N']
 
+        # number of intervals per hour
+        self.n_int_per_hr = prm["syst"]['n_int_per_hr']
+
         # amount of energy consumed at time step that was optional
         # / could have been delayed
         self.E_flex = None
@@ -147,7 +150,7 @@ class Heat:
         # number of agents considered in the functio
         na = len(T_start)
 
-        Pheat = [E_heat[home] * 1e3 * self.H / 24 for home in range(na)]
+        Pheat = [E_heat[home] * 1e3 * self.n_int_per_hr for home in range(na)]
         T_end = [self.T_coeff[home][0]
                  + self.T_coeff[home][1] * T_start[home]
                  + self.T_coeff[home][2] * T_out_t

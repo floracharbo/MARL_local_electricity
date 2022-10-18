@@ -10,23 +10,23 @@ Created on Tue Mar  2 14:48:27 2021.
 import datetime
 import multiprocessing as mp
 import os
-from src.initialisation.generate_colors import generate_colors
-from src.initialisation.get_heat_coeffs import get_heat_coeffs
-from src.initialisation.input_data import input_params
-from src.learners.facmac.components.transforms import OneHot
-from src.simulations.record import Record
-from src.utilities.env_spaces import (
-    _actions_from_unit_box, _actions_to_unit_box
-)
-from src.utilities.userdeftools import (
-    distr_learning, initialise_dict, reward_type, str_to_int, current_no_run
-)
+import pickle
 from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
 import torch as th
 from gym import spaces
+
+from src.initialisation.generate_colors import generate_colors
+from src.initialisation.get_heat_coeffs import get_heat_coeffs
+from src.initialisation.input_data import input_params
+from src.learners.facmac.components.transforms import OneHot
+from src.simulations.record import Record
+from src.utilities.env_spaces import (_actions_from_unit_box,
+                                      _actions_to_unit_box)
+from src.utilities.userdeftools import (current_no_run, distr_learning,
+                                        initialise_dict, reward_type)
 
 
 def initialise_objects(
@@ -41,7 +41,7 @@ def initialise_objects(
     inputs:
     prm:
         dictionary of run parameters;
-        has attributes bat, grd, loads, ntw, prm, gen (from inputs files)
+        has attributes car, grd, loads, ntw, prm, gen (from inputs files)
     settings:
         in main_rl.py, defaults settings may be overrun
     no_run:
@@ -212,6 +212,10 @@ def _update_paths(paths, prm, no_run):
     paths:
         correpsonding to prm["paths"]; with updated parameters
     """
+    for data in ['carbon_intensity', 'temp']:
+        paths[data] = f"{paths[data]}_{prm['syst']['H']}.npy"
+    paths["wholesale"] = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['prices_year']}.npy"
+
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
     paths["record_folder"] = paths["folder_run"] / "record"
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
@@ -221,180 +225,163 @@ def _update_paths(paths, prm, no_run):
     paths['hedge_inputs'] \
         = paths["input_folder"] / paths["hedge_inputs_folder"]
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
+    paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
 
     return paths
 
 
-def _load_data_dictionaries(loads, gen, bat, paths, syst):
+def _load_data_dictionaries(paths, syst):
     # load data into dictionaries
-    dicts = [loads, gen, bat]
-    dict_label = ["dem", "gen", "EV"]
-    factors_path = paths["factors_path"]
-    for d in range(len(dicts)):
-        dicts[d]["listfactors"] = np.load(
-            factors_path / f"list_factors_{dict_label[d]}.npy",
-            allow_pickle=True
-        )
-        if dict_label[d] == "gen":  # no distinction for day types / no cluster
-            dicts[d]["f_prms"] = np.load(factors_path / "prm_gen.npy")[0]
-            dicts[d]["f_mean"] = np.load(factors_path / "meandistr_gen.npy")
-        else:
-            if dict_label[d] == "dem":  # get factor parameters
-                dicts[d]["f_prms"], dicts[d]["f_mean"] = {}, {}
-                for dtt in syst["labels_day_trans"]:
-                    dicts[d]["f_prms"][dtt] = np.load(
-                        factors_path / f"prm_{dict_label[d]}_{dtt}.npy")[0]
-                    dicts[d]["f_mean"][dtt] = np.load(
-                        factors_path / f"meandistr_{dict_label[d]}_{dtt}.npy")
-            for probabilities in ["pclus", "ptrans"]:
-                dicts[d][probabilities] = np.reshape(
-                    np.load(paths["hedge_inputs"] / paths["clusfolder"]
-                            / f"{probabilities}_{dict_label[d]}.npy",
-                            allow_pickle=True), 1)[0]
-            dicts[d]["n_clus"] = len(dicts[d]["pclus"]["wd"])
+    for info in ["gamma_prms", "mean_residual", "f_min", "f_max"]:
+        with open(paths['factors_path'] / f"{info}.pickle", "rb") as file:
+            syst[info] = pickle.load(file)
 
-    return dicts
+    for info in ["p_clus", "p_trans", "n_clus"]:
+        with open(paths['clus_path'] / f"{info}.pickle", "rb") as file:
+            syst[info] = pickle.load(file)
+
+    # add one to syst['n_clus']['car'] for no trip days
+    syst['n_clus']['car'] += 1
+
+    return syst
 
 
-def _load_profiles(paths, bat, syst, loads, gen):
-    # load EV profiles and availability
+def _load_profiles(paths, car, syst, loads, gen):
+    # load car profiles and availability
     # (mmap_mode = "r" means not actually loaded, but elements accessible)
 
-    profiles = {"bat": {}}
+    profiles = {"car": {}}
     for data in ["cons", "avail"]:
-        profiles["bat"][data] = initialise_dict(syst["labels_day"])
+        profiles["car"][data] = initialise_dict(syst["labels_day"])
         for day_type in syst["labels_day"]:
-            profiles["bat"][data][day_type] = \
-                initialise_dict(range(bat["n_clus"]))
+            profiles["car"][data][day_type] = \
+                initialise_dict(range(syst['n_clus']["car"]))
 
-    bat["n_prof"] = initialise_dict(syst["labels_day"])
+    syst['n_prof'] = initialise_dict(syst['data_types'], "empty_dict")
+
+    prof_path = paths['hedge_inputs'] / paths['profiles_folder']
+    folders = {'cons': 'norm_EV', 'avail': 'EV_avail'}
 
     for data in ["cons", "avail"]:
-        path = paths["hedge_inputs"] / paths[f"ev_{data}_folder"]
+        path = prof_path / folders[data]
         files = os.listdir(path)
         for file in files:
             if file[0] != ".":
-                dt = file[-9:-7]
-                c = int(file[-5:-4])
-                profiles["bat"][data][dt][c] = \
+                day_type = file[3:5]
+                cluster = int(file[1])
+                profiles["car"][data][day_type][cluster] = \
                     np.load(path / file, mmap_mode="r")
-                if len(np.shape(profiles["bat"][data][dt][c])) == 1:
-                    new_shape = (1, len(profiles["bat"][data][dt][c]))
-                    profiles["bat"][data][dt][c] = np.reshape(
-                        profiles["bat"][data][dt][c], new_shape)
+                if len(np.shape(profiles["car"][data][day_type][cluster])) == 1:
+                    new_shape = (1, len(profiles["car"][data][day_type][cluster]))
+                    profiles["car"][data][day_type][cluster] = np.reshape(
+                        profiles["car"][data][day_type][cluster], new_shape)
 
     for day_type in syst["labels_day"]:
-        bat["n_prof"][day_type] = [
-            len(profiles["bat"]["cons"][day_type][clus])
-            for clus in range(bat["n_clus"])
+        syst['n_prof']['car'][day_type] = [
+            len(profiles["car"]['cons'][day_type][clus])
+            for clus in range(syst['n_clus']['car'])
         ]
 
-    prof_path = paths["hedge_inputs"] / paths["profiles_folder"]
     profiles["loads"] = {}
-    loads["n_prof"] = {}
     for day_type in syst["labels_day"]:
-        profiles["loads"][day_type] = \
-            [np.load(prof_path / f"bank_normdem_c{clus}_{day_type}.npy",
-                     mmap_mode="r") for clus in range(syst["n_loads_clus"])]
-        loads["n_prof"][day_type] = [
-            len(profiles["loads"][day_type][clus])
-            for clus in range(loads["n_clus"])
+        profiles["loads"][day_type] = [
+            np.load(
+                prof_path / 'norm_loads' / f'c{clus}_{day_type}.npy', mmap_mode="r"
+            ) for clus in range(syst["n_loads_clus"])
         ]
-    loads["perc"] = np.load(paths["hedge_inputs"] / paths["loads_cons_perc"])
-    bat["perc"] = np.load(paths["hedge_inputs"] / paths["EV_perc"])
+        syst['n_prof']['loads'][day_type] = [
+            len(profiles['loads'][day_type][clus])
+            for clus in range(syst['n_clus']['loads'])
+        ]
+
+    with open(paths['hedge_inputs'] / "percentiles.pickle", "rb") as file:
+        percentiles = pickle.load(file)
+    loads['perc'] = percentiles["loads"]
+    car['perc'] = percentiles["car"]
+    gen['perc'] = percentiles["gen"]
 
     # PV generation bank and month
     profiles, gen = _load_gen_profiles(gen, profiles, prof_path, paths, syst)
 
-    return profiles, bat, loads, gen
+    return profiles, car, loads, gen
 
 
 def _load_gen_profiles(gen, profiles, prof_path, paths, syst):
-    gen_profs = np.load(prof_path / "normbank_gen.npy", mmap_mode="r")
-    gen_months = np.load(prof_path / "months_gen.npy", mmap_mode="r")
     profiles["gen"] = {}
     for month in range(12):
-        profiles["gen"][month] = []
-        for i, [gen_month, gen_prof] in enumerate(zip(gen_months, gen_profs)):
-            if gen_month == month + 1:
-                profiles["gen"][month].append(
-                    [gen_data if gen_data > 0 else 0 for gen_data in gen_prof])
-    gen["n_prof"] = [len(profiles["gen"][m]) for m in range(12)]
-
-    list_fact_gen = np.load(paths["hedge_inputs"] / "factorsstats"
-                            / "list_factors_gen.npy")
-    month = syst["date0"].month
-    non_0_norm_gen = [x for x in profiles["gen"][month] if x != 0]
-    non_0_fact_gen = [x for x in list_fact_gen if x != 0]
-    perc_nom_gen = [np.percentile(non_0_norm_gen, i) for i in range(0, 101)]
-    perc_f_gen = [np.percentile(non_0_fact_gen, i) for i in range(0, 101)]
-    gen["perc"] = [perc_nom_gen[i] * perc_f_gen[i] for i in range(0, 101)]
+        profiles['gen'][month] = np.load(
+            prof_path / 'norm_gen' / f'i_month{month}.npy',
+            mmap_mode='r'
+        )
+    syst['n_prof']['gen'] = [len(profiles['gen'][m]) for m in range(12)]
 
     return profiles, gen
 
 
-def _load_bat_factors_parameters(syst, paths, bat):
-    if "labels_day_trans" in syst:
-        for dtt in syst["labels_day_trans"]:
-            bat["f_prob"][dtt] = np.load(
-                paths["factors_path"]
-                / f"prob_f1perf0_{bat['intervals_fprob']}_{dtt}.npy")
-            bat["mid_fs"][dtt] = np.load(
-                paths["factors_path"]
-                / f"midxs_f0f1probs_n{bat['intervals_fprob']}_{dtt}.npy")
-            bat["bracket_fs"][dtt] = np.load(
-                paths["factors_path"]
-                / f"xs_f0f1probs_n{bat['intervals_fprob']}_{dtt}.npy")
+def _load_bat_factors_parameters(paths, car):
+    path = paths["factors_path"] / "EV_p_pos.pickle"
+    with open(path, "rb") as file:
+        car['f_prob_pos'] = pickle.load(file)
+    path = paths["factors_path"] / "EV_p_zero2pos.pickle"
+    with open(path, "rb") as file:
+        car['f_prob_zero2pos'] = pickle.load(file)
 
-    return bat
+    path = paths["factors_path"] / "EV_mid_fs_brackets.pickle"
+    with open(path, "rb") as file:
+        car['mid_fs_brackets'] = pickle.load(file)
+
+    path = paths["factors_path"] / "EV_fs_brackets.pickle"
+    with open(path, "rb") as file:
+        car['fs_brackets'] = pickle.load(file)
+
+    return car
 
 
 def _update_bat_prm(prm):
     """
-    Compute parameters relating to the EV battery for the experiments.
+    Compute parameters relating to the car battery for the experiments.
 
     inputs:
     prm:
-        here the bat, ntw, paths and syst entries are relevant
+        here the car, ntw, paths and syst entries are relevant
 
     outputs:
-    bat:
-        correpsonding to prm["bat"]; with updated parameters
+    car:
+        correpsonding to prm["car"]; with updated parameters
     """
-    bat, ntw, paths, syst = \
-        [prm[key] for key in ["bat", "ntw", "paths", "syst"]]
+    car, ntw, paths, syst = \
+        [prm[key] for key in ["car", "ntw", "paths", "syst"]]
 
-    bat["C"] = bat["dep"]  # GBP/kWh storage costs
+    car["C"] = car["dep"]  # GBP/kWh storage costs
 
-    # have list of EV capacities based on capacity and ownership inputs
-    if "own_EV" in bat:
-        bat["cap"] = bat["cap"] if isinstance(bat["cap"], list) \
-            else [bat["cap"] for _ in range(ntw["n"])]
-        bat["own_EV"] = [1 for _ in range(ntw["n"])] \
-            if bat["own_EV"] == 1 else bat["own_EV"]
-        bat["cap"] = [c if o == 1 else 0
-                      for c, o in zip(bat["cap"], bat["own_EV"])]
+    # have list of car capacities based on capacity and ownership inputs
+    if "own_EV" in car:
+        car["cap"] = car["cap"] if isinstance(car["cap"], list) \
+            else [car["cap"] for _ in range(ntw["n"])]
+        car["own_EV"] = [1 for _ in range(ntw["n"])] \
+            if car["own_EV"] == 1 else car["own_EV"]
+        car["cap"] = [c if o == 1 else 0
+                      for c, o in zip(car["cap"], car["own_EV"])]
 
-    bat["f_prob"], bat["mid_fs"], bat["bracket_fs"] = [{} for _ in range(3)]
-    if isinstance(bat["cap"], (int, float)):
-        bat["cap"] = [bat["cap"] for _ in range(ntw["n"])]
+    if isinstance(car["cap"], (int, float)):
+        car["cap"] = [car["cap"] for _ in range(ntw["n"])]
 
-    bat = _load_bat_factors_parameters(syst, paths, bat)
+    car = _load_bat_factors_parameters(paths, car)
 
     # battery characteristics
-    bat["min_charge"] = [bat["cap"][home] * max(bat["SoCmin"], bat["baseld"])
+    car["min_charge"] = [car["cap"][home] * max(car["SoCmin"], car["baseld"])
                          for home in range(ntw["n"])]
-    bat["store0"] = [bat["SoC0"] * bat["cap"][home] for home in range(ntw["n"])]
-    if "capP" not in bat:
-        bat["capP"] = [bat["cap"][0] for _ in range(ntw["nP"])]
-    bat["store0P"] = [bat["SoC0"] * bat["capP"][home] for home in range(ntw["nP"])]
-    bat["min_chargeP"] = [
-        bat["capP"][home] * max(bat["SoCmin"], bat["baseld"])
+    car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(ntw["n"])]
+    if "capP" not in car:
+        car["capP"] = [car["cap"][0] for _ in range(ntw["nP"])]
+    car["store0P"] = [car["SoC0"] * car["capP"][home] for home in range(ntw["nP"])]
+    car["min_chargeP"] = [
+        car["capP"][home] * max(car["SoCmin"], car["baseld"])
         for home in range(ntw["nP"])
     ]
-    bat["phi0"] = np.arctan(bat["c_max"])
+    car["phi0"] = np.arctan(car["c_max"])
 
-    return bat
+    return car
 
 
 def _format_rl_parameters(rl):
@@ -519,6 +506,7 @@ def _update_rl_prm(prm, initialise_all):
 
     # learning parameter variables
     rl["ncpu"] = mp.cpu_count() if rl["server"] else 10
+    rl['episode_limit'] = syst['N']
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
     prm["RL"]["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
@@ -565,7 +553,7 @@ def _seed_save_paths(prm):
 
     inputs:
     prm:
-        here the rl, heat, syst, ntw, paths, bat entries are relevant
+        here the rl, heat, syst, ntw, paths, car entries are relevant
 
     output:
     rl, paths with updated entries
@@ -575,7 +563,7 @@ def _seed_save_paths(prm):
         [prm[key] for key in ["RL", "heat", "syst", "ntw", "paths"]]
 
     paths["opt_res_file"] = \
-        f"_D{syst['D']}_{syst['solver']}_Uval{heat['Uvalues']}" \
+        f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
         f"_ntwn{ntw['n']}_nP{ntw['nP']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"{heat['file']}"
@@ -590,7 +578,7 @@ def _seed_save_paths(prm):
         paths["opt_res_file"] += "_changestart"
 
     # eff does not matter for seeds, but only for res
-    if prm["bat"]["efftype"] == 1:
+    if prm["car"]["efftype"] == 1:
         paths["opt_res_file"] += "_eff1"
     for file in ["opt_res_file", "seeds_file"]:
         paths[file] += ".npy"
@@ -627,7 +615,7 @@ def _update_grd_prm(prm):
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale"]
-    wholesale = [x * 1e-3 for x in np.load(wholesale_path)]  # p/kWh -> GBP/kWh
+    wholesale = [x * 1e-2 for x in np.load(wholesale_path)]  # p/kWh -> £/kWh
     grd["wholesale_all"] = wholesale
     carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity"]
 
@@ -641,8 +629,8 @@ def _update_grd_prm(prm):
     grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
 
 
-def _time_info(prm, initialise_all):
-    syst, paths = prm["syst"], prm["paths"]
+def _time_info(prm):
+    syst = prm["syst"]
     if "H" not in syst:
         syst["H"] = 24
     syst["N"] = syst["D"] * syst["H"]
@@ -652,18 +640,6 @@ def _time_info(prm, initialise_all):
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
     syst['current_date0'] = syst['date0']
-    if initialise_all and paths is not None:
-        syst["datetimes"] = \
-            np.load(paths["open_inputs"] / paths["datetimes"],
-                    allow_pickle=True)
-        # dates
-        dates_path = paths["open_inputs"] / paths["dates"]
-        dates = np.load(dates_path)
-        dates = [str_to_int(date) for date in dates]
-        syst["date0_dates"] = \
-            datetime.datetime(day=dates[0][0],
-                              month=dates[0][1],
-                              year=dates[0][2])
 
 
 def _homes_info(loads, ntw, gen, heat):
@@ -686,7 +662,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     inputs:
     prm:
         dictionary of run parameters;
-        has attributes bat, grd, loads, ntw, prm, gen,
+        has attributes car, grd, loads, ntw, prm, gen,
         rl (from inputs files)
     no_run:
         no of current run for folder naming/recording purposes
@@ -704,26 +680,25 @@ def initialise_prm(prm, no_run, initialise_all=True):
         to input to the environment
     """
     prm_entries = [
-        "paths", "syst", "grd", "bat", "ntw",
+        "paths", "syst", "grd", "car", "ntw",
         "loads", "gen", "save", "heat"
     ]
-    [paths, syst, grd, bat, ntw, loads, gen, save, heat] = \
+    [paths, syst, grd, car, ntw, loads, gen, save, heat] = \
         [prm[key] if key in prm else None for key in prm_entries]
 
     _make_type_eval_list(prm["RL"])
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
-    _time_info(prm, initialise_all)
+    _time_info(prm)
     _homes_info(loads, ntw, gen, heat)
 
     # update paths and parameters from inputs
     if paths is not None:
         if initialise_all:
-            loads, gen, bat = _load_data_dictionaries(
-                loads, gen, bat, paths, syst)
+            syst = _load_data_dictionaries(paths, syst)
             _update_grd_prm(prm)
-            profiles, bat, loads, gen = _load_profiles(
-                paths, bat, syst, loads, gen)
+            profiles, car, loads, gen = _load_profiles(
+                paths, car, syst, loads, gen)
             loads["share_flex"], loads["max_delay"] = loads["flex"]
             loads["share_flexs"] = \
                 [0 if not loads["own_flex"][home]
@@ -733,8 +708,8 @@ def initialise_prm(prm, no_run, initialise_all=True):
     else:
         profiles = None
 
-    # EV avail, type, factors
-    bat = _update_bat_prm(prm)
+    # car avail, type, factors
+    car = _update_bat_prm(prm)
 
     rl = _update_rl_prm(prm, initialise_all)
     rl, paths = _seed_save_paths(prm)
@@ -789,17 +764,17 @@ def _filter_type_learning_competitive(rl):
 
 
 def _make_type_eval_list(rl, largeQ_bool=False):
-    type_eval_list = ["baseline"]
-    if rl["explo_reward_type"] is not None:
-        input_explo_reward_type = rl["explo_reward_type"] \
-            if isinstance(rl["explo_reward_type"], list) \
-            else [rl["explo_reward_type"]]
-        type_eval_list += input_explo_reward_type
+    evaluation_methods_list = ["baseline"]
+    if rl["evaluation_methods"] is not None:
+        input_evaluation_methods = rl["evaluation_methods"] \
+            if isinstance(rl["evaluation_methods"], list) \
+            else [rl["evaluation_methods"]]
+        evaluation_methods_list += input_evaluation_methods
     else:
         data_sources = ["env_"]
         if rl["opt_bool"]:
             data_sources += ["opt_"]
-            type_eval_list += ["opt"]
+            evaluation_methods_list += ["opt"]
 
         if rl["type_learning"] == "facmac":
             methods_combs = ["r_c", "d_c"]
@@ -813,7 +788,7 @@ def _make_type_eval_list(rl, largeQ_bool=False):
                 methods_combs += add_difference
             methods_combs_opt = ["n_c", "n_d"]
             if "opt_" in data_sources:
-                type_eval_list += ["opt_" + m for m in methods_combs_opt]
+                evaluation_methods_list += ["opt_" + m for m in methods_combs_opt]
 
         elif rl["type_learning"] in ["DDPG", "DQN", "DDQN"]:
             if rl["distr_learning"] == "decentralised":
@@ -823,10 +798,10 @@ def _make_type_eval_list(rl, largeQ_bool=False):
                 methods_combs = ["d_c"] \
                     if rl["difference_bool"] else ["r_c"]
 
-        for d in data_sources:
-            type_eval_list += [d + mc for mc in methods_combs]
+        for data_source in data_sources:
+            evaluation_methods_list += [data_source + mc for mc in methods_combs]
 
-    rl["evaluation_methods"] = type_eval_list
+    rl["evaluation_methods"] = evaluation_methods_list
     _filter_type_learning_competitive(rl)
 
     rl["exploration_methods"] = [
@@ -848,4 +823,4 @@ def _make_type_eval_list(rl, largeQ_bool=False):
         )
     ]
 
-    print(f"type_eval_list {type_eval_list}")
+    print(f"evaluation_methods {evaluation_methods_list}")

@@ -12,12 +12,13 @@ import os  # path management
 import shutil  # to copy/remove files
 import sys
 import time  # to record time it takes to run simulations
-from src.post_analysis.plotting.plotting import plotting
-from src.post_analysis.print_results import print_results
-from src.utilities.userdeftools import distr_learning
 from pathlib import Path
 
 import numpy as np
+
+from src.post_analysis.plotting.plotting import plotting
+from src.post_analysis.print_results import print_results
+from src.utilities.userdeftools import distr_learning
 
 
 def _max_min_q(q_table, n_states, minq, maxq, prm):
@@ -178,6 +179,8 @@ def get_prm_save(prm):
             if len(to_save_entries_syst[key]) > 0 \
             else prm[key].keys()
         for sub_key in sub_keys:
+            if sub_key == 'n__clus':
+                sub_key = 'n_clus'
             if sub_key in prm[key]:
                 prm_save[key][sub_key] = prm[key][sub_key]
             elif sub_key not in prm[key] \
@@ -185,7 +188,7 @@ def get_prm_save(prm):
                     and sub_key in prm[key][prm["RL"]["type_learning"]]:
                 prm_save[key][sub_key] = \
                     prm[key][prm["RL"]["type_learning"]][sub_key]
-            elif sub_key in ["fprms", "fmean", "nclus"]:
+            elif sub_key in ["fprms", "fmean", "n_clus"]:
                 sub_key = f"{sub_key[0]}_{sub_key[1:]}"
                 prm_save[key][sub_key] = prm[key][sub_key]
             else:

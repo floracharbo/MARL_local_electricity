@@ -4,13 +4,14 @@ This file contains the ActionSelector class.
 Author: Flora Charbonnier
 """
 
-from src.utilities.env_spaces import granularity_to_multipliers
 from datetime import timedelta
 from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
 import torch as th
+
+from src.utilities.env_spaces import granularity_to_multipliers
 
 
 class ActionSelector:
@@ -118,10 +119,15 @@ class ActionSelector:
             (self.N + 1, self.n_agents, len(self.rl['state_space'])))
 
         for i_step in range(self.N + 1):
-            inputs_state_val = \
-                [i_step, env.date + timedelta(hours=i_step), False,
-                 [[env.batch[home]['flex'][ih] for ih in range(0, 2)]
-                  for home in self.homes]]
+            inputs_state_val = [
+                i_step,
+                env.date + timedelta(hours=i_step * self.prm['syst']['dt']),
+                False,
+                [
+                    [env.batch[home]['flex'][ih] for ih in range(0, 2)]
+                    for home in self.homes
+                ]
+            ]
             states[i_step] = env.get_state_vals(inputs=inputs_state_val)
 
         if method == 'baseline':
@@ -283,7 +289,10 @@ class ActionSelector:
             for current_state in states]
         ind_states_a_step = [[ind_states[i_step][home] for i_step in range(
             self.N)] for home in self.homes]
-        granularity = [self.rl["n_other_states"] for _ in range(24)]
+        granularity = [
+            self.prm["RL"]["n_other_states"]
+            for _ in range(self.prm['syst']['N'])
+        ]
         multipliers_traj = granularity_to_multipliers(
             granularity)
         traj_ind_state = [self.env.indiv_to_global_index(

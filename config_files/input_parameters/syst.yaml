@@ -16,8 +16,10 @@ break_down_rewards_entries: [
   'emissions_from_loss','indiv_gc','indiv_sc','indiv_c'
 ]
 share_centroid: 1 # what share of profiles to include in each cluster ordered from closest to furthest from centroid of each cluster
-f0: {'loads' : 9, 'gen' : 8, 'bat' : 8} # demand / generation factor initialisation for RL data generation https://www.ukpower.co.uk/home_energy/average-household-gas-and-electricity-usage / https://www.choice.com.au/home-improvement/energy-saving/solar/articles/how-much-solar-do-i-need / https://www.statista.com/statistics/513456/annual-mileage-of-motorists-in-the-united-kingdom-uk/
-clus0: {'loads' : 0, 'bat' : 0} # demand / generation cluster initialisation for RL data generation
+f0: {'loads' : 9, 'gen' : 8, 'car' : 8} # demand / generation factor initialisation for RL data generation https://www.ukpower.co.uk/home_energy/average-household-gas-and-electricity-usage / https://www.choice.com.au/home-improvement/energy-saving/solar/articles/how-much-solar-do-i-need / https://www.statista.com/statistics/513456/annual-mileage-of-motorists-in-the-united-kingdom-uk/
+clus0: {'loads' : 0, 'car' : 0} # demand / generation cluster initialisation for RL data generation
 n_loads_clus: 4
 seed: 0
-sound_file: 'beep-24.wav'
+behaviour_types: ['loads', 'car']
+data_types: ['loads', 'car', 'gen']
+prices_year: 2021

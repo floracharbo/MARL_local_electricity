@@ -7,12 +7,13 @@ Created on Tues 14 Dec 15:40:20 2021.
 """
 
 import copy
-from src.utilities.userdeftools import initialise_dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from matplotlib import gridspec
+
+from src.utilities.userdeftools import initialise_dict
 
 
 class Action_translator:
@@ -41,7 +42,7 @@ class Action_translator:
         for e in ['aggregate_actions', 'dim_actions', 'low_action',
                   'high_action', 'type_env']:
             self.__dict__[e] = prm['RL'][e]
-        self.bat_dep = prm['bat']['dep']
+        self.bat_dep = prm['car']['dep']
         self.ntw_C = prm['ntw']['C']
 
     def optimisation_to_rl_env_action(self, h, date, netp, loads, home, res):
@@ -55,7 +56,7 @@ class Action_translator:
 
         homes = range(self.n_homes)
 
-        self.bat.min_max_charge_t(h, date)
+        self.car.min_max_charge_t(h, date)
         self.initial_processing(loads, home)
 
         error = [False for _ in homes]
@@ -81,11 +82,11 @@ class Action_translator:
         # inputs
         # loads: l_flex, l_fixed
         # home_vars: gen0
-        eta_dis, eta_ch = self.bat.eta_dis, self.bat.eta_ch
+        eta_dis, eta_ch = self.car.eta_dis, self.car.eta_ch
         homes = range(self.n_homes)
 
         s_avail_dis, s_add_0, s_remove_0, potential_charge = \
-            self.bat.initial_processing()
+            self.car.initial_processing()
 
         self._check_input_types(
             loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
@@ -223,7 +224,7 @@ class Action_translator:
         homes = range(self.n_homes)
 
         # problem variables
-        bool_penalty = self.bat.min_max_charge_t(h, date)
+        bool_penalty = self.car.min_max_charge_t(h, date)
         for e in ['netp', 'tot_cons']:
             home_vars[e] = np.zeros(self.n_homes)
 
@@ -281,7 +282,7 @@ class Action_translator:
                 res['c'] = home_vars['tot_cons'][home]
                 res = self._battery_action_to_ds(home, battery_action, res)
 
-                discharge = - res['ds'] * self.bat.eta_dis \
+                discharge = - res['ds'] * self.car.eta_dis \
                     if res['ds'] < 0 else 0
                 charge = res['ds'] if res['ds'] > 0 else 0
                 home_vars['netp'][home] = loads['flex_cons'][home] \
@@ -297,7 +298,7 @@ class Action_translator:
                 loads['flex_cons'][home] + loads['l_fixed'][home])
             self.res[home] = copy.copy(res)
 
-        self.bat.actions_to_env_vars(self.res)
+        self.car.actions_to_env_vars(self.res)
         self.heat.actions_to_env_vars(
             self.res, loads['l_flex'], self.tot_l_fixed, E_flex=flex_heat
         )
@@ -306,8 +307,8 @@ class Action_translator:
         for home in homes:
             # energy balance
             e_balance = abs((self.res[home]['dp'] + home_vars['gen'][home]
-                             + self.bat.discharge[home] - self.bat.charge[home]
-                             - self.bat.loss_ch[home] - home_vars['tot_cons'][home]))
+                             + self.car.discharge[home] - self.car.charge[home]
+                             - self.car.loss_ch[home] - home_vars['tot_cons'][home]))
             assert e_balance <= 1e-3, f"energy balance {e_balance}"
             assert abs(loads['tot_cons_loads'][home] + self.heat.tot_E[home]
                    - home_vars['tot_cons'][home]) <= 1e-3, \
@@ -315,7 +316,7 @@ class Action_translator:
                 f"self.heat.tot_E[home] {self.heat.tot_E[home]}, " \
                 f"home_vars['tot_cons'][home] {home_vars['tot_cons'][home]}"
 
-        bool_penalty = self.bat.check_errors_apply_step(
+        bool_penalty = self.car.check_errors_apply_step(
             homes, bool_penalty, action, self.res)
         if sum(bool_penalty) > 0:
             self.error = True
@@ -351,8 +352,8 @@ class Action_translator:
                 res['ds'] = self.min_charge[home] + battery_action \
                     * (self.max_charge[home] - self.min_charge[home])
         res['l_ch'] = 0 if res['ds'] < 0 \
-            else (1 - self.bat.eta_ch) / self.bat.eta_ch * res['ds']
-        res['l_dis'] = - res['ds'] * (1 - self.bat.eta_dis) \
+            else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
+        res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) \
             if res['ds'] < 0 else 0
 
         return res
@@ -481,7 +482,7 @@ class Action_translator:
                 self.action_intervals[home].append(action_points[l2][home])
                 for e in ['ds', 'c', 'losses']:
                     if e == 'losses':
-                        self.k = self.bat.k_losses(
+                        self.k = self.car.k_losses(
                             home,
                             self.k,
                             action_points[l1][home],

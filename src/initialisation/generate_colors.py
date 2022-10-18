@@ -8,9 +8,10 @@ comparison of results.
 """
 
 import random
-from src.utilities.userdeftools import distr_learning
 
 import matplotlib.pyplot as plt
+
+from src.utilities.userdeftools import distr_learning
 
 
 def _check_color_diffs(colors, new_color, min_diffs=None):
@@ -172,7 +173,7 @@ def generate_colors(save, prm, colours_only=False, entries=None):
 
     if colours_only:
         return colors0 + colors
-    else:
-        # save the list to the parameters
-        save, prm = _colors_to_prm(save, prm, colors0, colors, all_evaluation_methods)
-        return save, prm
+
+    # save the list to the parameters
+    save, prm = _colors_to_prm(save, prm, colors0, colors, all_evaluation_methods)
+    return save, prm

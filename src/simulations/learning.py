@@ -4,11 +4,12 @@ This file contains the Learner class.
 author: Flora Charbonnier
 """
 
-from src.utilities.env_spaces import granularity_to_multipliers
-from src.utilities.userdeftools import data_source, reward_type
 from typing import List
 
 import numpy as np
+
+from src.utilities.env_spaces import granularity_to_multipliers
+from src.utilities.userdeftools import data_source, reward_type
 
 
 class LearningManager():

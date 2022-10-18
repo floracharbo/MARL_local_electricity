@@ -55,9 +55,9 @@ def granularity_to_multipliers(granularity):
 def compute_max_EV_cons_gen_values(env):
     maxEVcons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
     for dt in ["wd", "we"]:
-        for c in range(env.n_clus["bat"]):
-            if np.max(env.prof["bat"]["cons"][dt][c]) > maxEVcons:
-                maxEVcons = np.max(env.prof["bat"]["cons"][dt][c])
+        for c in range(env.n_clus["car"]):
+            if np.max(env.prof["car"]["cons"][dt][c]) > maxEVcons:
+                maxEVcons = np.max(env.prof["car"]["cons"][dt][c])
         for c in range(env.n_clus["loads"]):
             if np.max(env.prof["loads"][dt][c]) > max_normcons_hour:
                 max_normcons_hour = np.max(env.prof["loads"][dt][c])
@@ -78,7 +78,7 @@ class EnvSpaces():
         self.n_actions = env.prm["RL"]["n_discrete_actions"]
         self.current_date0 = env.prm["syst"]["current_date0"]
         self.get_state_vals = env.get_state_vals
-        self.c_max = env.prm["bat"]["c_max"]
+        self.c_max = env.prm["car"]["c_max"]
         self.evaluation_method = env.prm["RL"]["evaluation_methods"]
         prm = env.prm
         self._get_space_info(env)
@@ -95,11 +95,11 @@ class EnvSpaces():
         }
 
     def _init_factors_profiles_parameters(self, env, prm):
-        self.list_factors = {}
-        for key in ["gen", "loads", "bat"]:
-            self.list_factors[key] = env.prm[key]["listfactors"]
+        # self.list_factors = {}
+        # for key in ["gen", "loads", "car"]:
+        #     self.list_factors[key] = env.prm[key]["listfactors"]
         self.perc = {}
-        for e in ["loads", "gen", "bat", "grd"]:
+        for e in ["loads", "gen", "car", "grd"]:
             self.perc[e] = prm[e]["perc"]
 
     def _get_space_info(self, env):
@@ -110,9 +110,10 @@ class EnvSpaces():
 
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
+        i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         info = [["none", None, None, 1, 0],
                 ["houre0dC", 0, 24, rl["n_other_states"], 0],
-                ["store0dC", 0, prm["bat"]["cap"], rl["n_other_states"], 0],
+                ["store0dC", 0, prm["car"]["cap"], rl["n_other_states"], 0],
                 ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]),
                  rl["n_other_states"], 0],
                 ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
@@ -125,37 +126,37 @@ class EnvSpaces():
                 ["day_type", 0, 1, 2, 1],
                 ["avail_EV_step", 0, 1, 2, 1],
                 ["avail_EV_prev", 0, 1, 2, 1],
-                ["EV_tau", 0, prm["bat"]["c_max"], 3, 0],
+                ["EV_tau", 0, prm["car"]["c_max"], 3, 0],
                 # clusters - for whole day
                 ["loads_clus_step", 0, env.n_clus["loads"] - 1,
                  env.n_clus["loads"], 1],
                 ["loads_clus_prev", 0, env.n_clus["loads"] - 1,
                  env.n_clus["loads"], 1],
-                ["bat_cbat_clus_step", 0, env.n_clus["bat"] - 1,
-                 env.n_clus["bat"], 1],
-                ["bat_clus_prev", 0, env.n_clus["bat"] - 1,
-                 env.n_clus["bat"], 1],
+                ["bat_cbat_clus_step", 0, env.n_clus["car"] - 1,
+                 env.n_clus["car"], 1],
+                ["bat_clus_prev", 0, env.n_clus["car"] - 1,
+                 env.n_clus["car"], 1],
                 # scaling factors - for whole day
-                ["loads_fact_step", env.min_f["loads"], env.max_f["loads"],
+                ["loads_fact_step", env.f_min["loads"], env.f_max["loads"],
                  rl["n_other_states"], 0],
-                ["loads_fact_prev", env.min_f["loads"], env.max_f["loads"],
+                ["loads_fact_prev", env.f_min["loads"], env.f_max["loads"],
                  rl["n_other_states"], 0],
-                ["gen_fact_step", env.min_f["gen"], env.max_f["gen"],
+                ["gen_fact_step", env.f_min["gen"], env.f_max["gen"],
                  rl["n_other_states"], 0],
-                ["gen_fact_prev", env.min_f["gen"], env.max_f["gen"],
+                ["gen_fact_prev", env.f_min["gen"], env.f_max["gen"],
                  rl["n_other_states"], 0],
-                ["bat_fact_step", env.min_f["bat"], env.max_f["bat"],
+                ["bat_fact_step", env.f_min["car"], env.f_max["car"],
                  rl["n_other_states"], 0],
-                ["bat_fact_prev", env.min_f["bat"], env.max_f["bat"],
+                ["bat_fact_prev", env.f_min["car"], env.f_max["car"],
                  rl["n_other_states"], 0],
                 # absolute value at time step / hour
-                ["loads_cons_step", 0, max_normcons_hour * env.max_f["loads"],
+                ["loads_cons_step", 0, max_normcons_hour * env.f_max["loads"],
                  rl["n_other_states"], 0],
-                ["loads_cons_prev", 0, max_normcons_hour * env.max_f["loads"],
+                ["loads_cons_prev", 0, max_normcons_hour * env.f_max["loads"],
                  rl["n_other_states"], 0],
-                ["gen_prod_step", 0, max_normgen_hour * env.max_f["gen"],
+                ["gen_prod_step", 0, max_normgen_hour * env.f_max["gen"][i_month],
                  rl["n_other_states"], 0],
-                ["gen_prod_prev", 0, max_normgen_hour * env.max_f["gen"],
+                ["gen_prod_prev", 0, max_normgen_hour * env.f_max["gen"][i_month],
                  rl["n_other_states"], 0],
                 ["bat_cons_step", 0, maxEVcons, rl["n_other_states"], 0],
                 ["bat_cons_prev", 0, maxEVcons, rl["n_other_states"], 0],
@@ -380,25 +381,28 @@ class EnvSpaces():
             perc_dict = {
                 'loads_cons_step': 'loads',
                 'gen_prod_step': 'gen',
-                'EV_cons_step': 'bat',
+                'EV_cons_step': 'car',
                 'grdC': 'grd'
             }
             brackets[typev] = []
             for s in range(len(self.descriptors[typev])):
                 ind_str = self.descriptors[typev][s]
                 n_bins = self.granularity[typev][s]
+
                 if self.discrete[typev][s] == 1:
                     brackets[typev].append([0])
-                elif ind_str[-1] == "f":
-                    brackets[typev].append(
-                        [np.percentile(
-                            self.list_factors[ind_str[0:3]],
-                            1 / n_bins * 100 * i) for i in range(n_bins)])
+                # elif ind_str[-1] == "f":
+                #     brackets[typev].append(
+                #         [np.percentile(
+                #             self.list_factors[ind_str[0:3]],
+                #             1 / n_bins * 100 * i) for i in range(n_bins)])
                 elif ind_str in perc_dict:
+                    i_perc = [
+                        int(1 / n_bins * 100 * i)
+                        for i in range(n_bins + 1)
+                    ]
                     brackets[typev].append(
-                        [self.perc[perc_dict[ind_str]][
-                            int(1 / n_bins * 100 * i)]
-                         for i in range(n_bins + 1)]
+                        [self.perc[perc_dict[ind_str]][i] for i in i_perc]
                     )
                 elif ind_str == "EV_tau":
                     brackets[typev].append([-75, 0, 10, self.c_max])
@@ -520,7 +524,7 @@ class EnvSpaces():
                     elif descriptor[0:3] == "gen":
                         val = prm["ntw"]["gen"][home][i_step_val]
                     else:  # remaining are EV_cons_step / prev
-                        val = prm["bat"]["batch_loads_EV"][home][i_step]
+                        val = prm["car"]["batch_loads_EV"][home][i_step]
                 vals_home.append(val)
             vals.append(vals_home)
 
@@ -549,7 +553,7 @@ class EnvSpaces():
         i_step, res, home, date, _ = inputs
 
         loads_T, deltaT, _ = \
-            self.env.bat.next_trip_details(i_step, date, home)
+            self.env.car.next_trip_details(i_step, date, home)
 
         if loads_T is not None and deltaT > 0:
             val = ((loads_T - res["store"][home][i_step]) / deltaT)
@@ -563,7 +567,7 @@ class EnvSpaces():
         if i_step < len(res["store"][home]):
             val = res["store"][home][i_step]
         else:
-            val = prm["bat"]["store0"][home]
+            val = prm["car"]["store0"][home]
 
         return val
 
@@ -580,6 +584,6 @@ class EnvSpaces():
 
     def _get_bat_dem_agg(self, inputs):
         i_step, _, home, _, prm = inputs
-        val = prm["bat"]["bat_dem_agg"][home][i_step]
+        val = prm["car"]["bat_dem_agg"][home][i_step]
 
         return val

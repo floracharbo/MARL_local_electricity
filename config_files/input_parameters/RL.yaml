@@ -157,7 +157,6 @@ low_actions: [0, 0, -1]
 high_actions: [1, 1, 1]
 actions_dtype: np.float32
 discretize_actions: False
-episode_limit: 24
 buffer_cpu_only: True
 agent_output_type: ~
 action_selector: ~
@@ -201,7 +200,7 @@ batch_size_run: 1
 runner_scope: 'episodic'
 optim_alpha: 0.99 # RMSProp alpha
 optim_eps: 0.00001 # RMSProp
-explo_reward_type:
+evaluation_methods:
 
 facmac:
         # varied

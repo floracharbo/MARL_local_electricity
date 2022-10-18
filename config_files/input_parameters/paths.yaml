@@ -1,18 +1,17 @@
 # paths
 input_folder: 'input_data'  # data file
-open_inputs_folder: 'open_data_v1'  # inputs that are openly available
-hedge_inputs_folder: 'hedge_inputs_v1'
-wholesale: 'grdC_Jan20_Londo_24.npy' # 'wholesaleprice_list_12-6-18_to_13-11-18.npy',
-carbon_intensity: 'cintensityJan2020_24.npy'   #'cintensity_list_hourly_12-6-18_to_13-11-18.npy',
-dates: 'dates_wholesale.npy' #'dates_wholesale12-6-18_to_13-11-18.npy',
-datetimes: 'datetime_Jan2020_n24.npy' #'datetimes_cintensity2017-9-26-23-00to2019-12-12-0-0.npy',
-profiles_folder: 'profilesbanks'
+open_inputs_folder: 'open_data_v2'  # inputs that are openly available
+hedge_inputs_folder: 'hedge_inputs_v2'
+wholesale: 'octopus_prices_in' # 'wholesaleprice_list_12-6-18_to_13-11-18.npy',
+carbon_intensity: 'carbon_intensity_jan2020'   #'cintensity_list_hourly_12-6-18_to_13-11-18.npy',
+profiles_folder: 'profiles'
 ev_avail_folder: 'EVavailability'
 ev_cons_folder: 'EVcons'
-factors_folder: 'factorsstats'
-clusfolder: 'cluster'
+factors_folder: 'factors'
+clus_folder: 'clusters'
 res_folder: 'opt_res'
 loads_cons_perc: 'lds_cons_perc.npy'
 EV_perc: 'perc_EV.npy'
-temp: 'templist_Jan_2020_24.npy'
+temp: 'temperatures_jan2020'
 phisol: 'rad_Jan2020_n24.npy'
+sound_file: 'beep-24.wav'

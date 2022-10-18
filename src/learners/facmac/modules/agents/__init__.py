@@ -2,10 +2,9 @@
 # https://github.com/oxwhirl/facmac
 
 from src.learners.facmac.modules.agents.comix_agent import (CEMAgent,
-                                                             CEMRecurrentAgent)
+                                                            CEMRecurrentAgent)
 from src.learners.facmac.modules.agents.mlp_agent import MLPAgent
-from src.learners.facmac.modules.agents.qmix_agent import (FFAgent,
-                                                            QMIXRNNAgent)
+from src.learners.facmac.modules.agents.qmix_agent import FFAgent, QMIXRNNAgent
 from src.learners.facmac.modules.agents.rnn_agent import RNNAgent
 
 REGISTRY = {}

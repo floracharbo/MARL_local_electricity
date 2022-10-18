@@ -61,10 +61,11 @@ class Battery:
         # import input parameters
         for e in ['own_EV', 'dep', 'c_max', 'd_max', 'eta_ch',
                   'eta_ch', 'eta_dis', 'SoCmin']:
-            self.__dict__[e] = prm['bat'][e]
+            self.__dict__[e] = prm['car'][e]
 
         # total number of time steps
         self.N = prm['syst']['N']
+        self.dt = prm['syst']['dt']
 
         # date of end of episode - updated from update_date() is env
         self.date_end = None
@@ -90,8 +91,8 @@ class Battery:
             # initial state
             self.store = {}
             for home in range(self.n_homes):
-                self.store[home] = prm['bat']['store0' + passive_ext][home] \
-                    if prm['bat']['own_EV'][home] else 0
+                self.store[home] = prm['car']['store0' + passive_ext][home] \
+                    if prm['car']['own_EV'][home] else 0
 
             # storage at the start of current time step
             self.start_store = self.store.copy()
@@ -102,7 +103,7 @@ class Battery:
             # min_charge is the minimum state of charge / base load
             # that needs to always be available
             for e in ['store0', 'cap', 'min_charge']:
-                self.__dict__[e] = prm['bat'][e + self.passive_ext]
+                self.__dict__[e] = prm['car'][e + self.passive_ext]
 
     def update_step(self, res=None):
         """Update current object variables for new step."""
@@ -154,7 +155,9 @@ class Battery:
         iT = [i for i in range(len(self.batch['avail_EV'][home][start_h:])) if
               self.batch['avail_EV'][home][start_h + i] == 0]
         d_to_end = self.date_end - date
-        h_end = start_h + d_to_end.days * 24 + (d_to_end.seconds) / 3600
+        h_end = \
+            start_h \
+            + (d_to_end.days * 24 + (d_to_end.seconds) / 3600) * 1 / self.dt
         if len(iT) > 0 and start_h + iT[0] < h_end:
             # future trip that starts before end
             iT = int(start_h + iT[0])
@@ -183,18 +186,18 @@ class Battery:
         return val
 
     def _check_trip_feasible(
-            self, loads_T, deltaT, bool_penalty, print_error, home, h
+            self, loads_T, deltaT, bool_penalty, print_error, home, time
     ):
         if loads_T > self.cap[home] + 1e-2:
             # load during trip larger than whole
             bool_penalty[home] = True
             if print_error:
-                print(f"home = {home}, h = {h} deltaT {deltaT} "
+                print(f"home = {home}, time = {time} deltaT {deltaT} "
                       f"load EV trip {loads_T} larger than"
                       f" cap, self.batch['loads_EV'][{home}] "
                       f"= {self.batch['loads_EV'][home]}")
         elif deltaT > 0 \
-                and sum(self.batch['avail_EV'][home][0: h]) == 0 \
+                and sum(self.batch['avail_EV'][home][0: time]) == 0 \
                 and loads_T / deltaT \
                 > self.store0[home] + self.c_max:
             bool_penalty[home] = True
@@ -205,10 +208,10 @@ class Battery:
 
         return bool_penalty
 
-    def _get_list_future_trips(self, h, date_a, home, bool_penalty, print_error):
+    def _get_list_future_trips(self, time, date_a, home, bool_penalty, print_error):
         trips = []
         end = False
-        h_trip = h
+        h_trip = time
         while not end:
             loads_T, deltaT, i_endtrip = self.next_trip_details(
                 h_trip, date_a, home)
@@ -216,16 +219,17 @@ class Battery:
                 end = True
             else:
                 self._check_trip_feasible(
-                    loads_T, deltaT, bool_penalty, print_error, home, h
+                    loads_T, deltaT, bool_penalty, print_error, home, time
                 )
-                trips.append([loads_T, deltaT, i_endtrip])
+                if time + deltaT < self.N:
+                    trips.append([loads_T, deltaT, i_endtrip])
                 date_a += datetime.timedelta(
-                    hours=int(i_endtrip - h_trip))
+                    hours=int(i_endtrip - h_trip) * self.dt)
                 h_trip = i_endtrip
 
         return trips
 
-    def min_max_charge_t(self, h=None, date=None, print_error=True,
+    def min_max_charge_t(self, time=None, date=None, print_error=True,
                          simulation=True):
         """
         For current time step, define minimum/maximum charge.
@@ -236,11 +240,11 @@ class Battery:
             feasibility of a generic batch of data without updating
             the storage levels
         """
-        if h is None:
-            h = self.i_step
+        if time is None:
+            time = self.i_step
         if date is None:
-            date = self.date0 + datetime.timedelta(hours=h)
-        avail_EV = [self.batch['avail_EV'][home][h] for home in range(self.n_homes)]
+            date = self.date0 + datetime.timedelta(hours=time * self.dt)
+        avail_EV = [self.batch['avail_EV'][home][time] for home in range(self.n_homes)]
         bool_penalty = np.zeros(self.n_homes, dtype=bool)
         last_step = self._last_step(date)
         # regular initial minimum charge
@@ -252,19 +256,18 @@ class Battery:
         Creq = []
         for home in range(self.n_homes):
             date_a = copy.deepcopy(date)
-            if not self.avail_EV[home]:
+            if not avail_EV[home]:
                 # if EV not currently in garage
                 Creq.append(0)
                 continue
 
             # obtain all future trips
             trips = self._get_list_future_trips(
-                h, date_a, home, bool_penalty, print_error
+                time, date_a, home, bool_penalty, print_error
             )
-            # trips[i] = [loads_T, deltaT, i_endtrip]
 
             # obtain required charge before each trip, starting with end
-            final_i_endtrip = trips[-1][2] if len(trips) > 0 else h
+            final_i_endtrip = trips[-1][2] if len(trips) > 0 else time
             n_avail_until_end = sum(
                 self.batch['avail_EV'][home][h_]
                 for h_ in range(final_i_endtrip, self.N)
@@ -290,12 +293,12 @@ class Battery:
                         for home in range(self.n_homes)]
 
         self._check_min_charge_t_feasible(
-            min_charge_t, h, date, bool_penalty, print_error, simulation
+            min_charge_t, time, date, bool_penalty, print_error, simulation
         )
         for home in range(self.n_homes):
-            if h == 22 and avail_EV[home]:
+            if time == self.N - 2 and avail_EV[home]:
                 assert min_charge_t[home] >= self.store0[home] - self.c_max, \
-                    f"h == 22 and min_charge_t {min_charge_t} " \
+                    f"time == {self.N - 2} and min_charge_t {min_charge_t[home]} " \
                     f"< {self.store0[home]} - {self.c_max}"
 
         self.min_charge_t = min_charge_t
@@ -306,14 +309,14 @@ class Battery:
 
         return bool_penalty
 
-    def check_constraints(self, home, date, h):
+    def check_constraints(self, home, date, time):
         """
         From env.policy_to_rewardvar, check battery constraints.
 
         Inputs:
         home:
             index relative to agent
-        h:
+        time:
             time step
         date:
             current date
@@ -335,7 +338,7 @@ class Battery:
             assert self.start_store[home] == self.store0[home], \
                 f'start_store[{home}] {self.start_store[home]} not store0'
 
-        if date == self.date_end - datetime.timedelta(hours=1) \
+        if date == self.date_end - datetime.timedelta(hours=self.dt) \
                 and self.avail_EV[home]:
             assert self.store[home] >= self.store0[home] - 1e-2, \
                 f"home = {home}, store end {self.store[home]} " \
@@ -374,7 +377,7 @@ class Battery:
                 * (1 - self.eta_ch)
             )
         assert abs(abs_loss_charge) <= 1e-2, \
-            f"self.cap = {self.cap}, h = {h}, home = {home} " \
+            f"self.cap = {self.cap}, time = {time}, home = {home} " \
             f"sum loss charge = {abs_loss_charge}"
 
         abs_loss_charge = \
@@ -383,7 +386,7 @@ class Battery:
                 * (1 - self.eta_dis)
             )
         assert abs(abs_loss_charge) <= 1e-2, \
-            f"h = {h}, home = {home} sum loss charge = {abs_loss_charge}"
+            f"time = {time}, home = {home} sum loss charge = {abs_loss_charge}"
 
         # only charge and discharge if EV is available
         assert self.charge[home] <= self.avail_EV[home] * self.M, \
@@ -480,7 +483,7 @@ class Battery:
     def check_errors_apply_step(self, homes, bool_penalty, action, res):
         """From action_translator.actions_to_env_vars, check battery constraints."""
         for home in homes:
-            # bat
+            # car
             if self.min_charge_t[home] - self.start_store[home] > self.c_max + 1e-2:
                 print(f"self.min_charge_t[{home}] = {self.min_charge_t[home]},"
                       f"start_store[home] = {self.start_store[home]}")
@@ -537,15 +540,15 @@ class Battery:
                                 for home in range(self.n_homes)]
 
     def _last_step(self, date):
-        return date == self.date_end - datetime.timedelta(hours=1)
+        return date == self.date_end - datetime.timedelta(hours=self.dt)
 
     def _check_first_time_step_feasibility(
-            self, h, date, bool_penalty, print_error
+            self, time, date, bool_penalty, print_error
     ):
         for home in range(self.n_homes):
             # check if opportunity to charge before trip > 37.5
-            if h == 0 and not self.batch['avail_EV'][home][0]:
-                loads_T, deltaT, _ = self.next_trip_details(h, date, home)
+            if time == 0 and not self.batch['avail_EV'][home][0]:
+                loads_T, deltaT, _ = self.next_trip_details(time, date, home)
                 if loads_T > self.store0[home]:
                     # trip larger than initial charge and straight
                     # away not available
@@ -565,7 +568,10 @@ class Battery:
                     self._print_error(error_message, print_error)
                 loads_T_next, deltaT_next, _ = \
                     self.next_trip_details(
-                        deltaT, date + datetime.timedelta(hours=deltaT), home)
+                        deltaT,
+                        date + datetime.timedelta(hours=deltaT * self.dt),
+                        home
+                    )
                 if deltaT_next > 0 \
                         and loads_T_next - (self.store0[home] - loads_T) \
                         < self.c_max / deltaT_next:
@@ -580,16 +586,16 @@ class Battery:
         return bool_penalty
 
     def _check_min_charge_t_feasible(
-            self, min_charge_t, h, date, bool_penalty, print_error, simulation
+            self, min_charge_t, time, date, bool_penalty, print_error, simulation
     ):
         bool_penalty = self._check_first_time_step_feasibility(
-            h, date, bool_penalty, print_error
+            time, date, bool_penalty, print_error
         )
 
         for home in range(self.n_homes):
             # check if any hourly load is larger than d_max
-            if any(self.batch['loads_EV'][home][h] > self.d_max + 1e-2
-                   for h in range(self.N)):
+            if any(self.batch['loads_EV'][home][time] > self.d_max + 1e-2
+                   for time in range(self.N)):
                 # you would have to break constraints to meet demand
                 bool_penalty[home] = True
                 self._print_error(
@@ -603,8 +609,8 @@ class Battery:
                     'larger than cap'
                 self._print_error(error_message, print_error)
             if min_charge_t[home] > self.store0[home] \
-                    - sum(self.batch['loads_EV'][home][0:h]) + (
-                    sum(self.batch['loads_EV'][home][0:h]) + 1) \
+                    - sum(self.batch['loads_EV'][home][0: time]) + (
+                    sum(self.batch['loads_EV'][home][0: time]) + 1) \
                     * self.c_max + 1e-3:
                 bool_penalty[home] = True
                 error_message = f'home = {home}, min_charge_t {min_charge_t[home]} ' \
@@ -615,18 +621,18 @@ class Battery:
                     and min_charge_t[home] > self.store[home] + self.c_max + 1e-3:
                 bool_penalty[home] = True
                 error_message = \
-                    f"date {date} h {h} " \
+                    f"date {date} time {time} " \
                     f"min_charge_t[{home}] {min_charge_t[home]} " \
                     f"> self.store[{home}] {self.store[home]} " \
                     f"+ self.c_max {self.c_max}"
                 self._print_error(error_message, print_error)
 
             elif not simulation \
-                    and h > 0 \
-                    and sum(self.batch['avail_EV'][home][0: h]) == 0:
+                    and time > 0 \
+                    and sum(self.batch['avail_EV'][home][0: time]) == 0:
                 # the EV has not been available at home to recharge until now
                 store_t_a = self.store0[home] \
-                    - sum(self.batch['loads_EV'][home][0: h])
+                    - sum(self.batch['loads_EV'][home][0: time])
                 if min_charge_t[home] > store_t_a + self.c_max + 1e-3:
                     bool_penalty[home] = True
 
@@ -634,22 +640,22 @@ class Battery:
         if print_error:
             print(error_message)
 
-    def check_feasible_bat(self, prm, ntw, passive_ext, bat, syst):
+    def check_feasible_bat(self, prm, ntw, passive_ext, car, syst):
         """Check charging constraints for proposed data batch."""
         feasible = np.ones(ntw['n' + passive_ext], dtype=bool)
         for home in range(ntw['n' + passive_ext]):
-            if bat['d_max'] < np.max(bat['batch_loads_EV'][home]):
+            if car['d_max'] < np.max(car['batch_loads_EV'][home]):
                 feasible[home] = False
-                print("bat['d_max'] < np.max(bat['batch_loads_EV'][home])")
-                for time in range(len(bat['batch_loads_EV'][home])):
-                    if bat['batch_loads_EV'][home, time] > bat['d_max']:
-                        bat['batch_loads_EV'][home, time] = bat['d_max']
+                print("car['d_max'] < np.max(car['batch_loads_EV'][home])")
+                for time in range(len(car['batch_loads_EV'][home])):
+                    if car['batch_loads_EV'][home, time] > car['d_max']:
+                        car['batch_loads_EV'][home, time] = car['d_max']
 
         time = 0
 
         self.reset(prm)
         while all(feasible) and time < syst['N']:
-            date = self.date0 + datetime.timedelta(hours=time)
+            date = self.date0 + datetime.timedelta(hours=time * self.dt)
             bool_penalty = self.min_max_charge_t(
                 time, date, print_error=False,
                 simulation=False)

@@ -10,15 +10,16 @@ Created on Mon Feb 16 10:47:57 2022.
 import copy
 import glob
 import os
-from src.simulations.data_manager import DataManager
-from src.simulations.learning import LearningManager
-from src.simulations.select_actions import ActionSelector
-from src.utilities.userdeftools import (data_source, initialise_dict,
-                                         reward_type, set_seeds_rdn)
 from datetime import timedelta
 from typing import Tuple
 
 import numpy as np
+
+from src.simulations.data_manager import DataManager
+from src.simulations.learning import LearningManager
+from src.simulations.select_actions import ActionSelector
+from src.utilities.userdeftools import (data_source, initialise_dict,
+                                        reward_type, set_seeds_rdn)
 
 
 # %% Environment exploration
@@ -165,7 +166,7 @@ class Explorer():
                     [0, env.date, False,
                      [[env.batch[home]["flex"][ih] for ih in range(0, 2)]
                       for home in self.homes],
-                     env.bat.store]
+                     env.car.store]
                 env.get_state_vals(inputs=inputs_state_val)
                 sequence_feasible = True
         for e in ["netp0", "discharge_tot0", "charge0"]:
@@ -367,7 +368,7 @@ class Explorer():
                 inputs_state_val = \
                     [0, env.date, False,
                      [[env.batch[home]["flex"][ih] for ih in range(0, 2)]
-                      for home in self.homes], env.bat.store]
+                      for home in self.homes], env.car.store]
 
                 # initialise data for current method
                 if method == t0:
@@ -399,7 +400,7 @@ class Explorer():
 
             if not sequence_feasible:  # if data is not feasible, make new data
                 n_not_feas += 1
-                not_feas_vars.append([env.bat.store0, method])
+                not_feas_vars.append([env.car.store0, method])
                 seed_ind = self.data.infeasible_tidy_files_seeds(seed_ind)
 
                 print("infeasible in loop active")
@@ -466,9 +467,11 @@ class Explorer():
     ):
         step_vals_i = {}
         # update time at each time step
-        date = self.prm["syst"]["current_date0"] + timedelta(hours=i_step)
+        date = self.prm["syst"]["current_date0"] + timedelta(
+            hours=i_step * self.prm["syst"]["dt"]
+        )
 
-        # update consumption etc at the beginning of the time step
+        # update consumption etc. at the beginning of the time step
         loads = {}
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
             i_step, batchflex_opt)
@@ -575,7 +578,7 @@ class Explorer():
             self, res, i_step, batch, reward
     ):
         prm = self.prm
-        flex, dem, gen = [np.array(
+        flex, loads, gen = [np.array(
             [batch[home][e] for home in range(len(batch))])
             for e in ["flex", "loads", "gen"]
         ]
@@ -592,8 +595,8 @@ class Explorer():
         sum_consa = 0
         for load_type in range(2):
             sum_consa += np.sum(res[f'consa({load_type})'])
-        assert abs(np.sum(dem[:, 0: prm['syst']['N']]) - sum_consa) < 1e-3, \
-            f"res cons {sum_consa} does not match input demand {np.sum(dem)}"
+        assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 1e-3, \
+            f"res cons {sum_consa} does not match input demand {np.sum(loads)}"
 
         # check environment uses the same grid coefficients
         assert self.env.grdC[i_step] == prm["grd"]["C"][i_step], \
@@ -616,7 +619,7 @@ class Explorer():
                * (res["grid"][i_step][0]
                   + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)
                   * res["grid2"][i_step][0])
-               + prm["bat"]["C"]
+               + prm["car"]["C"]
                * sum(res["discharge_tot"][home][i_step]
                      + res["charge"][home][i_step]
                      for home in self.homes)
@@ -703,8 +706,8 @@ class Explorer():
              for e in ["flex", "avail_EV"]]
         # copy the initial flexible and non flexible demand -
         # table will be updated according to optimiser's decisions
-        self.env.bat.reset(self.prm)
-        self.env.bat.add_batch(batch)
+        self.env.car.reset(self.prm)
+        self.env.car.add_batch(batch)
         self.env.heat.reset(self.prm)
 
         for i_step in range(len(res["grid"])):
@@ -769,7 +772,7 @@ class Explorer():
             )
 
             # update battery and heat objects
-            self.env.bat.update_step(res)
+            self.env.car.update_step(res)
             self.env.heat.update_step(res)
 
             # record if last epoch
@@ -845,8 +848,8 @@ class Explorer():
         # load as below,
         # however we want to count it consistently with our
         # batchflex_opt updates:
-        # l_fixed = [ntw['dem'][0, home, i_step] for home in range(n_homes)]
-        # flex_load = [ntw['dem'][1, home, i_step] for home in range(n_homes)]
+        # l_fixed = [ntw['loads'][0, home, i_step] for home in range(n_homes)]
+        # flex_load = [ntw['loads'][1, home, i_step] for home in range(n_homes)]
 
         if i_step == self.prm["syst"]["N"] - 1:
             flex_load = np.zeros(self.n_homes)
@@ -883,7 +886,7 @@ class Explorer():
         rewards_baseline = []
         gens = [prm["ntw"]["gen"][home][i_step] for home in self.homes]
         self.env.heat.T = [res["T"][home][i_step] for home in self.homes]
-        self.env.bat.store = \
+        self.env.car.store = \
             [res["store"][home][i_step] for home in self.homes]
         combs_actions = []
         for home in self.homes:
@@ -903,15 +906,15 @@ class Explorer():
                       f"T_LB[home] {self.env.heat.T_LB[home][i_step]} "
                       f"T_UB[home] {self.env.heat.T_UB[home][i_step]}")
         for ca in combs_actions:
-            bat_store = self.env.bat.store.copy()
+            bat_store = self.env.car.store.copy()
             input_take_action = date, ca, gens, loads
             home_vars, loads, constraint_ok = env.policy_to_rewardvar(
                 None, other_input=input_take_action)
-            self.env.bat.store = bat_store
+            self.env.car.store = bat_store
             passive_vars = self._get_passive_vars(i_step)
 
             reward_baseline_a, _ = env.get_reward(
-                home_vars["netp"], self.env.bat.discharge_tot, self.env.bat.charge,
+                home_vars["netp"], self.env.car.discharge_tot, self.env.car.charge,
                 i_step=i_step, passive_vars=passive_vars,
                 evaluation=evaluation)
 
@@ -924,7 +927,7 @@ class Explorer():
             rewards_baseline.append(reward_baseline_a)
 
             # revert back store
-            self.env.bat.store = [res["store"][home][i_step]
+            self.env.car.store = [res["store"][home][i_step]
                                   for home in self.homes]
 
         return rewards_baseline, feasible

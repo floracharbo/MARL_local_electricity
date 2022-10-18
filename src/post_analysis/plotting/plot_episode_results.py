@@ -1,13 +1,14 @@
 import os
-from src.post_analysis.plotting.plotting_utils import (formatting_figure,
-                                                        title_and_save)
-from src.utilities.userdeftools import (data_source, initialise_dict,
-                                         reward_type)
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+
+from src.post_analysis.plotting.plotting_utils import (formatting_figure,
+                                                       title_and_save)
+from src.utilities.userdeftools import (data_source, initialise_dict,
+                                        reward_type)
 
 
 def _plot_last_epochs_actions(
@@ -221,7 +222,7 @@ def _plot_all_agents_all_repeats_res(
                     ys = [ys[step][home] for step in range(len(ys))]
                     if e == "store":
                         xs = [-0.01] + xs
-                        ys = [prm["bat"]["store0"][home]] + ys
+                        ys = [prm["car"]["store0"][home]] + ys
                     axs[r, c].step(xs, ys, where="post",
                                    color=prm["save"]["colorse"][method],
                                    lw=lw_all, alpha=alpha_not_indiv)
@@ -399,9 +400,9 @@ def _plot_indiv_agent_res(
 
                     else:
                         if e == "store" and method == "opt":
-                            ys = ys + [prm["bat"]["store0"][home]]
+                            ys = ys + [prm["car"]["store0"][home]]
                         elif e == "store":
-                            ys = [prm["bat"]["store0"][home]] + ys
+                            ys = [prm["car"]["store0"][home]] + ys
                         else:
                             ys = [0] + ys
                         ax.step(xs, ys, where="post", label=method,

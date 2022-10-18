@@ -23,14 +23,15 @@ import copy
 import glob
 import os
 import traceback
-from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import set_seeds_rdn
 from typing import List, Optional, Tuple
 
 import numpy as np
 
+from src.simulations.optimisation import Optimiser
+from src.utilities.userdeftools import set_seeds_rdn
 
-def format_ntw(ntw, loads, syst, bat, batch, passive_ext):
+
+def format_ntw(ntw, loads, syst, car, batch, passive_ext):
     """Format network parameters in preparation for optimisation."""
     # Willingness to delay (WTD)
     WTD = np.zeros((loads['n_types'], syst['N']), dtype=int)
@@ -46,7 +47,7 @@ def format_ntw(ntw, loads, syst, bat, batch, passive_ext):
 
     # make ntw matrices
     ntw['Bcap'] = np.zeros((ntw['n' + passive_ext], syst['N']))
-    ntw['dem'] = np.zeros((loads['n_types'], ntw['n' + passive_ext], syst['N']))
+    ntw['loads'] = np.zeros((loads['n_types'], ntw['n' + passive_ext], syst['N']))
     ntw['flex'] = np.zeros(
         (syst['N'], loads['n_types'], ntw['n' + passive_ext], syst['N']))
 
@@ -54,12 +55,12 @@ def format_ntw(ntw, loads, syst, bat, batch, passive_ext):
     for home in range(ntw['n' + passive_ext]):
         ntw['gen'][home] = batch[home]['gen'][0: len(ntw['gen'][home])]
         for time in range(syst['N']):
-            ntw['Bcap'][home, time] = bat['cap' + passive_ext][home]
+            ntw['Bcap'][home, time] = car['cap' + passive_ext][home]
             for load_type in range(loads['n_types']):
                 loads_str = 'loads' if 'loads' in batch[home] else 'lds'
-                ntw['dem'][0][home][time] = batch[home][loads_str][time] \
+                ntw['loads'][0][home][time] = batch[home][loads_str][time] \
                     * (1 - loads['share_flexs'][home])
-                ntw['dem'][1][home][time] = batch[home][loads_str][time] \
+                ntw['loads'][1][home][time] = batch[home][loads_str][time] \
                     * loads['share_flexs'][home]
                 for tC in range(syst['N']):
                     if time <= tC <= time + int(WTD[load_type][time]):
@@ -336,7 +337,7 @@ class DataManager():
         homes_0 = [i for i, ok in enumerate(data_feasibles) if not ok]
 
         homes = copy.deepcopy(homes_0)
-        while not all(data_feasibles) and its < 24:
+        while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
             self.env.fix_data_a(homes, file_id, its=its)
             [factors, clusters] = self._load_res()
@@ -347,11 +348,10 @@ class DataManager():
             data_feasibles = self._format_data_optimiser(
                 batch, passive=passive
             )
-            if its > 5:
-                print(f'its {its}, sum(data_feasibles) {sum(data_feasibles)}')
             homes = [i for i, ok in enumerate(data_feasibles) if not ok]
-            if its > 5:
-                print(f'its = {its} infeasibles homes = {homes}')
+            if its > 50:
+                print(f'its {its}, sum(data_feasibles) {sum(data_feasibles)}')
+                print(f'infeasibles homes = {homes}')
                 for home in homes:
                     print(f'home = {home} in infeasibles')
             its += 1
@@ -437,29 +437,29 @@ class DataManager():
     ) -> np.ndarray:
         """Turn input data into usable format for optimisation problem."""
         # initialise dicts
-        ntw, loads, syst, bat, heat = [
-            self.prm[data_file] for data_file in ['ntw', 'loads', 'syst', 'bat', 'heat']
+        ntw, loads, syst, car, heat = [
+            self.prm[data_file] for data_file in ['ntw', 'loads', 'syst', 'car', 'heat']
         ]
         passive_ext = 'P' if passive else ''
 
         # format battery info
         bat_entries = ['avail_EV', 'loads_EV']
         for bat_entry in bat_entries:
-            bat['batch_' + bat_entry] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
+            car['batch_' + bat_entry] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
 
         bat_entries += ['bat_dem_agg']
-        bat['bat_dem_agg'] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
+        car['bat_dem_agg'] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
         for home in range(ntw["n" + passive_ext]):
-            for batch_entry in self.env.bat.batch_entries:
+            for batch_entry in self.env.car.batch_entries:
                 e_batch = batch_entry if batch_entry in batch[0] else 'lds_EV'
-                bat['batch_' + batch_entry][home] = \
-                    batch[home][e_batch][0: len(bat['batch_' + batch_entry][home])]
+                car['batch_' + batch_entry][home] = \
+                    batch[home][e_batch][0: len(car['batch_' + batch_entry][home])]
 
         loads['n_types'] = 2
 
-        ntw = format_ntw(ntw, loads, syst, bat, batch, passive_ext)
+        ntw = format_ntw(ntw, loads, syst, car, batch, passive_ext)
 
-        feasible = self.env.bat.check_feasible_bat(self.prm, ntw, passive_ext, bat, syst)
+        feasible = self.env.car.check_feasible_bat(self.prm, ntw, passive_ext, car, syst)
 
         heat['T_out'] = self.env.heat.T_out
 

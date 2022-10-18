@@ -1,19 +1,19 @@
+import pickle
 from datetime import timedelta
 from pathlib import Path
-import pickle
 from unittest import mock
 
 import numpy as np
 import pytest
 
-from src.initialisation.generate_colors import (
-    _check_color_diffs, generate_colors
-)
+from src.initialisation.generate_colors import (_check_color_diffs,
+                                                generate_colors)
 from src.simulations.runner import run
-from src.utilities.userdeftools import set_seeds_rdn, current_no_run
+from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
 
 def random_True_False(colors, color, min_diffs=None):
+    """Return True or False with equal probability."""
     return np.random.random() > 0.5
 
 
@@ -81,8 +81,8 @@ def patch_update_date(self, i0_costs, date0=None):
     self.date0 = self.prm['syst']['date0'] + timedelta(days=12)
     self.action_translator.date0 = self.date0
     self.date_end = self.date0 + timedelta(hours=self.N)
-    self.bat.date0 = self.date0
-    self.bat.date_end = self.date_end
+    self.car.date0 = self.date0
+    self.car.date_end = self.date_end
 
 
 def patch_self_id(self):
@@ -105,7 +105,7 @@ def patch_set_date(
     date0 = self.prm['syst']['date0'] \
         + timedelta(days=delta_days)
     self.prm['syst']['current_date0'] = date0
-    delta = date0 - self.prm['syst']['date0_dates']
+    delta = date0 - self.prm['syst']['date0']
     i0_costs = int(delta.days * 24 + delta.seconds / 3600)
     self.prm['grd']['C'] = \
         self.prm['grd']['Call'][
@@ -116,18 +116,18 @@ def patch_set_date(
     return date0, delta, i0_costs
 
 
-def patch_load_data_dictionaries(loads, gen, bat, paths, syst):
-    return [loads, gen, bat]
+def patch_load_data_dictionaries(loads, gen, car, paths, syst):
+    return [loads, gen, car]
 
 
 def patch_init_factors_clusters_profiles_parameters(self, prm):
     self.n_clus = {
         'loads': prm['loads']['n_clus'],
-        'bat': prm['bat']['n_clus']
+        'car': prm['car']['n_clus']
     }
 
-    for e in ['min_f', 'max_f']:
-        with open(f'input_data/open_data_v1/{e}.pickle', 'rb') as file:
+    for e in ['f_min', 'f_max']:
+        with open(f'input_data/open_data_v2/{e}.pickle', 'rb') as file:
             self.__dict__[e] = pickle.load(file)
 
 
@@ -143,13 +143,13 @@ def patch_reinitialise_envfactors(
     return
 
 
-def patch_load_profiles(paths, bat, syst, loads, gen):
+def patch_load_profiles(paths, car, syst, loads, gen):
     profiles = {}
-    return profiles, bat, loads, gen
+    return profiles, car, loads, gen
 
 
-def _load_bat_factors_parameters(syst, paths, bat):
-    return bat
+def _load_bat_factors_parameters(syst, paths, car):
+    return car
 
 
 def patch_compute_max_EV_cons_gen_values(env):

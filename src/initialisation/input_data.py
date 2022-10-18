@@ -44,7 +44,7 @@ def input_paths():
     """Load paths parameters."""
     prm = {}
     # Get the defaults from default.yaml
-    with open("config_files/input_parameters/paths.yaml", "r") as f:
+    with open("config_files/input_parameters/paths.yaml", "rb") as f:
         prm["paths"] = yaml.safe_load(f)
 
     return prm
@@ -62,20 +62,19 @@ def _store_initial_parameters(prm):
 
 def _load_parameters(prm, settings):
     if "paths" in prm:
-        for e in ["save", "syst", "grd", "ntw", "loads", "heat",
-                  "bat", "gen", "RL"]:
-            if e == "heat" \
+        for info in ["save", "syst", "grd", "ntw", "loads", "heat", "car", "gen", "RL"]:
+            if info == "heat" \
                     and settings is not None \
                     and "heat" in settings \
                     and "file" in settings["heat"] \
                     and settings["heat"]["file"] != "heat":
-                e_file = settings["heat"]["file"]
+                info_file = settings["heat"]["file"]
             else:
-                e_file = e
-            path_param = f"config_files/input_parameters/{e_file}.yaml"
+                info_file = info
+            path_param = f"config_files/input_parameters/{info_file}.yaml"
             if os.path.exists(path_param):
-                with open(path_param, "r") as f:
-                    prm[e] = yaml.safe_load(f)
+                with open(path_param, "rb") as file:
+                    prm[info] = yaml.safe_load(file)
             else:
                 print(f"{path_param} does not exist")
     else:
@@ -129,20 +128,19 @@ def input_params(prm, settings=None):
     prm["RL"]["RL_to_save"] = list(prm["RL"].keys())
 
     # general system parameters
-    for e in ["date0", "max_dateend"]:
-        if e in prm["syst"] \
-                and not isinstance(prm["syst"][e], datetime.datetime):
-            prm["syst"][e] = datetime.datetime(*prm["syst"][e])
+    for info in ["date0", "max_dateend"]:
+        if info in prm["syst"] and not isinstance(prm["syst"][info], datetime.datetime):
+            prm["syst"][info] = datetime.datetime(*prm["syst"][info])
 
     # demand / generation factor initialisation for RL data generation
     # https://www.ukpower.co.uk/home_energy/average-household-gas-and-electricity-usage
     # https://www.choice.com.au/home-improvement/energy-saving/solar/articles/how-much-solar-do-i-need
     # https://www.statista.com/statistics/513456/annual-mileage-of-motorists-in-the-united-kingdom-uk/
-    prm["syst"]["f0"] = {"loads": 9, "gen": 8, "bat": 8}
+    prm["syst"]["f0"] = {"loads": 9, "gen": 8, "car": 8}
 
     # demand / generation cluster initialisation
     # for RL data generation
-    prm["syst"]["clus0"] = {"loads": 0, "bat": 0}
+    prm["syst"]["clus0"] = {"loads": 0, "car": 0}
 
     if "heat" in prm:
         prm["heat"]["L"] = np.sqrt(prm["heat"]["L2"])
@@ -155,7 +153,7 @@ def input_params(prm, settings=None):
 
     # revert to pre set entries if there were pre set entries
     for key in prm_preset_entries.keys():
-        for subkey in prm_preset_entries[key].keys():
+        for subkey in prm_preset_entries[key]:
             if subkey not in ["maindir", "server"]:
                 prm[key][subkey] = prm_preset_entries[key][subkey]
 

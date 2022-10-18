@@ -10,12 +10,13 @@ Created on Tue Jan  7 17:10:28 2020.
 
 import copy
 import os
-from src.utilities.userdeftools import comb
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
+
+from src.utilities.userdeftools import comb
 
 
 class Optimiser():
@@ -32,32 +33,32 @@ class Optimiser():
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
         res = self._problem()
-        if prm['bat']['efftype'] == 1:
-            init_eta = prm['bat']['etach']
-            prm['bat']['etach'] = self._efficiencies(
-                res, prm['syst'], prm['ntw'], prm['bat']['cap'])
+        if prm['car']['efftype'] == 1:
+            init_eta = prm['car']['etach']
+            prm['car']['etach'] = self._efficiencies(
+                res, prm['syst'], prm['ntw'], prm['car']['cap'])
             deltamax, its = 0.5, 0
-            prm['bat']['eff'] = 2
+            prm['car']['eff'] = 2
             while deltamax > 0.01 and its < 10:
                 its += 1
-                eta_old = copy.deepcopy(prm['bat']['etach'])
-                print(f"prm['ntw']['dem'][0][0][0] = "
-                      f"{prm['ntw']['dem'][0][0][0]}")
+                eta_old = copy.deepcopy(prm['car']['etach'])
+                print(f"prm['ntw']['loads'][0][0][0] = "
+                      f"{prm['ntw']['loads'][0][0][0]}")
                 res = self._problem(prm)
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
-                if prm['ntw']['dem'][0][0][0] < res['constl(0, 0)'][0][0]:
-                    print('fixed dem smaller than fixed onsumption home=0 time=0')
+                if prm['ntw']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
+                    print('fixed loads smaller than fixed onsumption home=0 time=0')
                 if abs(np.sum(res['totcons']) - np.sum(res['E_heat'])
-                       - np.sum(prm['ntw']['dem'])) > 1e-3:
+                       - np.sum(prm['ntw']['loads'])) > 1e-3:
                     print(f"tot load cons "
                           f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
-                          f"not equal to dem {np.sum(prm['dem'])}")
-                prm['bat']['etach'] = self._efficiencies(
-                    res, prm['syst'], prm['ntw'], prm['bat']['cap'])
-                deltamax = np.amax(abs(prm['bat']['etach'] - eta_old))
-            prm['bat']['etach'] = init_eta
-            prm['bat']['eff'] = 1
+                          f"not equal to loads {np.sum(prm['loads'])}")
+                prm['car']['etach'] = self._efficiencies(
+                    res, prm['syst'], prm['ntw'], prm['car']['cap'])
+                deltamax = np.amax(abs(prm['car']['etach'] - eta_old))
+            prm['car']['etach'] = init_eta
+            prm['car']['eff'] = 1
 
         return res
 
@@ -197,15 +198,15 @@ class Optimiser():
              == 0 for time in range(N)])
 
         # prosumer energy balance
-        p.add_constraint(netp - charge / self.bat['eta_ch']
+        p.add_constraint(netp - charge / self.car['eta_ch']
                          + discharge_other
                          + self.ntw['gen'][:, 0: N]
                          - totcons == 0)
 
         # battery energy balance
         p.add_constraint(discharge_tot
-                         == discharge_other / self.bat['eta_dis']
-                         + self.bat['batch_loads_EV'][:, 0: N])
+                         == discharge_other / self.car['eta_dis']
+                         + self.car['batch_loads_EV'][:, 0: N])
 
         p = self._storage_constraints(
             p, charge, discharge_tot, discharge_other, store
@@ -238,7 +239,7 @@ class Optimiser():
             gc == (self.grd['C']
                    | (grid + self.grd['R'] / (self.grd['V'] ** 2) * grid2))
         )
-        p.add_constraint(sc == self.bat['C']
+        p.add_constraint(sc == self.car['C']
                          * (pic.sum(discharge_tot) + pic.sum(charge)
                             + np.sum(self.loads['discharge_tot0'])
                             + np.sum(self.loads['charge0'])
@@ -259,10 +260,10 @@ class Optimiser():
     def _storage_constraints(
             self, p, charge, discharge_tot, discharge_other, store
     ):
-        store_end = self.bat['SoC0'] * self.ntw['Bcap'][:, self.N - 1]
-        bat = self.bat
+        store_end = self.car['SoC0'] * self.ntw['Bcap'][:, self.N - 1]
+        car = self.car
 
-        if bat['eff'] == 1:
+        if car['eff'] == 1:
             p.add_list_of_constraints(
                 [charge[:, time] - discharge_tot[:, time]
                  == store[:, time + 1] - store[:, time]
@@ -272,49 +273,49 @@ class Optimiser():
                              - discharge_tot[:, self.N - 1]
                              >= store_end)
 
-        elif bat['eff'] == 2:
+        elif car['eff'] == 2:
             for home in range(self.n_homes):
                 p.add_constraint(
-                    bat['eta_ch'][home, self.N - 1] * charge[home, self.N - 1]
-                    - bat['eta_ch'][home, self.N - 1]
+                    car['eta_ch'][home, self.N - 1] * charge[home, self.N - 1]
+                    - car['eta_ch'][home, self.N - 1]
                     * discharge_tot[home, self.N - 1]
                     == store_end[home] - store[home, self.N - 1]
                 )
                 for time in range(self.N - 1):
                     p.add_constraint(
-                        bat['eta_ch'][home, time] * charge[home, time]
-                        - bat['eta_dis'][home, time] * discharge_tot[home, time]
+                        car['eta_ch'][home, time] * charge[home, time]
+                        - car['eta_dis'][home, time] * discharge_tot[home, time]
                         == store[home, time + 1] - store[home, time]
                     )
 
         # initialise storage
         p.add_list_of_constraints(
-            [store[home, 0] == bat['SoC0'] * self.ntw['Bcap'][home, 0]
+            [store[home, 0] == car['SoC0'] * self.ntw['Bcap'][home, 0]
              for home in range(self.n_homes)])
 
         p.add_list_of_constraints(
-            [store[:, time + 1] >= bat['SoCmin']
-             * self.ntw['Bcap'][:, time] * bat['batch_avail_EV'][:, time]
+            [store[:, time + 1] >= car['SoCmin']
+             * self.ntw['Bcap'][:, time] * car['batch_avail_EV'][:, time]
              for time in range(self.N - 1)])
 
         # if EV not avail at a given time step,
         # it is ok to start the following time step with less than minimum
         p.add_list_of_constraints(
-            [store[:, time + 1] >= bat['baseld'] * bat['batch_avail_EV'][:, time]
+            [store[:, time + 1] >= car['baseld'] * car['batch_avail_EV'][:, time]
              for time in range(self.N - 1)])
 
         # can charge only when EV is available
         p.add_constraint(
-            charge <= bat['batch_avail_EV'][:, 0: self.N] * self.syst['M'])
+            charge <= car['batch_avail_EV'][:, 0: self.N] * self.syst['M'])
 
         # can discharge only when EV is available (Except EV cons is ok)
         p.add_constraint(
             discharge_other
-            <= bat['batch_avail_EV'][:, 0: self.N] * self.syst['M']
+            <= car['batch_avail_EV'][:, 0: self.N] * self.syst['M']
         )
         p.add_constraint(store <= self.ntw['Bcap'])
-        p.add_constraint(bat['c_max'] >= charge)
-        p.add_constraint(bat['d_max'] >= discharge_tot)
+        p.add_constraint(car['c_max'] >= charge)
+        p.add_constraint(car['d_max'] >= discharge_tot)
 
         return p
 
@@ -348,12 +349,12 @@ class Optimiser():
 
     def _update_prm(self, prm):
         if isinstance(prm, (list, tuple)):
-            self.syst, self.loads, self.ntw, self.bat, self.grd, self.heat \
+            self.syst, self.loads, self.ntw, self.car, self.grd, self.heat \
                 = prm
         else:
-            self.syst, self.loads, self.ntw, self.bat, self.grd, self.heat \
+            self.syst, self.loads, self.ntw, self.car, self.grd, self.heat \
                 = [prm[e]
-                   for e in ['syst', 'loads', 'ntw', 'bat', 'grd', 'heat']]
+                   for e in ['syst', 'loads', 'ntw', 'car', 'grd', 'heat']]
 
     def _plot_y(self, prm, y, time):
         for home in range(prm['ntw']['n']):
@@ -391,7 +392,7 @@ class Optimiser():
         lin[cin] = 'demand'
         for home in range(prm['ntw']['n']):
             labelb = 'agent ' + str(home)
-            yb = np.sum(prm['ntw']['dem'], axis=0)[home]
+            yb = np.sum(prm['ntw']['loads'], axis=0)[home]
             plt.plot(time, yb, label=labelb)
         plt.title('Demand')
         plt.xlabel('Time [h]')
@@ -408,7 +409,7 @@ class Optimiser():
             axb = axs[home] if prm['ntw']['n'] > 1 else axs
 
             for time in range(prm['syst']['N']):
-                if prm['bat']['batch_avail_EV'][home, time] == 0:
+                if prm['car']['batch_avail_EV'][home, time] == 0:
                     axb.axvspan(time - 0.5, time + 0.5, alpha=0.1, color='red')
             axb.set_ylabel(labelb)
         plt.xlabel('Time [h]')
@@ -419,7 +420,7 @@ class Optimiser():
         cin += 1
         fin[cin] = plt.figure()
         lin[cin] = 'batch_loads_EV'
-        self._plot_y(prm, prm['bat']['batch_loads_EV'], time)
+        self._plot_y(prm, prm['car']['batch_loads_EV'], time)
         plt.xlabel('Time [h]')
         plt.ylabel('EV consumption [kWh]')
         if prm['ntw']['n'] > 1:
@@ -558,7 +559,7 @@ class Optimiser():
                         pic.sum([constl[time, load_type][home, tC]
                                  * self.ntw['flex'][time, load_type, home, tC]
                                  for tC in range(self.N)])
-                        == self.ntw['dem'][load_type, home, time])
+                        == self.ntw['loads'][load_type, home, time])
                     # time = tC
                     p.add_constraint(
                         pic.sum([constl[tD, load_type][home, time]
@@ -583,7 +584,7 @@ class Optimiser():
                         + heat['T_coeff'][home][2] * heat['T_out'][time]
                         # heat['T_coeff'][home][3] * heat['phi_sol'][time]
                         + heat['T_coeff'][home][4] * E_heat[home, time]
-                        * 1e3 * self.syst['H'] / 24
+                        * 1e3 * self.syst['n_int_per_hr']
                         for time in range(self.N - 1)])
 
                 p.add_list_of_constraints(
@@ -592,7 +593,7 @@ class Optimiser():
                         + heat['T_air_coeff'][home][2] * heat['T_out'][time]
                         # heat['T_air_coeff'][home][3] * heat['phi_sol'][time] +
                         + heat['T_air_coeff'][home][4] * E_heat[home, time]
-                        * 1e3 * self.syst['H'] / 24
+                        * 1e3 * self.syst['n_int_per_hr']
                         for time in range(self.N)])
 
                 p.add_list_of_constraints(
