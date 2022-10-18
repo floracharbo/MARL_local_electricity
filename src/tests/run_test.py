@@ -237,7 +237,7 @@ def test_all(mocker):
         side_effect=patch_compute_max_EV_cons_gen_values
     )
     paths_results = Path("outputs") / "results"
-    prev_no_run = current_no_run(paths_results)
+    prev_no_run = None
     for type_learning in ['facmac', 'q_learning']:
         settings['RL']['type_learning'] = type_learning
         for aggregate_actions in [True,  False]:
@@ -245,5 +245,6 @@ def test_all(mocker):
             print(f"test {type_learning} aggregate_actions {aggregate_actions}")
             run(run_mode, settings)
             no_run = current_no_run(paths_results)
-            assert no_run == prev_no_run + 1, "results not saving"
+            if prev_no_run is not None:
+                assert no_run == prev_no_run + 1, "results not saving"
             prev_no_run = no_run
