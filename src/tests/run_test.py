@@ -240,7 +240,7 @@ def test_all(mocker):
     paths_results = Path("outputs") / "results"
     prev_results = os.listdir(paths_results)
     for result in prev_results:
-        os.remove(result)
+        os.remove(paths_results / result)
     prev_no_run = None
     for type_learning in ['facmac', 'q_learning']:
         settings['RL']['type_learning'] = type_learning
