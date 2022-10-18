@@ -1,16 +1,16 @@
+import pickle
 from datetime import timedelta
 from pathlib import Path
-import pickle
 from unittest import mock
 
 import numpy as np
 import pytest
 
-from src.initialisation.generate_colors import (
-    _check_color_diffs, generate_colors
-)
+from src.initialisation.generate_colors import (_check_color_diffs,
+                                                generate_colors)
+from src.post_analysis.check_model_changes import check_nns_in_run_have_changed
 from src.simulations.runner import run
-from src.utilities.userdeftools import set_seeds_rdn, current_no_run
+from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
 
 def random_True_False(colors, color, min_diffs=None):
@@ -248,3 +248,13 @@ def test_all(mocker):
             if prev_no_run is not None:
                 assert no_run == prev_no_run + 1, "results not saving"
             prev_no_run = no_run
+
+            if type_learning == "facmac":
+                agent_changed, mixer_changed = check_nns_in_run_have_changed(no_run)
+                assert all(agent_changed.vals()), f"agent network changes: {agent_changed}"
+                assert all(mixer_changed.vals()), f"mixer network changes: {mixer_changed}"
+            elif type_learning == "q_learning" and ("initialise_q" not in settings["RL"] or settings["RL"]["initialise_q"] == "zeros"):
+                q_tables = np.load(f"outputs/results/run{no_run}/record/q_tables.npy")
+                for evaluation_method in q_tables[0][0].keys():
+                    assert q_tables[0][-1][evaluation_method] != np.zeros(np.shape(q_tables[0][-1][evaluation_method])), \
+                    f"q_table for {evaluation_method} is all zeros"

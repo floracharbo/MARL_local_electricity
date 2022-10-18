@@ -8,11 +8,6 @@ Created on Mon Feb  3 10:47:57 2020.
 """
 
 import copy
-from src.home_components.battery import Battery
-from src.home_components.heat import Heat
-from src.simulations.action_translator import Action_translator
-from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import initialise_dict
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
@@ -21,6 +16,12 @@ from gym import spaces
 from gym.utils import seeding
 from scipy.stats import gamma
 from six import integer_types
+
+from src.home_components.battery import Battery
+from src.home_components.heat import Heat
+from src.simulations.action_translator import Action_translator
+from src.utilities.env_spaces import EnvSpaces
+from src.utilities.userdeftools import initialise_dict
 
 
 class LocalElecEnv():

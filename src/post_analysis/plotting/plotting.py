@@ -7,6 +7,8 @@ Created on Mon Jul 13 10:03:35 2020.
 
 Plotting results RL
 """
+import matplotlib.pyplot as plt
+
 from src.post_analysis.plotting.check_learning_over_time import (
     check_model_changes, plot_eval_action)
 from src.post_analysis.plotting.initialise_plotting_variables import \
@@ -15,7 +17,7 @@ from src.post_analysis.plotting.plot_break_down_savings import (
     barplot_breakdown_savings, barplot_indiv_savings, distribution_savings,
     heatmap_savings_per_method)
 from src.post_analysis.plotting.plot_episode_results import (plot_env_input,
-                                                              plot_res)
+                                                             plot_res)
 from src.post_analysis.plotting.plot_moving_average_rewards import (
     plot_mova_eval_per_repeat, plot_results_all_repeats)
 from src.post_analysis.plotting.plot_q_learning_explorations_values import (
@@ -24,9 +26,7 @@ from src.post_analysis.plotting.plot_q_learning_explorations_values import (
 from src.post_analysis.plotting.plot_rl_performance_metrics import \
     barplot_metrics
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
-                                                        title_and_save)
-
-import matplotlib.pyplot as plt
+                                                       title_and_save)
 
 
 def _plot_epsilon(repeat, prm, record):

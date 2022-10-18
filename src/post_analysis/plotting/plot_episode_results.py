@@ -1,13 +1,14 @@
 import os
-from src.post_analysis.plotting.plotting_utils import (formatting_figure,
-                                                        title_and_save)
-from src.utilities.userdeftools import (data_source, initialise_dict,
-                                         reward_type)
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+
+from src.post_analysis.plotting.plotting_utils import (formatting_figure,
+                                                       title_and_save)
+from src.utilities.userdeftools import (data_source, initialise_dict,
+                                        reward_type)
 
 
 def _plot_last_epochs_actions(

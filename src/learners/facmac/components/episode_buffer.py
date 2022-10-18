@@ -1,12 +1,13 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-from src.learners.facmac.utils.rl_utils import preprocess_scheme
 from types import SimpleNamespace as SN
 
 import blosc
 import numpy as np
 import torch as th
+
+from src.learners.facmac.utils.rl_utils import preprocess_scheme
 
 
 class EpisodeBatch:

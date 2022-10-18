@@ -2,6 +2,10 @@
 # https://github.com/oxwhirl/facmac
 
 import copy
+
+import torch as th
+from torch.optim import Adam, RMSprop
+
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
 from src.learners.facmac.modules.critics.facmac import FACMACDiscreteCritic
@@ -10,9 +14,6 @@ from src.learners.facmac.modules.mixers.qmix_ablations import (
     QMixerNonmonotonic, VDNState)
 from src.learners.facmac.modules.mixers.vdn import VDNMixer
 from src.learners.facmac.utils.rl_utils import build_td_lambda_targets
-
-import torch as th
-from torch.optim import Adam, RMSprop
 
 
 class FACMACDiscreteLearner(Learner):

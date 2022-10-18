@@ -9,14 +9,22 @@ import datetime
 import os
 import random
 import time  # to record time it takes to run simulations
+from datetime import date, timedelta
+from functools import partial
+from typing import Tuple
+
+import numpy as np
+import torch as th
+from tqdm import tqdm
+
 from src.initialisation.initialise_objects import initialise_objects
 from src.initialisation.input_data import (get_settings_i, input_paths,
-                                            load_existing_prm)
+                                           load_existing_prm)
 from src.learners.DDPG import Learner_DDPG
 from src.learners.DDQN import Agent_DDQN
 from src.learners.DQN import Agent_DQN
 from src.learners.facmac.components.episode_buffer import (EpisodeBatch,
-                                                            ReplayBuffer)
+                                                           ReplayBuffer)
 from src.learners.facmac.controllers import REGISTRY as mac_REGISTRY
 from src.learners.facmac.learners import REGISTRY as le_REGISTRY
 from src.learners.Qlearning import TabularQLearner
@@ -26,14 +34,7 @@ from src.post_analysis.post_processing import post_processing
 from src.simulations.explorer import Explorer
 from src.simulations.local_elec import LocalElecEnv
 from src.utilities.userdeftools import (data_source, initialise_dict,
-                                         reward_type, set_seeds_rdn)
-from datetime import date, timedelta
-from functools import partial
-from typing import Tuple
-
-import numpy as np
-import torch as th
-from tqdm import tqdm
+                                        reward_type, set_seeds_rdn)
 
 
 class Runner():

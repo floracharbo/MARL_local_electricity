@@ -2,11 +2,11 @@
 # https://github.com/oxwhirl/facmac
 
 
+import torch as th
+
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
 from src.learners.facmac.utils.rl_utils import input_last_action
-
-import torch as th
 
 
 class MADDPGLearner(Learner):

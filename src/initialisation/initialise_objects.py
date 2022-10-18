@@ -10,23 +10,23 @@ Created on Tue Mar  2 14:48:27 2021.
 import datetime
 import multiprocessing as mp
 import os
-from src.initialisation.generate_colors import generate_colors
-from src.initialisation.get_heat_coeffs import get_heat_coeffs
-from src.initialisation.input_data import input_params
-from src.learners.facmac.components.transforms import OneHot
-from src.simulations.record import Record
-from src.utilities.env_spaces import (
-    _actions_from_unit_box, _actions_to_unit_box
-)
-from src.utilities.userdeftools import (
-    distr_learning, initialise_dict, reward_type, str_to_int, current_no_run
-)
 from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
 import torch as th
 from gym import spaces
+
+from src.initialisation.generate_colors import generate_colors
+from src.initialisation.get_heat_coeffs import get_heat_coeffs
+from src.initialisation.input_data import input_params
+from src.learners.facmac.components.transforms import OneHot
+from src.simulations.record import Record
+from src.utilities.env_spaces import (_actions_from_unit_box,
+                                      _actions_to_unit_box)
+from src.utilities.userdeftools import (current_no_run, distr_learning,
+                                        initialise_dict, reward_type,
+                                        str_to_int)
 
 
 def initialise_objects(
@@ -795,6 +795,8 @@ def _make_type_eval_list(rl, largeQ_bool=False):
             if isinstance(rl["explo_reward_type"], list) \
             else [rl["explo_reward_type"]]
         type_eval_list += input_explo_reward_type
+        if rl["opt_bool"]:
+            type_eval_list += ["opt"]
     else:
         data_sources = ["env_"]
         if rl["opt_bool"]:
@@ -832,6 +834,9 @@ def _make_type_eval_list(rl, largeQ_bool=False):
     rl["exploration_methods"] = [
         t for t in rl["evaluation_methods"] if not (t[0:3] == "opt" and len(t) > 3)
     ]
+    if sum(1 for t in rl["evaluation_methods"] if t[0:3] == "opt" and len(t) > 3) > 0:
+        rl["exploration_methods"] += ["opt"]
+
     rl["eval_action_choice"] = [
         t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
     ]
