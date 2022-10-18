@@ -15,6 +15,11 @@ import time  # to record time it takes to run simulations
 from pathlib import Path
 
 import numpy as np
+import yaml
+
+from src.post_analysis.plotting.plotting import plotting
+from src.post_analysis.print_results import print_results
+from src.utilities.userdeftools import distr_learning
 
 from src.post_analysis.plotting.plotting import plotting
 from src.post_analysis.print_results import print_results
@@ -168,15 +173,13 @@ def get_prm_save_RL(prm_save, prm):
 def get_prm_save(prm):
     """Save run parameters for record-keeping."""
     prm_save = {}  # save selected system parameters
-    to_save_entries_syst = \
-        np.load(
-            Path(prm["paths"]["open_inputs"]) / "to_save_entries_syst.npy",
-            allow_pickle=True
-        ).item()
-    for key in to_save_entries_syst:
+    with open(Path(prm["paths"]["open_inputs"]) / "prm_to_save.yaml", "rb") as file:
+        prm_to_save = yaml.safe_load(file)
+
+    for key in prm_to_save:
         prm_save[key] = {}
-        sub_keys = to_save_entries_syst[key] \
-            if len(to_save_entries_syst[key]) > 0 \
+        sub_keys = prm_to_save[key] \
+            if len(prm_to_save[key]) > 0 \
             else prm[key].keys()
         for sub_key in sub_keys:
             if sub_key in prm[key]:
