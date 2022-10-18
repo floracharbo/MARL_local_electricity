@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 import os
-=======
->>>>>>> 056b808e6e571676b698e678844640d467847bdf
 import pickle
 from datetime import timedelta
 from pathlib import Path
