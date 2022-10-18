@@ -9,21 +9,21 @@ install:
 	pip install -r requirements.txt
 
 lint:
-	isort code
-	flake8 --ignore=W605,W503 --exclude learners --exclude tests --max-line-length=100 code
-	pylama --skip code/tests/run_test.py,code/learners/facmac --ignore=E501 code
-	find code -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201,E1101
-	mypy --show-error-codes --exclude code/learners/facmac --disable-error-code import --disable-error-code attr-defined code --disable-error-code no-member --disable-error-code duplicate-code
+	isort src
+	flake8 --ignore=W605,W503 --exclude learners --exclude tests --max-line-length=100 src
+	pylama --skip src/tests/run_test.py,src/learners/facmac --ignore=E501 src
+	find src -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201,E1101
+	mypy --show-error-codes --exclude src/learners/facmac --disable-error-src import --disable-error-src attr-defined src --disable-error-src no-member --disable-error-src duplicate-src
 
 
 quick_run:
-	python code/main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC -o bat_dem_agg -o avail_EV_step --rnn_hidden_dim 100
+	python src/main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC -o bat_dem_agg -o avail_EV_step --rnn_hidden_dim 100
 
 q_learning:
-	python code/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.01
+	python src/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.01
 
 facmac:
-	python code/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.000001
+	python src/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.000001
 
 test:
-	python -m pytest code/tests
+	python -m pytest src/tests
