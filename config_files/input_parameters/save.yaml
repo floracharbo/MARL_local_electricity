@@ -1,4 +1,3 @@
-saveresdata: 1
 plot_type: 2  # if 0 only plot learning curves, if 1 if also smoothing, 2 if all plots
 high_res: False  # printing figures in high resolution
 make_video: False # make vidoe of state space exploration

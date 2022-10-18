@@ -7,8 +7,7 @@ from unittest import mock
 import numpy as np
 import pytest
 
-from src.initialisation.generate_colors import (_check_color_diffs,
-                                                generate_colors)
+from src.initialisation.generate_colors import generate_colors
 from src.post_analysis.check_model_changes import check_nns_in_run_have_changed
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
@@ -238,9 +237,6 @@ def test_all(mocker):
         side_effect=patch_compute_max_EV_cons_gen_values
     )
     paths_results = Path("outputs") / "results"
-    prev_results = os.listdir(paths_results)
-    for result in prev_results:
-        os.remove(paths_results / result)
     prev_no_run = None
     for type_learning in ['facmac', 'q_learning']:
         settings['RL']['type_learning'] = type_learning
@@ -248,6 +244,7 @@ def test_all(mocker):
             settings['RL']['aggregate_actions'] = aggregate_actions
             print(f"test {type_learning} aggregate_actions {aggregate_actions}")
             no_run = current_no_run(paths_results)
+
             if prev_no_run is not None:
                 assert no_run == prev_no_run + 1, "results not saving"
             run(run_mode, settings)
@@ -255,10 +252,10 @@ def test_all(mocker):
 
             if type_learning == "facmac":
                 agent_changed, mixer_changed = check_nns_in_run_have_changed(no_run)
-                assert all(agent_changed.vals()), f"agent network changes: {agent_changed}"
-                assert all(mixer_changed.vals()), f"mixer network changes: {mixer_changed}"
+                assert all(agent_changed.values()), f"agent network changes: {agent_changed}"
+                assert all(mixer_changed.values()), f"mixer network changes: {mixer_changed}"
             elif type_learning == "q_learning" and ("initialise_q" not in settings["RL"] or settings["RL"]["initialise_q"] == "zeros"):
-                q_tables = np.load(f"outputs/results/run{no_run}/record/q_tables.npy")
-                for evaluation_method in q_tables[0][0].keys():
-                    assert q_tables[0][-1][evaluation_method] != np.zeros(np.shape(q_tables[0][-1][evaluation_method])), \
+                q_tables = np.load(f"outputs/results/run{no_run}/record/q_tables.npy", allow_pickle=True).item()
+                for evaluation_method in q_tables[0].keys():
+                    assert not np.all(np.array(q_tables[0][evaluation_method][0]) == 0), \
                     f"q_table for {evaluation_method} is all zeros"

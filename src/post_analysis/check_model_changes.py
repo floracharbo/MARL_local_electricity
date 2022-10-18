@@ -60,24 +60,7 @@ def check_nns_in_run_have_changed(no_run):
     return agent_changed, mixer_changed
 
 
-def plot_actions(actions, path):
-    for type_train in ["random", "env_r_c"]:
-        for repeat in nos:
-            actions_ = actions[repeat][type_train]
-            for i_action in range(3):
-                fig = plt.figure()
-                for epoch in range(len(actions_)):
-                    for time in range(len(actions_[epoch])):
-                        for home in range(len(actions_[epoch][time])):
-                            plt.plot(epoch, actions_[epoch][time][home][i_action], 'o')
-                title = f"actions {type_train} i_action {i_action} {repeat}"
-                plt.title(title)
-                fig.savefig(path / title)
-
-
-for run in range(608, 611):
-    check_nns_in_run_have_changed(run)
-
+def plot_actions(run):
     path = Path(f"outputs/results/run{run}/record")
     files_actions = [
         file for file in os.listdir(path)
@@ -96,5 +79,19 @@ for run in range(608, 611):
                 allow_pickle=True
             ).item()
         )
+    for type_train in ["random", "env_r_c"]:
+        for repeat in nos:
+            actions_ = actions[repeat][type_train]
+            for i_action in range(3):
+                fig = plt.figure()
+                for epoch in range(len(actions_)):
+                    for time in range(len(actions_[epoch])):
+                        for home in range(len(actions_[epoch][time])):
+                            plt.plot(epoch, actions_[epoch][time][home][i_action], 'o')
+                title = f"actions {type_train} i_action {i_action} {repeat}"
+                plt.title(title)
+                fig.savefig(path / title)
 
-    plot_actions(actions, path)
+# for run in range(608, 611):
+#     check_nns_in_run_have_changed(run)
+#     plot_actions(run)

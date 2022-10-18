@@ -15,3 +15,4 @@ outputs/opt_res/*
 !outputs/opt_res/res_test.npy
 !outputs/opt_res/factors_test.npy
 !outputs/opt_res/clusters_test.npy
+.gitignore.swp

@@ -1,7 +1,7 @@
 # paths
 input_folder: 'input_data'  # data file
-open_inputs_folder: 'open_data_v1'  # inputs that are openly available
-hedge_inputs_folder: 'hedge_inputs_v1'
+open_inputs_folder: 'open_data'  # inputs that are openly available
+hedge_inputs_folder: 'hedge_inputs'
 wholesale: 'grdC_Jan20_Londo_24.npy' # 'wholesaleprice_list_12-6-18_to_13-11-18.npy',
 carbon_intensity: 'cintensityJan2020_24.npy'   #'cintensity_list_hourly_12-6-18_to_13-11-18.npy',
 dates: 'dates_wholesale.npy' #'dates_wholesale12-6-18_to_13-11-18.npy',
