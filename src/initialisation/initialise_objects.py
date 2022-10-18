@@ -588,6 +588,8 @@ def _seed_save_paths(prm):
                        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
     if prm["syst"]["change_start"]:
         paths["opt_res_file"] += "_changestart"
+    if prm['grd']['manage_agg_power']:
+        paths["opt_res_file"] += "_manage_agg_power"
 
     # eff does not matter for seeds, but only for res
     if prm["bat"]["efftype"] == 1:

@@ -1,2 +1,3 @@
 V: 415 # V nominal voltage from Mortsyn 2019 multiclass
 R: 0.084 # Ohm average resistance between the prosumers and main grid from Mortsyn 2019 multiclass
+manage_agg_power: False
