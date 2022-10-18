@@ -250,11 +250,11 @@ def test_all(mocker):
             prev_no_run = no_run
 
             if type_learning == "facmac":
-                agent_changed, mixer_changed = check_nns_in_run_have_changed(no_run)
+                agent_changed, mixer_changed = check_nns_in_run_have_changed(no_run - 1)
                 assert all(agent_changed.vals()), f"agent network changes: {agent_changed}"
                 assert all(mixer_changed.vals()), f"mixer network changes: {mixer_changed}"
             elif type_learning == "q_learning" and ("initialise_q" not in settings["RL"] or settings["RL"]["initialise_q"] == "zeros"):
-                q_tables = np.load(f"outputs/results/run{no_run}/record/q_tables.npy")
+                q_tables = np.load(f"outputs/results/run{no_run - 1}/record/q_tables.npy")
                 for evaluation_method in q_tables[0][0].keys():
                     assert q_tables[0][-1][evaluation_method] != np.zeros(np.shape(q_tables[0][-1][evaluation_method])), \
                     f"q_table for {evaluation_method} is all zeros"
