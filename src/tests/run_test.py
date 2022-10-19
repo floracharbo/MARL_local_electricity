@@ -6,18 +6,18 @@ from unittest import mock
 import numpy as np
 import pytest
 
-from src.initialisation.generate_colors import (_check_color_diffs,
-                                                generate_colors)
+from src.initialisation.generate_colours import (_check_colour_diffs,
+                                                generate_colours)
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
 
-def random_True_False(colors, color, min_diffs=None):
+def random_True_False(colours, colour, min_diffs=None):
     """Return True or False with equal probability."""
     return np.random.random() > 0.5
 
 
-def test_generate_colors(mocker):
+def test_generate_colours(mocker):
     colours_only = True
     all_type_eval = [
         'env_r_c', 'env_r_d', 'env_A_c', 'env_A_d', 'env_d_c', 'env_d_d',
@@ -26,16 +26,16 @@ def test_generate_colors(mocker):
     ]
     save, prm = None, None
 
-    patched_check_color_diffs = mocker.patch(
-        "src.initialisation.generate_colors._check_color_diffs",
+    patched_check_colour_diffs = mocker.patch(
+        "src.initialisation.generate_colours._check_colour_diffs",
         side_effect=random_True_False
     )
 
-    colors = generate_colors(save, prm, entries=all_type_eval, colours_only=colours_only)
+    colours = generate_colours(save, prm, entries=all_type_eval, colours_only=colours_only)
 
-    assert len(colors) == len(all_type_eval), \
+    assert len(colours) == len(all_type_eval), \
         "generate colours lengths do not match " \
-        f"{len(colors)} != {len(all_type_eval)}"
+        f"{len(colours)} != {len(all_type_eval)}"
 
 
 def patch_find_feasible_data(
@@ -49,13 +49,13 @@ def patch_find_feasible_data(
 ):
     set_seeds_rdn(0)
     self.res_name = "res_test.npy"
-    res = np.load(self.paths['res_path']
+    res = np.load(self.paths['opt_res']
                   / self.res_name,
                   allow_pickle=True).item()
-    cluss = np.load(self.paths['res_path']
+    cluss = np.load(self.paths['opt_res']
                   / "clusters_test.npy",
                   allow_pickle=True).item()
-    factors = np.load(self.paths['res_path']
+    factors = np.load(self.paths['opt_res']
                   / "factors_test.npy",
                   allow_pickle=True).item()
     self.batch_file, batch = self.env.reset(

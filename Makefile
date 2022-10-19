@@ -12,7 +12,7 @@ lint:
 	isort src
 	flake8 --ignore=W605,W503 --exclude learners --exclude tests --max-line-length=100 src
 	pylama --skip src/tests/run_test.py,src/learners/facmac --ignore=E501 src
-	find src -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201,E1101
+	find src -type f -not -path "./tests/*" -name "*.py" | xargs pylint --ignore=tests/* --disable=W0201,E1101,E0401
 	mypy --show-error-codes --exclude src/learners/facmac --disable-error-src import --disable-error-src attr-defined src --disable-error-src no-member --disable-error-src duplicate-src
 
 

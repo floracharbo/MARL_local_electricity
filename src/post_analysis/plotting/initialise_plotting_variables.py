@@ -30,7 +30,7 @@ def _get_mean_rewards_from_record(prm, record):
     return prm
 
 
-def _eval_entries_plot_colors(prm):
+def _eval_entries_plot_colours(prm):
     rl = prm["RL"]
     evaluation_methods = rl['evaluation_methods']
     if prm['ntw']['n'] == 1:
@@ -82,10 +82,10 @@ def _eval_entries_plot_colors(prm):
 
     red = (234 / 255, 53 / 255, 37 / 255)
     for method in ['env_r_d', 'env_r_c']:
-        prm['save']['colorse'][method] = red
-    prm['save']['colorse']['opt'] = 'grey'
-    green = prm['save']['colorse']['env_d_d']
-    prm['save']['colorse']['opt_d_d'] = green
+        prm['save']['colourse'][method] = red
+    prm['save']['colourse']['opt'] = 'grey'
+    green = prm['save']['colourse']['env_d_d']
+    prm['save']['colourse']['opt_d_d'] = green
 
     return prm
 
@@ -121,7 +121,7 @@ def initialise_variables(prm, spaces, record):
     if 'plot_profiles' not in prm['save']:
         prm['save']['plot_profiles'] = False
 
-    prm = _eval_entries_plot_colors(prm)
+    prm = _eval_entries_plot_colours(prm)
     prm = _get_mean_rewards_from_record(prm, record)
 
     if prm['save']['save_run']:

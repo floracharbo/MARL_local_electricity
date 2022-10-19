@@ -101,6 +101,7 @@ def replace_outdated_labels(k1, objs):
 
 
 def check_if_two_dicts_match_for_individual_key(objs, k1, k1_, label):
+    """Check that values under k1/k1_ are the same for both dictionaries."""
     for k2 in objs[0][k1].keys():
         k2_ = k2
         if k2_ not in objs[1][k1_]:

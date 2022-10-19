@@ -42,7 +42,7 @@ class Explorer():
                   "global_multipliers", "granularity", "brackets"]:
             self.__dict__[e] = env.spaces.__dict__[e]
         self.last_epoch = record.last_epoch
-        self.res_path = prm["paths"]["res_path"]
+        self.res_path = prm["paths"]["opt_res"]
         for e in ["D", "solver", "N"]:
             self.__dict__[e] = prm["syst"][e]
         self.episode_batch = {}
@@ -137,7 +137,7 @@ class Explorer():
                     seed_ind += 1
                 else:
                     for e in ["factors", "cluss", "batch"]:
-                        files = glob.glob(self.paths["res_path"]
+                        files = glob.glob(self.paths["opt_res"]
                                           / f"{e}{self.data.file_id()}")
                         for filename in files:
                             os.remove(filename)
@@ -336,9 +336,9 @@ class Explorer():
             else self.data.get_seed_ind(repeat, epoch, i_explore)
         seed_ind += self.data.d_ind_seed[self.data.passive_ext]
 
-        [res, _, _, batch], step_vals, mus_opt = \
-            self.data.find_feasible_data(
-                seed_ind, methods, step_vals, evaluation, epoch)
+        [res, _, _, batch], step_vals, mus_opt = self.data.find_feasible_data(
+                seed_ind, methods, step_vals, evaluation, epoch
+        )
 
         n_not_feas, not_feas_vars = 0, []
 
@@ -362,13 +362,18 @@ class Explorer():
                 set_seeds_rdn(self.data.seed[self.data.passive_ext])
 
                 # reset environment with adequate data
-                env.reset(seed=self.data.seed[self.data.passive_ext],
-                          load_data=True, E_req_only=method == "baseline")
+                env.reset(
+                    seed=self.data.seed[self.data.passive_ext],
+                    load_data=True, E_req_only=method == "baseline"
+                )
                 # get data from environment
-                inputs_state_val = \
-                    [0, env.date, False,
-                     [[env.batch[home]["flex"][ih] for ih in range(0, 2)]
-                      for home in self.homes], env.car.store]
+                inputs_state_val = [
+                    0,
+                    env.date,
+                    False,
+                    [[env.batch[home]["flex"][ih] for ih in range(0, 2)] for home in self.homes],
+                    env.car.store
+                ]
 
                 # initialise data for current method
                 if method == t0:
@@ -704,7 +709,7 @@ class Explorer():
         batchflex_opt, batch_avail_EV = \
             [[batch[home][e] for home in range(len(batch))]
              for e in ["flex", "avail_EV"]]
-        # copy the initial flexible and non flexible demand -
+        # copy the initial flexible and non-flexible demand -
         # table will be updated according to optimiser's decisions
         self.env.car.reset(self.prm)
         self.env.car.add_batch(batch)
@@ -747,13 +752,15 @@ class Explorer():
                 feasible, step_vals_i["reward"], step_vals_i["indiv_rewards"]
             )
             if not feasible:
-                step_vals_i["reward"] = self._apply_reward_penalty(
+                step_vals_i["reward"], step_vals_i["diff_rewards"] = self._apply_reward_penalty(
                     evaluation, step_vals_i["reward"],
                     step_vals_i["diff_rewards"]
                 )
             if not (rl["competitive"] and not evaluation):
-                sum_RL_rewards += step_vals_i["reward"]
-
+                try:
+                    sum_RL_rewards += step_vals_i["reward"]
+                except Exception as ex:
+                    print(ex)
             # append experience dictionaries
             step_vals = self._append_step_vals(
                 method, step_vals_i, res, i_step, cluss, factors,
@@ -782,11 +789,10 @@ class Explorer():
             )
 
         self._test_total_rewards_match(evaluation, res, sum_RL_rewards)
-
         if not evaluation \
                 and rl["type_learning"] in ["DDPG", "DQN"] \
                 and rl["trajectory"]:
-            self.learning_manager.learn_trajectory_opt()
+            self.learning_manager.learn_trajectory_opt(step_vals)
 
         return step_vals, all_actions, feasible
 

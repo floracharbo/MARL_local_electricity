@@ -1,5 +1,5 @@
 """
-The generate_colors function generates a list of colors for plotting results.
+The generate_colours function generates a list of colours for plotting results.
 
 Different methods should use
 colours that are clearly visible and easily differentiated
@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 from src.utilities.userdeftools import distr_learning
 
 
-def _check_color_diffs(colors, new_color, min_diffs=None):
+def _check_colour_diffs(colours, new_colour, min_diffs=None):
     """
-    Check colors are different from each other, black, white, and extremes.
+    Check colours are different from each other, black, white, and extremes.
 
     inputs:
-    colors:
+    colours:
         the list of current colours
-    new_color:
+    new_colour:
         the 3 values describing the new candidate colour
     min_cols:
         how different the colours need to be different from each other
@@ -37,21 +37,21 @@ def _check_color_diffs(colors, new_color, min_diffs=None):
         whether the new colour passes the test of being different enough
     """
     min_cols, min_white, min_black, max_1_vals = min_diffs
-    diff_colors = 1 if len(colors) == 0 else min(
-        [sum((new_color[k] - color[k]) ** 2 for k in range(3))
-         for color in colors])
-    diff_white = sum((new_color[k] - 1) ** 2 for k in range(3))
-    diff_black = sum((new_color[k]) ** 2 for k in range(3))
-    n_1 = sum(1 for k in range(3) if new_color[k] == 1)
-    enough_diff = all([diff_colors > min_cols, diff_white > min_white,
+    diff_colours = 1 if len(colours) == 0 else min(
+        [sum((new_colour[k] - colour[k]) ** 2 for k in range(3))
+         for colour in colours])
+    diff_white = sum((new_colour[k] - 1) ** 2 for k in range(3))
+    diff_black = sum((new_colour[k]) ** 2 for k in range(3))
+    n_1 = sum(1 for k in range(3) if new_colour[k] == 1)
+    enough_diff = all([diff_colours > min_cols, diff_white > min_white,
                        diff_black > min_black, n_1 < max_1_vals])
 
     return enough_diff
 
 
-def _colors_to_prm(save, prm, colors0, colors, all_evaluation_methods):
+def _colours_to_prm(save, prm, colours0, colours, all_evaluation_methods):
     """
-    Add initial list of colors 'colors0' + the generated list of colors.
+    Add initial list of colours 'colours0' + the generated list of colours.
 
     Colours corresponding to the types of evaluations 'all_evaluation_methods'
     to the prm dictionary.
@@ -60,33 +60,50 @@ def _colors_to_prm(save, prm, colors0, colors, all_evaluation_methods):
         save = {}
         prm['save'] = save
 
-    save['colors'] = colors0 + colors
-    save['colorse'] = {}
-    save['colorse']['baseline'] = 'k'  # the baseline is always black
-    save['colorse']['random'] = 'b'
+    save['colours'] = colours0 + colours
+    save['colourse'] = {}
+    save['colourse']['baseline'] = 'k'  # the baseline is always black
+    save['colourse']['random'] = 'b'
 
-    save['colorse']['opt'] = save['colors'][0]
+    save['colourse']['opt'] = save['colours'][0]
 
     # first allocate the colours to decentralised environment-based learning
     allocate_1 = [evaluation_method for evaluation_method in all_evaluation_methods
                   if evaluation_method not in ['opt', 'baseline']
                   and distr_learning(evaluation_method) == 'd']
     for i, evaluation_method in enumerate(allocate_1):
-        save['colorse'][evaluation_method] = save['colors'][i + 1]
+        save['colourse'][evaluation_method] = save['colours'][i + 1]
 
     # then allocate to the other environment-based learning
     allocate_2 = [evaluation_method for evaluation_method in all_evaluation_methods
                   if not (evaluation_method in ['opt', 'baseline']
                           or distr_learning(evaluation_method) == 'd')]
     for i, evaluation_method in enumerate(allocate_2):
-        save['colorse'][evaluation_method] = save['colors'][i + 1]
+        save['colourse'][evaluation_method] = save['colours'][i + 1]
 
     return save, prm
 
 
-def generate_colors(save, prm, colours_only=False, entries=None):
+def list_all_evaluation_methods(entries):
+    if entries is None:
+        all_evaluation_methods = []
+        reward_structure_combs = \
+            ['r_c', 'r_d', 'A_Cc', 'A_c', 'A_d', 'd_Cc', 'd_c', 'd_d']
+        for experience_source in ['env_', 'opt_']:
+            all_evaluation_methods += [
+                experience_source + rs_comb
+                for rs_comb in reward_structure_combs
+            ]
+        all_evaluation_methods += ['opt', 'opt_n_c', 'opt_n_d']
+    else:
+        all_evaluation_methods = entries
+
+    return all_evaluation_methods
+
+
+def generate_colours(save, prm, colours_only=False, entries=None):
     """
-    Generate a list of colors for plotting the results.
+    Generate a list of colours for plotting the results.
 
     Different methods using colours need to be clearly visible
     and easily differentiated.
@@ -111,26 +128,14 @@ def generate_colors(save, prm, colours_only=False, entries=None):
     prm:
         the updated dictionary of parameters
     """
-    # list all possible for consistent colors ordering
-    if entries is None:
-        all_evaluation_methods = []
-        reward_structure_combs = \
-            ['r_c', 'r_d', 'A_Cc', 'A_c', 'A_d', 'd_Cc', 'd_c', 'd_d']
-        for experience_source in ['env_', 'opt_']:
-            all_evaluation_methods += [
-                experience_source + rs_comb
-                for rs_comb in reward_structure_combs
-            ]
-        all_evaluation_methods += ['opt', 'opt_n_c', 'opt_n_d']
-    else:
-        all_evaluation_methods = entries
-
-    n_colors = len(all_evaluation_methods)
+    # list all possible for consistent colours ordering
+    all_evaluation_methods = list_all_evaluation_methods(entries)
+    n_colours = len(all_evaluation_methods)
     n_added = 0
-    colors = []
+    colours = []
 
     # first, loop through candidate colours and colour palettes
-    colors0 = ['red', 'darkorange', 'grey', 'forestgreen',
+    colours0 = ['red', 'darkorange', 'grey', 'forestgreen',
                'deepskyblue', 'mediumblue', 'darkviolet', 'lawngreen']
     palettes = ['Set1', 'Set2', 'Set3', 'viridis', 'plasma', 'inferno',
                 'magma', 'cividis', 'Pastel1', 'Pastel2', 'Paired',
@@ -138,42 +143,42 @@ def generate_colors(save, prm, colours_only=False, entries=None):
 
     for palette in palettes:
         # the colour map we select additional colours from
-        color_map = plt.get_cmap(palette)
-        colors_palette = [color_map(j)
-                          for j in range(len(color_map.__dict__['colors']))]
-        n_add = min(n_colors - n_added - len(colors0), len(colors_palette))
+        colour_map = plt.get_cmap(palette)
+        colours_palette = [colour_map(j)
+                          for j in range(len(colour_map.__dict__['colors']))]
+        n_add = min(n_colours - n_added - len(colours0), len(colours_palette))
         added_i = 0
-        for color in colors_palette:
+        for colour in colours_palette:
             # loop through colours in the palette
             if added_i < n_add:
                 # for as long as we still need colours,
                 # check the proposed colours
                 # are different enough
-                enough_diff = _check_color_diffs(
-                    colors, color, min_diffs=[0.21, 0.6, 0.5, 1]
+                enough_diff = _check_colour_diffs(
+                    colours, colour, min_diffs=[0.21, 0.6, 0.5, 1]
                 )
-                if len(colors) == 0 or enough_diff:
+                if len(colours) == 0 or enough_diff:
                     # if different enough, add to the list of colours
-                    colors += [color]
+                    colours += [colour]
                     added_i += 1
         n_added += added_i
 
     iteration = 0
     random.seed(0)
-    while n_added < n_colors - len(colors0) and iteration < 1000:
+    while n_added < n_colours - len(colours0) and iteration < 1000:
         # if we still need more colours, just try random colours
-        color = (random.random(), random.random(), random.random(), 1)
-        enough_diff = _check_color_diffs(
-            colors, color, min_diffs=[0, 0, 0, 3]
+        colour = (random.random(), random.random(), random.random(), 1)
+        enough_diff = _check_colour_diffs(
+            colours, colour, min_diffs=[0, 0, 0, 3]
         )
-        if len(colors) == 0 or enough_diff:
-            colors += [color]
+        if len(colours) == 0 or enough_diff:
+            colours += [colour]
             n_added += 1
         iteration += 1
 
     if colours_only:
-        return colors0 + colors
+        return colours0 + colours
 
     # save the list to the parameters
-    save, prm = _colors_to_prm(save, prm, colors0, colors, all_evaluation_methods)
+    save, prm = _colours_to_prm(save, prm, colours0, colours, all_evaluation_methods)
     return save, prm

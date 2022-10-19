@@ -97,13 +97,13 @@ def _plot_unique_state_best_psi(
             best_thetas = \
                 [best_theta[eval_entries_plot_indiv[it]][i_tables[it]][0]
                  for it in range(len(eval_entries_plot_indiv))]
-            colors_bars = [
-                prm['save']['colorse'][method]
+            colours_bars = [
+                prm['save']['colourse'][method]
                 for method in eval_entries_plot_indiv
                 if method[-1] != '0'
             ]
             ax.bar(y_pos, best_thetas, align='center',
-                   alpha=0.5, color=colors_bars)
+                   alpha=0.5, color=colours_bars)
             plt.ylim([0, 1])
             title = f'best theta per method state None ' \
                     f'repeat {repeat} home {home}'

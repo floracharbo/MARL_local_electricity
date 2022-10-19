@@ -67,7 +67,7 @@ class LocalElecEnv():
         ]:
             self.__dict__[data] = self.rl[data]
         self.opt_res_file = self.prm['paths']['opt_res_file']
-        self.res_path = prm['paths']['res_path']
+        self.res_path = prm['paths']['opt_res']
         self.car = Battery(prm)
         self.slid_day = False
 

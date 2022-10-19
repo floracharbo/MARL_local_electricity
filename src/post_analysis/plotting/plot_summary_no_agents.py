@@ -251,23 +251,23 @@ def plot_results_vs_nag():
     # 3 too shallow, 3.3 too deep, 3.15 slightly too deep
     # fig = plt.figure(figsize=(5.25*0.95**2*0.98*0.99*0.8*0.9*1.39,5.25*0.8))
     # for the poster
-    # red = prm['save']['colorse']['opt']
-    # purple = prm['save']['colorse']['opt_d_d']
+    # red = prm['save']['colourse']['opt']
+    # purple = prm['save']['colourse']['opt_d_d']
     red = (234 / 255, 53 / 255, 37 / 255)
-    prm['save']['colorse']['env_r_d'] = red
-    # blue = prm['save']['colorse']['opt_r_d']
-    prm['save']['colorse']['opt'] = 'grey'
-    green = prm['save']['colorse']['env_d_d']
-    prm['save']['colorse']['opt_d_d'] = green
+    prm['save']['colourse']['env_r_d'] = red
+    # blue = prm['save']['colourse']['opt_r_d']
+    prm['save']['colourse']['opt'] = 'grey'
+    green = prm['save']['colourse']['env_d_d']
+    prm['save']['colourse']['opt_d_d'] = green
 
     for evaluation_method in res['xs'].keys():
         order = np.argsort(res['xs'][evaluation_method])
         for key in res_entries:
             res[key][evaluation_method] = [res[key][evaluation_method][i] for i in order]
         line_style = 'dotted' if evaluation_method == 'opt' else '-'
-        color = prm['save']['colorse'][evaluation_method] \
+        color = prm['save']['colourse'][evaluation_method] \
             if evaluation_method == 'opt' \
-            else prm['save']['colorse'][
+            else prm['save']['colourse'][
             f"{data_source(evaluation_method)}_{reward_type(evaluation_method)}_d"]
         plt.plot(
             res['xs'][evaluation_method],
@@ -281,7 +281,7 @@ def plot_results_vs_nag():
             res['p75'][evaluation_method],
             color=color,
             alpha=0.3)
-        print(f"evaluation_method {evaluation_method} color {color} "
+        print(f"evaluation_method {evaluation_method} colour {colour} "
               f"res['xs'][evaluation_method] {res['xs'][evaluation_method]} "
               f"res['p50'][evaluation_method] {res['p50'][evaluation_method]}")
     plt.gca().set_xscale('log')

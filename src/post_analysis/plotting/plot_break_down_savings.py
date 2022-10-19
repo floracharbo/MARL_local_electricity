@@ -27,7 +27,7 @@ def distribution_savings(prm, aggregate='daily'):
                 test_savings[method] += [np.mean(savings_rel_baseline)]
 
         plt.hist(test_savings[method], alpha=0.5, label=method,
-                 color=prm['save']['colorse'][method])
+                 color=prm['save']['colourse'][method])
 
     plt.legend()
     plt.xlabel("Average test savings [£/h/home]")

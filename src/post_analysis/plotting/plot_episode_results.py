@@ -40,7 +40,7 @@ def _plot_last_epochs_actions(
         ax.step(
             xs, all_vals_e_t_step_mean,
             where="post", label=method,
-            color=prm["save"]["colorse"][method],
+            color=prm["save"]["colourse"][method],
             lw=lw_mean, alpha=1, linestyle=linestyles[action]
         )
         means[e][method].append(all_vals_e_t_step)
@@ -58,14 +58,14 @@ def _plot_all_agents_mean_res(
     for method in all_methods_to_plot:
         axs[1, 1].step(range(24), np.mean(all_T_air[method], axis=0),
                        where="post", label=method,
-                       color=prm["save"]["colorse"][method],
+                       color=prm["save"]["colourse"][method],
                        lw=lw_mean, alpha=1)
         means["T_air"][method] = np.mean(all_T_air[method], axis=0)
 
         axs[3, 0].plot([- 0.01] + list(range(24)),
                        [0] + list(np.mean(all_cum_rewards[method], axis=0)),
                        label=labels[method],
-                       color=prm["save"]["colorse"][method],
+                       color=prm["save"]["colourse"][method],
                        lw=lw_mean, alpha=1)
         means["cum_rewards"][method] = np.mean(all_T_air[method], axis=0)
         for r, c, e in zip(rows, columns, entries):
@@ -92,7 +92,7 @@ def _plot_all_agents_mean_res(
                     )
                 axs[r, c].step(xs, all_vals_e_t_step_mean,
                                where="post", label=method,
-                               color=prm["save"]["colorse"][method],
+                               color=prm["save"]["colourse"][method],
                                lw=lw_mean, alpha=1)
                 means[e][method] = all_vals_e_t_step_mean
     return axs
@@ -125,7 +125,7 @@ def _plot_indoor_air_temp(
         ]
         label = method if display_labels else None
         ax.step(range(24), T_air_a[method], where="post", label=label,
-                color=prm["save"]["colorse"][method], lw=lw, alpha=alpha)
+                color=prm["save"]["colourse"][method], lw=lw, alpha=alpha)
     ax.set_ylabel(
         f"{title_ylabel_dict['T_air'][0]} {title_ylabel_dict['T_air'][1]}")
     ax.step(range(24), prm["heat"]["T_LB"][0][0:24], "--",
@@ -150,7 +150,7 @@ def _plot_cum_rewards(
         ]
         label = labels[method] if display_labels else None
         ax.plot([- 0.01] + list(range(24)), [0] + cumrewards[method], label=label,
-                color=prm["save"]["colorse"][method], lw=lw, alpha=alpha)
+                color=prm["save"]["colourse"][method], lw=lw, alpha=alpha)
     ax.legend(fancybox=True, loc="best", ncol=2)
     ax.set_ylabel("Cumulative rewards [£]")
     ax.set_xlabel("Time [h]")
@@ -161,33 +161,33 @@ def _plot_cum_rewards(
 
 def _plot_grid_price(
         title_ylabel_dict, axs=None, cintensity_kg=None,
-        row=0, col=0, last=None, colors_non_methods=None,
+        row=0, col=0, last=None, colours_non_methods=None,
         lw=None, display_legend=True):
     ax = axs[row, col]
     ax.step(range(24), last["wholesale"]["baseline"],
             where="post", label="Wholesale",
-            color=colors_non_methods[2], lw=lw)
+            color=colours_non_methods[2], lw=lw)
     ax.step(range(24), last["grdC"]["baseline"], where="post",
-            label="$C_g$", color=colors_non_methods[0], lw=lw)
+            label="$C_g$", color=colours_non_methods[0], lw=lw)
     if display_legend:
         ax.set_ylabel("Grid price [£/kWh]")
         ax.legend(fancybox=True, loc="best")
     ax2 = axs[row, col].twinx()
     ax2.step(range(24), cintensity_kg, where="post",
              label=title_ylabel_dict["cintensity"][0],
-             color=colors_non_methods[1], lw=lw)
+             color=colours_non_methods[1], lw=lw)
     ax2.yaxis.set_label_position("right")
     ax2.yaxis.tick_right()
     if display_legend:
         ax2.set_ylabel("Carbon intensity [kgCO$_2$/kWh]",
-                       color=colors_non_methods[1])
+                       color=colours_non_methods[1])
     ylim = ax2.get_ylim()
     ax2.set_ylim([ylim[0], ylim[1] * 1.15])
 
 
 def _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, title_ylabel_dict,
-        axs, colors_non_methods, lw_indiv, labels,
+        axs, colours_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
         rows, columns, entries, all_vals
 ):
@@ -197,7 +197,7 @@ def _plot_all_agents_all_repeats_res(
         _plot_grid_price(
             title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
             row=0, col=0, last=last,
-            colors_non_methods=colors_non_methods, lw=lw_indiv)
+            colours_non_methods=colours_non_methods, lw=lw_indiv)
 
         cum_rewards_repeat = _plot_cum_rewards(
             axs, last, methods_to_plot, labels, prm, row=3,
@@ -224,7 +224,7 @@ def _plot_all_agents_all_repeats_res(
                         xs = [-0.01] + xs
                         ys = [prm["car"]["store0"][home]] + ys
                     axs[r, c].step(xs, ys, where="post",
-                                   color=prm["save"]["colorse"][method],
+                                   color=prm["save"]["colourse"][method],
                                    lw=lw_all, alpha=alpha_not_indiv)
                     all_vals[e][method][repeat].append(ys)
                 axs[r, c].set_ylabel(
@@ -254,7 +254,7 @@ def _get_bands_EV_availability(bEV, home):
 
 def _plot_all_agents_res(
         list_repeat, lw_all, prm, lw_all_list_repeat,
-        all_methods_to_plot, title_ylabel_dict, colors_non_methods, labels,
+        all_methods_to_plot, title_ylabel_dict, colours_non_methods, labels,
         lw_indiv, alpha_not_indiv, lw_mean, linestyles
 ):
     # do one figure with all agents and repeats
@@ -284,7 +284,7 @@ def _plot_all_agents_res(
 
     axs, all_T_air = _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, title_ylabel_dict,
-        axs, colors_non_methods, lw_indiv, labels,
+        axs, colours_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
         rows, columns, entries, all_vals
     )
@@ -327,7 +327,7 @@ def _plot_indiv_agent_res_action(prm, ys, xs, lw_indiv, linestyles, method, ax):
         ]
         ax.step(xs, ys_, where="post",
                 label=f"t_action{action}",
-                color=prm["save"]["colorse"][method],
+                color=prm["save"]["colourse"][method],
                 lw=lw_indiv, linestyle=linestyles[action])
 
     return ax
@@ -335,7 +335,7 @@ def _plot_indiv_agent_res_action(prm, ys, xs, lw_indiv, linestyles, method, ax):
 
 def _plot_indiv_agent_res(
         prm, all_methods_to_plot, title_ylabel_dict,
-        colors_non_methods, lw_indiv, labels, linestyles
+        colours_non_methods, lw_indiv, labels, linestyles
 ):
     # Grid price / intensity
     # Heating E
@@ -366,7 +366,7 @@ def _plot_indiv_agent_res(
             _plot_grid_price(
                 title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
                 row=0, col=0, last=last,
-                colors_non_methods=colors_non_methods, lw=lw_indiv)
+                colours_non_methods=colours_non_methods, lw=lw_indiv)
 
             axs = _plot_ev_loads_and_availability(
                 axs, xs, lEV, home, bands_bEV
@@ -406,7 +406,7 @@ def _plot_indiv_agent_res(
                         else:
                             ys = [0] + ys
                         ax.step(xs, ys, where="post", label=method,
-                                color=prm["save"]["colorse"][method],
+                                color=prm["save"]["colourse"][method],
                                 lw=lw_indiv)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
@@ -465,10 +465,10 @@ def plot_res(prm, indiv=True, list_repeat=None):
     lw_mean = 2.5
     alpha_not_indiv = 0.15
     plt.rcParams["font.size"] = "16"
-    colors_methods = [prm["save"]["colorse"][method] for method in all_methods_to_plot]
-    colors_non_methods = [c for c in prm["save"]["colors"]
-                          if c not in colors_methods]
-    prm["save"]["colorse"]["opt_n_c"] = prm["save"]["colorse"]["opt_n_d"]
+    colours_methods = [prm["save"]["colourse"][method] for method in all_methods_to_plot]
+    colours_non_methods = [c for c in prm["save"]["colours"]
+                          if c not in colours_methods]
+    prm["save"]["colourse"]["opt_n_c"] = prm["save"]["colourse"]["opt_n_d"]
     labels = {}
     reward_labels = {
         "d": "M",
@@ -490,12 +490,12 @@ def plot_res(prm, indiv=True, list_repeat=None):
     if indiv:  # do one figure per agent and per repeat
         _plot_indiv_agent_res(
             prm, all_methods_to_plot, title_ylabel_dict,
-            colors_non_methods, lw_indiv, labels, linestyles
+            colours_non_methods, lw_indiv, labels, linestyles
         )
     elif not indiv:
         _plot_all_agents_res(
             list_repeat, lw_all, prm, lw_all_list_repeat,
-            all_methods_to_plot, title_ylabel_dict, colors_non_methods, labels,
+            all_methods_to_plot, title_ylabel_dict, colours_non_methods, labels,
             lw_indiv, alpha_not_indiv, lw_mean, linestyles
         )
 

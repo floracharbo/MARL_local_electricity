@@ -101,7 +101,7 @@ class DataManager():
     def _passive_find_feasible_data(self):
         passive = True
 
-        file_id_path = self.paths['res_path'] / f"batch{self.file_id()}"
+        file_id_path = self.paths['opt_res'] / f"batch{self.file_id()}"
         if file_id_path.is_file():
             [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
@@ -125,6 +125,21 @@ class DataManager():
 
         return seed_data, new_res, data_feasible
 
+    def _check_data_computations_required(self, type_actions, feasibility_checked):
+        opt_needed = 'opt' in type_actions \
+                     or (not feasibility_checked and self.check_feasibility_with_opt)
+
+        if opt_needed:
+            file_exists = (self.paths['opt_res'] / self.res_name).is_file()
+        else:
+            file_exists = (
+                    self.paths['opt_res'] / f"batch{self.file_id()}"
+            ).is_file()
+
+        new_data_needed = self.rl['deterministic'] == 2 or not file_exists
+
+        return opt_needed, new_data_needed
+
     def _active_find_feasible_data(
             self,
             type_actions: List[str],
@@ -139,21 +154,20 @@ class DataManager():
         new_res = False
         res = None
 
-        opt_needed = 'opt' in type_actions \
-            or (not feasibility_checked and self.check_feasibility_with_opt)
-
-        if opt_needed:
-            file_exists = (self.paths['res_path'] / self.res_name).is_file()
-        else:
-            file_exists = (self.paths['res_path'] / f"batch{self.file_id()}"
-                           ).is_file()
-
-        just_load_data = not self.rl['deterministic'] == 2 and file_exists
+        opt_needed, new_data_needed = self._check_data_computations_required(
+            type_actions, feasibility_checked
+        )
 
         # check if data is feasible by solving optimisation problem
-        if just_load_data:
+        if new_data_needed:
+            # pre-save data to be used for multiple methods
+            [batch, factors, clusters] = self._env_make_data(
+                int(self.seed[self.passive_ext]),
+                passive=passive
+            )
+        else:
             if opt_needed:
-                res = np.load(self.paths['res_path']
+                res = np.load(self.paths['opt_res']
                               / self.res_name,
                               allow_pickle=True).item()
             [factors, clusters] = self._load_res()
@@ -161,12 +175,6 @@ class DataManager():
                 seed=self.seed[self.passive_ext],
                 load_data=True, passive=passive)
             new_res = False
-        else:
-            # pre-save data to be used for multiple methods
-            [batch, factors, clusters] = self._env_make_data(
-                int(self.seed[self.passive_ext]),
-                passive=passive
-            )
 
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(
@@ -194,7 +202,8 @@ class DataManager():
             step_vals, mus_opt, data_feasible = self.get_steps_opt(
                 res, step_vals, evaluation, clusters,
                 factors, batch, self.seed[self.passive_ext],
-                last_epoch=epoch == self.prm['RL']['n_epochs'] - 1)
+                last_epoch=epoch == self.prm['RL']['n_epochs'] - 1
+            )
 
         seed_data = [res, factors, clusters, batch]
 
@@ -261,7 +270,7 @@ class DataManager():
                 self.seeds[self.passive_ext], self.seed[self.passive_ext])
 
         if new_res:
-            np.save(self.paths['res_path'] / self.res_name, seed_data[0])
+            np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
 
         return seed_data, step_vals, mus_opt
 
@@ -284,12 +293,12 @@ class DataManager():
         else:
             for seeded_data in ['factors', 'clusters', 'batch']:
                 file_names = glob.glob(
-                    str(self.paths['res_path']
+                    str(self.paths['opt_res']
                         / f"{seeded_data}{self.file_id()}"))
                 for file_name in file_names:
                     os.remove(file_name)
             file_names = glob.glob(
-                str(self.paths['res_path'] / self.res_name))
+                str(self.paths['opt_res'] / self.res_name))
             for file_name in file_names:
                 os.remove(file_name)
             self.d_seed[self.passive_ext] += 1
@@ -362,7 +371,7 @@ class DataManager():
         """Load pre-saved day data."""
         files = [
             np.load(
-                self.paths['res_path'] / f"{label}{self.file_id()}",
+                self.paths['opt_res'] / f"{label}{self.file_id()}",
                 allow_pickle=True
             ).item() for label in labels
         ]
@@ -387,7 +396,8 @@ class DataManager():
             # deterministic
             load_data = True
             batch_file, batch = self.env.reset(
-                seed=seed, load_data=load_data, passive=passive)
+                seed=seed, load_data=load_data, passive=passive
+            )
 
         elif self.rl['deterministic'] > 0 and not self.deterministic_created:
             # rl['deterministic'] 1: deterministic / 2: deterministic noisy

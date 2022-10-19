@@ -13,11 +13,14 @@ last_entries: [
   'tot_E_heat','T', 'T_air', 'grdC','wholesale',
   'cintensity'
 ]
-repeat_entries: ['train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',
-             'stability', 'last', 'seed', 'eps', 'ind_seed_deterministic',
-             'duration_epoch', 'n_not_feas', 'not_feas_vars', 'train_actions',
-             'train_states', 'q_tables', 'counter']
-stateind_entries: ['possible_states', 'granularity_state0',
-                                 'granularity_state1', 'multipliers_state']
+repeat_entries: [
+  'train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',
+   'stability', 'last', 'seed', 'eps', 'ind_seed_deterministic',
+   'duration_epoch', 'n_not_feas', 'not_feas_vars', 'train_actions',
+   'train_states', 'q_tables', 'counter'
+]
+stateind_entries: [
+  'possible_states', 'granularity_state0', 'granularity_state1', 'multipliers_state'
+]
 save_nns: True
 plotting_batch: True

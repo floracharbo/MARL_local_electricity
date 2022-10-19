@@ -39,7 +39,7 @@ def _plot_epsilon(repeat, prm, record):
                         record.eps[repeat][e][method]
                         for e in range(prm['RL']['n_epochs'])
                     ],
-                    label=method, color=prm['save']['colorse'][method]
+                    label=method, color=prm['save']['colourse'][method]
                 )
             plt.xlabel('epoch')
             plt.ylabel('eps')

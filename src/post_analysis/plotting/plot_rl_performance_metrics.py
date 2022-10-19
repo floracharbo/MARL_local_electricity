@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-from src.initialisation.generate_colors import generate_colors
+from src.initialisation.generate_colours import generate_colours
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
                                                        title_and_save)
 from src.utilities.userdeftools import data_source, distr_learning, reward_type
@@ -26,14 +26,14 @@ def _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm):
     if opt is not None:
         drawopt = opt - baseline if title[0:7] == 'Average' else opt
         ax.axhline(drawopt, linestyle='--',
-                   color=prm['save']['colorse']['opt'])
+                   color=prm['save']['colourse']['opt'])
 
     return ax
 
 
 def _barplot(
         bars, evaluation_methods, prm, baseline=None, opt=None, text_labels=True,
-        colors=None, error=None, title=None, display_title=True,
+        colours=None, error=None, title=None, display_title=True,
         lower_bound=None, upper_bound=None, display_ticks=True,
         ax0=None, display_legend=False, ylabel=None, xlabel=None
 ):
@@ -53,7 +53,7 @@ def _barplot(
         barplot = bars[ind_e]
         barplot = barplot - baseline if title[0:7] == 'Average' else barplot
         ax.bar(rsir, barplot, yerr=err, capsize=10, width=barWidth,
-               edgecolor='white', label=evaluation_methods[ind_e], color=colors[ind_e])
+               edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e])
 
     ax = _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm)
 
@@ -98,18 +98,18 @@ def compute_lists_barplot_colours(prm):
         e for e in prm["save"]["eval_entries_plot"]
         if not (len(e.split('_')) > 1 and distr_learning(e) == 'Cd')
     ]
-    colors_barplot = [
-        prm['save']['colorse'][e] for e in eval_entries_bars
+    colours_barplot = [
+        prm['save']['colourse'][e] for e in eval_entries_bars
     ]
-    colors_barplot_baseentries = [
-        prm['save']['colorse'][e] for e in prm["save"]["base_entries"]
+    colours_barplot_baseentries = [
+        prm['save']['colourse'][e] for e in prm["save"]["base_entries"]
     ]
-    return eval_entries_bars, eval_entries_notCd, colors_barplot, colors_barplot_baseentries
+    return eval_entries_bars, eval_entries_notCd, colours_barplot, colours_barplot_baseentries
 
 
 def barplot_metrics(prm, lower_bound, upper_bound, f):
     metrics = prm["RL"]["metrics"]
-    eval_entries_bars, eval_entries_notCd, colors_barplot, colors_barplot_baseentries \
+    eval_entries_bars, eval_entries_notCd, colours_barplot, colours_barplot_baseentries \
         = compute_lists_barplot_colours(prm)
 
     titles = {'end': 'Average reward over the last 20% evaluations',
@@ -163,7 +163,7 @@ def barplot_metrics(prm, lower_bound, upper_bound, f):
                 ave = 'p50'
                 m_ = m[0:-4]
 
-            colors_barplot_ = generate_colors(
+            colours_barplot_ = generate_colours(
                 prm["save"], prm, colours_only=True, entries=eval_entries_bars_
             )
 
@@ -187,7 +187,7 @@ def barplot_metrics(prm, lower_bound, upper_bound, f):
             if plot_type == 'indivs':
                 fig = _barplot(
                     bars, eval_entries_bars_, prm, baseline=baseline,
-                    opt=opt, colors=colors_barplot_, error=err,
+                    opt=opt, colours=colours_barplot_, error=err,
                     title=titles[m_], display_legend=display_legend,
                     display_title=display_title, lower_bound=lb,
                     upper_bound=ub, display_ticks=display_ticks)
@@ -203,7 +203,7 @@ def barplot_metrics(prm, lower_bound, upper_bound, f):
                     axs[i, j] = _barplot(
                         bars, eval_entries_bars_, prm,
                         baseline=baseline, opt=opt,
-                        colors=colors_barplot_, error=err,
+                        colours=colours_barplot_, error=err,
                         title=m, display_legend=display_legend,
                         display_title=display_title, lower_bound=lb,
                         upper_bound=ub, display_ticks=display_ticks,
@@ -213,7 +213,7 @@ def barplot_metrics(prm, lower_bound, upper_bound, f):
 
             # do end for with signs for each
             _plot_compare_all_signs(
-                prm, colors_barplot_baseentries, eval_entries_notCd,
+                prm, colours_barplot_baseentries, eval_entries_notCd,
                 m_, ave, lower_bound, upper_bound, m
             )
 
@@ -227,19 +227,19 @@ def barplot_metrics(prm, lower_bound, upper_bound, f):
 
 
 def _plot_compare_all_signs(
-        prm, colors_barplot_baseentries, eval_entries_notCd,
+        prm, colours_barplot_baseentries, eval_entries_notCd,
         m_, ave, lower_bound, upper_bound, m
 ):
     metrics = prm["RL"]["metrics"]
     fig2 = plt.figure(figsize=(3.25, 7 * 0.75))
     ax = plt.gca()
-    xs, colors_plot_end = {}, {}
+    xs, colours_plot_end = {}, {}
     for i in range(len(prm["save"]["base_entries"])):
         splits = prm["save"]["base_entries"][i].split('_')
         label = f"{splits[0]}_{splits[1]}" if len(splits) > 1 \
             else prm["save"]["base_entries"][i]
         xs[label] = i
-        colors_plot_end[label] = colors_barplot_baseentries[i]
+        colours_plot_end[label] = colours_barplot_baseentries[i]
     baseline, opt = [metrics[m_][ave][e]
                      if e in metrics[m_][ave] else None
                      for e in ['baseline', 'opt']]
@@ -259,7 +259,7 @@ def _plot_compare_all_signs(
         to_plot = metrics[m_][ave][e] - baseline \
             if m_ == 'end' else metrics[m_][ave][e]
         ax.plot(xs[label], to_plot, ls,
-                color=colors_plot_end[label],
+                color=colours_plot_end[label],
                 markeredgewidth=2, markerfacecolor="None",
                 label=legend, linewidth=2)
     maxval = {}
@@ -283,7 +283,7 @@ def _plot_compare_all_signs(
     if opt is not None:
         plotopt = opt - baseline if m_ == 'end' else opt
         ax.axhline(plotopt, linestyle='--',
-                   color=prm['save']['colorse']['opt'])
+                   color=prm['save']['colourse']['opt'])
     title = 'compare all median 25-75th percentile' + m
     if m_ == 'end':
         plt.ylim([lower_bound, upper_bound])

@@ -18,7 +18,7 @@ import numpy as np
 import torch as th
 from gym import spaces
 
-from src.initialisation.generate_colors import generate_colors
+from src.initialisation.generate_colours import generate_colours
 from src.initialisation.get_heat_coeffs import get_heat_coeffs
 from src.initialisation.input_data import input_params
 from src.learners.facmac.components.transforms import OneHot
@@ -68,8 +68,10 @@ def initialise_objects(
     prm = input_params(prm, settings)
     if not Path("outputs").exists():
         os.mkdir("outputs")
-    for folder in ["results", "opt_res", "seeds"]:
+    prm['paths']["opt_res"] = Path("outputs") / f"opt_res_v{prm['syst']['data_version']}"
+    for folder in ["results", "seeds"]:
         prm['paths'][folder] = Path("outputs") / folder
+    for folder in ["opt_res", "results", "seeds"]:
         if not (prm['paths'][folder]).exists():
             os.mkdir(prm['paths'][folder])
 
@@ -131,8 +133,10 @@ def _make_scheme(rl):
         else th.float
     if not rl["discretize_actions"]:
         actions_vshape = rl["dim_actions"]
-    elif all([isinstance(act_space, spaces.Tuple)
-              for act_space in rl["action_spaces"]]):
+    elif all(
+            isinstance(act_space, spaces.Tuple)
+            for act_space in rl["action_spaces"]
+    ):
         actions_vshape = 1 if not rl["actions_dtype"] == np.float32 else \
             max([i.spaces[0].shape[0] + i.spaces[1].shape[0]
                  for i in rl["action_spaces"]])
@@ -214,12 +218,12 @@ def _update_paths(paths, prm, no_run):
     """
     for data in ['carbon_intensity', 'temp']:
         paths[data] = f"{paths[data]}_{prm['syst']['H']}.npy"
-    paths["wholesale"] = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['prices_year']}.npy"
+    paths["wholesale"] \
+        = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['prices_year']}.npy"
 
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
     paths["record_folder"] = paths["folder_run"] / "record"
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
-    paths["res_path"] = Path("outputs") / paths["res_folder"]
     paths["input_folder"] = Path(paths["input_folder"])
     paths["open_inputs"] = paths["input_folder"] / paths["open_inputs_folder"]
     paths['hedge_inputs'] \
@@ -301,12 +305,12 @@ def _load_profiles(paths, car, syst, loads, gen):
     gen['perc'] = percentiles["gen"]
 
     # PV generation bank and month
-    profiles, gen = _load_gen_profiles(gen, profiles, prof_path, paths, syst)
+    profiles, gen = _load_gen_profiles(gen, profiles, prof_path, syst)
 
     return profiles, car, loads, gen
 
 
-def _load_gen_profiles(gen, profiles, prof_path, paths, syst):
+def _load_gen_profiles(gen, profiles, prof_path, syst):
     profiles["gen"] = {}
     for month in range(12):
         profiles['gen'][month] = np.load(
@@ -349,8 +353,7 @@ def _update_bat_prm(prm):
     car:
         correpsonding to prm["car"]; with updated parameters
     """
-    car, ntw, paths, syst = \
-        [prm[key] for key in ["car", "ntw", "paths", "syst"]]
+    car, ntw, paths = [prm[key] for key in ["car", "ntw", "paths"]]
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
@@ -615,7 +618,7 @@ def _update_grd_prm(prm):
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale"]
-    wholesale = [x * 1e-2 for x in np.load(wholesale_path)]  # p/kWh -> £/kWh
+    wholesale = [x * 1e-2 for x in np.load(wholesale_path)]  # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
     grd["wholesale_all"] = wholesale
     carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity"]
 
@@ -623,7 +626,7 @@ def _update_grd_prm(prm):
     grd["cintensity_all"] = np.load(
         carbon_intensity_path, allow_pickle=True) * 1e-6
 
-    #  carbon intensity
+    # carbon intensity
     grd["Call"] = [price + carbon * syst["co2tax"]
                    for price, carbon in zip(wholesale, grd["cintensity_all"])]
     grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
@@ -649,10 +652,10 @@ def _homes_info(loads, ntw, gen, heat):
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
         heat["own_heat" + passive_ext] = [1 for _ in range(ntw["n" + passive_ext])] \
             if heat["own_heat" + passive_ext] == 1 else heat["own_heat" + passive_ext]
-        for e in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
-            if e in loads:
-                loads[e] = [1 for _ in range(ntw["n" + passive_ext])] \
-                    if loads[e] == 1 else loads[e]
+        for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
+            if ownership in loads:
+                loads[ownership] = np.ones(ntw["n" + passive_ext]) \
+                    if loads[ownership] == 1 else loads[ownership]
 
 
 def initialise_prm(prm, no_run, initialise_all=True):
@@ -680,10 +683,9 @@ def initialise_prm(prm, no_run, initialise_all=True):
         to input to the environment
     """
     prm_entries = [
-        "paths", "syst", "grd", "car", "ntw",
-        "loads", "gen", "save", "heat"
+        "paths", "syst", "car", "ntw", "loads", "gen", "save", "heat"
     ]
-    [paths, syst, grd, car, ntw, loads, gen, save, heat] = \
+    [paths, syst, car, ntw, loads, gen, save, heat] = \
         [prm[key] if key in prm else None for key in prm_entries]
 
     _make_type_eval_list(prm["RL"])
@@ -726,7 +728,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     if rl["n_repeats"] * rl["n_epochs"] * (rl["n_explore"] + 1) > 200:
         save["plotting_batch"] = False
 
-    save, prm = generate_colors(save, prm)
+    save, prm = generate_colours(save, prm)
 
     return prm, profiles
 
@@ -743,15 +745,15 @@ def _filter_type_learning_facmac(rl):
         ]
     }
     for stage in ["evaluation", "exploration"]:
-        new_ts = []
-        for t in rl[f"{stage}_methods"]:
-            new_t = t
-            if len(t.split("_")) == 3:
-                if distr_learning(t) == "d":
-                    new_t = f"{t.split('_')[0]}_{t.split('_')[1]}_c"
-            new_ts.append(new_t)
+        new_methods = []
+        for method in rl[f"{stage}_methods"]:
+            new_method = method
+            if len(method.split("_")) == 3:
+                if distr_learning(method) == "d":
+                    new_method = f"{method.split('_')[0]}_{method.split('_')[1]}_c"
+            new_methods.append(new_method)
         rl[f"{stage}_methods"] \
-            = [t for t in new_ts if t in valid_types[stage]]
+            = [method for method in new_methods if method in valid_types[stage]]
 
 
 def _filter_type_learning_competitive(rl):
@@ -763,7 +765,7 @@ def _filter_type_learning_competitive(rl):
         ]
 
 
-def _make_type_eval_list(rl, largeQ_bool=False):
+def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = ["baseline"]
     if rl["evaluation_methods"] is not None:
         input_evaluation_methods = rl["evaluation_methods"] \
@@ -781,10 +783,10 @@ def _make_type_eval_list(rl, largeQ_bool=False):
 
         elif rl["type_learning"] == "q_learning":
             methods_combs = ["r_c", "r_d", "A_Cc", "A_c", "A_d"] \
-                if largeQ_bool else ["r_c", "r_d", "A_c", "A_d"]
+                if large_q_bool else ["r_c", "r_d", "A_c", "A_d"]
             if rl["difference_bool"]:
                 add_difference = ["d_Cc", "d_c", "d_d"] \
-                    if largeQ_bool else ["d_c", "d_d"]
+                    if large_q_bool else ["d_c", "d_d"]
                 methods_combs += add_difference
             methods_combs_opt = ["n_c", "n_d"]
             if "opt_" in data_sources:

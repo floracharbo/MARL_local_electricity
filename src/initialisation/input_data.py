@@ -44,8 +44,8 @@ def input_paths():
     """Load paths parameters."""
     prm = {}
     # Get the defaults from default.yaml
-    with open("config_files/input_parameters/paths.yaml", "rb") as f:
-        prm["paths"] = yaml.safe_load(f)
+    with open("config_files/input_parameters/paths.yaml", "rb") as file:
+        prm["paths"] = yaml.safe_load(file)
 
     return prm
 
@@ -152,10 +152,10 @@ def input_params(prm, settings=None):
         prm["RL"]["difference_bool"] = False
 
     # revert to pre set entries if there were pre set entries
-    for key in prm_preset_entries.keys():
-        for subkey in prm_preset_entries[key]:
+    for key, value in prm_preset_entries.items():
+        for subkey, subvalue in value.items():
             if subkey not in ["maindir", "server"]:
-                prm[key][subkey] = prm_preset_entries[key][subkey]
+                prm[key][subkey] = subvalue
 
     return prm
 
@@ -168,27 +168,30 @@ def load_existing_prm(prm, no_run):
     # if input data was saved, load input data
     if os.path.exists(input_folder):
         if os.path.exists(input_folder / 'lp.npy'):
-            lp = np.load(input_folder / 'lp.npy',
-                         allow_pickle=True).item()
-            if 'n_action' in lp and 'n_acitons' not in lp:
-                lp['n_actions'] = lp['n_action']
+            rl_params = np.load(
+                input_folder / 'lp.npy', allow_pickle=True
+            ).item()
+            if 'n_action' in rl_params and 'n_acitons' not in rl_params:
+                rl_params['n_actions'] = rl_params['n_action']
             existing_paths = prm['paths'].copy()
-            prm = np.load(input_folder / 'syst.npy',
-                          allow_pickle=True).item()
-            prm['RL'] = lp
+            prm = np.load(
+                input_folder / 'syst.npy', allow_pickle=True
+            ).item()
+            prm['RL'] = rl_params
             prm['paths'] = existing_paths
             prm['save'] = {}
         else:
-            prm = np.load(input_folder / 'prm.npy',
-                          allow_pickle=True).item()
-            lp = None
+            prm = np.load(
+                input_folder / 'prm.npy', allow_pickle=True
+            ).item()
+            rl_params = None
         if 'repeats' in prm['RL']:
             prm['RL']['n_repeats'] = prm['RL']['repeats']
         for path in prev_paths:
             if path not in prm['paths']:
                 prm['paths'][path] = prev_paths[path]
     else:  # else use current input data
-        lp, prm = None, None
+        rl_params, prm = None, None
         print(f"not os.path.exists({input_folder})")
 
-    return lp, prm
+    return rl_params, prm

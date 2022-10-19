@@ -350,8 +350,8 @@ class Battery:
 
         if self.max_charge_t[home] is not None \
                 and self.avail_EV[home]:
-            assert self.store[home] <= self.max_charge_t[home] + 1e-2, \
-                f'store[{home}] {self.store[home]} > max_charge_t[home] ' \
+            assert self.charge[home] <= self.max_charge_t[home] + 1e-2, \
+                f'charge[{home}] {self.charge[home]} > max_charge_t[home] ' \
                 f'{self.max_charge_t[home]} after flex, ' \
                 f'last_step = {last_step}'
 
@@ -522,9 +522,9 @@ class Battery:
                 bool_penalty[home] = True
 
             if self.max_charge_t[home] is not None \
-                    and self.store[home] > self.max_charge_t[home] + 1e-2:
-                print(f'self.max_charge_t[{home}] = {self.max_charge_t[home]} '
-                      f'store[home] = {self.store[home]}')
+                    and res[home]['ds'] > self.max_charge_t[home] + 1e-2:
+                print(f"self.max_charge_t[{home}] = {self.max_charge_t[home]} "
+                      f"store[home] = {res[home]['ds']}")
                 print(f'action[home] = {action[home]}')
                 bool_penalty[home] = True
 

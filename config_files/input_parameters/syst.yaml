@@ -23,3 +23,4 @@ seed: 0
 behaviour_types: ['loads', 'car']
 data_types: ['loads', 'car', 'gen']
 prices_year: 2021
+data_version: 2

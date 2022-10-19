@@ -34,7 +34,7 @@ class Action_translator:
         self.entries = ['dp', 'ds', 'l_ch', 'l_dis', 'c']
         self.plotting = prm['RL']['plotting_action']
         self.server = prm['RL']['server']
-        self.colors = [(0, 0, 0)] + prm['save']['colors']
+        self.colours = [(0, 0, 0)] + prm['save']['colours']
         self.n_homes = env.n_homes
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
         self.z_orders = [1, 3, 2, 0, 4]
@@ -201,20 +201,24 @@ class Action_translator:
 
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
-        self.max_discharge = np.array(
+        min_val_ds = np.array(
             [(self.k[home]['ds'][0][0] * 0 + self.k[home]['ds'][0][1]) for home in homes]
         )
-        self.max_charge = np.array(
+        max_val_ds = np.array(
             [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
         )
+
         self.min_charge = np.where(
-            self.max_discharge > 0, self.max_discharge, 0
-        )
-        self.min_discharge = np.where(
-            self.max_charge < 0, self.max_charge, 0
+            min_val_ds > 0, min_val_ds, 0
         )
         self.max_discharge = np.where(
-            self.max_discharge > 0, 0, self.max_discharge
+            min_val_ds < 0, min_val_ds, 0
+        )
+        self.max_charge = np.where(
+            max_val_ds > 0, max_val_ds, 0
+        )
+        self.min_discharge = np.where(
+            max_val_ds < 0, max_val_ds, 0
         )
 
     def actions_to_env_vars(self, loads, home_vars, action, date, h):
@@ -331,7 +335,7 @@ class Action_translator:
 
     def _battery_action_to_ds(self, home, battery_action, res):
         if battery_action is None:
-            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-4, \
+            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
             res['ds'] = self.min_charge[home]
@@ -378,7 +382,7 @@ class Action_translator:
             e0 = 'l_ch' if e == 'Losses' else e
             wd = line_width * 1.5 if e == 'dp' else line_width
             col, zo, label = \
-                [self.colors[ie], self.z_orders[ie], self.labels[ie]]
+                [self.colours[ie], self.z_orders[ie], self.labels[ie]]
             n = len(self.k[0][e0])
             xs = [0, 1] if e == 'dp' else self.action_intervals[0]
             if e == 'Losses':
@@ -437,7 +441,7 @@ class Action_translator:
         costs = [loss * 0.1 + self.bat_dep * d + e * self.ntw_C
                  for loss, d, e in zip(ys['Losses'], discharge, export)]
         ax2.plot(self.action_intervals[0], costs,
-                 color=self.colors[len(entries_plot)],
+                 color=self.colours[len(entries_plot)],
                  linewidth=line_width,
                  label='Battery, loss & export costs')
         ax2.set_yticks([0])
@@ -570,11 +574,12 @@ class Action_translator:
         max_discharge_a, min_discharge_a = [
             self.max_discharge[home], self.min_discharge[home]
         ]
+
         assert min_charge_a - 1e-3 <= res['charge'][home, h] \
                <= max_charge_a + 1e-3, \
                f"res charge {res['charge'][home, h]} " \
                f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-        assert max_discharge_a - 1e-3 <= - res['discharge_other'][home, h] \
+        assert max_discharge_a - 1e-3 <= - res['discharge_other'][home, h] / self.car.eta_dis \
                <= min_discharge_a + 1e-3, \
                f"res discharge_other {res['discharge_other'][home, h]} " \
                f"min_discharge_a {min_discharge_a} " \
@@ -597,7 +602,7 @@ class Action_translator:
             # abs(max_charge_a - max_discharge_a) < 1e-3 or
             # no flexibility in charging
             battery_action = 0 if self.type_env == 'discrete' else None
-            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-4, \
+            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
         elif abs(res['discharge_other'][home, h] < 1e-3

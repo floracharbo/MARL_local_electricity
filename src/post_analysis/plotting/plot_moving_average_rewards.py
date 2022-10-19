@@ -44,9 +44,9 @@ def plot_results_all_repeats(
             else max_val
 
         ls = 'dotted' if e == 'opt' else '-'
-        plt.plot(p50, label=e, color=prm['save']['colorse'][e], ls=ls)
+        plt.plot(p50, label=e, color=prm['save']['colourse'][e], ls=ls)
         plt.fill_between(epoch_not_None, p25_not_None, p75_not_None,
-                         color=prm['save']['colorse'][e], alpha=0.3)
+                         color=prm['save']['colourse'][e], alpha=0.3)
     try:
         plt.hlines(y=0, xmin=0, xmax=len(mean_results), colors='k',
                    linestyle='dotted')
@@ -100,7 +100,7 @@ def plot_mova_eval_per_repeat(repeat, prm):
             prm["save"]["n_window"])
         diff = [m - mb if m is not None else None
                 for m, mb in zip(mova_e, mova_baseline)]
-        plt.plot(diff, label=e, color=prm['save']['colorse'][e])
+        plt.plot(diff, label=e, color=prm['save']['colourse'][e])
     plt.xlabel('episodes')
     plt.ylabel('reward difference rel. to baseline')
     title = f"Moving average all rewards minus baseline " \
