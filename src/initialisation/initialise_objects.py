@@ -215,8 +215,10 @@ def _update_paths(paths, prm, no_run):
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
     paths["record_folder"] = paths["folder_run"] / "record"
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
-    paths["res_path"] = Path("outputs") / paths["res_folder"]
+    paths["res_path"] = Path("outputs") / f"{paths['res_folder']}"
     paths["input_folder"] = Path(paths["input_folder"])
+    paths["open_inputs_folder"] += f"_v{prm['syst']['data_version']}"
+    paths["hedge_inputs_folder"] += f"_v{prm['syst']['data_version']}"
     paths["open_inputs"] = paths["input_folder"] / paths["open_inputs_folder"]
     paths['hedge_inputs'] \
         = paths["input_folder"] / paths["hedge_inputs_folder"]
@@ -658,6 +660,7 @@ def _time_info(prm, initialise_all):
         syst["datetimes"] = \
             np.load(paths["open_inputs"] / paths["datetimes"],
                     allow_pickle=True)
+
         # dates
         dates_path = paths["open_inputs"] / paths["dates"]
         dates = np.load(dates_path)
@@ -792,17 +795,18 @@ def _filter_type_learning_competitive(rl):
 
 def _make_type_eval_list(rl, largeQ_bool=False):
     type_eval_list = ["baseline"]
+    data_sources = ["env_"]
+
+    if rl["opt_bool"]:
+        data_sources += ["opt_"]
+        type_eval_list += ["opt"]
+
     if rl["explo_reward_type"] is not None:
         input_explo_reward_type = rl["explo_reward_type"] \
             if isinstance(rl["explo_reward_type"], list) \
             else [rl["explo_reward_type"]]
         type_eval_list += input_explo_reward_type
     else:
-        data_sources = ["env_"]
-        if rl["opt_bool"]:
-            data_sources += ["opt_"]
-            type_eval_list += ["opt"]
-
         if rl["type_learning"] == "facmac":
             methods_combs = ["r_c", "d_c"]
 
@@ -834,6 +838,9 @@ def _make_type_eval_list(rl, largeQ_bool=False):
     rl["exploration_methods"] = [
         t for t in rl["evaluation_methods"] if not (t[0:3] == "opt" and len(t) > 3)
     ]
+    if sum(1 for t in rl["evaluation_methods"] if t[0:3] == "opt" and len(t) > 3) > 0:
+        rl["exploration_methods"] += ["opt"]
+
     rl["eval_action_choice"] = [
         t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
     ]

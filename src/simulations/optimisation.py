@@ -544,9 +544,6 @@ class Optimiser():
             arr = np.zeros(size)
             res = self._add_val_to_res(res, var, val, size, arr)
 
-            if self.save['saveresdata']:
-                np.save(self.paths['record_folder'] / 'res', res)
-
         return res
 
     def _cons_constraints(self, p, constl, consa, E_heat, totcons):

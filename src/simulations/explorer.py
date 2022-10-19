@@ -668,8 +668,8 @@ class Explorer():
                     "reward": [(reward,)],
                     "terminated": [(i_step == self.prm["syst"]["N"] - 1,)],
                 }
-                ts = self.types_that_learn_from_t(method)
-                for t_ in ts:
+                methods = self.types_that_learn_from_t(method)
+                for t_ in methods:
                     self.episode_batch[t_].update(
                         pre_transition_data, ts=i_step)
                     self.episode_batch[t_].update(
@@ -933,22 +933,22 @@ class Explorer():
     def types_that_learn_from_t(self, method):
         """Compute list of methods that learn from method."""
         if method == 'opt':
-            ts = [
-                t_ for t_ in self.rl['type_Qs']
-                if data_source(t_) == "opt" and t_ in self.rl["evaluation_methods"]
+            methods = [
+                method for method in self.rl['type_Qs']
+                if data_source(method) == "opt" and method in self.rl["evaluation_methods"]
             ]
         else:
-            ts = [method]
+            methods = [method]
 
-        return ts
+        return methods
 
-    def _init_facmac_mac(self, methods, new_episode_batch):
+    def _init_facmac_mac(self, exploration_methods, new_episode_batch):
         if self.rl["type_learning"] == "facmac":
-            for method in methods:
-                ts = self.types_that_learn_from_t(method)
-                for t_ in ts:
-                    self.episode_batch[t_] = new_episode_batch()
-                    if t_ not in ["baseline", "opt"]:
-                        self.action_selector.mac[t_].init_hidden(
+            for exploration_method in exploration_methods:
+                evaluation_methods = self.types_that_learn_from_t(exploration_method)
+                for evaluation_method in evaluation_methods:
+                    self.episode_batch[evaluation_method] = new_episode_batch()
+                    if evaluation_method not in ["baseline", "opt"]:
+                        self.action_selector.mac[evaluation_method].init_hidden(
                             batch_size=self.rl["batch_size_run"]
                         )
