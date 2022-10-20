@@ -600,8 +600,8 @@ class Explorer():
         sum_consa = 0
         for load_type in range(2):
             sum_consa += np.sum(res[f'consa({load_type})'])
-        assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 1e-3, \
-            f"res cons {sum_consa} does not match input demand {np.sum(loads)}"
+        assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 1e-2, \
+            f"res cons {sum_consa} does not match input demand {np.sum(loads[:, 0: prm['syst']['N']])}"
 
         # check environment uses the same grid coefficients
         assert self.env.grdC[i_step] == prm["grd"]["C"][i_step], \
@@ -609,14 +609,14 @@ class Explorer():
             f"!= explorer {prm['grd']['C'][i_step]}"
 
         # check we can replicate res['gc']
-        sumgc = np.sum(
+        sum_gc = np.sum(
             [prm["grd"]["C"][i_step_] * (
                 res['grid'][i_step_][0]
                 + prm["grd"]['loss'] * res['grid2'][i_step_][0]
             ) for i_step_ in range(24)]
         )
-        assert abs(res['gc'] - sumgc) < 1e-3, \
-            f"we cannot replicate res['gc'] {res['gc']} vs {sumgc}"
+        assert abs(res['gc'] - sum_gc) < 1e-3, \
+            f"we cannot replicate res['gc'] {res['gc']} vs {sum_gc}"
 
         # check reward from environment and res variables match
         res_reward_t = \

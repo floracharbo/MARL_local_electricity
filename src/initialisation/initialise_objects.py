@@ -218,7 +218,7 @@ def _update_paths(paths, prm, no_run):
     """
     for data in ['carbon_intensity', 'temp']:
         paths[data] = f"{paths[data]}_{prm['syst']['H']}.npy"
-    paths["wholesale"] \
+    paths["wholesale_file"] \
         = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['prices_year']}.npy"
 
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
@@ -617,8 +617,8 @@ def _update_grd_prm(prm):
     grd["loss"] = grd["R"] / (grd["V"] ** 2)
 
     # wholesale
-    wholesale_path = paths["open_inputs"] / paths["wholesale"]
-    wholesale = [x * 1e-2 for x in np.load(wholesale_path)]  # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
+    wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
+    wholesale = [x * 1e-3 for x in np.load(wholesale_path)]  # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
     grd["wholesale_all"] = wholesale
     carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity"]
 

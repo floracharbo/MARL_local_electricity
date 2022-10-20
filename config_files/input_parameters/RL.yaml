@@ -80,7 +80,7 @@ q_learning:
         eps: 0.5
         hysteretic: True # if True, Use the default learn_rate as the larger learning rate, and beta as the smaller learning rate. lr = self.learn_rate if td_error > 0 else self.beta
         beta_to_alpha: 0.5
-        gamma: 0.85
+        gamma: 0.99
 
 # DQN
 DQN:
