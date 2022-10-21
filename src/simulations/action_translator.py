@@ -201,20 +201,23 @@ class Action_translator:
 
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
-        self.max_discharge = np.array(
+        min_val_ds = np.array(
             [(self.k[home]['ds'][0][0] * 0 + self.k[home]['ds'][0][1]) for home in homes]
         )
-        self.max_charge = np.array(
+        max_val_ds = np.array(
             [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
         )
         self.min_charge = np.where(
-            self.max_discharge > 0, self.max_discharge, 0
-        )
-        self.min_discharge = np.where(
-            self.max_charge < 0, self.max_charge, 0
+            min_val_ds > 0, min_val_ds, 0
         )
         self.max_discharge = np.where(
-            self.max_discharge > 0, 0, self.max_discharge
+            min_val_ds < 0, min_val_ds, 0
+        )
+        self.max_charge = np.where(
+            max_val_ds > 0, max_val_ds, 0
+        )
+        self.min_discharge = np.where(
+            max_val_ds < 0, max_val_ds, 0
         )
 
     def actions_to_env_vars(self, loads, home_vars, action, date, h):
@@ -331,7 +334,7 @@ class Action_translator:
 
     def _battery_action_to_ds(self, home, battery_action, res):
         if battery_action is None:
-            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-4, \
+            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
             res['ds'] = self.min_charge[home]
@@ -578,6 +581,7 @@ class Action_translator:
                <= min_discharge_a + 1e-3, \
                f"res discharge_other {res['discharge_other'][home, h]} " \
                f"min_discharge_a {min_discharge_a} " \
+               f"max_discharge_a {max_discharge_a}" \
                f"max_discharge_a {max_discharge_a}"
 
         if (
@@ -597,7 +601,7 @@ class Action_translator:
             # abs(max_charge_a - max_discharge_a) < 1e-3 or
             # no flexibility in charging
             battery_action = 0 if self.type_env == 'discrete' else None
-            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-4, \
+            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
         elif abs(res['discharge_other'][home, h] < 1e-3
