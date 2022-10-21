@@ -217,11 +217,12 @@ def _update_paths(paths, prm, no_run):
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
     paths["res_path"] = Path("outputs") / f"{paths['res_folder']}"
     paths["input_folder"] = Path(paths["input_folder"])
-    paths["open_inputs_folder"] += f"_v{prm['syst']['data_version']}"
-    paths["hedge_inputs_folder"] += f"_v{prm['syst']['data_version']}"
-    paths["open_inputs"] = paths["input_folder"] / paths["open_inputs_folder"]
+    paths["open_inputs"] \
+        = paths["input_folder"] \
+          / f"{paths['open_inputs_folder']}_v{prm['syst']['data_version']}"
     paths['hedge_inputs'] \
-        = paths["input_folder"] / paths["hedge_inputs_folder"]
+        = paths["input_folder"] \
+          / f"{paths['hedge_inputs_folder']}_v{prm['syst']['data_version']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
 
     return paths
