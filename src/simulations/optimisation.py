@@ -206,7 +206,7 @@ class Optimiser():
         # battery energy balance
         p.add_constraint(discharge_tot
                          == discharge_other / self.car['eta_dis']
-                         + self.car['batch_loads_EV'][:, 0: N])
+                         + self.car['batch_loads_car'][:, 0: N])
 
         p = self._storage_constraints(
             p, charge, discharge_tot, discharge_other, store
@@ -295,23 +295,23 @@ class Optimiser():
 
         p.add_list_of_constraints(
             [store[:, time + 1] >= car['SoCmin']
-             * self.ntw['Bcap'][:, time] * car['batch_avail_EV'][:, time]
+             * self.ntw['Bcap'][:, time] * car['batch_avail_car'][:, time]
              for time in range(self.N - 1)])
 
         # if EV not avail at a given time step,
         # it is ok to start the following time step with less than minimum
         p.add_list_of_constraints(
-            [store[:, time + 1] >= car['baseld'] * car['batch_avail_EV'][:, time]
+            [store[:, time + 1] >= car['baseld'] * car['batch_avail_car'][:, time]
              for time in range(self.N - 1)])
 
         # can charge only when EV is available
         p.add_constraint(
-            charge <= car['batch_avail_EV'][:, 0: self.N] * self.syst['M'])
+            charge <= car['batch_avail_car'][:, 0: self.N] * self.syst['M'])
 
         # can discharge only when EV is available (Except EV cons is ok)
         p.add_constraint(
             discharge_other
-            <= car['batch_avail_EV'][:, 0: self.N] * self.syst['M']
+            <= car['batch_avail_car'][:, 0: self.N] * self.syst['M']
         )
         p.add_constraint(store <= self.ntw['Bcap'])
         p.add_constraint(car['c_max'] >= charge)
@@ -403,13 +403,13 @@ class Optimiser():
         # EV availability
         cin += 1
         fin[cin], axs = plt.subplots(prm['ntw']['n'], 1)
-        lin[cin] = 'batch_avail_EV'
+        lin[cin] = 'batch_avail_car'
         for home in range(prm['ntw']['n']):
             labelb = 'agent ' + str(home)
             axb = axs[home] if prm['ntw']['n'] > 1 else axs
 
             for time in range(prm['syst']['N']):
-                if prm['car']['batch_avail_EV'][home, time] == 0:
+                if prm['car']['batch_avail_car'][home, time] == 0:
                     axb.axvspan(time - 0.5, time + 0.5, alpha=0.1, color='red')
             axb.set_ylabel(labelb)
         plt.xlabel('Time [h]')
@@ -419,8 +419,8 @@ class Optimiser():
         # EV cons
         cin += 1
         fin[cin] = plt.figure()
-        lin[cin] = 'batch_loads_EV'
-        self._plot_y(prm, prm['car']['batch_loads_EV'], time)
+        lin[cin] = 'batch_loads_car'
+        self._plot_y(prm, prm['car']['batch_loads_car'], time)
         plt.xlabel('Time [h]')
         plt.ylabel('EV consumption [kWh]')
         if prm['ntw']['n'] > 1:

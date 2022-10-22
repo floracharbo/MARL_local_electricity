@@ -85,6 +85,7 @@ def _colours_to_prm(save, prm, colours0, colours, all_evaluation_methods):
 
 
 def list_all_evaluation_methods(entries):
+    """List all possible evaluation methods - not just in this run."""
     if entries is None:
         all_evaluation_methods = []
         reward_structure_combs = \
@@ -99,6 +100,60 @@ def list_all_evaluation_methods(entries):
         all_evaluation_methods = entries
 
     return all_evaluation_methods
+
+
+def add_colours_from_candidate_palettes(n_colours, n_colours0):
+    """Add colours from candidate palettes to the list if they are different enough."""
+    n_added = 0
+    colours = []
+    palettes = [
+        'Set1', 'Set2', 'Set3', 'viridis', 'plasma', 'inferno',
+        'magma', 'cividis', 'Pastel1', 'Pastel2', 'Paired',
+        'Accent', 'Dark2', 'tab10', 'tab20', 'tab20b', 'tab20c'
+    ]
+
+    for palette in palettes:
+        # the colour map we select additional colours from
+        colour_map = plt.get_cmap(palette)
+        colours_palette = [
+            colour_map(j) for j in range(len(colour_map.__dict__['colors']))
+        ]
+        n_add = min(n_colours - n_added - n_colours0, len(colours_palette))
+        added_i = 0
+        for colour in colours_palette:
+            # loop through colours in the palette
+            if added_i < n_add:
+                # for as long as we still need colours,
+                # check the proposed colours
+                # are different enough
+                enough_diff = _check_colour_diffs(
+                    colours, colour, min_diffs=[0.21, 0.6, 0.5, 1]
+                )
+                if len(colours) == 0 or enough_diff:
+                    # if different enough, add to the list of colours
+                    colours += [colour]
+                    added_i += 1
+        n_added += added_i
+
+    return colours, n_added
+
+
+def add_random_colours(colours, n_added, n_colours, n_colours0):
+    """Add random colours to the list if they are different enough."""
+    iteration = 0
+    random.seed(0)
+    while n_added < n_colours - n_colours0 and iteration < 1000:
+        # if we still need more colours, just try random colours
+        colour = (random.random(), random.random(), random.random(), 1)
+        enough_diff = _check_colour_diffs(
+            colours, colour, min_diffs=[0, 0, 0, 3]
+        )
+        if len(colours) == 0 or enough_diff:
+            colours += [colour]
+            n_added += 1
+        iteration += 1
+
+    return colours
 
 
 def generate_colours(save, prm, colours_only=False, entries=None):
@@ -131,50 +186,15 @@ def generate_colours(save, prm, colours_only=False, entries=None):
     # list all possible for consistent colours ordering
     all_evaluation_methods = list_all_evaluation_methods(entries)
     n_colours = len(all_evaluation_methods)
-    n_added = 0
-    colours = []
 
     # first, loop through candidate colours and colour palettes
-    colours0 = ['red', 'darkorange', 'grey', 'forestgreen',
-               'deepskyblue', 'mediumblue', 'darkviolet', 'lawngreen']
-    palettes = ['Set1', 'Set2', 'Set3', 'viridis', 'plasma', 'inferno',
-                'magma', 'cividis', 'Pastel1', 'Pastel2', 'Paired',
-                'Accent', 'Dark2', 'tab10', 'tab20', 'tab20b', 'tab20c']
+    colours0 = [
+        'red', 'darkorange', 'grey', 'forestgreen',
+        'deepskyblue', 'mediumblue', 'darkviolet', 'lawngreen'
+    ]
 
-    for palette in palettes:
-        # the colour map we select additional colours from
-        colour_map = plt.get_cmap(palette)
-        colours_palette = [colour_map(j)
-                          for j in range(len(colour_map.__dict__['colors']))]
-        n_add = min(n_colours - n_added - len(colours0), len(colours_palette))
-        added_i = 0
-        for colour in colours_palette:
-            # loop through colours in the palette
-            if added_i < n_add:
-                # for as long as we still need colours,
-                # check the proposed colours
-                # are different enough
-                enough_diff = _check_colour_diffs(
-                    colours, colour, min_diffs=[0.21, 0.6, 0.5, 1]
-                )
-                if len(colours) == 0 or enough_diff:
-                    # if different enough, add to the list of colours
-                    colours += [colour]
-                    added_i += 1
-        n_added += added_i
-
-    iteration = 0
-    random.seed(0)
-    while n_added < n_colours - len(colours0) and iteration < 1000:
-        # if we still need more colours, just try random colours
-        colour = (random.random(), random.random(), random.random(), 1)
-        enough_diff = _check_colour_diffs(
-            colours, colour, min_diffs=[0, 0, 0, 3]
-        )
-        if len(colours) == 0 or enough_diff:
-            colours += [colour]
-            n_added += 1
-        iteration += 1
+    colours, n_added = add_colours_from_candidate_palettes(n_colours, len(colours0))
+    colours = add_random_colours(colours, n_added, n_colours, len(colours0))
 
     if colours_only:
         return colours0 + colours

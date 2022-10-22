@@ -508,11 +508,11 @@ class Record():
 
         self.mean_eval_rewards[self.repeat][method].append(epoch_mean_eval_t)
         all_mean_eval_t = self.mean_eval_rewards[self.repeat][method]
-        for e in self.break_down_rewards_entries:
+        for info in self.break_down_rewards_entries:
             eval_step_t_e = \
                 None if method not in eval_steps \
-                else eval_steps[method][e]
-            self.__dict__[e][self.repeat][method].append(
+                else eval_steps[method][info]
+            self.__dict__[info][self.repeat][method].append(
                 np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None
                 else None)
         # we have done at least 6 steps

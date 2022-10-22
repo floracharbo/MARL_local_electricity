@@ -23,6 +23,10 @@ class LearningManager():
         self.learner = learner
         self.N = prm["syst"]["N"]
         self.episode_batch = episode_batch
+        self.methods_opt = [
+            method for method in self.rl["evaluation_methods"]
+            if method[0:3] == "opt" and method != "opt"
+        ]
 
     def learning(self,
                  current_state: list,
@@ -68,9 +72,7 @@ class LearningManager():
                              for i_step in range(self.N)],
                             rl["dim_states"])
                  for e in ["state", "next_state"]]
-            t_opts = [method for method in rl["evaluation_methods"]
-                      if method[0:3] == "opt" and method != "opt"]
-            for method in t_opts:
+            for method in self.methods_opt:
                 if reward_type(method) == "d":
                     reward_diff_e = "reward_diff" \
                         if data_source(method) == "opt" \
@@ -110,19 +112,17 @@ class LearningManager():
                                   reward_diffs: list
                                   ):
         """Learn using DDPG, DQN, or DDQN."""
-        t_opts = [t_ for t_ in self.rl["evaluation_methods"]
-                  if t_[0:3] == "opt" and t_ != "opt"]
-        for t_ in t_opts:
+        for method in self.methods_opt:
             # this assumes the states are the same for all
             # and that no trajectory
             if self.rl["distr_learning"] == 'joint':
-                self.learner[t_].learn(
+                self.learner[method].learn(
                     current_state[0], actions, reward, state[0])
             else:
                 for home in self.homes:
-                    if reward_type(t_) == 'r' and self.rl['competitive']:
+                    if reward_type(method) == 'r' and self.rl['competitive']:
                         reward = indiv_rewards[home]
-                    elif reward_type(t_) == 'd':
+                    elif reward_type(method) == 'd':
                         reward = reward_diffs[home]
                     if self.rl['type_learning'] in ['DQN', 'DDQN']:
                         i_current_state, i_action, i_state = [
@@ -132,19 +132,19 @@ class LearningManager():
                                 [current_state, actions, state],
                                 ["state", "action", "state"])]
                         if self.rl["distr_learning"] == "decentralised":
-                            self.learner[t_][home].learn(
+                            self.learner[method][home].learn(
                                 i_current_state[home], i_action[home],
                                 reward, i_state[home])
                         else:
-                            self.learner[t_].learn(
+                            self.learner[method].learn(
                                 i_current_state[home], i_action[home],
                                 reward, i_state[home])
                     else:
                         if self.rl["distr_learning"] == "decentralised":
-                            self.learner[t_][home].learn(
+                            self.learner[method][home].learn(
                                 current_state[home], actions[home], reward, state[home])
                         else:
-                            self.learner[t_].learn(
+                            self.learner[method].learn(
                                 current_state[home], actions[home], reward, state[home])
 
     def trajectory_deep_learn(self,

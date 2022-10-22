@@ -19,19 +19,18 @@ def _plot_1d_state_space_best_psi(
         theta_M = []
         for method in prm["save"]["eval_entries_plot_indiv"]:
             index_a = home if distr_learning(method) in ['d', 'Cd'] else 0
-            theta_M.append([best_theta[method][index_a][int(s)]
-                            for s in range(rl["possible_states_0_0"])])
+            theta_M.append(
+                [best_theta[method][index_a][int(s)] for s in range(rl["possible_states"])]
+            )
         im = ax.imshow(theta_M, vmin=0, vmax=1)
         title = f"best theta per method and per state state space " \
                 f"{rl['statecomb_str']} repeat {repeat} home {home}"
         formatting_ticks(
-            ax, fig, xs=prm["save"]["eval_entries_plot_indiv"],
-            ys=range(rl["possible_states_0_0"]),
+            ax, fig, prm,
+            xs=prm["save"]["eval_entries_plot_indiv"],
+            ys=range(rl["possible_states"]),
             title=title, im=im,
             grid=False,
-            fig_folder=prm['paths']['fig_folder'],
-            save_run=prm['save']['save_run'],
-            high_res=prm['save']['high_res'],
             display_title=False
         )
 
@@ -46,7 +45,7 @@ def _plot_2d_state_space_best_psi(
             M = np.zeros((record.granularity_state0,
                           record.granularity_state1))
             index_a = home if distr_learning(method) in ['d', 'Cd'] else 0
-            for s in range(rl["possible_states_0_0"]):
+            for s in range(rl["possible_states"]):
                 s1, s2 = spaces.global_to_indiv_index(
                     'state', s, multipliers=granularity_to_multipliers(
                         [record.granularity_state0,
@@ -60,12 +59,10 @@ def _plot_2d_state_space_best_psi(
             title = f"best theta per state combination state space " \
                     f"{rl['state_space']} repeat {repeat} home {home}"
             formatting_ticks(
-                ax, fig, ys=record.granularity_state1,
+                ax, fig, prm,
+                ys=record.granularity_state1,
                 xs=record.granularity_state0,
                 title=title, im=im, grid=False,
-                fig_folder=prm['paths']['fig_folder'],
-                save_run=prm['save']['save_run'],
-                high_res=prm['save']['high_res'],
                 display_title=False
             )
 
@@ -74,7 +71,7 @@ def _plot_unique_state_best_psi(
         prm, best_theta, index_to_val, q, repeat
 ):
     rl = prm["RL"]
-    possible_states = rl["possible_states_0_0"]
+    possible_states = rl["possible_states"]
     eval_entries_plot_indiv = prm["save"]["eval_entries_plot_indiv"]
 
     for method in eval_entries_plot_indiv:
@@ -132,6 +129,17 @@ def plot_best_actions(
     best_theta = initialise_dict(prm["save"]["eval_entries_plot_indiv"])
     q = rl["q_tables"][repeat][rl['n_epochs'] - 1] \
         if record.save_qtables else rl["q_tables"][repeat]
+
+    for method in prm["save"]["eval_entries_plot_indiv"]:
+        n_homes = prm['ntw']['n'] if distr_learning(method) in ['d', 'Cd'] else 1
+        best_theta[method] = initialise_dict(range(n_homes), type_obj='empty_dict')
+        for home in range(n_homes):
+            best_theta[method][home] = np.zeros((rl['possible_states'],))
+            for s in range(rl['possible_states']):
+                indmax = np.argmax(q[method][home][s])
+                best_theta[method][home][s] = \
+                    spaces.index_to_val([indmax], typev='action')[0]
+
     if rl['state_space'] == [None]:
         _plot_unique_state_best_psi(
             prm, best_theta, spaces.index_to_val, q, repeat
@@ -198,7 +206,7 @@ def video_visit_states(
     for method in rl["q_entries"]:
         maxval = np.max(
             [np.sum(counters[rl['n_epochs'] - 1][method][s])
-             for s in range(rl["possible_states_0_0"])])
+             for s in range(rl["possible_states"])])
 
         for epoch in range(rl['n_epochs']):
             fig = plt.figure()
@@ -208,7 +216,7 @@ def video_visit_states(
                               record.granularity_state1))
                 plt.ylabel(rl['state_space'][0])
                 plt.xlabel(rl['state_space'][1])
-                for s in range(rl["possible_states_0_0"]):
+                for s in range(rl["possible_states"]):
                     s1, s2 = spaces.global_to_indiv_index(
                         'state', s, multipliers=granularity_to_multipliers(
                             [record.granularity_state0,
@@ -221,12 +229,12 @@ def video_visit_states(
                     np.zeros((record.granularity_state0, rl['n_action']))
                 plt.ylabel(rl['state_space'][0])
                 plt.xlabel(r'$\theta$ [-]')
-                for s in range(rl["possible_states_0_0"]):
+                for s in range(rl["possible_states"]):
                     for home in range(rl['n_action']):
                         counters_per_state[s, home] = counters[epoch][method][s][home]
             else:
                 counters_per_state = [
-                    sum(counters[epoch][method][s]) for s in range(rl["possible_states_0_0"])
+                    sum(counters[epoch][method][s]) for s in range(rl["possible_states"])
                 ]
                 plt.xlabel(rl['state_space'][0])
             plt.imshow(counters_per_state, vmin=0, vmax=maxval)
@@ -285,5 +293,4 @@ def plot_final_explorations(repeat, record, prm):
             rl["state_space_0"][repeat][home][method] = \
                 sum_state_0 / rl['n_total_discrete_states']
             rl["action_state_space_0"][repeat][home][method] = \
-                sum_action_0 / (rl['n_total_discrete_states']
-                                * rl['n_discrete_actions'])
+                sum_action_0 / (rl['n_total_discrete_states'] * rl['n_discrete_actions'])

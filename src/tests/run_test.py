@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from src.initialisation.generate_colours import (_check_colour_diffs,
-                                                generate_colours)
+                                                 generate_colours)
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
@@ -67,8 +67,7 @@ def patch_find_feasible_data(
     if data_feasible and 'opt' in type_actions:  # start with opt
         # exploration through optimisation
         step_vals, mus_opt, data_feasible = self.get_steps_opt(
-            res, step_vals, evaluation, cluss,
-            factors, batch, self.seed[self.passive_ext],
+            res, step_vals, evaluation, cluss, factors, batch,
             last_epoch=epoch == self.prm['RL']['n_epochs'] - 1)
 
     seed_data = res, factors, cluss, batch
@@ -78,7 +77,7 @@ def patch_find_feasible_data(
 
 def patch_update_date(self, i0_costs, date0=None):
     self.i0_costs = 12 * 24
-    self.date0 = self.prm['syst']['date0'] + timedelta(days=12)
+    self.date0 = self.prm['syst']['date0_dtm'] + timedelta(days=12)
     self.action_translator.date0 = self.date0
     self.date_end = self.date0 + timedelta(hours=self.N)
     self.car.date0 = self.date0
@@ -102,10 +101,10 @@ def patch_set_date(
 ):
     set_seeds_rdn(0)
     delta_days = 12
-    date0 = self.prm['syst']['date0'] \
+    date0 = self.prm['syst']['date0_dtm'] \
         + timedelta(days=delta_days)
-    self.prm['syst']['current_date0'] = date0
-    delta = date0 - self.prm['syst']['date0']
+    self.prm['syst']['current_date0_dtm'] = date0
+    delta = date0 - self.prm['syst']['date0_dtm']
     i0_costs = int(delta.days * 24 + delta.seconds / 3600)
     self.prm['grd']['C'] = \
         self.prm['grd']['Call'][

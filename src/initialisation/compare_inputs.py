@@ -16,14 +16,13 @@ import numpy as np
 # numbers of runs to compare
 # RUN_A = 578 # q learning
 # RUN_B = 571 # DQN
-RUN_A = 599  # facmac good
+RUN_A = 342  # facmac good
 # RUN_B = 564 # DDPG
-RUN_B = 630  # facmac not good
+RUN_B = 628  # facmac not good
 runs = [RUN_A, RUN_B]
 
 # path
-PATH = '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/' \
-       'Python/Phase2/results/results_EPGBeast/'
+PATH = 'outputs/results/'
 
 prm, labels = [], []
 for i in range(2):
@@ -53,7 +52,9 @@ def _find_interchangeable_val(current_val):
                        ['we', 'we2we'],
                        ['lds', 'loads'],
                        ['n_actions', 'n_discrete_actions'],
-                       ['repeats', 'n_repeats']
+                       ['repeats', 'n_repeats'],
+                       ['chargetype', 'charge_type'],
+                       ['bat', 'car']
                        ]
 
     i_find_val = [i for i, it in enumerate(interchangeable)

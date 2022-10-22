@@ -31,44 +31,6 @@ from src.simulations.optimisation import Optimiser
 from src.utilities.userdeftools import set_seeds_rdn
 
 
-def format_ntw(ntw, loads, syst, car, batch, passive_ext):
-    """Format network parameters in preparation for optimisation."""
-    # Willingness to delay (WTD)
-    WTD = np.zeros((loads['n_types'], syst['N']), dtype=int)
-    if loads['flextype'] == 1:
-        WTD[0] = np.zeros(syst['N'])
-        for time in range(syst['N']):
-            WTD[1, time] = max(min(loads['flex'][1], syst['N'] - 1 - time), 0)
-    else:
-        for load_type in range(loads['n_types']):
-            for time in range(syst['N']):
-                WTD[load_type][time] = max(
-                    min(loads['flex'][load_type], syst['N'] - 1 - time), 0)
-
-    # make ntw matrices
-    ntw['Bcap'] = np.zeros((ntw['n' + passive_ext], syst['N']))
-    ntw['loads'] = np.zeros((loads['n_types'], ntw['n' + passive_ext], syst['N']))
-    ntw['flex'] = np.zeros(
-        (syst['N'], loads['n_types'], ntw['n' + passive_ext], syst['N']))
-
-    ntw['gen'] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
-    for home in range(ntw['n' + passive_ext]):
-        ntw['gen'][home] = batch[home]['gen'][0: len(ntw['gen'][home])]
-        for time in range(syst['N']):
-            ntw['Bcap'][home, time] = car['cap' + passive_ext][home]
-            for load_type in range(loads['n_types']):
-                loads_str = 'loads' if 'loads' in batch[home] else 'lds'
-                ntw['loads'][0][home][time] = batch[home][loads_str][time] \
-                    * (1 - loads['share_flexs'][home])
-                ntw['loads'][1][home][time] = batch[home][loads_str][time] \
-                    * loads['share_flexs'][home]
-                for tC in range(syst['N']):
-                    if time <= tC <= time + int(WTD[load_type][time]):
-                        ntw['flex'][time, load_type, home, tC] = 1
-
-    return ntw
-
-
 class DataManager():
     """Generating, checking, formatting data for explorations."""
 
@@ -98,6 +60,45 @@ class DataManager():
         # instead of looking at the n-th seed, look at the(n+d_ind_seed)th seed
         self.d_ind_seed = {'P': 0, '': 0}
 
+    def format_ntw(self, batch, passive_ext):
+        """Format network parameters in preparation for optimisation."""
+        ntw, loads, syst, car = [
+            self.prm[data_file] for data_file in ['ntw', 'loads', 'syst', 'car']
+        ]
+        potential_delay = np.zeros((loads['n_types'], syst['N']), dtype=int)
+        if loads['flextype'] == 1:
+            potential_delay[0] = np.zeros(syst['N'])
+            for time in range(syst['N']):
+                potential_delay[1, time] = max(min(loads['flex'][1], syst['N'] - 1 - time), 0)
+        else:
+            for load_type in range(loads['n_types']):
+                for time in range(syst['N']):
+                    potential_delay[load_type][time] = max(
+                        min(loads['flex'][load_type], syst['N'] - 1 - time), 0)
+
+        # make ntw matrices
+        ntw['Bcap'] = np.zeros((ntw['n' + passive_ext], syst['N']))
+        ntw['loads'] = np.zeros((loads['n_types'], ntw['n' + passive_ext], syst['N']))
+        ntw['flex'] = np.zeros(
+            (syst['N'], loads['n_types'], ntw['n' + passive_ext], syst['N']))
+
+        ntw['gen'] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
+        for home in range(ntw['n' + passive_ext]):
+            ntw['gen'][home] = batch[home]['gen'][0: len(ntw['gen'][home])]
+            for time in range(syst['N']):
+                ntw['Bcap'][home, time] = car['cap' + passive_ext][home]
+                for load_type in range(loads['n_types']):
+                    loads_str = 'loads' if 'loads' in batch[home] else 'lds'
+                    ntw['loads'][0][home][time] = batch[home][loads_str][time] \
+                                                  * (1 - loads['share_flexs'][home])
+                    ntw['loads'][1][home][time] = batch[home][loads_str][time] \
+                                                  * loads['share_flexs'][home]
+                    for time_cons in range(syst['N']):
+                        if time <= time_cons <= time + int(potential_delay[load_type][time]):
+                            ntw['flex'][time, load_type, home, time_cons] = 1
+
+        return ntw
+
     def _passive_find_feasible_data(self):
         passive = True
 
@@ -116,7 +117,7 @@ class DataManager():
         data_feasibles = self._format_data_optimiser(
             batch, passive=passive)
         factors, clusters, batch, data_feasibles = self._loop_replace_data(
-            data_feasibles, passive, self.file_id(), factors, clusters)
+            data_feasibles, passive, factors, clusters)
 
         data_feasible = all(data_feasibles)
         res = None
@@ -133,7 +134,7 @@ class DataManager():
             file_exists = (self.paths['opt_res'] / self.res_name).is_file()
         else:
             file_exists = (
-                    self.paths['opt_res'] / f"batch{self.file_id()}"
+                self.paths['opt_res'] / f"batch{self.file_id()}"
             ).is_file()
 
         new_data_needed = self.rl['deterministic'] == 2 or not file_exists
@@ -165,6 +166,7 @@ class DataManager():
                 int(self.seed[self.passive_ext]),
                 passive=passive
             )
+            assert batch[0]['loads'][0] == self.env.batch[0]['loads'][0]
         else:
             if opt_needed:
                 res = np.load(self.paths['opt_res']
@@ -181,10 +183,9 @@ class DataManager():
             batch, passive=passive)
 
         if not all(data_feasibles):
-            factors, clusters, batch, data_feasibles = \
-                self._loop_replace_data(
-                    data_feasibles, passive,
-                    self.file_id(), factors, clusters)
+            factors, clusters, batch, data_feasibles = self._loop_replace_data(
+                data_feasibles, passive, factors, clusters
+            )
             feasibility_checked = False
 
         if all(data_feasibles) and opt_needed:
@@ -200,8 +201,7 @@ class DataManager():
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
             step_vals, mus_opt, data_feasible = self.get_steps_opt(
-                res, step_vals, evaluation, clusters,
-                factors, batch, self.seed[self.passive_ext],
+                res, step_vals, evaluation, clusters, factors, batch,
                 last_epoch=epoch == self.prm['RL']['n_epochs'] - 1
             )
 
@@ -337,7 +337,6 @@ class DataManager():
             self,
             data_feasibles: np.ndarray,
             passive: bool,
-            file_id: str,
             factors: dict,
             clusters: dict
     ) -> Tuple[dict, dict, dict, np.ndarray]:
@@ -348,7 +347,7 @@ class DataManager():
         homes = copy.deepcopy(homes_0)
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
-            self.env.fix_data_a(homes, file_id, its=its)
+            self.env.fix_data_a(homes, self.file_id(), its=its)
             [factors, clusters] = self._load_res()
 
             self.batch_file, batch = self.env.reset(
@@ -453,21 +452,20 @@ class DataManager():
         passive_ext = 'P' if passive else ''
 
         # format battery info
-        bat_entries = ['avail_EV', 'loads_EV']
+        bat_entries = ['avail_car', 'loads_car']
         for bat_entry in bat_entries:
             car['batch_' + bat_entry] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
 
         bat_entries += ['bat_dem_agg']
         car['bat_dem_agg'] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
         for home in range(ntw["n" + passive_ext]):
-            for batch_entry in self.env.car.batch_entries:
-                e_batch = batch_entry if batch_entry in batch[0] else 'lds_EV'
-                car['batch_' + batch_entry][home] = \
-                    batch[home][e_batch][0: len(car['batch_' + batch_entry][home])]
+            for info in self.env.car.batch_entries:
+                car['batch_' + info][home] = \
+                    batch[home][info][0: len(car['batch_' + info][home])]
 
         loads['n_types'] = 2
 
-        ntw = format_ntw(ntw, loads, syst, car, batch, passive_ext)
+        self.format_ntw(batch, passive_ext)
 
         feasible = self.env.car.check_feasible_bat(self.prm, ntw, passive_ext, car, syst)
 

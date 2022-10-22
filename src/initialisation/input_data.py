@@ -128,9 +128,8 @@ def input_params(prm, settings=None):
     prm["RL"]["RL_to_save"] = list(prm["RL"].keys())
 
     # general system parameters
-    for info in ["date0", "max_dateend"]:
-        if info in prm["syst"] and not isinstance(prm["syst"][info], datetime.datetime):
-            prm["syst"][info] = datetime.datetime(*prm["syst"][info])
+    for info in ["date0", "max_date_end"]:
+        prm["syst"][f"{info}_dtm"] = datetime.datetime(*prm["syst"][info])
 
     # demand / generation factor initialisation for RL data generation
     # https://www.ukpower.co.uk/home_energy/average-household-gas-and-electricity-usage

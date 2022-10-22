@@ -3,7 +3,7 @@ pu: 0 # have results in per unit
 D: 1 # number of days
 H: 24 # number of hours in a day
 date0: [2020, 1, 1, 0]
-max_dateend: [2020, 2, 1, 0] # limited by data
+max_date_end: [2020, 2, 1, 0] # limited by data
 
 M: 1.e+6 # kWh; arbitrarily large number such that M >> battery capacity
 co2tax: 70 # GBP/tCO2
@@ -22,5 +22,8 @@ n_loads_clus: 4
 seed: 0
 behaviour_types: ['loads', 'car']
 data_types: ['loads', 'car', 'gen']
-prices_year: 2021
+year: 2021
 data_version: 2
+f_std_share: 1
+clust_dist_share: 1
+weekday_type: ['wd', 'we']  # week day types - wd: weekday day and we: weekend day

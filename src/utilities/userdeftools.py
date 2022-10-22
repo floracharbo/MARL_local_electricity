@@ -83,7 +83,8 @@ def initialise_dict(
         'empty_dict': {},
         'zeros': np.zeros(n),
         'zero': 0,
-        'Nones': [None] * n
+        'Nones': [None] * n,
+        'empty_np_array': np.array([])
     }
     if len(second_level_entries) > 0:
         type_obj = 'empty_dict'

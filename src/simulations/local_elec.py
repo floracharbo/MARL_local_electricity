@@ -14,12 +14,13 @@ from typing import List, Tuple
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
-from scipy.stats import gamma
+from scipy.stats import norm
 from six import integer_types
 
 from src.home_components.battery import Battery
 from src.home_components.heat import Heat
 from src.simulations.action_translator import Action_translator
+from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
 from src.utilities.userdeftools import initialise_dict
 
@@ -40,7 +41,7 @@ class LocalElecEnv():
         self.batchfile0 = 'batch'
         self.envseed = self._seed()
         self.random_seeds_use = {}
-        self.batch_entries = ['loads', 'gen', 'loads_EV', 'avail_EV', 'flex']
+        self.batch_entries = ['loads', 'gen', 'loads_car', 'avail_car', 'flex']
         self.clus, self.f = {}, {}
         self.labels = ['loads', 'car', 'gen']
         self.labels_clus = ['loads', 'car']
@@ -81,8 +82,22 @@ class LocalElecEnv():
                     dtype=np.float32))
 
         self.max_delay = int(
-            self.prm["loads"]["max_delay"] * self.n_int_per_hr
+            prm["loads"]["max_delay"] * self.n_int_per_hr
         )
+
+        self.hedge = HEDGE(
+            n_homes=prm['ntw']['n'],
+            factors0=prm['syst']['f0'],
+            clusters0=prm['syst']['clus0'],
+            prm=prm
+        )
+        if prm['ntw']['nP'] > 0:
+            self.passive_hedge = HEDGE(
+                n_homes=prm['ntw']['nP'],
+                factors0=prm['syst']['f0'],
+                clusters0=prm['syst']['clus0'],
+                prm=prm
+            )
 
     def reset(
             self,
@@ -150,16 +165,16 @@ class LocalElecEnv():
 
         for _ in range(2):
             self._load_next_day()
+
         self.car.add_batch(self.batch)
-
         self.batch = self.car.compute_bat_dem_agg(self.batch)
-
         self._loads_test()
 
         return self.save_file, self.batch
 
-    def reinitialise_envfactors(self, date0, epoch, i_explore,
-                                evaluation_add1=False):
+    def reinitialise_envfactors(
+            self, date0, epoch, i_explore, evaluation_add1=False
+    ):
         """Reinitialise factors and clusters lists."""
         if evaluation_add1:
             i_explore += 1
@@ -346,7 +361,7 @@ class LocalElecEnv():
                                  new_batch_flex, self.car.store]
             next_state = self.get_state_vals(inputs=inputs_next_state) \
                 if not self.done \
-                else [None for home in homes]
+                else [None for _ in homes]
             if implement:
                 for home in homes:
                     batch_flex[home][h: h + 2] = new_batch_flex[home]
@@ -404,8 +419,9 @@ class LocalElecEnv():
         if passive_vars is not None:
             netp0, discharge_tot0, charge0 = passive_vars
         elif self.cap_p == 'capP':
-            netp0, discharge_tot0, charge0 = \
-                [[0 for _ in range(self.prm['ntw']['nP'])] for _ in range(3)]
+            netp0, discharge_tot0, charge0 = [
+                [0 for _ in range(self.prm['ntw']['nP'])] for _ in range(3)
+            ]
         else:
             seconds_per_interval = 3600 * 24 / self.prm['syst']['H']
             hour = int((self.date - self.date0).seconds / seconds_per_interval)
@@ -418,7 +434,8 @@ class LocalElecEnv():
             discharge_tot = self.car.discharge_tot
         charge = self.car.charge if charge is None else charge
         grdCt, wholesalet, cintensityt = [
-            self.grdC[i_step], self.wholesale[i_step], self.cintensity[i_step]]
+            self.grdC[i_step], self.wholesale[i_step], self.cintensity[i_step]
+        ]
 
         # negative netp is selling, positive buying
         grid = sum(netp) + sum(netp0)
@@ -513,6 +530,11 @@ class LocalElecEnv():
         constraint_ok = True
         loads, home_vars, bool_penalty = \
             self.action_translator.actions_to_env_vars(loads, home_vars, action, date, h)
+        for home in self.homes:
+            assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
+                f"home = {home}, no flex cons at last time step"
+            assert loads['l_fixed'][home] >= self.batch[home]['loads'][h] * (1 - self.prm['loads']['share_flexs'][home]), \
+                f"home {home} l_fixed and batch do not match"
 
         self.heat.next_T(update=True)
         self._check_constraints(
@@ -593,28 +615,24 @@ class LocalElecEnv():
         transition_type = transition_type if transition_type is not None \
             else self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
         transition_type_ = transition_type[0:2] \
-            if transition_type not in self.gamma_prms["loads"] \
+            if transition_type not in self.residual_distribution_prms["loads"] \
             else transition_type
-        fEV_new_interval = np.zeros((len(homes),))
+        factor_ev_new_interval = np.zeros((len(homes),))
         for i_home in range(len(homes)):
             home = homes[i_home]
             # factor for demand - differentiate between day types
-            df = gamma.ppf(
+            df = norm.ppf(
                 rands[0][i_home],
-                *list(self.gamma_prms["loads"][transition_type_])
+                *list(self.residual_distribution_prms["loads"][transition_type_])
             )
             self.f['loads' + passive_ext][home] = \
-                self.f["loads" + passive_ext][home] \
-                + df \
-                - self.mean_residual["loads"][transition_type_]
+                self.f["loads" + passive_ext][home] + df - self.mean_residual["loads"][transition_type_]
             # factor for generation - without differentiation between day types
-            df = gamma.ppf(
-                rands[2][i_home], *self.gamma_prms["gen"][self.date.month - 1]
+            df = norm.ppf(
+                rands[2][i_home], *self.residual_distribution_prms["gen"]
             )
             self.f["gen" + passive_ext][home] = \
-                self.f["gen" + passive_ext][home] \
-                + df \
-                - self.mean_residual["gen"][self.date.month - 1]
+                self.f["gen" + passive_ext][home] + df - self.mean_residual["gen"]
 
             # factor for EV consumption
             fs_brackets = self.prm['car']['fs_brackets'][transition_type_]
@@ -630,7 +648,7 @@ class LocalElecEnv():
             choice = self._ps_rand_to_choice(
                 probs, rands[1][i_home]
             )
-            fEV_new_interval[i_home] = choice
+            factor_ev_new_interval[i_home] = choice
             self.f["car" + passive_ext][home] \
                 = self.prm["car"]["mid_fs_brackets"][transition_type_][int(choice)]
             for data_type in ["loads", "car"]:
@@ -644,7 +662,7 @@ class LocalElecEnv():
                 self.f_max["gen"][i_month]
             )
 
-        return fEV_new_interval
+        return factor_ev_new_interval
 
     def _get_next_clusters(self, transition_type, homes):
         for home in homes:
@@ -662,7 +680,7 @@ class LocalElecEnv():
                     [c > rdn for c in cump].index(True)
                 self.cluss[home][data_type].append(self.clus[data_type + self.passive_ext][home])
 
-    def _adjust_EV_cons(self, homes, dt, transition_type, day, i_EV, fEV_new_interval):
+    def _adjust_car_cons(self, homes, dt, transition_type, day, i_car, factor_ev_new_interval):
         transition_type_ = transition_type[0:2] \
             if transition_type not in self.prm['car']['mid_fs_brackets'] \
             else transition_type
@@ -671,25 +689,25 @@ class LocalElecEnv():
             clus = self.clus[self.car_p][home]
             it = 0
             while (
-                    np.max(day['loads_EV'][i_home])
+                    np.max(day['loads_car'][i_home])
                     > self.prm['car'][self.cap_p][home]
                     and it < 100
             ):
-                if fEV_new_interval[i_home] > 0:
-                    fEV_new_interval[i_home] -= 1
-                    interval = int(fEV_new_interval[i_home])
+                if factor_ev_new_interval[i_home] > 0:
+                    factor_ev_new_interval[i_home] -= 1
+                    interval = int(factor_ev_new_interval[i_home])
                     self.f[self.car_p][home] = \
                         self.prm["car"]["mid_fs_brackets"][transition_type_][interval]
-                    prof = self.prof['car']['cons'][dt][clus][i_EV[i_home]]
-                    day['loads_EV'][i_home] = [
+                    prof = self.prof['car']['cons'][dt][clus][i_car[i_home]]
+                    day['loads_car'][i_home] = [
                         x * self.f[self.car_p][home] for x in prof
                     ]
                 else:
-                    i_EV[i_home] = self.np_random.choice(
+                    i_car[i_home] = self.np_random.choice(
                         np.arange(self.n_prof['car'][dt][clus]))
                 it += 1
 
-        return day, i_EV
+        return day, i_car
 
     def _generate_new_day(self, homes: list):
         """If new day of data was not presaved, load here."""
@@ -737,40 +755,40 @@ class LocalElecEnv():
                       for i_home, home in zip(range(len(homes)), homes)]
 
         # get car cons factor, profile index, normalised profile, scaled profile
-        fEV_new_interval = self._next_factors(
+        factor_ev_new_interval = self._next_factors(
             transition_type=transition_type,
             rands=[[self.np_random.rand() for _ in range(len(homes))]
                    for _ in range(len(self.data_types))],
             homes=homes)
-        i_EV = self._compute_i_profs('car', dt=dt, homes=homes)
+        i_car = self._compute_i_profs('car', dt=dt, homes=homes)
         prof = [
-            self.prof['car']['cons'][dt][self.clus[self.car_p][home]][i_EV[i_home]]
+            self.prof['car']['cons'][dt][self.clus[self.car_p][home]][i_car[i_home]]
             for i_home, home in enumerate(homes)
         ]
-        day['loads_EV'] = \
-            [[x * self.f[self.car_p][home] if self.prm['car']['own_EV'][home]
+        day['loads_car'] = \
+            [[x * self.f[self.car_p][home] if self.prm['car']['own_car'][home]
               else 0 for x in prof[i_home]]
              for i_home, home in enumerate(homes)]
 
         # check car consumption is not larger than capacity - if so, correct
-        day, i_EV = self._adjust_EV_cons(
-            homes, dt, transition_type, day, i_EV, fEV_new_interval
+        day, i_car = self._adjust_car_cons(
+            homes, dt, transition_type, day, i_car, factor_ev_new_interval
         )
 
         # get car availability profile
-        day['avail_EV'] = \
-            [self.prof['car']['avail'][dt][self.clus[self.car_p][home]][i_EV[i_home]]
+        day['avail_car'] = \
+            [self.prof['car']['avail'][dt][self.clus[self.car_p][home]][i_car[i_home]]
              for i_home, home in zip(range(len(homes)), homes)]
         for i_home in range(len(homes)):
-            if sum(day['loads_EV'][i_home]) == 0 and sum(day["avail_EV"][i_home]) == 0:
-                day["avail_EV"][i_home] = np.ones(self.prm["syst"]["N"])
+            if sum(day['loads_car'][i_home]) == 0 and sum(day["avail_car"][i_home]) == 0:
+                day["avail_car"][i_home] = np.ones(self.prm["syst"]["N"])
         for i_home, home in enumerate(homes):
             for e in day.keys():
                 self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
         self._loads_to_flex(homes)
         self.dloaded += 1
 
-        assert len(self.batch[0]['avail_EV']) > 0, "empty avail_EV batch"
+        assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
     def _load_next_day(self, homes: list = []):
         """
@@ -780,7 +798,20 @@ class LocalElecEnv():
         or it can just be loaded
         """
         if not self.load_data or len(homes) > 0:
-            self._generate_new_day(homes)
+            homes = homes if len(homes) > 0 else self.homes
+            if self.passive_ext == '':
+                day = self.hedge.make_next_day(homes)
+            else:
+                day = self.passive_hedge.make_next_day(homes)
+
+            for i_home, home in enumerate(homes):
+                for e in day.keys():
+                    self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
+            self._loads_to_flex(homes)
+            self.dloaded += 1
+
+            assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
+
         else:
             for e in ['batch', 'clusters', 'factors']:
                 self.__dict__[e] = np.load(
@@ -793,14 +824,15 @@ class LocalElecEnv():
             self.dloaded += len(self.factors[0][loads_p])
 
         assert len(self.batch) > 0, "empty batch"
-        assert len(self.batch[0]['avail_EV']) > 0, "empty avail_EV batch"
+        assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
-    def _compute_i_profs(self,
-                         data_type: str,
-                         dt: str = None,
-                         idx_month: int = None,
-                         homes: list = None
-                         ) -> list:
+    def _compute_i_profs(
+            self,
+            data_type: str,
+            dt: str = None,
+            idx_month: int = None,
+            homes: list = None
+    ) -> list:
         """Get random indexes for profile selection."""
         homes = self.homes if len(homes) == 0 else homes
         i_profs = []
@@ -958,8 +990,8 @@ class LocalElecEnv():
             current_T_req = T_req[hour]
             val = 0 if len(t_change_T_req) == 0 \
                 else (next_T_req - current_T_req) / (t_change_T_req[0] - hour)
-        elif descriptor == 'EV_tau':
-            val = self.car.EV_tau(hour, date, home, store[home])
+        elif descriptor == 'car_tau':
+            val = self.car.car_tau(hour, date, home, store[home])
         elif len(descriptor) > 9 \
                 and (descriptor[-9:-5] == 'fact'
                      or descriptor[-9:-5] == 'clus'):
@@ -976,13 +1008,13 @@ class LocalElecEnv():
         else:  # select current or previous hour - step or prev
             h = self._get_h() if descriptor[-4:] == 'step' \
                 else self._get_h() - 1
-            if len(descriptor) > 8 and descriptor[0:8] == 'avail_EV':
-                val = self.batch[home]['avail_EV'][h]
+            if len(descriptor) > 8 and descriptor[0: len('avail_car')] == 'avail_car':
+                val = self.batch[home]['avail_car'][h]
             elif descriptor[0:5] == 'loads':
                 val = np.sum(batch_flex_h[home][1])
             else:
-                # gen_prod_step / prev and EV_cons_step / prev
-                batch_type = 'gen' if descriptor[0:3] == 'gen' else 'loads_EV'
+                # gen_prod_step / prev and car_cons_step / prev
+                batch_type = 'gen' if descriptor[0:3] == 'gen' else 'loads_car'
                 val = self.batch[home][batch_type][h]
 
         return val
@@ -1042,19 +1074,20 @@ class LocalElecEnv():
             grd['wholesale_all'][self.i0_costs: self.i0_costs + self.N + 1]
         self.cintensity = \
             grd['cintensity_all'][self.i0_costs: self.i0_costs + self.N + 1]
-        i_grdC_level = [i for i in range(len(self.spaces.descriptors['state']))
-                        if self.spaces.descriptors['state'][i] == 'grdC_level']
+        i_grdC_level = [
+            i for i in range(len(self.spaces.descriptors['state']))
+            if self.spaces.descriptors['state'][i] == 'grdC_level'
+        ]
         if len(i_grdC_level) > 0:
             self.normalised_grdC = \
                 [(gc - min(self.grdC[0: self.N]))
-                 / (max(self.grdC[0: self.N])
-                    - min(self.grdC[0: self.N]))
+                 / (max(self.grdC[0: self.N]) - min(self.grdC[0: self.N]))
                  for gc in self.grdC[0: self.N + 1]]
-            self.spaces.brackets['state'][i_grdC_level[0]] = \
-                [[np.percentile(self.normalised_grdC,
-                                i * 100 / self.n_grdC_level)
-                  for i in range(self.n_grdC_level)] + [1]
-                 for _ in self.homes]
+            self.spaces.brackets['state'][i_grdC_level[0]] = [
+                [np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
+                 for i in range(self.n_grdC_level)] + [1]
+                for _ in self.homes
+            ]
 
     def _initialise_new_data(self):
         # we have not loaded data from file -> save new data
@@ -1089,7 +1122,7 @@ class LocalElecEnv():
             self.car.batch[home]['flex'] = np.zeros((0, self.max_delay + 1))
 
     def _init_factors_clusters_profiles_parameters(self, prm):
-        for data in ["f_min", "f_max", "gamma_prms", "mean_residual",
+        for data in ["f_min", "f_max", "residual_distribution_prms", "mean_residual",
                      "n_clus", "p_clus", "p_trans", "n_prof",
                      "N", "n_int_per_hr", "dt", "behaviour_types",
                      "data_types", "labels_day_trans"

@@ -98,10 +98,10 @@ def _plot_all_agents_mean_res(
     return axs
 
 
-def _plot_ev_loads_and_availability(axs, xs, lEV, home, bands_bEV):
+def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability):
     ax = axs[2, 1]
-    ax.step(xs[0:24], lEV[home][0:24], color="k", where="post")
-    for band in bands_bEV:
+    ax.step(xs[0:24], loads_car[home][0:24], color="k", where="post")
+    for band in bands_car_availability:
         ax.axvspan(band[0], band[1], alpha=0.3, color="grey")
     ax.set_ylabel("EV load [kWh]")
     grey_patch = matplotlib.patches.Patch(
@@ -235,21 +235,21 @@ def _plot_all_agents_all_repeats_res(
     return axs, all_T_air
 
 
-def _get_bands_EV_availability(bEV, home):
-    bands_bEV = []
-    non_avail = [i for i in range(24) if bEV[home][i] == 0]
+def _get_bands_car_availability(availabilities_car, home):
+    bands_car_availability = []
+    non_avail = [i for i in range(24) if availabilities_car[home][i] == 0]
     if len(non_avail) > 0:
         current_band = [non_avail[0]]
         if len(non_avail) > 1:
             for i in range(1, len(non_avail)):
                 if non_avail[i] != non_avail[i - 1] + 1:
                     current_band.append(non_avail[i - 1] + 0.99)
-                    bands_bEV.append(current_band)
+                    bands_car_availability.append(current_band)
                     current_band = [non_avail[i]]
         current_band.append(non_avail[-1] + 0.999)
-        bands_bEV.append(current_band)
+        bands_car_availability.append(current_band)
 
-    return bands_bEV
+    return bands_car_availability
 
 
 def _plot_all_agents_res(
@@ -350,15 +350,15 @@ def _plot_indiv_agent_res(
             _get_repeat_data(repeat, all_methods_to_plot, prm["paths"]["folder_run"])
 
         # plot EV availability + EV cons on same plot
-        lEV, bEV = [[last["batch"][home][e]
+        loads_car, availabilities_car = [[last["batch"][home][e]
                      for home in range(prm["ntw"]["n"])]
-                    for e in ["loads_EV", "avail_EV"]]
+                    for e in ["loads_car", "avail_car"]]
 
         for home in range(
                 min(prm["ntw"]["n"], prm["save"]["max_n_profiles_plot"])
         ):
-            xs = range(len(lEV[home]))
-            bands_bEV = _get_bands_EV_availability(bEV, home)
+            xs = range(len(loads_car[home]))
+            bands_car_availability = _get_bands_car_availability(availabilities_car, home)
 
             fig, axs = plt.subplots(4, 2, figsize=(13, 13))
 
@@ -369,7 +369,7 @@ def _plot_indiv_agent_res(
                 colours_non_methods=colours_non_methods, lw=lw_indiv)
 
             axs = _plot_ev_loads_and_availability(
-                axs, xs, lEV, home, bands_bEV
+                axs, xs, loads_car, home, bands_car_availability
             )
 
             # cum rewards
@@ -466,8 +466,9 @@ def plot_res(prm, indiv=True, list_repeat=None):
     alpha_not_indiv = 0.15
     plt.rcParams["font.size"] = "16"
     colours_methods = [prm["save"]["colourse"][method] for method in all_methods_to_plot]
-    colours_non_methods = [c for c in prm["save"]["colours"]
-                          if c not in colours_methods]
+    colours_non_methods = [
+        c for c in prm["save"]["colours"] if c not in colours_methods
+    ]
     prm["save"]["colourse"]["opt_n_c"] = prm["save"]["colourse"]["opt_n_d"]
     labels = {}
     reward_labels = {
@@ -516,12 +517,12 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, repeat):
                 str_batch = f"batch_{str_seed}_a{home}_{e}.npy"
                 if os.path.exists(str_batch):
                     batch_a_e = np.load(str_batch, mmap_mode="c")
-                    if e == "avail_EV":
+                    if e == "avail_car":
                         heatavail[home] += batch_a_e
                     else:
                         axs[home].plot(
                             batch_a_e, alpha=1 / prm["RL"]["n_epochs"])
-            if e == "avail_EV":
+            if e == "avail_car":
                 heatavail_plot = np.reshape(heatavail[home], (1, n))
                 sns.heatmap(heatavail_plot, cmap="YlGn",
                             cbar=True, ax=axs[home])
@@ -537,7 +538,7 @@ def plot_env_input(repeat, prm, record):
             or not prm["save"]["plotting_batch"]:
         return
 
-    batch_entries = ["loads", "gen", "lds_EV", "avail_EV"]
+    batch_entries = ["loads", "gen", "loads_car", "avail_car"]
     if prm["RL"]["deterministic"] == 2:
         # 0 is indeterministic, 1 is deterministic, 2 is deterministic noisy
         _plot_noisy_deterministic_inputs(

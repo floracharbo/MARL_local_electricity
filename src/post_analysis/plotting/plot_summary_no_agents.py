@@ -265,21 +265,21 @@ def plot_results_vs_nag():
         for key in res_entries:
             res[key][evaluation_method] = [res[key][evaluation_method][i] for i in order]
         line_style = 'dotted' if evaluation_method == 'opt' else '-'
-        color = prm['save']['colourse'][evaluation_method] \
+        colour = prm['save']['colourse'][evaluation_method] \
             if evaluation_method == 'opt' \
             else prm['save']['colourse'][
             f"{data_source(evaluation_method)}_{reward_type(evaluation_method)}_d"]
         plt.plot(
             res['xs'][evaluation_method],
             res['p50'][evaluation_method],
-            color=color,
+            color=colour,
             ls=line_style,
             label=evaluation_method)
         plt.fill_between(
             res['xs'][evaluation_method],
             res['p25'][evaluation_method],
             res['p75'][evaluation_method],
-            color=color,
+            color=colour,
             alpha=0.3)
         print(f"evaluation_method {evaluation_method} colour {colour} "
               f"res['xs'][evaluation_method] {res['xs'][evaluation_method]} "

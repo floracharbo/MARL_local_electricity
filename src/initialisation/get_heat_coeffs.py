@@ -129,7 +129,7 @@ def _get_building_characteristics(heat):
     return A, H, psi, Cm
 
 
-def get_heat_coeffs(heat, ntw, syst, loads, paths):
+def get_heat_coeffs(heat, ntw, syst, paths):
     """
     Compute heating coefficients from ISO simple hourly model.
 
@@ -183,7 +183,7 @@ def get_heat_coeffs(heat, ntw, syst, loads, paths):
     for e in ['T_req', 'T_LB', 'T_UB']:
         heat[e + 'P'] = [heat[e][0] for _ in range(ntw['nP'])]
 
-    heat['T_out_all'] = np.load(paths['open_inputs'] / paths['temp'])
+    heat['T_out_all'] = np.load(paths['open_inputs'] / paths['temp_file'])
 
     tau = 60 * 60 * 24 / syst['N']  # time step in seconds
     A, H, psi, Cm = _get_building_characteristics(heat)

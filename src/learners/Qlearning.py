@@ -288,7 +288,7 @@ class TabularQLearner:
                     if epoch >= self.rl['q_learning']['end_decay']:
                         self.eps[method] = 0
 
-    def _get_reward_a(self, diff_rewards, indiv_rewards, reward, q, home):
+    def _get_reward_home(self, diff_rewards, indiv_rewards, reward, q, home):
         if reward_type(q) == 'd':
             reward_a = diff_rewards[home]
         elif self.rl['competitive']:
@@ -361,11 +361,11 @@ class TabularQLearner:
                 for home in range(self.n_agents):
                     if indiv_ac[home] is not None:
                         i_table = 0 if distr_learning(q) == 'c' else home
-                        reward_a = self._get_reward_a(
+                        reward_home = self._get_reward_home(
                             diff_rewards, indiv_rewards, reward, q, home
                         )
                         self.update_q(
-                            reward_a, done, ind_indiv_s[home],
+                            reward_home, done, ind_indiv_s[home],
                             ind_indiv_ac[home], ind_next_indiv_s[home],
                             i_table=i_table, q_table_name=q)
 

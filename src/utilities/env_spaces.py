@@ -52,12 +52,12 @@ def granularity_to_multipliers(granularity):
     return multipliers
 
 
-def compute_max_EV_cons_gen_values(env):
-    maxEVcons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
+def compute_max_car_cons_gen_values(env):
+    max_car_cons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
     for dt in ["wd", "we"]:
         for c in range(env.n_clus["car"]):
-            if np.max(env.prof["car"]["cons"][dt][c]) > maxEVcons:
-                maxEVcons = np.max(env.prof["car"]["cons"][dt][c])
+            if np.max(env.prof["car"]["cons"][dt][c]) > max_car_cons:
+                max_car_cons = np.max(env.prof["car"]["cons"][dt][c])
         for c in range(env.n_clus["loads"]):
             if np.max(env.prof["loads"][dt][c]) > max_normcons_hour:
                 max_normcons_hour = np.max(env.prof["loads"][dt][c])
@@ -66,7 +66,7 @@ def compute_max_EV_cons_gen_values(env):
                     and np.max(env.prof["gen"][m]) > max_normgen_hour:
                 max_normgen_hour = np.max(env.prof["gen"][m])
 
-    return maxEVcons, max_normcons_hour, max_normgen_hour
+    return max_car_cons, max_normcons_hour, max_normgen_hour
 
 
 class EnvSpaces():
@@ -76,7 +76,7 @@ class EnvSpaces():
         """Initialise EnvSpaces class, add properties."""
         self.n_homes = env.n_homes
         self.n_actions = env.prm["RL"]["n_discrete_actions"]
-        self.current_date0 = env.prm["syst"]["current_date0"]
+        self.current_date0 = env.prm["syst"]["current_date0_dtm"]
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["car"]["c_max"]
         self.evaluation_method = env.prm["RL"]["evaluation_methods"]
@@ -90,7 +90,7 @@ class EnvSpaces():
             "store0": self._get_store,
             "grdC_level": self._get_grdC_level,
             "dT_next": self._get_dT_next,
-            "EV_tau": self._get_EV_tau,
+            "car_tau": self._get_car_tau,
             "bat_dem_agg": self._get_bat_dem_agg
         }
 
@@ -105,8 +105,8 @@ class EnvSpaces():
     def _get_space_info(self, env):
         prm = env.prm
         # info on state and action spaces
-        maxEVcons, max_normcons_hour, max_normgen_hour \
-            = compute_max_EV_cons_gen_values(env)
+        max_car_cons, max_normcons_hour, max_normgen_hour \
+            = compute_max_car_cons_gen_values(env)
 
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
@@ -124,9 +124,9 @@ class EnvSpaces():
                  prm["heat"]["Tc"] - prm["heat"]["Ts"],
                  rl["n_other_states"], 0],
                 ["day_type", 0, 1, 2, 1],
-                ["avail_EV_step", 0, 1, 2, 1],
-                ["avail_EV_prev", 0, 1, 2, 1],
-                ["EV_tau", 0, prm["car"]["c_max"], 3, 0],
+                ["avail_car_step", 0, 1, 2, 1],
+                ["avail_car_prev", 0, 1, 2, 1],
+                ["car_tau", 0, prm["car"]["c_max"], 3, 0],
                 # clusters - for whole day
                 ["loads_clus_step", 0, env.n_clus["loads"] - 1,
                  env.n_clus["loads"], 1],
@@ -158,9 +158,9 @@ class EnvSpaces():
                  rl["n_other_states"], 0],
                 ["gen_prod_prev", 0, max_normgen_hour * env.f_max["gen"][i_month],
                  rl["n_other_states"], 0],
-                ["bat_cons_step", 0, maxEVcons, rl["n_other_states"], 0],
-                ["bat_cons_prev", 0, maxEVcons, rl["n_other_states"], 0],
-                ["bat_dem_agg", 0, maxEVcons, rl["n_other_states"], 0],
+                ["bat_cons_step", 0, max_car_cons, rl["n_other_states"], 0],
+                ["bat_cons_prev", 0, max_car_cons, rl["n_other_states"], 0],
+                ["bat_dem_agg", 0, max_car_cons, rl["n_other_states"], 0],
 
                 # action
                 ["action", 0, 1, rl["n_discrete_actions"], 0],
@@ -339,6 +339,8 @@ class EnvSpaces():
                         multipliers=self.multipliers[type_]
                     )
                 )
+                if index[-1] is not None and index[-1] >= self.n[type_]:
+                    print()
                 assert not (
                     index[-1] is not None and index[-1] >= self.n[type_]
                 ), f"index larger than total size of space agent {home}"
@@ -381,7 +383,7 @@ class EnvSpaces():
             perc_dict = {
                 'loads_cons_step': 'loads',
                 'gen_prod_step': 'gen',
-                'EV_cons_step': 'car',
+                'car_cons_step': 'car',
                 'grdC': 'grd'
             }
             brackets[typev] = []
@@ -404,7 +406,7 @@ class EnvSpaces():
                     brackets[typev].append(
                         [self.perc[perc_dict[ind_str]][i] for i in i_perc]
                     )
-                elif ind_str == "EV_tau":
+                elif ind_str == "car_tau":
                     brackets[typev].append([-75, 0, 10, self.c_max])
                 elif type(self.maxval[typev][s]) in [int, float]:
                     brackets[typev].append(
@@ -467,7 +469,7 @@ class EnvSpaces():
             factors: list,
             loads_prev: list,
             loads_step: list,
-            batch_avail_EV: np.ndarray
+            batch_avail_car: np.ndarray
     ) -> list:
         """
         Get state descriptor values.
@@ -504,8 +506,8 @@ class EnvSpaces():
                         and (descriptor[-9:-5] == "fact"
                              or descriptor[-9:-5] == "clus"):
                     # scaling factors / profile clusters for the whole day
-                    day = (date - prm["syst"]["current_date0"]).days
-                    module = descriptor.split("_")[0]  # EV, loads or gen
+                    day = (date - prm["syst"]["current_date0_dtm"]).days
+                    module = descriptor.split("_")[0]  # car, loads or gen
                     index_day = day - \
                         1 if descriptor.split("_")[-1] == "prev" else day
                     index_day = max(index_day, 0)
@@ -516,15 +518,15 @@ class EnvSpaces():
                         else i_step - 1
                     if i_step_val < 0:
                         i_step_val = 0
-                    if len(descriptor) > 8 and descriptor[0:8] == "avail_EV":
-                        if i_step_val < len(batch_avail_EV[0]):
-                            val = batch_avail_EV[home][i_step_val]
+                    if len(descriptor) > 8 and descriptor[0: len('avail_car')] == "avail_car":
+                        if i_step_val < len(batch_avail_car[0]):
+                            val = batch_avail_car[home][i_step_val]
                         else:
                             val = 1
                     elif descriptor[0:3] == "gen":
                         val = prm["ntw"]["gen"][home][i_step_val]
-                    else:  # remaining are EV_cons_step / prev
-                        val = prm["car"]["batch_loads_EV"][home][i_step]
+                    else:  # remaining are car_cons_step / prev
+                        val = prm["car"]["batch_loads_car"][home][i_step]
                 vals_home.append(val)
             vals.append(vals_home)
 
@@ -549,7 +551,7 @@ class EnvSpaces():
 
         return val
 
-    def _get_EV_tau(self, inputs):
+    def _get_car_tau(self, inputs):
         i_step, res, home, date, _ = inputs
 
         loads_T, deltaT, _ = \

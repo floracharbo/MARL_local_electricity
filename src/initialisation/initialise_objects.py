@@ -217,9 +217,9 @@ def _update_paths(paths, prm, no_run):
         correpsonding to prm["paths"]; with updated parameters
     """
     for data in ['carbon_intensity', 'temp']:
-        paths[data] = f"{paths[data]}_{prm['syst']['H']}.npy"
+        paths[f"{data}_file"] = f"{paths[data]}_{prm['syst']['H']}.npy"
     paths["wholesale_file"] \
-        = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['prices_year']}.npy"
+        = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['year']}.npy"
 
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
     paths["record_folder"] = paths["folder_run"] / "record"
@@ -236,7 +236,7 @@ def _update_paths(paths, prm, no_run):
 
 def _load_data_dictionaries(paths, syst):
     # load data into dictionaries
-    for info in ["gamma_prms", "mean_residual", "f_min", "f_max"]:
+    for info in ["residual_distribution_prms", "mean_residual", "f_min", "f_max"]:
         with open(paths['factors_path'] / f"{info}.pickle", "rb") as file:
             syst[info] = pickle.load(file)
 
@@ -250,22 +250,8 @@ def _load_data_dictionaries(paths, syst):
     return syst
 
 
-def _load_profiles(paths, car, syst, loads, gen):
-    # load car profiles and availability
-    # (mmap_mode = "r" means not actually loaded, but elements accessible)
-
-    profiles = {"car": {}}
-    for data in ["cons", "avail"]:
-        profiles["car"][data] = initialise_dict(syst["labels_day"])
-        for day_type in syst["labels_day"]:
-            profiles["car"][data][day_type] = \
-                initialise_dict(range(syst['n_clus']["car"]))
-
-    syst['n_prof'] = initialise_dict(syst['data_types'], "empty_dict")
-
-    prof_path = paths['hedge_inputs'] / paths['profiles_folder']
-    folders = {'cons': 'norm_EV', 'avail': 'EV_avail'}
-
+def _load_car_profiles(prof_path, profiles, syst):
+    folders = {'cons': 'norm_car', 'avail': 'car_avail'}
     for data in ["cons", "avail"]:
         path = prof_path / folders[data]
         files = os.listdir(path)
@@ -286,6 +272,10 @@ def _load_profiles(paths, car, syst, loads, gen):
             for clus in range(syst['n_clus']['car'])
         ]
 
+    return profiles, syst
+
+
+def _load_loads_profiles(prof_path, profiles, syst):
     profiles["loads"] = {}
     for day_type in syst["labels_day"]:
         profiles["loads"][day_type] = [
@@ -298,19 +288,37 @@ def _load_profiles(paths, car, syst, loads, gen):
             for clus in range(syst['n_clus']['loads'])
         ]
 
+    return profiles, syst
+
+
+def _load_profiles(paths, car, syst, loads, gen):
+    # load car profiles and availability
+    # (mmap_mode = "r" means not actually loaded, but elements accessible)
+
+    profiles = {"car": {}}
+    for data in ["cons", "avail"]:
+        profiles["car"][data] = initialise_dict(syst["labels_day"])
+        for day_type in syst["labels_day"]:
+            profiles["car"][data][day_type] = \
+                initialise_dict(range(syst['n_clus']["car"]))
+
+    syst['n_prof'] = initialise_dict(syst['data_types'], "empty_dict")
+    prof_path = paths['hedge_inputs'] / paths['profiles_folder']
+
+    profiles, syst = _load_car_profiles(prof_path, profiles, syst)
+    profiles, syst = _load_loads_profiles(prof_path, profiles, syst)
+    profiles, syst = _load_gen_profiles(prof_path, profiles, syst)
+
     with open(paths['hedge_inputs'] / "percentiles.pickle", "rb") as file:
         percentiles = pickle.load(file)
     loads['perc'] = percentiles["loads"]
     car['perc'] = percentiles["car"]
     gen['perc'] = percentiles["gen"]
 
-    # PV generation bank and month
-    profiles, gen = _load_gen_profiles(gen, profiles, prof_path, syst)
-
     return profiles, car, loads, gen
 
 
-def _load_gen_profiles(gen, profiles, prof_path, syst):
+def _load_gen_profiles(prof_path, profiles, syst):
     profiles["gen"] = {}
     for month in range(12):
         profiles['gen'][month] = np.load(
@@ -319,22 +327,22 @@ def _load_gen_profiles(gen, profiles, prof_path, syst):
         )
     syst['n_prof']['gen'] = [len(profiles['gen'][m]) for m in range(12)]
 
-    return profiles, gen
+    return profiles, syst
 
 
 def _load_bat_factors_parameters(paths, car):
-    path = paths["factors_path"] / "EV_p_pos.pickle"
+    path = paths["factors_path"] / "car_p_pos.pickle"
     with open(path, "rb") as file:
         car['f_prob_pos'] = pickle.load(file)
-    path = paths["factors_path"] / "EV_p_zero2pos.pickle"
+    path = paths["factors_path"] / "car_p_zero2pos.pickle"
     with open(path, "rb") as file:
         car['f_prob_zero2pos'] = pickle.load(file)
 
-    path = paths["factors_path"] / "EV_mid_fs_brackets.pickle"
+    path = paths["factors_path"] / "car_mid_fs_brackets.pickle"
     with open(path, "rb") as file:
         car['mid_fs_brackets'] = pickle.load(file)
 
-    path = paths["factors_path"] / "EV_fs_brackets.pickle"
+    path = paths["factors_path"] / "car_fs_brackets.pickle"
     with open(path, "rb") as file:
         car['fs_brackets'] = pickle.load(file)
 
@@ -358,13 +366,13 @@ def _update_bat_prm(prm):
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
-    if "own_EV" in car:
+    if "own_car" in car:
         car["cap"] = car["cap"] if isinstance(car["cap"], list) \
             else [car["cap"] for _ in range(ntw["n"])]
-        car["own_EV"] = [1 for _ in range(ntw["n"])] \
-            if car["own_EV"] == 1 else car["own_EV"]
+        car["own_car"] = [1 for _ in range(ntw["n"])] \
+            if car["own_car"] == 1 else car["own_car"]
         car["cap"] = [c if o == 1 else 0
-                      for c, o in zip(car["cap"], car["own_EV"])]
+                      for c, o in zip(car["cap"], car["own_car"])]
 
     if isinstance(car["cap"], (int, float)):
         car["cap"] = [car["cap"] for _ in range(ntw["n"])]
@@ -618,9 +626,10 @@ def _update_grd_prm(prm):
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
-    wholesale = [x * 1e-3 for x in np.load(wholesale_path)]  # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
+    # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
+    wholesale = [x * 1e-3 for x in np.load(wholesale_path)]
     grd["wholesale_all"] = wholesale
-    carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity"]
+    carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity_file"]
 
     # gCO2/kWh to tCO2/kWh
     grd["cintensity_all"] = np.load(
@@ -642,7 +651,7 @@ def _time_info(prm):
     syst["n_int_per_hr"] = int(syst["H"] / 24)
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
-    syst['current_date0'] = syst['date0']
+    syst['current_date0_dtm'] = syst['date0_dtm']
 
 
 def _homes_info(loads, ntw, gen, heat):
@@ -722,7 +731,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     # calculate heating coefficients for recursive expression
     # based on input data
     if initialise_all and heat is not None:
-        prm["heat"] = get_heat_coeffs(heat, ntw, syst, loads, paths)
+        prm["heat"] = get_heat_coeffs(heat, ntw, syst, paths)
 
     # %% do not save batches if too many of them!
     if rl["n_repeats"] * rl["n_epochs"] * (rl["n_explore"] + 1) > 200:
