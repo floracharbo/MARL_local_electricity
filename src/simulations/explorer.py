@@ -638,6 +638,7 @@ class Explorer():
                + prm["ntw"]["C"]
                * sum(res["netp_abs"][home][i_step]
                      for home in self.homes))
+
         if not prm["RL"]["competitive"]:
             assert abs(reward - res_reward_t) < 1e-3, \
                 f"reward {reward} != res_reward_t " \

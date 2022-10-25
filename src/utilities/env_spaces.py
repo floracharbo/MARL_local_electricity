@@ -339,8 +339,7 @@ class EnvSpaces():
                         multipliers=self.multipliers[type_]
                     )
                 )
-                if index[-1] is not None and index[-1] >= self.n[type_]:
-                    print()
+
                 assert not (
                     index[-1] is not None and index[-1] >= self.n[type_]
                 ), f"index larger than total size of space agent {home}"

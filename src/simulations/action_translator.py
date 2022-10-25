@@ -313,7 +313,8 @@ class Action_translator:
             e_balance = abs((self.res[home]['dp'] + home_vars['gen'][home]
                              + self.car.discharge[home] - self.car.charge[home]
                              - self.car.loss_ch[home] - home_vars['tot_cons'][home]))
-            assert e_balance <= 1e-3, f"energy balance {e_balance}"
+
+            assert e_balance <= 1e-2, f"energy balance {e_balance}"
             assert abs(loads['tot_cons_loads'][home] + self.heat.tot_E[home]
                    - home_vars['tot_cons'][home]) <= 1e-3, \
                 f"tot_cons_loads {loads['tot_cons_loads'][home]}, "\
