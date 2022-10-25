@@ -32,7 +32,8 @@ def check_nns_in_run_have_changed(no_run):
     nos.sort()
     types_learning = []
     for folder in folders:
-        type_learning = folder[len("models_"):]
+        type_learning = folder[len("models_"): - len(folder.split('_')[-1]) - 1]
+
         if type_learning not in types_learning:
             types_learning.append(type_learning)
     agent_changed, mixer_changed = {}, {}
@@ -41,9 +42,9 @@ def check_nns_in_run_have_changed(no_run):
         agents, mixers, opts = [], [], []
 
         for no in nos:
-            agents.append(th.load(path / f"models_env_r_c_{no}/agent.th"))
-            mixers.append(th.load(path / f"models_env_r_c_{no}/mixer.th"))
-            opts.append(th.load(path / f"models_env_r_c_{no}/opt.th"))
+            agents.append(th.load(path / f"models_{type_learning}_{no}/agent.th"))
+            mixers.append(th.load(path / f"models_{type_learning}_{no}/mixer.th"))
+            opts.append(th.load(path / f"models_{type_learning}_{no}/opt.th"))
 
         for i in range(len(agents) - 1):
             if not all(agents[0]["fc1.bias"] == agents[i + 1]["fc1.bias"]):

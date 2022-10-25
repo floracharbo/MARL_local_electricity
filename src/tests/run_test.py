@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 from src.initialisation.generate_colors import generate_colors
-from src.post_analysis.check_model_changes import check_nns_in_run_have_changed
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
@@ -249,13 +248,3 @@ def test_all(mocker):
                 assert no_run == prev_no_run + 1, "results not saving"
             run(run_mode, settings)
             prev_no_run = no_run
-
-            if type_learning == "facmac":
-                agent_changed, mixer_changed = check_nns_in_run_have_changed(no_run)
-                assert all(agent_changed.values()), f"agent network changes: {agent_changed}"
-                assert all(mixer_changed.values()), f"mixer network changes: {mixer_changed}"
-            elif type_learning == "q_learning" and ("initialise_q" not in settings["RL"] or settings["RL"]["initialise_q"] == "zeros"):
-                q_tables = np.load(f"outputs/results/run{no_run}/record/q_tables.npy", allow_pickle=True).item()
-                for evaluation_method in q_tables[0].keys():
-                    assert not np.all(np.array(q_tables[0][evaluation_method][0]) == 0), \
-                    f"q_table for {evaluation_method} is all zeros"

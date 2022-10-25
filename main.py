@@ -24,13 +24,14 @@ settings = {
         'mixer': 'qmix',
 
         # current experiment
-        'batch_size': 2,
         'rnn_hidden_dim': 1e2,
         'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']],
         'n_epochs': 5,
         'n_repeats': 2,
         'lr': 1e-4,
-        'facmac': {'critic_lr': 1e-4}
+        'facmac': {
+            'critic_lr': 1e-4,
+        },
     },
 
     'ntw': {
@@ -43,11 +44,11 @@ settings = {
 RUN_MODE = 1
 no_runs = [610]  # if plotting
 
-# run(RUN_MODE, settings)
+run(RUN_MODE, settings)
 
-for type_learning in ['facmac', 'q_learning']:
-    settings['RL']['type_learning'] = type_learning
-    for aggregate_actions in [True, False]:
-        settings['RL']['aggregate_actions'] = aggregate_actions
-        print(f"test {type_learning} aggregate_actions {aggregate_actions}")
-        run(RUN_MODE, settings)
+# for type_learning in ['q_learning', 'facmac']:
+#     settings['RL']['type_learning'] = type_learning
+#     for aggregate_actions in [True, False]:
+#         settings['RL']['aggregate_actions'] = aggregate_actions
+#         print(f"test {type_learning} aggregate_actions {aggregate_actions}")
+#         run(RUN_MODE, settings)

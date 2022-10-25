@@ -87,7 +87,7 @@ def initialise_objects(
     else:
         record = None
 
-    return prm, record, profiles
+    return prm, record, profiles, no_run
 
 
 def _make_action_space(rl):

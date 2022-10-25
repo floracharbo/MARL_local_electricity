@@ -113,6 +113,8 @@ def get_settings_i(settings, i):
                     if isinstance(val[subsubkey], list):
                         settings_i[key][sub_key][subsubkey] = \
                             val[subsubkey][i]
+                    else:
+                        settings_i[key][sub_key][subsubkey] = val[subsubkey]
             else:
                 settings_i[key][sub_key] = val
 

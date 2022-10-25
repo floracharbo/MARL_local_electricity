@@ -62,7 +62,7 @@ class Runner():
 
             if self.prm['RL']['type_learning'] == 'facmac' \
                     and self.prm["save"]["save_nns"]:
-                for t_explo in self.rl["exploration_methods"]:
+                for t_explo in self.rl["evaluation_methods"]:
                     if t_explo not in self.learner:
                         continue
                     save_path \
@@ -535,8 +535,9 @@ def run(run_mode, settings, no_runs=None):
 
             settings_i = get_settings_i(settings, i)
             # initialise learning parameters, system parameters and recording
-            prm, record, profiles = initialise_objects(
-                prm, settings=settings_i)
+            prm, record, profiles, no_run = initialise_objects(
+                prm, settings=settings_i
+            )
 
             DESCRIPTION_RUN = 'current code '
             for e in ['type_learning', 'n_repeats', 'n_epochs',
@@ -558,8 +559,9 @@ def run(run_mode, settings, no_runs=None):
             runner.run_experiment()
             record.save(end_of='end')  # save progress at end
             post_processing(
-                record, env, prm, start_time=start_time, settings_i=settings_i
+                record, env, prm, start_time=start_time, settings_i=settings_i, no_run=no_run
             )
+
             print(f"--- {time.time() - start_time} seconds ---")
 
     # post learning analysis / plotting
@@ -570,7 +572,7 @@ def run(run_mode, settings, no_runs=None):
         for no_run in no_runs:
             lp, prm = load_existing_prm(prm, no_run)
 
-            prm, record, profiles = initialise_objects(prm, no_run=no_run)
+            prm, record, profiles, no_run = initialise_objects(prm, no_run=no_run)
             # make user defined environment
             env = LocalElecEnv(prm, profiles)
             record.init_env(env)  # record progress as we train

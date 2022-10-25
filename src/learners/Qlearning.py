@@ -165,25 +165,15 @@ class TabularQLearner:
                 - self.q_tables[q_table_name][i_table][ind_state][ind_action]
             if type(td_error) in [list, np.ndarray]:
                 print(f'td_error {td_error}')
-            try:
-                lr = self.get_lr(td_error, q_table_name)
-            except Exception as ex:
-                print(f'ex = {ex}')
-                print(f'td_error = {td_error}')
-                print(f'type(td_error) = {type(td_error)}')
-                print(f'value = {value}')
-                print(f"ind_action = {ind_action}")
+            lr = self.get_lr(td_error, q_table_name)
             self.q_tables[q_table_name][i_table][ind_state][ind_action] \
                 += lr * td_error
             self.counter[q_table_name][i_table][ind_state][ind_action] += 1
 
     def get_lr(self, td_error, q):
-        if isinstance(self.alpha, float):
-            try:
-                lr = self.alpha if (not self.hysteretic or td_error > 0) \
-                    else self.alpha * self.rl['q_learning']['beta_to_alpha']
-            except Exception as ex:
-                print(f"ex = {ex}")
+        if isinstance(self.alpha, (int, float)):
+            lr = self.alpha if (not self.hysteretic or td_error > 0) \
+                else self.alpha * self.rl['q_learning']['beta_to_alpha']
         else:
             beta_to_alpha = self.rl['beta_to_alpha'] \
                 if isinstance(self.rl['beta_to_alpha'], float) \
