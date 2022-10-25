@@ -1,4 +1,4 @@
-![example workflow](https://github.com/github/docs/actions/workflows/main.yml/badge.svg)
+[![Makefile CI](https://github.com/floracharbo/private_MARL/actions/workflows/makefile.yml/badge.svg)](https://github.com/floracharbo/private_MARL/actions/workflows/makefile.yml)
 
 # Multi-agent reinforcement learning for residential energy flexibility
 
