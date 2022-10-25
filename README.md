@@ -1,3 +1,5 @@
+[![Makefile CI](https://github.com/floracharbo/private_MARL/actions/workflows/makefile.yml/badge.svg)](https://github.com/floracharbo/private_MARL/actions/workflows/makefile.yml)
+
 # Multi-agent reinforcement learning for residential energy flexibility
 
 Contact: Flora Charbonnier, flora.charbonnier@eng.ox.ac.uk
