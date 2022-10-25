@@ -1,3 +1,5 @@
+![example workflow](https://github.com/github/docs/actions/workflows/main.yml/badge.svg)
+
 # Multi-agent reinforcement learning for residential energy flexibility
 
 Contact: Flora Charbonnier, flora.charbonnier@eng.ox.ac.uk
