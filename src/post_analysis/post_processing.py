@@ -204,7 +204,9 @@ def _check_learning_occurred(prm, no_run):
         assert all(agent_changed.values()), f"agent network changes: {agent_changed}"
         assert all(mixer_changed.values()), f"mixer network changes: {mixer_changed}"
     elif prm["RL"]["type_learning"] == "q_learning" and (prm["RL"]["initialise_q"] == "zeros"):
-        q_tables = np.load(f"outputs/results/run{no_run}/record/q_tables.npy", allow_pickle=True).item()
+        q_tables = np.load(
+            f"outputs/results/run{no_run}/record/q_tables.npy", allow_pickle=True
+        ).item()
         for evaluation_method in q_tables[0].keys():
             assert not np.all(np.array(q_tables[0][evaluation_method][0]) == 0), \
                 f"q_table for {evaluation_method} is all zeros"

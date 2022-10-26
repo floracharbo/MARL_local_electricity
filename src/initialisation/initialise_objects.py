@@ -219,10 +219,10 @@ def _update_paths(paths, prm, no_run):
     paths["input_folder"] = Path(paths["input_folder"])
     paths["open_inputs"] \
         = paths["input_folder"] \
-          / f"{paths['open_inputs_folder']}_v{prm['syst']['data_version']}"
+        / f"{paths['open_inputs_folder']}_v{prm['syst']['data_version']}"
     paths['hedge_inputs'] \
         = paths["input_folder"] \
-          / f"{paths['hedge_inputs_folder']}_v{prm['syst']['data_version']}"
+        / f"{paths['hedge_inputs_folder']}_v{prm['syst']['data_version']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
 
     return paths
