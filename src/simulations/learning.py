@@ -68,8 +68,8 @@ class LearningManager():
         rl = self.prm["RL"]
         for home in self.homes:
             states_a, next_states_a = \
-                [np.reshape([step_vals["opt"][e][i_step][home]
-                             for i_step in range(self.N)],
+                [np.reshape([step_vals["opt"][e][time_step][home]
+                             for time_step in range(self.N)],
                             rl["dim_states"])
                  for e in ["state", "next_state"]]
             for method in self.methods_opt:
@@ -78,15 +78,15 @@ class LearningManager():
                         if data_source(method) == "opt" \
                         else "reward"
                     traj_reward_a = sum(
-                        [step_vals["opt"][reward_diff_e][i_step][home]
-                         for i_step in range(self.N)])
+                        [step_vals["opt"][reward_diff_e][time_step][home]
+                         for time_step in range(self.N)])
 
                 elif reward_type(method) == "r":
                     traj_reward_a = \
-                        sum([step_vals["opt"]["reward"][i_step]
-                             for i_step in range(self.N)])
-                actions_a = [step_vals["opt"]["action"][i_step][home]
-                             for i_step in range(self.N)]
+                        sum([step_vals["opt"]["reward"][time_step]
+                             for time_step in range(self.N)])
+                actions_a = [step_vals["opt"]["action"][time_step][home]
+                             for time_step in range(self.N)]
 
                 if rl["type_learning"] == "DQN":
                     self._learn_DQN(
@@ -156,10 +156,10 @@ class LearningManager():
                               ):
         """Learn from trajectory."""
         for home in self.homes:
-            states_a = [states[i_step][home]
-                        for i_step in range(self.N)]
-            next_states_a = [states[i_step][home]
-                             for i_step in range(1, self.N + 1)]
+            states_a = [states[time_step][home]
+                        for time_step in range(self.N)]
+            next_states_a = [states[time_step][home]
+                             for time_step in range(1, self.N + 1)]
             traj_reward_a = traj_reward[home] \
                 if len(method.split('_')) > 1 and reward_type(method) == 'd' \
                 and not evaluation \

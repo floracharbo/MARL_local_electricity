@@ -59,9 +59,9 @@ class Battery:
         self.M = prm['syst']['M']
 
         # import input parameters
-        for e in ['own_car', 'dep', 'c_max', 'd_max', 'eta_ch',
+        for info in ['own_car', 'dep', 'c_max', 'd_max', 'eta_ch',
                   'eta_ch', 'eta_dis', 'SoCmin']:
-            self.__dict__[e] = prm['car'][e]
+            self.__dict__[info] = prm['car'][info]
 
         # total number of time steps
         self.N = prm['syst']['N']
@@ -81,7 +81,7 @@ class Battery:
     def reset(self, prm, passive_ext=None):
         """Reset object for new episode."""
         # time step
-        self.i_step = 0
+        self.time_step = 0
 
         if passive_ext is not None:
             # passive extension
@@ -102,17 +102,29 @@ class Battery:
             # cap is the maximum capacity of tbe battery
             # min_charge is the minimum state of charge / base load
             # that needs to always be available
-            for e in ['store0', 'cap', 'min_charge']:
-                self.__dict__[e] = prm['car'][e + self.passive_ext]
+            for info in ['store0', 'cap', 'min_charge']:
+                self.__dict__[info] = prm['car'][info + self.passive_ext]
 
-    def update_step(self, res=None):
+    def update_step(self, res=None, time_step=None, implement=True):
         """Update current object variables for new step."""
-        self.i_step += 1
+        self.prev_time_step = self.time_step
+        self.prev_start_store = self.start_store.copy()
+
+        if time_step is not None:
+            self.time_step = time_step
+        else:
+            self.time_step += 1
         self._current_batch_step()
-        if res is not None and self.i_step < self.N:
-            self.store = [res['store'][home][self.i_step]
-                          for home in range(self.n_homes)]
-        self.start_store = self.store.copy()
+        if res is not None and self.time_step < self.N:
+            self.store = [
+                res['store'][home][self.time_step] for home in range(self.n_homes)
+            ]
+        if implement:
+            self.start_store = self.store.copy()
+
+    def revert_last_update_step(self):
+        self.start_store = self.prev_start_store
+        self.update_step(time_step=self.prev_time_step, implement=False)
 
     def compute_bat_dem_agg(
             self,
@@ -120,8 +132,7 @@ class Battery:
     ) -> dict:
         """Compute bat_dem_agg, i.e. having all demand at start of trip."""
         for home in range(self.n_homes):
-            batch[home]['bat_dem_agg'] = \
-                [0 for _ in range(len(batch[home]['avail_car']))]
+            batch[home]['bat_dem_agg'] = np.zeros(len(batch[home]['avail_car']))
             if self.own_car[home]:
                 start_trip, end_trip = [], []
                 if batch[home]['avail_car'][0] == 0:
@@ -166,17 +177,17 @@ class Battery:
                   self.batch['avail_car'][home][iT + i] == 1]
             iG = int(iG[0]) if len(iG) > 0 else len(self.batch['avail_car'][home])
             deltaT = iT - start_h  # time until trip
-            i_endtrip = int(min(iG, h_end))
+            i_end_trip = int(min(iG, h_end))
             # car load while on trip
-            loads_T = np.sum(self.batch['loads_car'][home][iT: i_endtrip])
+            loads_T = np.sum(self.batch['loads_car'][home][iT: i_end_trip])
 
-            return loads_T, deltaT, i_endtrip
+            return loads_T, deltaT, i_end_trip
         else:
             return None, None, None
 
     def car_tau(self, hour, date, home, store_a):
         """Compute car_tau, i.e. how much charge is needed over in how long."""
-        loads_T, deltaT, i_endtrip = self.next_trip_details(hour, date, home)
+        loads_T, deltaT, i_end_trip = self.next_trip_details(hour, date, home)
         if loads_T is not None and deltaT > 0:
             val = (loads_T - store_a) / deltaT
         else:
@@ -212,8 +223,10 @@ class Battery:
         end = False
         h_trip = time
         while not end:
-            loads_T, deltaT, i_endtrip = self.next_trip_details(
+            loads_T, deltaT, i_end_trip = self.next_trip_details(
                 h_trip, date_a, home)
+            # if i_end_trip is not None:
+            #     i_end_trip = np.min([self.N, i_end_trip])
             if loads_T is None or h_trip + deltaT > self.N:
                 end = True
             else:
@@ -221,10 +234,10 @@ class Battery:
                     loads_T, deltaT, bool_penalty, print_error, home, time
                 )
                 if time + deltaT < self.N:
-                    trips.append([loads_T, deltaT, i_endtrip])
+                    trips.append([loads_T, deltaT, i_end_trip])
                 date_a += datetime.timedelta(
-                    hours=int(i_endtrip - h_trip) * self.dt)
-                h_trip = i_endtrip
+                    hours=int(i_end_trip - h_trip) * self.dt)
+                h_trip = i_end_trip
 
         return trips
 
@@ -240,7 +253,7 @@ class Battery:
             the storage levels
         """
         if time is None:
-            time = self.i_step
+            time = self.time_step
         if date is None:
             date = self.date0 + datetime.timedelta(hours=time * self.dt)
         avail_car = [self.batch['avail_car'][home][time] for home in range(self.n_homes)]
@@ -404,15 +417,15 @@ class Battery:
                f'home = {home}, discharge[home] {self.discharge[home]} > self.d_max'
 
         # positivity
-        for e in ['store', 'charge', 'discharge', 'loss_ch', 'loss_dis']:
-            assert self.__dict__[e][home] >= - 1e-2, \
-                f'home = {home} negative {e}[home] {self.__dic__[e][home]}'
+        for info in ['store', 'charge', 'discharge', 'loss_ch', 'loss_dis']:
+            assert self.__dict__[info][home] >= - 1e-2, \
+                f'home = {home} negative {info}[home] {self.__dic__[info][home]}'
 
     def actions_to_env_vars(self, res):
         """Update battery state for current actions."""
-        for e in ['store', 'charge', 'discharge', 'loss_ch',
+        for info in ['store', 'charge', 'discharge', 'loss_ch',
                   'loss_dis', 'store_out_tot', 'discharge_tot']:
-            self.__dict__[e] = [None for home in range(self.n_homes)]
+            self.__dict__[info] = [None for home in range(self.n_homes)]
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
@@ -534,9 +547,10 @@ class Battery:
         return bool_penalty
 
     def _current_batch_step(self):
-        for e in self.batch_entries:
-            self.__dict__[e] = [self.batch[e][home][self.i_step]
-                                for home in range(self.n_homes)]
+        for info in self.batch_entries:
+            self.__dict__[info] = [
+                self.batch[info][home][self.time_step] for home in range(self.n_homes)
+            ]
 
     def _last_step(self, date):
         return date == self.date_end - datetime.timedelta(hours=self.dt)
@@ -616,7 +630,7 @@ class Battery:
                     'larger what car can be charged to'
                 self._print_error(error_message, print_error)
 
-            if simulation \
+            if self.time_step < self.N and simulation \
                     and min_charge_t[home] > self.store[home] + self.c_max + 1e-3:
                 bool_penalty[home] = True
                 error_message = \

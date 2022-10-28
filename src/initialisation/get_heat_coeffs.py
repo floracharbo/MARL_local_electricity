@@ -149,24 +149,24 @@ def get_heat_coeffs(heat, ntw, syst, paths):
         to describe the heating behaviour of the buildings
     """
     # boolean for whether comfort temperature is required
-    heat['T_req'] = [[heat['Ts'] for h in range(syst['H'])] for e in
-                     range(ntw['n'])]
-
+    day_T_req = np.ones((ntw['n'], syst['H'])) * heat['Ts']
     if len(np.shape(heat['hrs_c'][0])) == 1:
         # if hours comfort only specified once -> same for all
-        heat['hrs_c'] = [heat['hrs_c'] for e in range(ntw['n'])]
-    for e in range(ntw['n']):
-        for interval in heat['hrs_c'][e]:
-            heat['T_req'][e][interval[0] * syst['n_int_per_hr']:
+        heat['hrs_c'] = [heat['hrs_c'] for _ in range(ntw['n'])]
+    for home in range(ntw['n']):
+        for interval in heat['hrs_c'][home]:
+            day_T_req[home][interval[0] * syst['n_int_per_hr']:
                              interval[1] * syst['n_int_per_hr']] = \
                 [heat['Tc'] for _ in range((interval[1] - interval[0])
                                            * syst['n_int_per_hr'])]
-        heat['T_req'][e] *= syst['D']
-        heat['T_req'][e] += [heat['Ts']]
 
-    heat['T_UB'] = [[heat['T_req'][e][t] + heat['dT']
-                     for t in range(syst['N'] + 1)]
-                    for e in range(ntw['n'])]
+    heat['T_req'] = day_T_req
+    for day in range(syst['D'] - 1):
+        heat['T_req'] = np.concatenate((heat['T_req'], day_T_req), axis=1)
+
+    heat['T_req'] = np.concatenate((heat['T_req'], day_T_req[:, 0:2]), axis=1)
+
+    heat['T_UB'] = heat['T_req'] + heat['dT']
     for e in range(ntw['n']):
         # allow for heating one hour before when specified
         # temperature increases
@@ -176,9 +176,7 @@ def get_heat_coeffs(heat, ntw, syst, paths):
                         and heat['T_UB'][e][t + dt] > heat['T_UB'][e][t]:
                     heat['T_UB'][e][t] = heat['T_UB'][e][t + dt]
 
-    heat['T_LB'] = [[heat['T_req'][e][t] - heat['dT']
-                     for t in range(syst['N'] + 1)]
-                    for e in range(ntw['n'])]
+    heat['T_LB'] = heat['T_req'] - heat['dT']
 
     for e in ['T_req', 'T_LB', 'T_UB']:
         heat[e + 'P'] = [heat[e][0] for _ in range(ntw['nP'])]

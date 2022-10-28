@@ -31,6 +31,7 @@ state_space: ['grdC']
 # bat_dem_agg, gen_fact_prev, bat_fact_prev, loads_cons_prev
 # gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
 # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step
+# flexibility
 
 # deterministic
 deterministic: 0  # 0 is indaeterministic, 1 is deterministic, 2 is deterministic noisy
@@ -223,3 +224,5 @@ action_labels_disaggregate: [
         'Flexible heating action [-]',
         'Flexible EV charge action [-]'
 ]
+
+no_flex_action_to_target: True

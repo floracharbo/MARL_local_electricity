@@ -350,9 +350,13 @@ def _plot_indiv_agent_res(
             _get_repeat_data(repeat, all_methods_to_plot, prm["paths"]["folder_run"])
 
         # plot EV availability + EV cons on same plot
-        loads_car, availabilities_car = [[last["batch"][home][e]
-                     for home in range(prm["ntw"]["n"])]
-                    for e in ["loads_car", "avail_car"]]
+        loads_car, availabilities_car = [
+            [
+                last["batch"][home][e]
+                for home in range(prm["ntw"]["n"])
+            ]
+            for e in ["loads_car", "avail_car"]
+        ]
 
         for home in range(
                 min(prm["ntw"]["n"], prm["save"]["max_n_profiles_plot"])

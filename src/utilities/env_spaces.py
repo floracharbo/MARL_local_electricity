@@ -53,20 +53,20 @@ def granularity_to_multipliers(granularity):
 
 
 def compute_max_car_cons_gen_values(env):
-    max_car_cons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
+    max_car_cons, max_normcons, max_normgen = [-1 for _ in range(3)]
     for dt in ["wd", "we"]:
         for c in range(env.n_clus["car"]):
             if np.max(env.prof["car"]["cons"][dt][c]) > max_car_cons:
                 max_car_cons = np.max(env.prof["car"]["cons"][dt][c])
         for c in range(env.n_clus["loads"]):
-            if np.max(env.prof["loads"][dt][c]) > max_normcons_hour:
-                max_normcons_hour = np.max(env.prof["loads"][dt][c])
+            if np.max(env.prof["loads"][dt][c]) > max_normcons:
+                max_normcons = np.max(env.prof["loads"][dt][c])
         for m in range(12):
             if len(env.prof["gen"][m]) > 0 \
-                    and np.max(env.prof["gen"][m]) > max_normgen_hour:
-                max_normgen_hour = np.max(env.prof["gen"][m])
+                    and np.max(env.prof["gen"][m]) > max_normgen:
+                max_normgen = np.max(env.prof["gen"][m])
 
-    return max_car_cons, max_normcons_hour, max_normgen_hour
+    return max_car_cons, max_normcons, max_normgen
 
 
 class EnvSpaces():
@@ -76,11 +76,13 @@ class EnvSpaces():
         """Initialise EnvSpaces class, add properties."""
         self.n_homes = env.n_homes
         self.n_actions = env.prm["RL"]["n_discrete_actions"]
-        self.current_date0 = env.prm["syst"]["current_date0_dtm"]
+        self.evaluation_methods = env.prm["RL"]["evaluation_methods"]
+        self.current_date0 = env.prm['syst']['date0_dtm']
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["car"]["c_max"]
-        self.evaluation_method = env.prm["RL"]["evaluation_methods"]
         prm = env.prm
+        self.car = env.car
+        self.action_translator = env.action_translator
         self._get_space_info(env)
         self._init_factors_profiles_parameters(env, prm)
         for e in ["dim_actions", "aggregate_actions", "type_env"]:
@@ -91,7 +93,9 @@ class EnvSpaces():
             "grdC_level": self._get_grdC_level,
             "dT_next": self._get_dT_next,
             "car_tau": self._get_car_tau,
-            "bat_dem_agg": self._get_bat_dem_agg
+            "bat_dem_agg": self._get_bat_dem_agg,
+            "bool_flex": self.get_bool_flex,
+            "store_bool_flex": self.get_store_bool_flex
         }
 
     def _init_factors_profiles_parameters(self, env, prm):
@@ -105,68 +109,66 @@ class EnvSpaces():
     def _get_space_info(self, env):
         prm = env.prm
         # info on state and action spaces
-        max_car_cons, max_normcons_hour, max_normgen_hour \
+        max_car_cons, max_normcons, max_normgen \
             = compute_max_car_cons_gen_values(env)
 
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
-        info = [["none", None, None, 1, 0],
-                ["houre0dC", 0, 24, rl["n_other_states"], 0],
-                ["store0dC", 0, prm["car"]["cap"], rl["n_other_states"], 0],
-                ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]),
-                 rl["n_other_states"], 0],
-                ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
-                ["dT", - (prm["heat"]["Tc"] - prm["heat"]["Ts"]),
-                 prm["heat"]["Tc"] - prm["heat"]["Ts"],
-                 rl["n_other_states"], 0],
-                ["dT_next", - (prm["heat"]["Tc"] - prm["heat"]["Ts"]),
-                 prm["heat"]["Tc"] - prm["heat"]["Ts"],
-                 rl["n_other_states"], 0],
-                ["day_type", 0, 1, 2, 1],
-                ["avail_car_step", 0, 1, 2, 1],
-                ["avail_car_prev", 0, 1, 2, 1],
-                ["car_tau", 0, prm["car"]["c_max"], 3, 0],
-                # clusters - for whole day
-                ["loads_clus_step", 0, env.n_clus["loads"] - 1,
-                 env.n_clus["loads"], 1],
-                ["loads_clus_prev", 0, env.n_clus["loads"] - 1,
-                 env.n_clus["loads"], 1],
-                ["bat_cbat_clus_step", 0, env.n_clus["car"] - 1,
-                 env.n_clus["car"], 1],
-                ["bat_clus_prev", 0, env.n_clus["car"] - 1,
-                 env.n_clus["car"], 1],
-                # scaling factors - for whole day
-                ["loads_fact_step", env.f_min["loads"], env.f_max["loads"],
-                 rl["n_other_states"], 0],
-                ["loads_fact_prev", env.f_min["loads"], env.f_max["loads"],
-                 rl["n_other_states"], 0],
-                ["gen_fact_step", env.f_min["gen"], env.f_max["gen"],
-                 rl["n_other_states"], 0],
-                ["gen_fact_prev", env.f_min["gen"], env.f_max["gen"],
-                 rl["n_other_states"], 0],
-                ["bat_fact_step", env.f_min["car"], env.f_max["car"],
-                 rl["n_other_states"], 0],
-                ["bat_fact_prev", env.f_min["car"], env.f_max["car"],
-                 rl["n_other_states"], 0],
-                # absolute value at time step / hour
-                ["loads_cons_step", 0, max_normcons_hour * env.f_max["loads"],
-                 rl["n_other_states"], 0],
-                ["loads_cons_prev", 0, max_normcons_hour * env.f_max["loads"],
-                 rl["n_other_states"], 0],
-                ["gen_prod_step", 0, max_normgen_hour * env.f_max["gen"][i_month],
-                 rl["n_other_states"], 0],
-                ["gen_prod_prev", 0, max_normgen_hour * env.f_max["gen"][i_month],
-                 rl["n_other_states"], 0],
-                ["bat_cons_step", 0, max_car_cons, rl["n_other_states"], 0],
-                ["bat_cons_prev", 0, max_car_cons, rl["n_other_states"], 0],
-                ["bat_dem_agg", 0, max_car_cons, rl["n_other_states"], 0],
+        n_other_states = rl["n_other_states"]
+        info = [
+            ["none", None, None, 1, 0],
+            ["houre0dC", 0, 24, n_other_states, 0],
+            ["store0dC", 0, prm["car"]["cap"], n_other_states, 0],
+            ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
+            ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
+            [
+                "dT",
+                - (prm["heat"]["Tc"] - prm["heat"]["Ts"]),
+                prm["heat"]["Tc"] - prm["heat"]["Ts"],
+                n_other_states,
+                0
+            ],
+            [
+                "dT_next",
+                - (prm["heat"]["Tc"] - prm["heat"]["Ts"]),
+                prm["heat"]["Tc"] - prm["heat"]["Ts"],
+                n_other_states,
+                0
+            ],
+            ["day_type", 0, 1, 2, 1],
+            ["store_bool_flex", 0, 1, 2, 1],
+            ["bool_flex", 0, 1, 2, 1],
+            ["avail_car_step", 0, 1, 2, 1],
+            ["avail_car_prev", 0, 1, 2, 1],
+            ["car_tau", 0, prm["car"]["c_max"], 3, 0],
+            # clusters - for whole day
+            ["loads_clus_step", 0, env.n_clus["loads"] - 1, env.n_clus["loads"], 1],
+            ["loads_clus_prev", 0, env.n_clus["loads"] - 1, env.n_clus["loads"], 1],
+            ["bat_cbat_clus_step", 0, env.n_clus["car"] - 1, env.n_clus["car"], 1],
+            ["bat_clus_prev", 0, env.n_clus["car"] - 1, env.n_clus["car"], 1],
+            # scaling factors - for whole day
+            ["loads_fact_step", env.f_min["loads"], env.f_max["loads"], n_other_states, 0],
+            ["loads_fact_prev", env.f_min["loads"], env.f_max["loads"], n_other_states, 0],
+            ["gen_fact_step", env.f_min["gen"], env.f_max["gen"], n_other_states, 0],
+            ["gen_fact_prev", env.f_min["gen"], env.f_max["gen"], n_other_states, 0],
+            ["bat_fact_step", env.f_min["car"], env.f_max["car"], n_other_states, 0],
+            ["bat_fact_prev", env.f_min["car"], env.f_max["car"], n_other_states, 0],
+            # absolute value at time step / hour
+            ["loads_cons_step", 0, max_normcons * env.f_max["loads"], n_other_states, 0],
+            ["loads_cons_prev", 0, max_normcons * env.f_max["loads"], n_other_states, 0],
+            ["gen_prod_step", 0, max_normgen * env.f_max["gen"][i_month], n_other_states, 0],
+            ["gen_prod_prev", 0, max_normgen * env.f_max["gen"][i_month], n_other_states, 0],
+            ["bat_cons_step", 0, max_car_cons, n_other_states, 0],
+            ["bat_cons_prev", 0, max_car_cons, n_other_states, 0],
+            ["bat_dem_agg", 0, max_car_cons, n_other_states, 0],
 
-                # action
-                ["action", 0, 1, rl["n_discrete_actions"], 0],
-                ["flexible_cons_action", 0, 1, rl["n_discrete_actions"], 0],
-                ["flexible_heat_action", 0, 1, rl["n_discrete_actions"], 0],
-                ["battery_action", -1, 1, rl["n_discrete_actions"], 0]]
+            # action
+            ["action", 0, 1, rl["n_discrete_actions"], 0],
+            ["flexible_cons_action", 0, 1, rl["n_discrete_actions"], 0],
+            ["flexible_heat_action", 0, 1, rl["n_discrete_actions"], 0],
+            ["battery_action", -1, 1, rl["n_discrete_actions"], 0]
+        ]
 
         self.space_info = pd.DataFrame(info, columns=columns)
 
@@ -199,7 +201,7 @@ class EnvSpaces():
                     0, self.n[space] - 1, num=self.n[space])
                 # initialise global multipliers for going to agent
                 # states and actions to global states and actions
-                if any(method[-2] == 'C' for method in self.evaluation_method):
+                if any(method[-2] == 'C' for method in self.evaluation_methods):
                     self.global_multipliers[space] = \
                         granularity_to_multipliers(
                             [self.n[space] for _ in range(self.n_homes)])
@@ -435,7 +437,7 @@ class EnvSpaces():
         action = step_vals_i["action"]
         if (
                 self.type_env == "discrete"
-                and any(method[-2] == 'C' for method in self.evaluation_method)
+                and any(method[-2] == 'C' for method in self.evaluation_methods)
         ):
             ind_state = self.get_space_indexes(
                 all_vals=step_vals_i["state"])
@@ -463,12 +465,14 @@ class EnvSpaces():
             self,
             prm: dict,
             res: dict,
-            i_step: int,
+            time_step: int,
             cluss: list,
             factors: list,
             loads_prev: list,
             loads_step: list,
-            batch_avail_car: np.ndarray
+            batch_avail_car: np.ndarray,
+            loads: dict,
+            home_vars: dict
     ) -> list:
         """
         Get state descriptor values.
@@ -478,18 +482,28 @@ class EnvSpaces():
         """
         n_homes = len(res["T_air"])
         vals = []
-        date = self.current_date0 + timedelta(hours=i_step)
+        date = self.current_date0 + timedelta(hours=time_step)
+        if any(
+                descriptor in ['bool_flex', 'store_bool_flex']
+                for descriptor in self.descriptors['state']
+        ):
+            self.car.update_step(time_step=time_step)
+            self.car.min_max_charge_t(time_step, date)
+            self.E_heat_min_max(time_step)
+            self.action_translator.initial_processing(loads, home_vars)
+            pass
+
         for home in range(n_homes):
             vals_home = []
             state_vals = {
                 None: None,
-                "hour": i_step % 24,
-                "grdC": prm["grd"]["Call"][self.i0_costs + i_step],
+                "hour": time_step % 24,
+                "grdC": prm["grd"]["Call"][self.i0_costs + time_step],
                 "day_type": 0 if date.weekday() < 5 else 1,
                 "loads_cons_step": loads_step,
                 "loads_cons_prev": loads_prev,
-                "dT": prm["heat"]["T_req"][home][i_step]
-                - res["T_air"][home][min(i_step, len(res["T_air"][home]) - 1)]
+                "dT": prm["heat"]["T_req"][home][time_step]
+                - res["T_air"][home][min(time_step, len(res["T_air"][home]) - 1)]
             }
 
             for descriptor in self.descriptors["state"]:
@@ -498,7 +512,7 @@ class EnvSpaces():
                         if isinstance(state_vals[descriptor], list) \
                         else state_vals[descriptor]
                 elif descriptor in self.state_funcs:
-                    inputs = i_step, res, home, date, prm
+                    inputs = time_step, res, home, date, prm
                     val = self.state_funcs[descriptor](inputs)
 
                 elif len(descriptor) > 9 \
@@ -513,21 +527,26 @@ class EnvSpaces():
                     data = factors if descriptor[-9:-5] == "fact" else cluss
                     val = data[home][module][index_day]
                 else:  # select current or previous hour - step or prev
-                    i_step_val = i_step if descriptor[-4:] == "step" \
-                        else i_step - 1
-                    if i_step_val < 0:
-                        i_step_val = 0
+                    time_step_val = time_step if descriptor[-4:] == "step" else time_step - 1
+                    time_step_val = np.max(time_step_val, 0)
                     if len(descriptor) > 8 and descriptor[0: len('avail_car')] == "avail_car":
-                        if i_step_val < len(batch_avail_car[0]):
-                            val = batch_avail_car[home][i_step_val]
+                        if time_step_val < len(batch_avail_car[0]):
+                            val = batch_avail_car[home][time_step_val]
                         else:
                             val = 1
                     elif descriptor[0:3] == "gen":
-                        val = prm["ntw"]["gen"][home][i_step_val]
+                        val = prm["ntw"]["gen"][home][time_step_val]
                     else:  # remaining are car_cons_step / prev
-                        val = prm["car"]["batch_loads_car"][home][i_step]
+                        val = prm["car"]["batch_loads_car"][home][time_step]
                 vals_home.append(val)
             vals.append(vals_home)
+
+        if any(
+                descriptor in ['bool_flex', 'store_bool_flex']
+                for descriptor in self.descriptors['state']
+        ):
+            self.car.revert_last_update_step()
+            pass
 
         assert np.shape(vals) \
                == (self.n_homes, len(self.descriptors["state"])), \
@@ -538,53 +557,63 @@ class EnvSpaces():
         return vals
 
     def _get_dT_next(self, inputs):
-        i_step, _, home, _, prm = inputs
+        time_step, _, home, _, prm = inputs
         T_req = prm["heat"]["T_req"][home]
-        t_next = [time for time in range(i_step + 1, self.N)
-                  if T_req[time] != T_req[i_step]]
+        t_next = [time for time in range(time_step + 1, self.N)
+                  if T_req[time] != T_req[time_step]]
         if not t_next:
             val = 0
         else:
-            val = (T_req[t_next[0]] - T_req[i_step]) \
-                / (t_next[0] - i_step)
+            val = (T_req[t_next[0]] - T_req[time_step]) \
+                / (t_next[0] - time_step)
 
         return val
 
+    def get_bool_flex(self, inputs):
+        """Get general bool flex (if any of the three bool flex is True then True)"""
+        home = inputs[2]
+        return self.action_translator.aggregate_action_bool_flex(home)
+
+    def get_store_bool_flex(self, inputs, home=None):
+        """Whether there is flexibility in the battery operation"""
+        home = inputs[2]
+        return self.action_translator.store_bool_flex(home)
+
     def _get_car_tau(self, inputs):
-        i_step, res, home, date, _ = inputs
+        time_step, res, home, date, _ = inputs
 
         loads_T, deltaT, _ = \
-            self.env.car.next_trip_details(i_step, date, home)
+            self.env.car.next_trip_details(time_step, date, home)
 
         if loads_T is not None and deltaT > 0:
-            val = ((loads_T - res["store"][home][i_step]) / deltaT)
+            val = ((loads_T - res["store"][home][time_step]) / deltaT)
         else:
             val = - 1
 
         return val
 
     def _get_store(self, inputs):
-        i_step, res, home, _, prm = inputs
-        if i_step < len(res["store"][home]):
-            val = res["store"][home][i_step]
+        time_step, res, home, _, prm = inputs
+        if time_step < len(res["store"][home]):
+            val = res["store"][home][time_step]
         else:
             val = prm["car"]["store0"][home]
 
         return val
 
     def _get_grdC_level(self, inputs):
-        i_step = inputs[0]
+        time_step = inputs[0]
         prm = inputs[-1]
         costs = prm["grd"]["Call"][
             self.i0_costs: self.i0_costs + self.N + 1
         ]
-        val = (costs[i_step] - min(costs)) \
+        val = (costs[time_step] - min(costs)) \
             / (max(costs) - min(costs))
 
         return val
 
     def _get_bat_dem_agg(self, inputs):
-        i_step, _, home, _, prm = inputs
-        val = prm["car"]["bat_dem_agg"][home][i_step]
+        time_step, _, home, _, prm = inputs
+        val = prm["car"]["bat_dem_agg"][home][time_step]
 
         return val

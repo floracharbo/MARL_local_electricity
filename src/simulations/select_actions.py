@@ -118,17 +118,17 @@ class ActionSelector:
         states = np.zeros(
             (self.N + 1, self.n_agents, len(self.rl['state_space'])))
 
-        for i_step in range(self.N + 1):
+        for time_step in range(self.N + 1):
             inputs_state_val = [
-                i_step,
-                env.date + timedelta(hours=i_step * self.prm['syst']['dt']),
+                time_step,
+                env.date + timedelta(hours=time_step * self.prm['syst']['dt']),
                 False,
                 [
                     [env.batch[home]['flex'][ih] for ih in range(0, 2)]
                     for home in self.homes
                 ]
             ]
-            states[i_step] = env.get_state_vals(inputs=inputs_state_val)
+            states[time_step] = env.get_state_vals(inputs=inputs_state_val)
 
         if method == 'baseline':
             actions = [[self.rl['default_action'][home] for _ in range(
@@ -287,7 +287,7 @@ class ActionSelector:
         ind_states = [self.env.spaces.get_space_indexes(
             all_vals=current_state, indiv_indexes=True)
             for current_state in states]
-        ind_states_a_step = [[ind_states[i_step][home] for i_step in range(
+        ind_states_a_step = [[ind_states[time_step][home] for time_step in range(
             self.N)] for home in self.homes]
         granularity = [
             self.prm["RL"]["n_other_states"]
@@ -313,8 +313,8 @@ class ActionSelector:
                 for home in self.homes]
         actions = [
             [self.env.spaces.index_to_val(
-                [ind_actions[a_][i_step]], typev="action")[0]
-             for i_step in range(self.N)]
+                [ind_actions[a_][time_step]], typev="action")[0]
+             for time_step in range(self.N)]
             for a_ in self.homes
         ]
 

@@ -87,7 +87,7 @@ class Heat:
             if True, there is no flexibility around T_req
         """
         # current time step
-        self.i_step = 0
+        self.time_step = 0
 
         # extension to add to variable names if agents are passive
         if passive_ext is not None:
@@ -116,7 +116,7 @@ class Heat:
 
         # external temperature
         self.T_out = prm["heat"]['T_out_all'][
-            self.i0_costs: self.i0_costs + prm['syst']['N']]
+            self.i0_costs: self.i0_costs + prm['syst']['N'] + 1]
 
     def next_T(self, T_start=None, E_heat=None, T_out_t=None,
                update=False):
@@ -145,7 +145,7 @@ class Heat:
         E_heat = [e_min + e_flex for e_min, e_flex
                   in zip(self.E_heat_min, self.E_flex)] \
             if E_heat is None else E_heat
-        T_out_t = self.T_out[self.i_step] if T_out_t is None else T_out_t
+        T_out_t = self.T_out[self.time_step] if T_out_t is None else T_out_t
 
         # number of agents considered in the functio
         na = len(T_start)
@@ -168,45 +168,45 @@ class Heat:
 
         return T_end, T_air
 
-    def current_temperature_bounds(self, i_step):
+    def current_temperature_bounds(self, time_step):
         """
         Lower and upper temperature bounds for current time step.
 
         input:
-        i_step:
+        time_step:
             index current time step
         """
         for e in ["T_LB", "T_UB"]:
-            self.__dict__[e + "_t"] = [self.__dict__[e][home][i_step]
+            self.__dict__[e + "_t"] = [self.__dict__[e][home][time_step]
                                        for home in range(self.n_homes)]
 
-    def E_heat_min_max(self, i_step):
+    def E_heat_min_max(self, time_step):
         """
         Update the max and min heating requirement for current time step.
 
         input:
-        i_step:
+        time_step:
             index current time step
         """
-        self.current_temperature_bounds(i_step)
+        self.current_temperature_bounds(time_step)
 
         # minimum and maximum heating for reaching minimum and
         # maximum temperature at the next time step
         E_heat_min0, E_heat_max0 = [self._next_E_heat(
-            T_req, self.T, self.T_out[i_step])
+            T_req, self.T, self.T_out[time_step])
             for T_req in [self.T_LB_t, self.T_UB_t]]
 
         # if there is a drop in temperature in one or two steps,
         # check we are not allowing too much heating
         for home in range(self.n_homes):
             diff_E_heat_min_max = E_heat_min0[home] != E_heat_max0[home]
-            lower_nextTUB = self.T_UB[home][i_step + 1] < self.T_LB_t[home]
-            lower_afternextTUB = False if i_step > len(self.T_UB[home]) - 3 \
-                else (self.T_UB[home][i_step + 2] < self.T_UB_t[0])
-            if diff_E_heat_min_max and (lower_nextTUB or lower_afternextTUB):
+            lower_next_T_UB = self.T_UB[home][time_step + 1] < self.T_LB_t[home]
+            lower_after_next_T_UB = False if time_step > len(self.T_UB[home]) - 3 \
+                else (self.T_UB[home][time_step + 2] < self.T_UB_t[0])
+            if diff_E_heat_min_max and (lower_next_T_UB or lower_after_next_T_UB):
                 # temperatures at time 1 if heating to the max at time 0
                 T1_max, T_air0_max = self.next_T(
-                    [self.T[home]], [E_heat_max0[home]], self.T_out[i_step])
+                    [self.T[home]], [E_heat_max0[home]], self.T_out[time_step])
                 # check all works well, T_air0_max should be T_UB
                 if abs(T_air0_max[0] - self.T_UB_t[home]) > 1e-2:
                     print(f'T_air0_max[0] {T_air0_max[0]}, '
@@ -214,49 +214,49 @@ class Heat:
                 # check at time step 1 if we would be over limit
                 # if heating was 0 starting from max temp
                 T2_noheatt1, T_air1_noheatt1 = self.next_T(
-                    T1_max, [0], self.T_out[i_step + 1])
-                if T_air1_noheatt1[0] > self.T_UB[home][i_step + 1]:
+                    T1_max, [0], self.T_out[time_step + 1])
+                if T_air1_noheatt1[0] > self.T_UB[home][time_step + 1]:
                     # find T_max next such that if you do not heat
                     # at the next step you land on T_UB
                     T1_corrected = \
-                        (self.T_UB[home][i_step + 1] - self.T_air_coeff[home][0]
-                         - self.T_air_coeff[home][2] * self.T_out[i_step + 1]) \
+                        (self.T_UB[home][time_step + 1] - self.T_air_coeff[home][0]
+                         - self.T_air_coeff[home][2] * self.T_out[time_step + 1]) \
                         / self.T_air_coeff[home][1]
                     # find how much to heat to reach that T1_corrected
                     e_max0_corrected = self._next_E_heat(
                         [T1_corrected], [self.T[home]],
-                        self.T_out[i_step])[0]
+                        self.T_out[time_step])[0]
                     # obtain corrected next temperatures
                     T2_noheatt1_corrected, T_air1_noheatt1_corrected = \
                         self.next_T([T1_corrected], [e_max0_corrected],
-                                    self.T_out[i_step + 1])
+                                    self.T_out[time_step + 1])
                     T2_noheatt1 = T2_noheatt1_corrected
                     E_heat_max0[home] = e_max0_corrected
 
                 # check in two time steps' time if you do not heat
-                if i_step < len(self.T_out) - 1:
+                if time_step < len(self.T_out) - 1:
                     T3_noheatt2, T_air2_noheatt2 = \
                         self.next_T(T2_noheatt1, [0] * self.n_homes,
-                                    self.T_out[i_step + 2])
-                    if T_air2_noheatt2[0] > self.T_UB[home][i_step + 2]:
+                                    self.T_out[time_step + 2])
+                    if T_air2_noheatt2[0] > self.T_UB[home][time_step + 2]:
                         # find T_max next such that if you do not heat
                         # at the next step you land on T_UB
                         T2_corrected = \
-                            (self.T_UB[home][i_step + 2]
+                            (self.T_UB[home][time_step + 2]
                              - self.T_air_coeff[home][0]
                              - self.T_air_coeff[home][2]
-                             * self.T_out[i_step + 2]) \
+                             * self.T_out[time_step + 2]) \
                             / self.T_air_coeff[home][1]
                         T1_corrected = \
                             (T2_corrected - self.T_air_coeff[home][0]
                              - self.T_air_coeff[home][2]
-                             * self.T_out[i_step + 1]) / \
+                             * self.T_out[time_step + 1]) / \
                             self.T_air_coeff[home][1]
 
                         # find how much to heat to reach that T2_corrected
                         e_max0_corrected = self._next_E_heat(
                             [T1_corrected], [self.T[home]],
-                            self.T_out[i_step])[0]
+                            self.T_out[time_step])[0]
 
                         # obtain corrected next temperatures
                         E_heat_max0[home] = e_max0_corrected
@@ -286,11 +286,11 @@ class Heat:
             temperature if learning from an optimisation rather than
             applying decisions
         """
-        self.i_step += 1
+        self.time_step += 1
         if res is None:
             self.T = self.T_next
-        elif self.i_step < self.N:
-            self.T = [res["T"][home][self.i_step] for home in range(self.n_homes)]
+        elif self.time_step < self.N:
+            self.T = [res["T"][home][self.time_step] for home in range(self.n_homes)]
 
     def check_constraints(self, home, h, E_req_only):
         """

@@ -343,7 +343,7 @@ class Runner():
                 - self.prm['syst']['D'])))
             date0 = self.prm['syst']['date0_dtm'] \
                 + datetime.timedelta(days=delta_days)
-            self.prm['syst']['current_date0_dtm'] = date0
+            # self.prm['syst']['current_date0_dtm'] = date0
             delta = date0 - self.prm['syst']['date0_dtm']
             i0_costs = int(delta.days * 24 + delta.seconds / 3600)
             self.prm['grd']['C'] = \

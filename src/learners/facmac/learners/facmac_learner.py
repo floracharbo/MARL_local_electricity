@@ -86,9 +86,10 @@ class FACMACLearner(Learner):
 
         # replace all nan actions with the target action
         # so the gradient will be zero
-        actions = self._replace_nan_actions_with_target_actions(
-            actions, target_actions
-        )
+        if self.rl['no_flex_action_to_target']:
+            actions, indexes_nan = self._replace_nan_actions_with_target_actions(
+                actions, target_actions
+            )
 
         list_critics = [self.critic, self.target_critic]
         list_actions = [actions, target_actions]
@@ -115,6 +116,13 @@ class FACMACLearner(Learner):
             + self.rl['facmac']['gamma'] * \
             (1 - terminated.expand_as(target_vals)) * target_vals
         td_error = (targets.detach() - q_taken)
+        # print(f"np.shape(td_error) {np.shape(td_error)}")
+        # print(f"np.shape(targets) {np.shape(targets)}")
+        # print(f"np.shape(q_taken) {np.shape(q_taken)}")
+        # print(f"targets {targets}")
+        # print(f"q_taken {q_taken}")
+        # print(f"td_error {td_error}")
+        # sys.exit()
         mask = mask.expand_as(td_error)
         mask = mask.cuda() if self.cuda_available else mask
         masked_td_error = td_error * mask
@@ -166,19 +174,27 @@ class FACMACLearner(Learner):
 
     def _replace_nan_actions_with_target_actions(self, actions, target_actions):
         shape_actions = np.shape(actions)
+        indexes_nan = []
+        # print(f"n batch {shape_actions[0]}")
+        # print(f"n step {shape_actions[1]}")
+        # print(f"n agent {shape_actions[2]}")
+        # print(f"n action {shape_actions[3]}")
+
         for i_batch in range(shape_actions[0]):
-            for i_step in range(shape_actions[1]):
+            for time_step in range(shape_actions[1]):
                 for i_agent in range(shape_actions[2]):
                     for i_action in range(shape_actions[3]):
                         if th.isnan(
-                                actions[i_batch, i_step, i_agent, i_action]
+                                actions[i_batch, time_step, i_agent, i_action]
                         ):
-
-                            actions[i_batch, i_step, i_agent, i_action] \
+                            indexes_nan.append([i_batch, time_step, i_agent, i_action])
+                            actions[i_batch, time_step, i_agent, i_action] \
                                 = target_actions[
-                                i_batch, i_step, i_agent, i_action]
+                                i_batch, time_step, i_agent, i_action]
 
-        return actions
+        # print(f"indexes_nan [i_batch, time_step, i_agent, i_action] {indexes_nan}")
+
+        return actions, indexes_nan
 
     def _build_inputs(self, batch, t):
         bs = batch.batch_size

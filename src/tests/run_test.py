@@ -84,7 +84,7 @@ def patch_update_date(self, i0_costs, date0=None):
     self.car.date_end = self.date_end
 
 
-def patch_self_id(self):
+def patch_file_id(self):
     return "_test.npy"
 
 
@@ -103,7 +103,7 @@ def patch_set_date(
     delta_days = 12
     date0 = self.prm['syst']['date0_dtm'] \
         + timedelta(days=delta_days)
-    self.prm['syst']['current_date0_dtm'] = date0
+    # self.prm['syst']['current_date0_dtm'] = date0
     delta = date0 - self.prm['syst']['date0_dtm']
     i0_costs = int(delta.days * 24 + delta.seconds / 3600)
     self.prm['grd']['C'] = \
@@ -191,7 +191,7 @@ def test_all(mocker):
     )
     mocker.patch(
         "src.simulations.local_elec.LocalElecEnv._file_id",
-        side_effect=patch_self_id,
+        side_effect=patch_file_id,
         autospec=True
     )
     mocker.patch(

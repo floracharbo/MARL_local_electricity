@@ -578,7 +578,8 @@ def _seed_save_paths(prm):
         f"_ntwn{ntw['n']}_nP{ntw['nP']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"{heat['file']}"
-    paths["seeds_file"] = "outputs/seeds/seeds" + paths["opt_res_file"] + f"_v{prm['syst']['data_version']}"
+    paths["seeds_file"] \
+        = f"outputs/seeds/seeds{paths['opt_res_file']}_v{prm['syst']['data_version']}"
     if rl["deterministic"] == 2:
         for file in ["opt_res_file", "seeds_file"]:
             paths[file] += "_noisy"
@@ -627,7 +628,7 @@ def _update_grd_prm(prm):
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
     # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
-    wholesale = [x * 1e-3 for x in np.load(wholesale_path)]
+    wholesale = [x * 1e-2 for x in np.load(wholesale_path)]
     grd["wholesale_all"] = wholesale
     carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity_file"]
 
@@ -651,7 +652,7 @@ def _time_info(prm):
     syst["n_int_per_hr"] = int(syst["H"] / 24)
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
-    syst['current_date0_dtm'] = syst['date0_dtm']
+    # syst['current_date0_dtm'] = syst['date0_dtm']
 
 
 def _homes_info(loads, ntw, gen, heat):

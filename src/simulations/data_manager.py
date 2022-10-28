@@ -89,10 +89,10 @@ class DataManager():
                 ntw['Bcap'][home, time] = car['cap' + passive_ext][home]
                 for load_type in range(loads['n_types']):
                     loads_str = 'loads' if 'loads' in batch[home] else 'lds'
-                    ntw['loads'][0][home][time] = batch[home][loads_str][time] \
-                                                  * (1 - loads['share_flexs'][home])
-                    ntw['loads'][1][home][time] = batch[home][loads_str][time] \
-                                                  * loads['share_flexs'][home]
+                    ntw['loads'][0][home][time] \
+                        = batch[home][loads_str][time] * (1 - loads['share_flexs'][home])
+                    ntw['loads'][1][home][time] \
+                        = batch[home][loads_str][time] * loads['share_flexs'][home]
                     for time_cons in range(syst['N']):
                         if time <= time_cons <= time + int(potential_delay[load_type][time]):
                             ntw['flex'][time, load_type, home, time_cons] = 1
@@ -248,8 +248,6 @@ class DataManager():
             self.res_name = \
                 f"res_P{int(self.seed['P'])}_" \
                 f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
-            if self.prm['ntw']['manage_agg_power']:
-                self.res_name += "_manage_power"
 
             if passive:
                 seed_data, new_res, data_feasible \
@@ -473,19 +471,19 @@ class DataManager():
 
         return feasible
 
-    def update_flexibility_opt(self, batchflex_opt, res, i_step):
+    def update_flexibility_opt(self, batchflex_opt, res, time_step):
         """Update available flexibility based on optimisation results."""
         n_homes = len(res["E_heat"])
         cons_flex_opt = \
-            [res["totcons"][home][i_step] - batchflex_opt[home][i_step][0]
-             - res["E_heat"][home][i_step] for home in range(n_homes)]
+            [res["totcons"][home][time_step] - batchflex_opt[home][time_step][0]
+             - res["E_heat"][home][time_step] for home in range(n_homes)]
         inputs_update_flex = \
-            [i_step, batchflex_opt, self.prm["loads"]["max_delay"],
+            [time_step, batchflex_opt, self.prm["loads"]["max_delay"],
              n_homes]
         new_batch_flex = self.env.update_flex(
             cons_flex_opt, opts=inputs_update_flex)
         for home in range(n_homes):
-            batchflex_opt[home][i_step: i_step + 2] = new_batch_flex[home]
+            batchflex_opt[home][time_step: time_step + 2] = new_batch_flex[home]
 
         assert batchflex_opt is not None, "batchflex_opt is None"
 
