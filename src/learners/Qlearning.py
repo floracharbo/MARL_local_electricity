@@ -92,25 +92,28 @@ class TabularQLearner:
     def sample_action(self, q, ind_state, home, eps_greedy=True):
         ind_action = []
         i_table = home if distr_learning(q) == 'd' else 0
-        q_table = self.q_tables[q][i_table]
+        q_table = np.array(self.q_tables[q][i_table])
         for s in ind_state:
             n_action = len(q_table[s])
             rdn_eps = np.random.uniform(0, 1)
             rdn_action = np.random.uniform(0, 1)
             rdn_max = np.random.uniform(0, 1)
             if self.rl['q_learning']['policy'] in ['eps-greedy', 'mixed']:
-                ps = [1 / len(q_table[s]) for _ in range(n_action)]
-                cumps = [sum(ps[0:i]) for i in range(n_action)]
-                random_ind_action = [i for i in range(n_action)
-                                     if rdn_action > cumps[i]][-1]
-                max_value = max(q_table[s])
-                actions_maxval = [ac for ac in range(len(q_table[s]))
-                                  if q_table[s][ac] == max_value]
-                cump_maxac = [1 / len(actions_maxval) * i
-                              for i in range(len(actions_maxval))]
-                greedy_ind_action = actions_maxval[
-                    [i for i in range(len(cump_maxac))
-                     if rdn_max > cump_maxac[i]][-1]]
+                ps = np.ones(n_action) * (1 / n_action)
+                cumps = np.cumsum(ps)
+                random_ind_action = np.asarray(cumps > rdn_action).nonzero()[0][0]
+                # random_ind_action = [i for i in range(n_action) if rdn_action < cumps[i]][0]
+                actions_maxval = np.asarray(q_table[s] == np.max(q_table[s])).nonzero()[0]
+                cump_maxac = np.cumsum(np.ones(len(actions_maxval)) * 1/len(actions_maxval))
+                greedy_ind_action = actions_maxval[np.asarray(cump_maxac > rdn_max).nonzero()[0][0]]
+                    # [ac for ac in range(len(q_table[s]))
+                    #               if q_table[s][ac] == max_value]
+                # cump_maxac = [1 / len(actions_maxval) * i
+                #               for i in range(len(actions_maxval))]
+                # greedy_ind_action = actions_maxval[
+                #     [i for i in range(len(cump_maxac))
+                #      if rdn_max > cump_maxac[i]][-1]]
+                # greedy_ind_action = np.random.choice(actions_maxval)
                 if isinstance(self.eps, (float, int)):
                     eps = self.eps
                 else:

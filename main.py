@@ -12,33 +12,27 @@ Created on Sat Feb  1 15:14:20 2020.
 
 from src.simulations.runner import run
 
-#  Inputs
+# Inputs
 settings = {
     'heat': {'file': 'heat2'},
-
     'RL': {
-        'type_learning': ['facmac'],
-        # 'evaluation_methods': 'env_r_c',
-        # 'gamma': {'q_learning': 0.99, 'facmac': 0.99},
+        'type_learning': 'q_learning',
         'aggregate_actions': False,
         'mixer': 'qmix',
-
         # current experiment
-        'batch_size': 2,
-        'rnn_hidden_dim': 1e2,
-        'state_space': [['grdC', 'bat_dem_agg', 'avail_car_step']],
-        'n_epochs': 20,
-        'n_repeats': 5,
-        'lr': 1e-4,
-        'facmac': {'critic_lr': 1e-4},
-        'q_learning': {
-            # 'alpha': [1e-2] * 5,
-            'gamma': [0.75]
-        }
-    },
+        'state_space': [['grdC']] * 1,
 
+        # 'state_space': [['grdC', 'avail_car_step', 'bat_dem_agg']] * 1,
+        'n_epochs': 6,
+        'n_repeats': 2,
+        # 'facmac': {
+        #     'gamma': [0.7, 0.99],
+        #     'rnn_hidden_dim': [100, 100, 10, 50, 1000],
+        #     'n_hidden_layers': [1] * 5 + [2]
+        # }
+    },
     'ntw': {
-        'n': 10
+        'n': 5
     },
 }
 

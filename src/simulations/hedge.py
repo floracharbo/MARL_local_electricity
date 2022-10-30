@@ -372,7 +372,7 @@ class HEDGE:
                              transition, clusters, day_type, i_ev):
         for home in self.homes:
             it = 0
-            while np.max(day["loads_car"][home]) > self.car["cap"] \
+            while np.max(day["loads_car"][home]) > self.car["cap"][home] \
                     and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
@@ -767,7 +767,7 @@ class HEDGE:
             )
         grey_patch = matplotlib.patches.Patch(
             alpha=0.3, color='grey', label='car unavailable')
-        plt.legend(handles=[grey_patch], fancybox=True)
+        ax.legend(handles=[grey_patch], fancybox=True)
         plt.xlabel("Time [hours]")
         plt.ylabel("car loads and at-home availability")
         fig.tight_layout()

@@ -210,18 +210,10 @@ class Action_translator:
             [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
         )
 
-        self.min_charge = np.where(
-            min_val_ds > 0, min_val_ds, 0
-        )
-        self.max_discharge = np.where(
-            min_val_ds < 0, min_val_ds, 0
-        )
-        self.max_charge = np.where(
-            max_val_ds > 0, max_val_ds, 0
-        )
-        self.min_discharge = np.where(
-            max_val_ds < 0, max_val_ds, 0
-        )
+        self.min_charge = np.where(min_val_ds > 0, min_val_ds, 0)
+        self.max_discharge = np.where(min_val_ds < 0, min_val_ds, 0)
+        self.max_charge = np.where(max_val_ds > 0, max_val_ds, 0)
+        self.min_discharge = np.where(max_val_ds < 0, max_val_ds, 0)
 
     def actions_to_env_vars(self, loads, home_vars, action, date, h):
         """Update variables after non flexible consumption is met."""

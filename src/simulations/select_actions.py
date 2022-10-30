@@ -57,8 +57,10 @@ class ActionSelector:
     ) -> Tuple[list, list]:
         """Select exploration action."""
         rl = self.rl
-        tf_prev_state = self._format_tf_prev_state(current_state)
-
+        if rl['type_learning'] in ['facmac', 'DDPG']:
+            tf_prev_state = self._format_tf_prev_state(current_state)
+        else:
+            tf_prev_state = None
         # action choice for current time step
         if method == 'baseline':
             action = self.rl['default_action']

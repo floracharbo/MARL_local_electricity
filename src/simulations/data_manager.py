@@ -179,8 +179,7 @@ class DataManager():
             new_res = False
 
         # turn input data into optimisation problem format
-        data_feasibles = self._format_data_optimiser(
-            batch, passive=passive)
+        data_feasibles = self._format_data_optimiser(batch, passive=passive)
 
         if not all(data_feasibles):
             factors, clusters, batch, data_feasibles = self._loop_replace_data(
@@ -188,7 +187,7 @@ class DataManager():
             )
             feasibility_checked = False
 
-        if all(data_feasibles) and opt_needed:
+        if all(data_feasibles) and opt_needed and new_data_needed:
             try:
                 res = self.optimiser.solve(self.prm)
             except Exception as ex:  # if infeasible, make new data

@@ -79,7 +79,7 @@ def _barplot(
                 fancybox=True, ncol=2
             )
         else:
-            plt.legend(
+            ax0.legend(
                 loc='center right', bbox_to_anchor=(1.2, 0.5), fancybox=True
             )
 
