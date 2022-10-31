@@ -151,7 +151,7 @@ def _load_bat_factors_parameters(syst, paths, bat):
     return bat
 
 
-def patch_compute_max_EV_cons_gen_values(env):
+def patch_compute_max_EV_cons_gen_values(env, state_space):
     labels = [
         "maxEVcons", "max_normcons_hour", "max_normgen_hour"
     ]
