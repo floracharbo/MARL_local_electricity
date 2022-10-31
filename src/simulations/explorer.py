@@ -883,7 +883,7 @@ class Explorer():
         prm, env = self.prm, self.env
         rewards_baseline = []
         gens = [prm["ntw"]["gen"][home][i_step] for home in self.homes]
-        self.env.heat.T = [res["T"][home][i_step] for home in self.homes]
+        self.env.heat.T = res["T"][:, i_step]
         self.env.bat.store = \
             [res["store"][home][i_step] for home in self.homes]
         combs_actions = []

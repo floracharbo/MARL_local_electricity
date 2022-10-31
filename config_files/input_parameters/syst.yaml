@@ -22,3 +22,4 @@ n_loads_clus: 4
 seed: 0
 sound_file: 'beep-24.wav'
 data_version: 1
+test_on_run: False

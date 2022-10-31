@@ -37,8 +37,7 @@ class ActionSelector:
                     current_state[home], (1, 1))), 0)
                 for home in self.homes]
         else:
-            tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
-                current_state[home]), 0) for home in self.homes]
+            tf_prev_state = tf.convert_to_tensor(current_state)
 
         return tf_prev_state
 
@@ -57,7 +56,10 @@ class ActionSelector:
     ) -> Tuple[list, list]:
         """Select exploration action."""
         rl = self.rl
-        tf_prev_state = self._format_tf_prev_state(current_state)
+        if rl['type_learning'] in ['facmac', 'DDPG']:
+            tf_prev_state = self._format_tf_prev_state(current_state)
+        else:
+            tf_prev_state = None
 
         # action choice for current time step
         if method == 'baseline':
@@ -187,8 +189,7 @@ class ActionSelector:
         pre_transition_data = {
             "state": [current_state[home] for home in self.homes],
             "avail_actions": [self.rl['avail_actions']],
-            "obs": [np.reshape(tf_prev_state,
-                               (self.n_agents, self.rl['obs_shape']))]
+            "obs": tf_prev_state
         }
         self.episode_batch[method].update(pre_transition_data, ts=step)
         if self.rl['action_selector'] == "gumbel":

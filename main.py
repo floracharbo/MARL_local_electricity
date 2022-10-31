@@ -12,7 +12,7 @@ Created on Sat Feb  1 15:14:20 2020.
 
 from src.simulations.runner import run
 
-#  Inputs
+# Inputs
 settings = {
     'heat': {'file': 'heat2'},
 

@@ -207,18 +207,10 @@ class Action_translator:
         max_val_ds = np.array(
             [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
         )
-        self.min_charge = np.where(
-            min_val_ds > 0, min_val_ds, 0
-        )
-        self.max_discharge = np.where(
-            min_val_ds < 0, min_val_ds, 0
-        )
-        self.max_charge = np.where(
-            max_val_ds > 0, max_val_ds, 0
-        )
-        self.min_discharge = np.where(
-            max_val_ds < 0, max_val_ds, 0
-        )
+        self.min_charge = np.where(min_val_ds > 0, min_val_ds, 0)
+        self.max_discharge = np.where(min_val_ds < 0, min_val_ds, 0)
+        self.max_charge = np.where(max_val_ds > 0, max_val_ds, 0)
+        self.min_discharge = np.where(max_val_ds < 0, max_val_ds, 0)
 
     def actions_to_env_vars(self, loads, home_vars, action, date, h):
         """Update variables after non flexible consumption is met."""
@@ -239,7 +231,7 @@ class Action_translator:
          loads['tot_cons_loads'], self.heat.tot_E] \
             = [[] for _ in range(4)]
         self.l_flex = loads['l_flex']
-        flex_heat = []
+        flex_heat = np.zeros(self.n_homes)
         for home in homes:
             # boolean for whether or not we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
@@ -277,8 +269,7 @@ class Action_translator:
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
                 loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
-                flex_heat.append(flexible_heat_action
-                                 * self.heat.potential_E_flex()[home])
+                flex_heat[home] = flexible_heat_action * self.heat.potential_E_flex()[home]
                 home_vars['tot_cons'][home] = self.tot_l_fixed[home] \
                     + loads['flex_cons'][home] \
                     + flex_heat[home]
@@ -467,13 +458,6 @@ class Action_translator:
         self.k.append(initialise_dict(self.entries))
         # reference line - dp
         self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
-        for i in range(2):
-            if abs(self.k[home]['dp'][0][i]) < 0:
-                if abs(self.k[home]['dp'][0][i]) > - 1e-3:
-                    self.k[home]['dp'][0][i] = 0
-                else:
-                    print(f"self.k[{home}]['dp'][0][{i}] = "
-                          f"{self.k[home]['dp'][0][i]}")
 
         self.action_intervals.append([0])
 

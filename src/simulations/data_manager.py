@@ -125,6 +125,19 @@ class DataManager():
 
         return seed_data, new_res, data_feasible
 
+    def _check_data_computations_required(self, type_actions, feasibility_checked):
+        opt_needed = 'opt' in type_actions \
+                     or (not feasibility_checked and self.check_feasibility_with_opt)
+        if opt_needed:
+            file_exists = (self.paths['opt_res'] / self.res_name).is_file()
+        else:
+            file_exists = (
+                    self.paths['opt_res'] / f"batch{self.file_id()}"
+            ).is_file()
+        new_data_needed = self.rl['deterministic'] == 2 or not file_exists
+        return opt_needed, new_data_needed
+
+
     def _active_find_feasible_data(
             self,
             type_actions: List[str],
@@ -139,21 +152,21 @@ class DataManager():
         new_res = False
         res = None
 
-        opt_needed = 'opt' in type_actions \
-            or (not feasibility_checked and self.check_feasibility_with_opt)
-
-        if opt_needed:
-            file_exists = (self.paths['res_path'] / self.res_name).is_file()
-        else:
-            file_exists = (self.paths['res_path'] / f"batch{self.file_id()}"
-                           ).is_file()
-
-        just_load_data = not self.rl['deterministic'] == 2 and file_exists
+        opt_needed, new_data_needed = self._check_data_computations_required(
+            type_actions, feasibility_checked
+        )
 
         # check if data is feasible by solving optimisation problem
-        if just_load_data:
+        if new_data_needed:
+            # pre-save data to be used for multiple methods
+            [batch, factors, clusters] = self._env_make_data(
+                int(self.seed[self.passive_ext]),
+                passive=passive
+            )
+            assert batch[0]['loads'][0] == self.env.batch[0]['loads'][0]
+        else:
             if opt_needed:
-                res = np.load(self.paths['res_path']
+                res = np.load(self.paths['opt_res']
                               / self.res_name,
                               allow_pickle=True).item()
             [factors, clusters] = self._load_res()
@@ -161,16 +174,9 @@ class DataManager():
                 seed=self.seed[self.passive_ext],
                 load_data=True, passive=passive)
             new_res = False
-        else:
-            # pre-save data to be used for multiple methods
-            [batch, factors, clusters] = self._env_make_data(
-                int(self.seed[self.passive_ext]),
-                passive=passive
-            )
 
         # turn input data into optimisation problem format
-        data_feasibles = self._format_data_optimiser(
-            batch, passive=passive)
+        data_feasibles = self._format_data_optimiser(batch, passive=passive)
 
         if not all(data_feasibles):
             factors, clusters, batch, data_feasibles = \
@@ -179,7 +185,7 @@ class DataManager():
                     self.file_id(), factors, clusters)
             feasibility_checked = False
 
-        if all(data_feasibles) and opt_needed:
+        if all(data_feasibles) and opt_needed and new_data_needed:
             try:
                 res = self.optimiser.solve(self.prm)
             except Exception as ex:  # if infeasible, make new data
@@ -345,9 +351,7 @@ class DataManager():
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext], load_data=True, passive=passive)
             # turn input data into usable format for optimisation problem
-            data_feasibles = self._format_data_optimiser(
-                batch, passive=passive
-            )
+            data_feasibles = self._format_data_optimiser(batch, passive=passive)
             if its > 5:
                 print(f'its {its}, sum(data_feasibles) {sum(data_feasibles)}')
             homes = [i for i, ok in enumerate(data_feasibles) if not ok]

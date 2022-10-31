@@ -52,19 +52,25 @@ def granularity_to_multipliers(granularity):
     return multipliers
 
 
-def compute_max_EV_cons_gen_values(env):
+def compute_max_EV_cons_gen_values(env, state_space):
     maxEVcons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
     for dt in ["wd", "we"]:
-        for c in range(env.n_clus["bat"]):
-            if np.max(env.prof["bat"]["cons"][dt][c]) > maxEVcons:
-                maxEVcons = np.max(env.prof["bat"]["cons"][dt][c])
-        for c in range(env.n_clus["loads"]):
-            if np.max(env.prof["loads"][dt][c]) > max_normcons_hour:
-                max_normcons_hour = np.max(env.prof["loads"][dt][c])
-        for m in range(12):
-            if len(env.prof["gen"][m]) > 0 \
-                    and np.max(env.prof["gen"][m]) > max_normgen_hour:
-                max_normgen_hour = np.max(env.prof["gen"][m])
+        if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
+            for c in range(env.n_clus["car"]):
+                max_car_cons_ = np.max(env.prof["car"]["cons"][dt][c])
+                if max_car_cons_ > max_car_cons:
+                    max_car_cons = max_car_cons_
+        if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
+            for c in range(env.n_clus["loads"]):
+                max_normcons_ = np.max(env.prof["loads"][dt][c])
+                if max_normcons_ > max_normcons:
+                    max_normcons = max_normcons_
+        if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
+            for m in range(12):
+                mac_normgen_ = np.max(env.prof["gen"][m])
+                if len(env.prof["gen"][m]) > 0 \
+                        and mac_normgen_ > max_normgen:
+                    max_normgen = mac_normgen_
 
     return maxEVcons, max_normcons_hour, max_normgen_hour
 
@@ -106,7 +112,7 @@ class EnvSpaces():
         prm = env.prm
         # info on state and action spaces
         maxEVcons, max_normcons_hour, max_normgen_hour \
-            = compute_max_EV_cons_gen_values(env)
+            = compute_max_EV_cons_gen_values(env, prm["RL"]["state_space"])
 
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
@@ -264,16 +270,13 @@ class EnvSpaces():
                 val.append(index[s])
             else:
                 brackets_s = self.brackets[typev][s] + [self.maxval[typev][s]]
-                try:
-                    if typev == "action" and index[s] == 0:
-                        val.append(0)
-                    elif typev == "action" and index[s] == self.n_actions - 1:
-                        val.append(1)
-                    else:
-                        val.append((brackets_s[int(index[s])]
-                                    + brackets_s[int(index[s] + 1)]) / 2)
-                except Exception as ex:
-                    print(ex)
+                if typev == "action" and index[s] == 0:
+                    val.append(0)
+                elif typev == "action" and index[s] == self.n_actions - 1:
+                    val.append(1)
+                else:
+                    val.append((brackets_s[int(index[s])]
+                                + brackets_s[int(index[s] + 1)]) / 2)
 
         return val
 

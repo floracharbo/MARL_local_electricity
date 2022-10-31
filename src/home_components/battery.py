@@ -151,8 +151,7 @@ class Battery:
     def next_trip_details(self, start_h, date, home):
         """Get next trip's load requirements, time until trip, and end."""
         # next time the EV is on a trip
-        iT = [i for i in range(len(self.batch['avail_EV'][home][start_h:])) if
-              self.batch['avail_EV'][home][start_h + i] == 0]
+        iT = np.asarray(~np.array(self.batch['avail_EV'][home][start_h: self.N + 1], dtype=bool)).nonzero()[0]
         d_to_end = self.date_end - date
         h_end = start_h + d_to_end.days * 24 + (d_to_end.seconds) / 3600
         if len(iT) > 0 and start_h + iT[0] < h_end:
@@ -160,8 +159,7 @@ class Battery:
             iT = int(start_h + iT[0])
 
             # next time the EV is back from the trip to the garage
-            iG = [iT + i for i in range(len(self.batch['avail_EV'][home][iT:])) if
-                  self.batch['avail_EV'][home][iT + i] == 1]
+            iG = iT + np.asarray(self.batch['avail_EV'][home][iT: self.N + 1]).nonzero()[0]
             iG = int(iG[0]) if len(iG) > 0 else len(self.batch['avail_EV'][home])
             deltaT = iT - start_h  # time until trip
             i_endtrip = int(min(iG, h_end))
@@ -210,18 +208,17 @@ class Battery:
         end = False
         h_trip = h
         while not end:
-            loads_T, deltaT, i_endtrip = self.next_trip_details(
-                h_trip, date_a, home)
+            loads_T, deltaT, i_end_trip = self.next_trip_details(h_trip, date_a, home)
             if loads_T is None or h_trip + deltaT > self.N:
                 end = True
             else:
                 self._check_trip_feasible(
                     loads_T, deltaT, bool_penalty, print_error, home, h
                 )
-                trips.append([loads_T, deltaT, i_endtrip])
+                trips.append([loads_T, deltaT, i_end_trip])
                 date_a += datetime.timedelta(
-                    hours=int(i_endtrip - h_trip))
-                h_trip = i_endtrip
+                    hours=int(i_end_trip - h_trip))
+                h_trip = i_end_trip
 
         return trips
 
@@ -244,14 +241,11 @@ class Battery:
         bool_penalty = np.zeros(self.n_homes, dtype=bool)
         last_step = self._last_step(date)
         # regular initial minimum charge
-        min_charge_t_0 = [
-            self.store0[home] * avail_EV[home] if last_step else
-            self.min_charge[home] * avail_EV[home] for home in range(self.n_homes)]
+        min_charge_t_0 = np.where(last_step, self.store0, self.min_charge) * avail_EV
 
         # min_charge if need to charge up ahead of last step
         Creq = []
         for home in range(self.n_homes):
-            date_a = copy.deepcopy(date)
             if not self.avail_EV[home]:
                 # if EV not currently in garage
                 Creq.append(0)
@@ -259,16 +253,13 @@ class Battery:
 
             # obtain all future trips
             trips = self._get_list_future_trips(
-                h, date_a, home, bool_penalty, print_error
+                h, date, home, bool_penalty, print_error
             )
             # trips[i] = [loads_T, deltaT, i_endtrip]
 
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else h
-            n_avail_until_end = sum(
-                self.batch['avail_EV'][home][h_]
-                for h_ in range(final_i_endtrip, self.N)
-            )
+            n_avail_until_end = sum(self.batch['avail_EV'][home][final_i_endtrip: self.N])
 
             if len(trips) == 0:
                 n_avail_until_end -= 1
@@ -286,8 +277,7 @@ class Battery:
                 # the previous trip
                 Creq[home] = max(0, Creq[home] + loads_T - deltaT * self.c_max)
 
-        min_charge_t = [max(min_charge_t_0[home], Creq[home])
-                        for home in range(self.n_homes)]
+        min_charge_t = np.maximum(min_charge_t_0, Creq)
 
         self._check_min_charge_t_feasible(
             min_charge_t, h, date, bool_penalty, print_error, simulation
@@ -300,9 +290,7 @@ class Battery:
 
         self.min_charge_t = min_charge_t
 
-        self.max_charge_t = \
-            [self.store0[home] if last_step and self.avail_EV[home]
-             else self.cap[home] for home in range(self.n_homes)]
+        self.max_charge_t = np.where(last_step and self.avail_EV, self.store0, self.cap)
 
         return bool_penalty
 
