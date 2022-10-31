@@ -146,11 +146,6 @@ DDPG:
         buffer_capacity: 1000 # 100000 Number of "experiences" to store at max
         gamma: 0.85
 
-# DDQN DDPG DQN
-
-# facmac
-# fixed
-#dim_actions: 1
 use_cuda: True # Use gpu by default unless it isn't available
 low_action: [0]
 high_action: [1]

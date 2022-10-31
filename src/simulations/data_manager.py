@@ -477,8 +477,7 @@ class DataManager():
             [res["totcons"][home][time_step] - batchflex_opt[home][time_step][0]
              - res["E_heat"][home][time_step] for home in range(n_homes)]
         inputs_update_flex = \
-            [time_step, batchflex_opt, self.prm["loads"]["max_delay"],
-             n_homes]
+            [time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes]
         new_batch_flex = self.env.update_flex(
             cons_flex_opt, opts=inputs_update_flex)
         for home in range(n_homes):

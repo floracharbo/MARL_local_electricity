@@ -227,7 +227,7 @@ def _update_paths(paths, prm, no_run):
     paths["input_folder"] = Path(paths["input_folder"])
     paths["open_inputs"] = paths["input_folder"] / paths["open_inputs_folder"]
     paths['hedge_inputs'] \
-        = paths["input_folder"] / paths["hedge_inputs_folder"]
+        = paths["input_folder"] / paths["hedge_inputs_folder"] / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
 
@@ -397,7 +397,7 @@ def _update_bat_prm(prm):
 
 def _format_rl_parameters(rl):
     for key in [
-        "n_epochs", "n_repeats", "instant_feedback", "rnn_hidden_dim"
+        "n_epochs", "n_repeats", "instant_feedback", "rnn_hidden_dim", "buffer_size"
     ]:
         rl[key] = int(rl[key])
     rl["lr"] = float(rl["lr"])
@@ -777,7 +777,7 @@ def _filter_type_learning_competitive(rl):
 
 def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = ["baseline"]
-    if rl["evaluation_methods"] is not None:
+    if rl["evaluation_methods"] is not None and len(rl['evaluation_methods']) > 1:
         input_evaluation_methods = rl["evaluation_methods"] \
             if isinstance(rl["evaluation_methods"], list) \
             else [rl["evaluation_methods"]]

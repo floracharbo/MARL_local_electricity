@@ -43,8 +43,7 @@ def plot_eval_action(record, prm):
 
     for evaluation_method in prm["RL"]["evaluation_methods"]:
         if evaluation_method == "baseline" \
-                or any(len(actions[repeat]) == 0
-                       for repeat in range(prm["RL"]["n_repeats"])):
+                or any(len(actions[repeat]) == 0 for repeat in range(prm["RL"]["n_repeats"])):
             continue
         for repeat in range(prm["RL"]["n_repeats"]):
             actions_ = actions[repeat][evaluation_method]

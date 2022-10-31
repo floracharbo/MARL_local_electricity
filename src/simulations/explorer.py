@@ -485,7 +485,12 @@ class Explorer():
         # update consumption etc. at the beginning of the time step
         loads = {}
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
-            time_step, batchflex_opt)
+            time_step, batchflex_opt
+        )
+
+        assert all(res['totcons'][:, time_step] - res['E_heat'][:, time_step] <= loads["l_flex"] + loads["l_fixed"] + 1e-3), \
+            f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
+            f"available loads {loads['l_flex'] + loads['l_fixed']}"
         _, _, loads_prev = self._fixed_flex_loads(
             max(0, time_step - 1), batchflex_opt)
         home_vars = {
@@ -772,10 +777,8 @@ class Explorer():
                     step_vals_i["diff_rewards"]
                 )
             if not (rl["competitive"] and not evaluation):
-                try:
-                    sum_rl_rewards += step_vals_i["reward"]
-                except Exception as ex:
-                    print(ex)
+                sum_rl_rewards += step_vals_i["reward"]
+
             # append experience dictionaries
             step_vals = self._append_step_vals(
                 method, step_vals_i, res, time_step, cluss, factors,
@@ -907,7 +910,7 @@ class Explorer():
         prm, env = self.prm, self.env
         rewards_baseline = []
         gens = [prm["ntw"]["gen"][home][time_step] for home in self.homes]
-        self.env.heat.T = [res["T"][home][time_step] for home in self.homes]
+        self.env.heat.T = res["T"][:, time_step]
         self.env.car.store = \
             [res["store"][home][time_step] for home in self.homes]
         combs_actions = []

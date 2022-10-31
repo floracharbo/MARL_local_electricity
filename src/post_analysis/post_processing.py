@@ -140,7 +140,7 @@ def add_prm_save_list(val, dict_, key):
     if isinstance(val, list):
         dict_[key] = []
         for item in val:
-            if isinstance(item, (int, float, bool)):
+            if isinstance(item, (str, int, float, bool)):
                 dict_[key].append(item)
 
     return dict_

@@ -107,12 +107,12 @@ class HEDGE:
                 for home in self.homes
             ]
         if "car" in self.data_types:
-            day["loads_car"] = [
-                [p * factors["car"][home]
-                 for p in self.profs["car"]["cons"][day_type][
-                     clusters["car"][home]][i_profiles["car"][home]]]
-                for home in self.homes
-            ]
+            day["loads_car"] = np.array([
+                    [p * factors["car"][home]
+                     for p in self.profs["car"]["cons"][day_type][
+                         clusters["car"][home]][i_profiles["car"][home]]]
+                    for home in self.homes
+                ])
 
             # check loads car are consistent with maximum battery load
             interval_f_ev, factors, day, i_profiles["car"] \
@@ -121,11 +121,17 @@ class HEDGE:
                 day_type, i_profiles["car"]
             )
 
-            day["avail_car"] = [
+            day["avail_car"] = np.array([
                 self.profs["car"]["avail"][day_type][
                     clusters["car"][home]][i_profiles["car"][home]]
                 for home in self.homes
-            ]
+            ])
+
+            for home in self.homes:
+                day["avail_car"][home] = np.where(day["loads_car"][home] > 0, 0, day["avail_car"][home])
+                # for time in range(self.n_steps):
+                #     if day["loads_car"][home][time] > 0:
+                #         assert not day["avail_car"][home][time]
 
         self.factors = factors
         self.clusters = clusters
@@ -384,8 +390,7 @@ class HEDGE:
                         clusters["car"][home]][i_ev[home]]
                     assert sum(ev_cons) == 0 or abs(sum(ev_cons) - 1) < 1e-3, \
                         f"ev_cons {ev_cons}"
-                    day["loads_car"][home] \
-                        = [p * factors["car"][home] for p in ev_cons]
+                    day["loads_car"][home] = ev_cons * factors["car"][home]
                 else:
                     i_ev[home] = np.random.choice(np.arange(
                         self.n_prof["car"][day_type][clusters["car"][home]]))
@@ -401,15 +406,24 @@ class HEDGE:
                          ) -> List[int]:
         """Randomly generate index of profile to select for given data."""
         i_profs = []
+        if data in self.behaviour_types:
+            n_profs = [self.n_prof[data][day_type][cluster] for cluster in range(len(self.n_prof[data][day_type]))]
+
+        else:
+            n_profs = self.n_prof[data][i_month]
+
         for home in self.homes:
             if data in self.behaviour_types:
-                n_profs = self.n_prof[data][day_type][clusters[data][home]]
+                n_profs_ = n_profs[clusters[data][home]]
+                if n_profs_ > 1:
+                    n_profs[clusters[data][home]] -= 1
             else:
-                n_profs = self.n_prof[data][i_month]
-            avail_profs = list(range(n_profs))
-            i_prof = np.random.choice(avail_profs)
-            if len(avail_profs) > 1:
-                avail_profs.remove(i_prof)
+                n_profs_ = n_profs
+                n_profs -= 1
+            i_prof = round(np.random.rand() * (n_profs_ - 1))
+            for previous_i_prof in sorted(i_profs):
+                if previous_i_prof <= i_prof and n_profs_ > 1:
+                    i_prof += 1
             i_profs.append(i_prof)
 
         return i_profs
@@ -441,11 +455,6 @@ class HEDGE:
                     data_type = file[3: 5]
                     profiles_ = np.load(path / file, mmap_mode="r")
                     # mmap_mode = 'r': not loaded, but elements accessible
-                    if data == 'cons':
-                        assert all(
-                            sum(prof) == 0 or abs(sum(prof) - 1) < 1e-3
-                            for prof in profiles_
-                        ), f"sum profiles not 1 path {path} file {file}"
 
                     prof_shape = np.shape(profiles_)
                     if len(prof_shape) == 1:

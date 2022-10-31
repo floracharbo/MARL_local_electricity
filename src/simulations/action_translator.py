@@ -70,7 +70,6 @@ class Action_translator:
                 actions, bool_flex = self._get_disaggregated_actions(
                     actions, bool_flex, res, loads, home, h
                 )
-
             error = self._check_action_errors(
                 actions, error, res, loads, home, h, bool_flex
             )
@@ -234,7 +233,7 @@ class Action_translator:
          loads['tot_cons_loads'], self.heat.tot_E] \
             = [[] for _ in range(4)]
         self.l_flex = loads['l_flex']
-        flex_heat = []
+        flex_heat = np.zeros(self.n_homes)
         for home in homes:
             # boolean for whether or not we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
@@ -272,8 +271,7 @@ class Action_translator:
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
                 loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
-                flex_heat.append(flexible_heat_action
-                                 * self.heat.potential_E_flex()[home])
+                flex_heat[home] = flexible_heat_action * self.heat.potential_E_flex()[home]
                 home_vars['tot_cons'][home] = self.tot_l_fixed[home] \
                     + loads['flex_cons'][home] \
                     + flex_heat[home]
@@ -463,14 +461,6 @@ class Action_translator:
         self.k.append(initialise_dict(self.entries))
         # reference line - dp
         self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
-        for i in range(2):
-            if abs(self.k[home]['dp'][0][i]) < 0:
-                if abs(self.k[home]['dp'][0][i]) > - 1e-3:
-                    self.k[home]['dp'][0][i] = 0
-                else:
-                    print(f"self.k[{home}]['dp'][0][{i}] = "
-                          f"{self.k[home]['dp'][0][i]}")
-
         self.action_intervals.append([0])
 
         for e in ['ds', 'c', 'l_ch', 'l_dis']:
@@ -587,7 +577,6 @@ class Action_translator:
             assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
-
         assert self.store_bool_flex(home) == store_bool_flex, \
             f"self.store_bool_flex(home) {self.store_bool_flex(home)} " \
             f"store_bool_flex {store_bool_flex}"

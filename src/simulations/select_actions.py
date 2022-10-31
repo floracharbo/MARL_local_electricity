@@ -37,8 +37,9 @@ class ActionSelector:
                     current_state[home], (1, 1))), 0)
                 for home in self.homes]
         else:
-            tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
-                current_state[home]), 0) for home in self.homes]
+            # tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
+            #     current_state[home]), 0) for home in self.homes]
+            tf_prev_state = tf.convert_to_tensor(current_state)
 
         return tf_prev_state
 
@@ -194,8 +195,9 @@ class ActionSelector:
         pre_transition_data = {
             "state": [current_state[home] for home in self.homes],
             "avail_actions": [self.rl['avail_actions']],
-            "obs": [np.reshape(tf_prev_state,
-                               (self.n_agents, self.rl['obs_shape']))]
+            "obs": tf_prev_state
+                # [np.reshape(tf_prev_state,
+                #                (self.n_agents, self.rl['obs_shape']))]
         }
         self.episode_batch[method].update(pre_transition_data, ts=step)
         if self.rl['action_selector'] == "gumbel":

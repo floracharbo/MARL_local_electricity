@@ -213,12 +213,10 @@ def get_heat_coeffs(heat, ntw, syst, paths):
     d_t_air = (H['is'] * j) / (H['is'] + H['ve']) * heat['COP']
     e_t_air = (1 + H['is'] * k) / (H['is'] + H['ve'])
 
-    heat['T_coeff'] = [[a_t, b_t, c_t, d_t, e_t] for _ in range(ntw['n'])]
-    heat['T_air_coeff'] = [
-        [a_t_air, b_t_air, c_t_air, d_t_air, e_t_air] for _ in range(ntw['n'])]
-    heat['T_coeffP'] = [[a_t, b_t, c_t, d_t, e_t] for _ in range(ntw['nP'])]
-    heat['T_air_coeffP'] = [
-        [a_t_air, b_t_air, c_t_air, d_t_air, e_t_air]
-        for _ in range(ntw['nP'])]
+    T_coeff_0 = np.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
+    T_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
+    for p in ["", "P"]:
+        for label, value in zip(['T_coeff', 'T_air_coeff'], [T_coeff_0, T_air_coeff_0]):
+            heat[label + p] = np.repeat(value, repeats=ntw["n" + p], axis=0)
 
     return heat

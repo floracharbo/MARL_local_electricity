@@ -261,7 +261,6 @@ class Battery:
         # min_charge if need to charge up ahead of last step
         Creq = []
         for home in range(self.n_homes):
-            date_a = copy.deepcopy(date)
             if not avail_car[home]:
                 # if EV not currently in garage
                 Creq.append(0)
@@ -269,9 +268,8 @@ class Battery:
 
             # obtain all future trips
             trips = self._get_list_future_trips(
-                time, date_a, home, bool_penalty, print_error
+                time, date, home, bool_penalty, print_error
             )
-
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time
             n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])

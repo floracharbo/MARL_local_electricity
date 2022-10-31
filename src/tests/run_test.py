@@ -176,6 +176,9 @@ def test_all(mocker):
         'ntw': {
             'n': 3
         },
+        'syst': {
+            'test_on_run': True
+        }
     }
     run_mode = 1
 
@@ -235,6 +238,7 @@ def test_all(mocker):
         "src.utilities.env_spaces.compute_max_EV_cons_gen_values",
         side_effect=patch_compute_max_EV_cons_gen_values
     )
+
     paths_results = Path("outputs") / "results"
     prev_no_run = current_no_run(paths_results)
     for type_learning in ['facmac', 'q_learning']:
