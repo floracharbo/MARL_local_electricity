@@ -72,8 +72,7 @@ class Explorer():
 
     def _init_i0_costs(self):
         self.i0_costs = 0
-        self.prm["grd"]["C"] = \
-            self.prm["grd"]["Call"][
+        self.prm["grd"]["C"] = self.prm["grd"]["Call"][
             self.i0_costs: self.i0_costs + self.prm["syst"]["N"]
         ]
         self.env.update_date(self.i0_costs)

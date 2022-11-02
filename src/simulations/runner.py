@@ -53,66 +53,6 @@ class Runner():
         # which will interact with the environment
         self.explorer = Explorer(env, prm, self.learner, record, self.mac)
 
-    def _save_nn_model(self, model_save_time):
-        if self.rl['save_model'] and (
-                self.explorer.t_env - model_save_time
-                >= self.rl['save_model_interval']
-                or model_save_time == 0):
-            model_save_time = self.explorer.t_env
-
-            if self.prm['RL']['type_learning'] == 'facmac' \
-                    and self.prm["save"]["save_nns"]:
-                for t_explo in self.rl["exploration_methods"]:
-                    if t_explo not in self.learner:
-                        continue
-                    save_path \
-                        = self.prm["paths"]["record_folder"] \
-                        / f"models_{t_explo}_{self.explorer.t_env}"
-                    os.makedirs(save_path, exist_ok=True)
-                    self.learner[t_explo].save_models(save_path)
-        return model_save_time
-
-    def _end_evaluation(
-            self, repeat, new_env, evaluations_methods, i0_costs, delta, date0
-    ):
-        i_explore = 0
-        for epoch_test in \
-                tqdm(range(self.rl['n_epochs'], self.rl['n_all_epochs']),
-                     position=0, leave=True):
-            t_start = time.time()  # start recording time
-            date0, delta, i0_costs = \
-                self._set_date(
-                    repeat, epoch_test, i_explore, date0,
-                    delta, i0_costs, new_env
-                )
-            self.env.reinitialise_envfactors(
-                date0, epoch_test, i_explore, evaluation_add1=True)
-            eval_steps, _ = self.explorer.get_steps(
-                evaluations_methods, repeat, epoch_test, self.rl['n_explore'],
-                evaluation=True, new_episode_batch=self.new_episode_batch)
-            duration_epoch = time.time() - t_start
-
-            self.record.end_epoch(
-                epoch_test, eval_steps, None,
-                self.rl, self.learner, duration_epoch, end_test=True
-            )
-
-    def _post_exploration_learning(self, epoch, train_steps_vals):
-        if not self.rl['instant_feedback'] \
-                and self.rl['type_learning'] == 'q_learning' \
-                and epoch > 0:
-            # if we did not learn instantly after each step,
-            # learn here after exploration
-            self.learner.learn_from_explorations(train_steps_vals)
-
-        elif self.rl['type_learning'] == 'DQN':
-            for method in self.rl['type_Qs']:
-                if self.rl['distr_learning'] == 'decentralised':
-                    for home in range(self.n):
-                        self.learner[method][home].target_update()
-                else:
-                    self.learner[method].target_update()
-
     def run_experiment(self):
         """For a given state space, explore and learn from the environment."""
         repeat = 0  # initialise repetition number
@@ -441,8 +381,7 @@ class Runner():
                         self.rl['T_decay_param']
 
     def _check_if_opt_needed(self, epoch, evaluation=False):
-        opts_in_eval = sum(method != 'opt' and method[0:3] == 'opt'
-                           for method in self.rl["evaluation_methods"]) > 0
+        opts_in_eval = sum(method != 'opt' and method[0:3] == 'opt' for method in self.rl["evaluation_methods"]) > 0
         eval_stage = True \
             if evaluation and epoch >= self.rl['start_end_eval'] \
             else False
@@ -502,6 +441,67 @@ class Runner():
         return steps_vals, date0, delta, i0_costs, exploration_methods
 
 
+    def _save_nn_model(self, model_save_time):
+        if self.rl['save_model'] and (
+                self.explorer.t_env - model_save_time
+                >= self.rl['save_model_interval']
+                or model_save_time == 0):
+            model_save_time = self.explorer.t_env
+
+            if self.prm['RL']['type_learning'] == 'facmac' \
+                    and self.prm["save"]["save_nns"]:
+                for t_explo in self.rl["exploration_methods"]:
+                    if t_explo not in self.learner:
+                        continue
+                    save_path \
+                        = self.prm["paths"]["record_folder"] \
+                        / f"models_{t_explo}_{self.explorer.t_env}"
+                    os.makedirs(save_path, exist_ok=True)
+                    self.learner[t_explo].save_models(save_path)
+        return model_save_time
+
+    def _end_evaluation(
+            self, repeat, new_env, evaluations_methods, i0_costs, delta, date0
+    ):
+        i_explore = 0
+        for epoch_test in \
+                tqdm(range(self.rl['n_epochs'], self.rl['n_all_epochs']),
+                     position=0, leave=True):
+            t_start = time.time()  # start recording time
+            date0, delta, i0_costs = \
+                self._set_date(
+                    repeat, epoch_test, i_explore, date0,
+                    delta, i0_costs, new_env
+                )
+            self.env.reinitialise_envfactors(
+                date0, epoch_test, i_explore, evaluation_add1=True)
+            eval_steps, _ = self.explorer.get_steps(
+                evaluations_methods, repeat, epoch_test, self.rl['n_explore'],
+                evaluation=True, new_episode_batch=self.new_episode_batch)
+            duration_epoch = time.time() - t_start
+
+            self.record.end_epoch(
+                epoch_test, eval_steps, None,
+                self.rl, self.learner, duration_epoch, end_test=True
+            )
+
+    def _post_exploration_learning(self, epoch, train_steps_vals):
+        if not self.rl['instant_feedback'] \
+                and self.rl['type_learning'] == 'q_learning' \
+                and epoch > 0:
+            # if we did not learn instantly after each step,
+            # learn here after exploration
+            self.learner.learn_from_explorations(train_steps_vals)
+
+        elif self.rl['type_learning'] == 'DQN':
+            for method in self.rl['type_Qs']:
+                if self.rl['distr_learning'] == 'decentralised':
+                    for home in range(self.n):
+                        self.learner[method][home].target_update()
+                else:
+                    self.learner[method].target_update()
+
+
 def get_number_runs(settings):
     n_runs = 1
 
@@ -538,17 +538,16 @@ def run(run_mode, settings, no_runs=None):
             prm, record, profiles = initialise_objects(
                 prm, settings=settings_i)
 
-            DESCRIPTION_RUN = 'current code '
+            description_run = 'current code '
             for e in ['type_learning', 'n_repeats', 'n_epochs',
                       'server', 'state_space']:
-                DESCRIPTION_RUN += f"prm['RL'][{e}] {prm['RL'][e]} "
-            print(DESCRIPTION_RUN)
-            prm['save']['description_run'] = DESCRIPTION_RUN
+                description_run += f"prm['RL'][{e}] {prm['RL'][e]} "
+            print(description_run)
+            prm['save']['description_run'] = description_run
 
             if prm['RL']['type_learning'] == 'facmac':
                 # Setting the random seed throughout the modules
-                np.random.seed(prm['syst']["seed"])
-                th.manual_seed(prm['syst']["seed"])
+                set_seeds_rdn(prm["syst"]["seed"])
 
             env = LocalElecEnv(prm, profiles)
             # second part of initialisation specifying environment

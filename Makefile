@@ -17,13 +17,13 @@ lint:
 
 
 quick_run:
-	python src/main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC -o bat_dem_agg -o avail_car_step --rnn_hidden_dim 100
+	python main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC -o bat_dem_agg -o avail_car_step --rnn_hidden_dim 100
 
 q_learning:
-	python src/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.01
+	python main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.01
 
 facmac:
-	python src/main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.000001
+	python main.py -n 20 --n_repeats 5 --n_epochs 30 -o grdC --gamma 0.99 --lr 0.000001
 
 test:
 	python -m pytest src/tests

@@ -13,10 +13,12 @@ import shutil  # to copy/remove files
 import sys
 import time  # to record time it takes to run simulations
 from pathlib import Path
+import yaml
 
 import numpy as np
 
 from src.post_analysis.plotting.plotting import plotting
+from src.post_analysis.plotting.check_learning_over_time import check_model_changes
 from src.post_analysis.print_results import print_results
 from src.utilities.userdeftools import distr_learning
 
@@ -157,9 +159,9 @@ def get_prm_save_RL(prm_save, prm):
                 prm_save["RL"][e] = add_prm_save_list(
                     val[key], prm_save["RL"][e], key
                 )
-                if isinstance(val[key], (int, float, bool)):
+                if isinstance(val[key], (str, int, float, bool)):
                     prm_save["RL"][e][key] = val[key]
-        elif isinstance(val, (int, float, bool)):
+        elif isinstance(val, (str, int, float, bool)):
             prm_save["RL"][e] = val
 
     return prm_save
@@ -168,15 +170,13 @@ def get_prm_save_RL(prm_save, prm):
 def get_prm_save(prm):
     """Save run parameters for record-keeping."""
     prm_save = {}  # save selected system parameters
-    to_save_entries_syst = \
-        np.load(
-            Path(prm["paths"]["open_inputs"]) / "to_save_entries_syst.npy",
-            allow_pickle=True
-        ).item()
-    for key in to_save_entries_syst:
+    with open(Path(prm["paths"]["open_inputs"]) / "prm_to_save.yaml", "rb") as file:
+        prm_save = yaml.safe_load(file)
+
+    for key in prm_save:
         prm_save[key] = {}
-        sub_keys = to_save_entries_syst[key] \
-            if len(to_save_entries_syst[key]) > 0 \
+        sub_keys = prm_save[key] \
+            if len(prm_save[key]) > 0 \
             else prm[key].keys()
         for sub_key in sub_keys:
             if sub_key == 'n__clus':
@@ -221,8 +221,7 @@ def post_processing(
         record.load(prm)
 
     # plotting
-    paths["results_file"] = os.path.join(
-        paths["folder_run"], f"results{record.no_run}.txt")
+    paths["results_file"] = paths["folder_run"] / f"results{record.no_run}.txt"
 
     if no_run is None:
         file = open(paths["results_file"], "w+", encoding="utf-8")
@@ -236,6 +235,7 @@ def post_processing(
                         paths["folder_run"], entry), os.path.join(
                         paths["folder_run"], new_file))
         file = open(paths["results_file"], "a", encoding="utf-8")  # append
+
     if "description_run" in prm["save"]:
         file.write("run description: " + prm["save"]["description_run"] + "\n")
     if start_time is not None:
@@ -256,3 +256,6 @@ def post_processing(
 
     # clean up folder
     _clean_up(prm, no_run)
+
+    # check that some learning has occurred
+    check_model_changes(prm)

@@ -112,6 +112,9 @@ def get_settings_i(settings, i):
                     if isinstance(val[subsubkey], list):
                         settings_i[key][sub_key][subsubkey] = \
                             val[subsubkey][i]
+                    else:
+                        settings_i[key][sub_key][subsubkey] = val[subsubkey]
+
             else:
                 settings_i[key][sub_key] = val
 
@@ -165,8 +168,8 @@ def load_existing_prm(prm, no_run):
     input_folder = Path('outputs') / 'results' / f'run{no_run}' / 'inputData'
 
     # if input data was saved, load input data
-    if os.path.exists(input_folder):
-        if os.path.exists(input_folder / 'lp.npy'):
+    if input_folder.exists():
+        if (input_folder / 'lp.npy').exists():
             rl_params = np.load(
                 input_folder / 'lp.npy', allow_pickle=True
             ).item()

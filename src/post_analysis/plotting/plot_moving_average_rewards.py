@@ -57,8 +57,8 @@ def plot_results_all_repeats(
         spread = max_val - min_val
         lower_bound = min_val - 0.02 * spread
         upper_bound = max_val + 0.02 * spread
-        np.save('lower_bound0', lower_bound)
-        np.save('upper_bound0', upper_bound)
+        np.save(prm['paths']['open_inputs'] / 'lower_bound0', lower_bound)
+        np.save(prm['paths']['open_inputs'] / 'upper_bound0', upper_bound)
         print(f'new up lb [{lower_bound}, {upper_bound}]')
 
     lower_bound, upper_bound = [

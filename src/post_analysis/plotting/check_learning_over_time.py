@@ -54,6 +54,7 @@ def plot_eval_action(record, prm):
 
 
 def check_model_changes(prm):
+    change = True
     if prm["RL"]["type_learning"] == "q_learning":
         return
     networks = [
@@ -72,11 +73,12 @@ def check_model_changes(prm):
             for no in nos:
                 path = prm["paths"]["record_folder"] / f"models_{method}_{no}"
                 agents.append(th.load(path / "agent.th"))
-                mixers.append(th.load(path / "mixer.th"))
+                if prm['ntw']['n'] > 1:
+                    mixers.append(th.load(path / "mixer.th"))
 
             assert not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"]), \
                 "agent network has not changed"
-
-            assert not all(
-                mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]
-            ), "mixers network has not changed"
+            if prm['ntw']['n'] > 1:
+                assert not all(
+                    mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]
+                ),  "mixers network has not changed"

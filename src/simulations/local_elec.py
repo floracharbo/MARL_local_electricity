@@ -1151,7 +1151,8 @@ class LocalElecEnv():
                      "N", "n_int_per_hr", "dt", "behaviour_types",
                      "data_types", "labels_day_trans"
                      ]:
-            self.__dict__[data] = prm["syst"][data]
+            if data in prm["syst"]:
+                self.__dict__[data] = prm["syst"][data]
         self.cluss = initialise_dict(self.homes, "empty_dict")
         for home in self.homes:
             for data_type in self.behaviour_types:

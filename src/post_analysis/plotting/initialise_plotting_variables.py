@@ -36,16 +36,16 @@ def _eval_entries_plot_colours(prm):
     if prm['ntw']['n'] == 1:
         evaluation_methods = [
             evaluation_method for evaluation_method in evaluation_methods
-            if distr_learning(evaluation_method) == 'd'
-            or evaluation_method in ['baseline', 'opt']]
+            if evaluation_method in ['baseline', 'opt']
+            or distr_learning(evaluation_method) == 'd']
         if len([
             evaluation_method for evaluation_method in evaluation_methods
             if len(evaluation_method.split('_')) > 1
         ]) == 0:
             evaluation_methods = [
                 evaluation_method for evaluation_method in rl['evaluation_methods']
-                if distr_learning(evaluation_method) == 'c'
-                or evaluation_method in ['baseline', 'opt']
+                if  evaluation_method in ['baseline', 'opt']
+                or distr_learning(evaluation_method) == 'c'
             ]
 
     prm["save"]["eval_entries_plot"] = [

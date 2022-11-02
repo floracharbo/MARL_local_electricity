@@ -9,8 +9,7 @@ Plotting results RL
 """
 import matplotlib.pyplot as plt
 
-from src.post_analysis.plotting.check_learning_over_time import (
-    check_model_changes, plot_eval_action)
+from src.post_analysis.plotting.check_learning_over_time import plot_eval_action
 from src.post_analysis.plotting.initialise_plotting_variables import \
     initialise_variables
 from src.post_analysis.plotting.plot_break_down_savings import (
@@ -117,8 +116,7 @@ def plotting(record, spaces, prm, f):
     # other repeat-specific plots:
     for repeat in range(prm['RL']['n_repeats']):
         if prm['save']['plot_type'] > 0:
-            # 10 - plot moving average of all evaluation rewards
-            # for each repeat
+            # 10 - plot moving average of all evaluation rewards for each repeat
             plot_mova_eval_per_repeat(repeat, prm)
         if prm['save']['plot_type'] > 1:
             # 11 - plot epsilon over time for each repeat
@@ -146,9 +144,6 @@ def plotting(record, spaces, prm, f):
     # 18 - plot eval_actions over time
     if prm['save']['plot_type'] > 0:
         plot_eval_action(record, prm)
-
-    # 19 - check that some learning has occurred
-    check_model_changes(prm)
 
     plt.close('all')
 
