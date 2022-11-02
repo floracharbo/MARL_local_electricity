@@ -724,7 +724,6 @@ class Explorer():
         feasible = True
         method = "opt"
         sum_rl_rewards = 0
-        all_actions = []
         step_vals[method] = initialise_dict(
             self.step_vals_entries)
         batchflex_opt, batch_avail_ev = [

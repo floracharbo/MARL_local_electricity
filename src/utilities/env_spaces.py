@@ -370,7 +370,7 @@ class EnvSpaces():
         for label, type_ind, x in zip(["state", "next_state", "action"],
                                       ["state", "state", "action"],
                                       [current_state, state, action]):
-            if method != "tryopt" and not (label == "next_state" and done):
+            if not (label == "next_state" and done):
                 ind_x = self.get_space_indexes(
                     done=False, all_vals=x, type_=type_ind)
                 if method[-2] == 'C':

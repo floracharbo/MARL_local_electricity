@@ -66,7 +66,6 @@ class ActionSelector:
         action_dict = {
             'baseline': self.rl['default_action'],
             'random': np.random.random(np.shape(self.rl['default_action'])),
-            'tryopt': mus_opt[step],
         }
         if method in action_dict:
             action = action_dict[method]
