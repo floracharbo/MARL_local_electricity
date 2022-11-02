@@ -155,6 +155,7 @@ def reward_type(q):
 def distr_learning(q):
     return q.split('_')[2]
 
+
 def current_no_run(results_path):
     prev_runs = \
         [r for r in os.listdir(results_path)

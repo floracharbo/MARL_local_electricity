@@ -40,7 +40,6 @@ def plot_eval_action(record, prm):
         labels = prm["RL"]["action_labels_aggregate"]
     else:
         labels = prm["RL"]["action_labels_disaggregate"]
-    print(f"l43 check learning over time prm['RL']['evaluation_methods'] {prm['RL']['evaluation_methods']}")
     for evaluation_method in prm["RL"]["evaluation_methods"]:
         if evaluation_method == "baseline" \
                 or any(len(actions[repeat]) == 0 for repeat in range(prm["RL"]["n_repeats"])):
@@ -54,7 +53,6 @@ def plot_eval_action(record, prm):
 
 
 def check_model_changes(prm):
-    change = True
     if prm["RL"]["type_learning"] == "q_learning":
         return
     networks = [
@@ -82,4 +80,4 @@ def check_model_changes(prm):
             if prm['ntw']['n'] > 1:
                 assert not all(
                     mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]
-                ),  "mixers network has not changed"
+                ), "mixers network has not changed"

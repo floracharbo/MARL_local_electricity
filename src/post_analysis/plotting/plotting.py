@@ -9,7 +9,8 @@ Plotting results RL
 """
 import matplotlib.pyplot as plt
 
-from src.post_analysis.plotting.check_learning_over_time import plot_eval_action
+from src.post_analysis.plotting.check_learning_over_time import \
+    plot_eval_action
 from src.post_analysis.plotting.initialise_plotting_variables import \
     initialise_variables
 from src.post_analysis.plotting.plot_break_down_savings import (

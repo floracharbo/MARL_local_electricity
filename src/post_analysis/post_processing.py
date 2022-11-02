@@ -13,12 +13,14 @@ import shutil  # to copy/remove files
 import sys
 import time  # to record time it takes to run simulations
 from pathlib import Path
-import yaml
+from typing import Optional
 
 import numpy as np
+import yaml
 
+from src.post_analysis.plotting.check_learning_over_time import \
+    check_model_changes
 from src.post_analysis.plotting.plotting import plotting
-from src.post_analysis.plotting.check_learning_over_time import check_model_changes
 from src.post_analysis.print_results import print_results
 from src.utilities.userdeftools import distr_learning
 
@@ -206,12 +208,13 @@ def post_processing(
         prm: dict,
         no_run: int = None,
         start_time: float = None,
-        settings_i: dict = None
+        settings_i: dict = None,
+        run_mode: Optional[int] = None
 ):
     """Save results to files, plot, uptate seeds, etc."""
     paths = prm["paths"]
 
-    if no_run is None:  # if this is straight after learning
+    if run_mode == 1:  # if this is straight after learning
         # update min and max q for random initialisation
         _post_run_update(prm, record)
     else:

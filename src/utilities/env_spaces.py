@@ -54,23 +54,35 @@ def granularity_to_multipliers(granularity):
 
 def compute_max_car_cons_gen_values(env, state_space):
     max_car_cons, max_normcons, max_normgen = [-1 for _ in range(3)]
-    for dt in ["wd", "we"]:
-        if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
-            for c in range(env.n_clus["car"]):
-                max_car_cons_ = np.max(env.prof["car"]["cons"][dt][c])
-                if max_car_cons_ > max_car_cons:
-                    max_car_cons = max_car_cons_
-        if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
-            for c in range(env.n_clus["loads"]):
-                max_normcons_ = np.max(env.prof["loads"][dt][c])
-                if max_normcons_ > max_normcons:
-                    max_normcons = max_normcons_
-        if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
-            for m in range(12):
-                mac_normgen_ = np.max(env.prof["gen"][m])
-                if len(env.prof["gen"][m]) > 0 \
-                        and mac_normgen_ > max_normgen:
-                    max_normgen = mac_normgen_
+    day_types = env.prm["syst"]["day_types"]
+
+    if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
+        max_car_cons = np.max(
+            [[env.prof["car"]["cons"][dt][c] for dt in day_types] for c in range(env.n_clus["car"])]
+        )
+    if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
+        max_normcons = np.max(
+            [[env.prof["loads"][dt][c] for dt in day_types] for c in range(env.n_clus["loads"])]
+        )
+    if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
+        max_normgen = np.max([env.prof["gen"][m] for m in range(12)])
+    # for dt in ["wd", "we"]:
+    #     if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
+    #         for c in range(env.n_clus["car"]):
+    #             max_car_cons_ = np.max(env.prof["car"]["cons"][dt][c])
+    #             if max_car_cons_ > max_car_cons:
+    #                 max_car_cons = max_car_cons_
+    #     if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
+    #         for c in range(env.n_clus["loads"]):
+    #             max_normcons_ = np.max(env.prof["loads"][dt][c])
+    #             if max_normcons_ > max_normcons:
+    #                 max_normcons = max_normcons_
+    #     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
+    #         for m in range(12):
+    #             mac_normgen_ = np.max(env.prof["gen"][m])
+    #             if len(env.prof["gen"][m]) > 0 \
+    #                     and mac_normgen_ > max_normgen:
+    #                 max_normgen = mac_normgen_
 
     return max_car_cons, max_normcons, max_normgen
 
@@ -465,6 +477,23 @@ class EnvSpaces():
 
         return step_vals_i
 
+    def _initial_processing_bool_flex_computation(self, time_step, date, loads, home_vars):
+        if any(
+                descriptor in ['bool_flex', 'store_bool_flex']
+                for descriptor in self.descriptors['state']
+        ):
+            self.car.update_step(time_step=time_step)
+            self.car.min_max_charge_t(time_step, date)
+            self.E_heat_min_max(time_step)
+            self.action_translator.initial_processing(loads, home_vars)
+
+    def _revert_changes_bool_flex_computation(self):
+        if any(
+                descriptor in ['bool_flex', 'store_bool_flex']
+                for descriptor in self.descriptors['state']
+        ):
+            self.car.revert_last_update_step()
+
     def opt_step_to_state(
             self,
             prm: dict,
@@ -487,15 +516,7 @@ class EnvSpaces():
         n_homes = len(res["T_air"])
         vals = []
         date = self.current_date0 + timedelta(hours=time_step)
-        if any(
-                descriptor in ['bool_flex', 'store_bool_flex']
-                for descriptor in self.descriptors['state']
-        ):
-            self.car.update_step(time_step=time_step)
-            self.car.min_max_charge_t(time_step, date)
-            self.E_heat_min_max(time_step)
-            self.action_translator.initial_processing(loads, home_vars)
-            pass
+        self._initial_processing_bool_flex_computation(time_step, date, loads, home_vars)
 
         for home in range(n_homes):
             vals_home = []
@@ -545,12 +566,7 @@ class EnvSpaces():
                 vals_home.append(val)
             vals.append(vals_home)
 
-        if any(
-                descriptor in ['bool_flex', 'store_bool_flex']
-                for descriptor in self.descriptors['state']
-        ):
-            self.car.revert_last_update_step()
-            pass
+        self._revert_changes_bool_flex_computation()
 
         assert np.shape(vals) \
                == (self.n_homes, len(self.descriptors["state"])), \

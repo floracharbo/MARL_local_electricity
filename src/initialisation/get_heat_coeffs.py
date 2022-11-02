@@ -129,36 +129,16 @@ def _get_building_characteristics(heat):
     return A, H, psi, Cm
 
 
-def get_heat_coeffs(heat, ntw, syst, paths):
-    """
-    Compute heating coefficients from ISO simple hourly model.
-
-    inputs
-    heat:
-        the heating input data (e.g. building fabric and geometry, etc)
-    ntw:
-        the network input data
-        (here, the number of homes 'n' and 'nP' (passive) is relevant)
-    syst:
-        the system input data
-        (here, the number of time steps 'N' is relevant)
-
-    output
-     heat:
-        updated heating parameters including the coefficients
-        to describe the heating behaviour of the buildings
-    """
-    # boolean for whether comfort temperature is required
+def _get_required_temperatures(heat, ntw, syst):
     day_T_req = np.ones((ntw['n'], syst['H'])) * heat['Ts']
     if len(np.shape(heat['hrs_c'][0])) == 1:
         # if hours comfort only specified once -> same for all
         heat['hrs_c'] = [heat['hrs_c'] for _ in range(ntw['n'])]
     for home in range(ntw['n']):
         for interval in heat['hrs_c'][home]:
-            day_T_req[home][interval[0] * syst['n_int_per_hr']:
-                             interval[1] * syst['n_int_per_hr']] = \
-                [heat['Tc'] for _ in range((interval[1] - interval[0])
-                                           * syst['n_int_per_hr'])]
+            day_T_req[home][
+                interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
+            ] = [heat['Tc'] for _ in range((interval[1] - interval[0]) * syst['n_int_per_hr'])]
 
     heat['T_req'] = day_T_req
     for day in range(syst['D'] - 1):
@@ -180,6 +160,31 @@ def get_heat_coeffs(heat, ntw, syst, paths):
 
     for e in ['T_req', 'T_LB', 'T_UB']:
         heat[e + 'P'] = [heat[e][0] for _ in range(ntw['nP'])]
+
+    return heat
+
+
+def get_heat_coeffs(heat, ntw, syst, paths):
+    """
+    Compute heating coefficients from ISO simple hourly model.
+
+    inputs
+    heat:
+        the heating input data (e.g. building fabric and geometry, etc)
+    ntw:
+        the network input data
+        (here, the number of homes 'n' and 'nP' (passive) is relevant)
+    syst:
+        the system input data
+        (here, the number of time steps 'N' is relevant)
+
+    output
+     heat:
+        updated heating parameters including the coefficients
+        to describe the heating behaviour of the buildings
+    """
+    # boolean for whether comfort temperature is required
+    heat = _get_required_temperatures(heat, ntw, syst)
 
     heat['T_out_all'] = np.load(paths['open_inputs'] / paths['temp_file'])
 
@@ -213,10 +218,10 @@ def get_heat_coeffs(heat, ntw, syst, paths):
     d_t_air = (H['is'] * j) / (H['is'] + H['ve']) * heat['COP']
     e_t_air = (1 + H['is'] * k) / (H['is'] + H['ve'])
 
-    T_coeff_0 = np.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
-    T_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
-    for p in ["", "P"]:
-        for label, value in zip(['T_coeff', 'T_air_coeff'], [T_coeff_0, T_air_coeff_0]):
-            heat[label + p] = np.repeat(value, repeats=ntw["n" + p], axis=0)
+    t_coeff_0 = np.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
+    t_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
+    for passive_ext in ["", "P"]:
+        for label, value in zip(['T_coeff', 'T_air_coeff'], [t_coeff_0, t_air_coeff_0]):
+            heat[label + passive_ext] = np.repeat(value, repeats=ntw["n" + passive_ext], axis=0)
 
     return heat

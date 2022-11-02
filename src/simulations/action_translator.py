@@ -331,20 +331,21 @@ class Action_translator:
             assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
-            res['ds'] = self.min_charge[home]
+            if self.min_charge[home] > 1e-3:
+                res['ds'] = self.min_charge[home]
+            elif self.min_discharge[home] < - 1e-3:
+                res['ds'] = self.min_discharge[home]
+            else:
+                res['ds'] = 0
         elif battery_action < 0:
             if self.min_charge[home] > 0:
                 res['ds'] = self.min_charge[home]
-            elif self.min_discharge[home] > 0:
-                res['ds'] = self.min_discharge[home]
             elif self.min_discharge[home] <= 0:
                 res['ds'] = self.min_discharge[home] + abs(battery_action) \
                     * (self.max_discharge[home] - self.min_discharge[home])
         elif battery_action >= 0:
             if self.min_discharge[home] < 0:
                 res['ds'] = self.min_discharge[home]
-            elif self.max_charge[home] < 0:
-                res['ds'] = self.max_charge[home]
             elif self.max_charge[home] >= 0:
                 res['ds'] = self.min_charge[home] + battery_action \
                     * (self.max_charge[home] - self.min_charge[home])

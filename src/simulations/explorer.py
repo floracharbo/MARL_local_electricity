@@ -487,9 +487,11 @@ class Explorer():
             time_step, batchflex_opt
         )
 
-        assert all(res['totcons'][:, time_step] - res['E_heat'][:, time_step] <= loads["l_flex"] + loads["l_fixed"] + 1e-3), \
-            f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
-            f"available loads {loads['l_flex'] + loads['l_fixed']}"
+        assert all(
+            res['totcons'][:, time_step] - res['E_heat'][:, time_step]
+            <= loads["l_flex"] + loads["l_fixed"] + 1e-3
+        ), f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
+           f"available loads {loads['l_flex'] + loads['l_fixed']}"
         _, _, loads_prev = self._fixed_flex_loads(
             max(0, time_step - 1), batchflex_opt)
         home_vars = {

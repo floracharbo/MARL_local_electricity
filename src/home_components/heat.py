@@ -155,7 +155,6 @@ class Heat:
         M[2, :] *= T_out_t
         M[3, :] *= 0
         M[4, :] = P_heat
-        # M = np.array([np.ones(n_homes), T_start, np.ones(n_homes) * T_out_t, np.zeros(n_homes), P_heat])
         K = self.T_coeff[homes]
         T_end = np.sum(np.multiply(K, M.T), axis=1)
 

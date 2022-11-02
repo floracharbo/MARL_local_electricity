@@ -382,7 +382,9 @@ class Runner():
                         self.rl['T_decay_param']
 
     def _check_if_opt_env_needed(self, epoch, evaluation=False):
-        opts_in_eval = sum(method != 'opt' and method[0:3] == 'opt' for method in self.rl["evaluation_methods"]) > 0
+        opts_in_eval = sum(
+            method != 'opt' and method[0:3] == 'opt' for method in self.rl["evaluation_methods"]
+        ) > 0
         opt_stage = False
         for method in self.rl["evaluation_methods"]:
             if not evaluation and len(method.split('_')) == 5 and int(method.split('_')[3]) > epoch:
@@ -446,7 +448,6 @@ class Runner():
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)
 
         return steps_vals, date0, delta, i0_costs, exploration_methods
-
 
     def _save_nn_model(self, model_save_time):
         if self.rl['save_model'] and (
@@ -564,7 +565,7 @@ def run(run_mode, settings, no_runs=None):
             runner.run_experiment()
             record.save(end_of='end')  # save progress at end
             post_processing(
-                record, env, prm, start_time=start_time, settings_i=settings_i
+                record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode
             )
             print(f"--- {time.time() - start_time} seconds ---")
 
@@ -580,7 +581,7 @@ def run(run_mode, settings, no_runs=None):
             # make user defined environment
             env = LocalElecEnv(prm, profiles)
             record.init_env(env)  # record progress as we train
-            post_processing(record, env, prm, no_run=no_run)
+            post_processing(record, env, prm, no_run=no_run, run_mode=run_mode)
 
     elif run_mode == 3:
         plot_results_vs_nag()

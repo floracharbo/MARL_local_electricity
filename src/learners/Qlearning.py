@@ -85,7 +85,8 @@ class TabularQLearner:
     def learn_from_explorations(self, train_steps_vals):
         for i_explore in range(self.rl['n_explore']):
             current_exploration_methods = [
-                method for method in train_steps_vals[i_explore] if method in self.rl['exploration_methods']
+                method for method in train_steps_vals[i_explore]
+                if method in self.rl['exploration_methods']
             ]
             for method in current_exploration_methods:
                 # learn for each experience bundle individually
@@ -107,16 +108,8 @@ class TabularQLearner:
                 random_ind_action = np.asarray(cumps > rdn_action).nonzero()[0][0]
                 # random_ind_action = [i for i in range(n_action) if rdn_action < cumps[i]][0]
                 actions_maxval = np.asarray(q_table[s] == np.max(q_table[s])).nonzero()[0]
-                cump_maxac = np.cumsum(np.ones(len(actions_maxval)) * 1/len(actions_maxval))
+                cump_maxac = np.cumsum(np.ones(len(actions_maxval)) * 1 / len(actions_maxval))
                 greedy_ind_action = actions_maxval[np.asarray(cump_maxac > rdn_max).nonzero()[0][0]]
-                    # [ac for ac in range(len(q_table[s]))
-                    #               if q_table[s][ac] == max_value]
-                # cump_maxac = [1 / len(actions_maxval) * i
-                #               for i in range(len(actions_maxval))]
-                # greedy_ind_action = actions_maxval[
-                #     [i for i in range(len(cump_maxac))
-                #      if rdn_max > cump_maxac[i]][-1]]
-                # greedy_ind_action = np.random.choice(actions_maxval)
                 if isinstance(self.eps, (float, int)):
                     eps = self.eps
                 else:

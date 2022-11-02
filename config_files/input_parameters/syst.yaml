@@ -26,5 +26,5 @@ year: 2021
 data_version: 2
 f_std_share: 1
 clust_dist_share: 1
-weekday_type: ['wd', 'we']  # week day types - wd: weekday day and we: weekend day
+day_types: ['wd', 'we']  # week day types - wd: weekday day and we: weekend day
 test_on_run: False

@@ -63,31 +63,27 @@ class ActionSelector:
         else:
             tf_prev_state = None
         # action choice for current time step
-        if method == 'baseline':
-            action = self.rl['default_action']
-        elif method == 'random':
-            action = np.random.random(np.shape(self.rl['default_action']))
-        elif method == 'tryopt':
-            action = mus_opt[step]
+        action_dict = {
+            'baseline': self.rl['default_action'],
+            'random': np.random.random(np.shape(self.rl['default_action'])),
+            'tryopt': mus_opt[step],
+        }
+        if method in action_dict:
+            action = action_dict[method]
         elif rl['type_learning'] in ['DDPG', 'DQN'] and rl['trajectory']:
-            action = [actions[home][step]
-                      for home in self.homes]
-
+            action = [actions[home][step] for home in self.homes]
         elif rl['type_learning'] == 'DDPG' and not rl['trajectory']:
             action = self._select_action_DDPG(
                 tf_prev_state, eps_greedy, rdn_eps_greedy,
                 rdn_eps_greedy_indiv, method
             )
-
         elif rl['type_learning'] == 'facmac':
             action = self._select_action_facmac(
                 current_state, tf_prev_state, step, evaluation, method, t_env
             )
-
         else:
             ind_current_state = self.env.spaces.get_space_indexes(
                 all_vals=current_state, indiv_indexes=True)
-
             if rl['type_learning'] == 'q_learning':
                 ind_action = [
                     self.learner.sample_action(
@@ -95,12 +91,10 @@ class ActionSelector:
                     )[0]
                     for home in self.homes
                 ]
-
             elif rl['type_learning'] == 'DDQN':
                 ind_action = self._select_action_DDQN(
                     ind_current_state, eps_greedy
                 )
-
             elif rl['type_learning'] == 'DQN':
                 ind_action = self._select_action_DQN(
                     ind_current_state, eps_greedy, rdn_eps_greedy_indiv
@@ -196,8 +190,6 @@ class ActionSelector:
             "state": [current_state[home] for home in self.homes],
             "avail_actions": [self.rl['avail_actions']],
             "obs": tf_prev_state
-                # [np.reshape(tf_prev_state,
-                #                (self.n_agents, self.rl['obs_shape']))]
         }
         self.episode_batch[method].update(pre_transition_data, ts=step)
         if self.rl['action_selector'] == "gumbel":

@@ -777,6 +777,15 @@ def _filter_type_learning_competitive(rl):
         ]
 
 
+def _add_n_start_opt_explo(rl, evaluation_methods_list):
+    if rl['n_start_opt_explo'] is not None and rl['n_start_opt_explo'] > 0:
+        for i, initial_evaluation_method in enumerate(evaluation_methods_list):
+            if initial_evaluation_method[0: 3] == 'env' and rl['n_start_opt_explo'] > 0:
+                evaluation_methods_list[i] += f"_{rl['n_start_opt_explo']}_opt"
+
+    return evaluation_methods_list
+
+
 def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = ["baseline"]
     if rl["evaluation_methods"] is not None and len(rl['evaluation_methods']) > 1:
@@ -815,10 +824,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
         for data_source in data_sources:
             evaluation_methods_list += [data_source + mc for mc in methods_combs]
 
-    if rl['n_start_opt_explo'] is not None and rl['n_start_opt_explo'] > 0:
-        for i in range(len(evaluation_methods_list)):
-            if evaluation_methods_list[i][0: 3] == 'env':
-                evaluation_methods_list[i] += f"_{rl['n_start_opt_explo']}_opt"
+    evaluation_methods_list = _add_n_start_opt_explo(rl, evaluation_methods_list)
 
     rl["evaluation_methods"] = evaluation_methods_list
     _filter_type_learning_competitive(rl)

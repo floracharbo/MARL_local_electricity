@@ -50,7 +50,8 @@ class HEDGE:
 
         # load input data
         prm = self._load_inputs(prm)
-        self._init_factors_clusters(factors0, clusters0)
+        self._init_factors(factors0)
+        self._init_clusters(clusters0)
 
         self.profs = self._load_profiles(prm)
 
@@ -108,11 +109,11 @@ class HEDGE:
             ]
         if "car" in self.data_types:
             day["loads_car"] = np.array([
-                    [p * factors["car"][home]
-                     for p in self.profs["car"]["cons"][day_type][
-                         clusters["car"][home]][i_profiles["car"][home]]]
-                    for home in self.homes
-                ])
+                [p * factors["car"][home]
+                 for p in self.profs["car"]["cons"][day_type][
+                     clusters["car"][home]][i_profiles["car"][home]]]
+                for home in self.homes
+            ])
 
             # check loads car are consistent with maximum battery load
             interval_f_ev, factors, day, i_profiles["car"] \
@@ -128,10 +129,9 @@ class HEDGE:
             ])
 
             for home in self.homes:
-                day["avail_car"][home] = np.where(day["loads_car"][home] > 0, 0, day["avail_car"][home])
-                # for time in range(self.n_steps):
-                #     if day["loads_car"][home][time] > 0:
-                #         assert not day["avail_car"][home][time]
+                day["avail_car"][home] = np.where(
+                    day["loads_car"][home] > 0, 0, day["avail_car"][home]
+                )
 
         self.factors = factors
         self.clusters = clusters
@@ -151,8 +151,8 @@ class HEDGE:
     def _import_dem(self, prm):
         # possible types of transition between week day types (week/weekend)
         day_trans = []
-        for prev_day in prm["syst"]["weekday_type"]:
-            for next_day in prm["syst"]["weekday_type"]:
+        for prev_day in prm["syst"]["day_types"]:
+            for next_day in prm["syst"]["day_types"]:
                 day_trans.append(f"{prev_day}2{next_day}")
 
         for transition in day_trans:
@@ -162,7 +162,7 @@ class HEDGE:
                 = list(self.residual_distribution_prms["loads"][transition])
             self.residual_distribution_prms["loads"][transition][1] *= prm["syst"]["f_std_share"]
         self.select_cdfs["loads"] = {}
-        for day_type in prm["syst"]["weekday_type"]:
+        for day_type in prm["syst"]["day_types"]:
             self.select_cdfs["loads"][day_type] = [
                 min_cdf + prm["syst"]["clust_dist_share"] * (max_cdf - min_cdf)
                 for min_cdf, max_cdf in zip(
@@ -224,11 +224,9 @@ class HEDGE:
 
         return prm
 
-    def _init_factors_clusters(self, factors0, clusters0):
-        day_type, transition = self._transition_type()
+    def _init_factors(self, factors0):
+        _, transition = self._transition_type()
         self.factors = {}
-        self.clusters = {}
-
         if factors0 is None:
             if "loads" in self.data_types:
                 self.factors["loads"] = [
@@ -261,6 +259,15 @@ class HEDGE:
                 if isinstance(factors0[data], int):
                     self.factors[data] = [factors0[data] for _ in self.homes]
 
+        self.list_factors = initialise_dict(self.data_types, second_level_entries=self.homes)
+        for home in self.homes:
+            for data in self.data_types:
+                self.list_factors[data][home] = [self.factors[data][home]]
+
+    def _init_clusters(self, clusters0):
+        day_type, transition = self._transition_type()
+        self.clusters = {}
+
         if clusters0 is None:
             for data in self.behaviour_types:
                 self.clusters[data] \
@@ -273,12 +280,9 @@ class HEDGE:
                     self.clusters[data] = [clusters0[data] for _ in self.homes]
 
         self.list_clusters = initialise_dict(self.behaviour_types, second_level_entries=self.homes)
-        self.list_factors = initialise_dict(self.data_types, second_level_entries=self.homes)
         for home in self.homes:
             for data in self.behaviour_types:
                 self.list_clusters[data][home] = [self.clusters[data][home]]
-            for data in self.data_types:
-                self.list_factors[data][home] = [self.factors[data][home]]
 
     def _next_factors(self, transition, prev_clusters):
         prev_factors = self.factors.copy()
@@ -407,7 +411,10 @@ class HEDGE:
         """Randomly generate index of profile to select for given data."""
         i_profs = []
         if data in self.behaviour_types:
-            n_profs = [self.n_prof[data][day_type][cluster] for cluster in range(len(self.n_prof[data][day_type]))]
+            n_profs = [
+                self.n_prof[data][day_type][cluster]
+                for cluster in range(len(self.n_prof[data][day_type]))
+            ]
 
         else:
             n_profs = self.n_prof[data][i_month]
@@ -472,7 +479,7 @@ class HEDGE:
         return profiles
 
     def _load_dem_profiles(self, profiles, prm):
-        profiles["loads"] = initialise_dict(prm["syst"]["weekday_type"])
+        profiles["loads"] = initialise_dict(prm["syst"]["day_types"])
 
         self.n_prof["loads"] = {}
         clusters = [
@@ -483,7 +490,7 @@ class HEDGE:
         n_dem_clus = max(clusters) + 1
 
         path = prm["paths"]["hedge_inputs"] / "profiles" / "norm_loads"
-        for day_type in prm["syst"]["weekday_type"]:
+        for day_type in prm["syst"]["day_types"]:
             profiles["loads"][day_type] = [
                 np.load(path / f"c{cluster}_{day_type}.npy", mmap_mode="r")
                 for cluster in range(n_dem_clus)

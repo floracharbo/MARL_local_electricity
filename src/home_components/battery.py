@@ -5,7 +5,6 @@ Created on Tue Dec 8 16:40:04 2021.
 
 @author: Flora Charbonnier
 """
-import copy
 import datetime
 
 import numpy as np
@@ -59,8 +58,7 @@ class Battery:
         self.M = prm['syst']['M']
 
         # import input parameters
-        for info in ['own_car', 'dep', 'c_max', 'd_max', 'eta_ch',
-                  'eta_ch', 'eta_dis', 'SoCmin']:
+        for info in ['own_car', 'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin']:
             self.__dict__[info] = prm['car'][info]
 
         # total number of time steps
@@ -162,7 +160,9 @@ class Battery:
     def next_trip_details(self, start_h, date, home):
         """Get next trip's load requirements, time until trip, and end."""
         # next time the EV is on a trip
-        iT = np.asarray(~np.array(self.batch['avail_car'][home][start_h: self.N + 1], dtype=bool)).nonzero()[0]
+        iT = np.asarray(
+            ~np.array(self.batch['avail_car'][home][start_h: self.N + 1], dtype=bool)
+        ).nonzero()[0]
         d_to_end = self.date_end - date
         h_end = \
             start_h \
@@ -409,8 +409,9 @@ class Battery:
 
     def actions_to_env_vars(self, res):
         """Update battery state for current actions."""
-        for info in ['store', 'charge', 'discharge', 'loss_ch',
-                  'loss_dis', 'store_out_tot', 'discharge_tot']:
+        for info in [
+            'store', 'charge', 'discharge', 'loss_ch', 'loss_dis', 'store_out_tot', 'discharge_tot'
+        ]:
             self.__dict__[info] = [None for home in range(self.n_homes)]
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \

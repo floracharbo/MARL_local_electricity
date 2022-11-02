@@ -939,9 +939,6 @@ class LocalElecEnv():
             home_vars: dict
     ) -> List[bool]:
         """Given result of the step action, check environment constraints."""
-        # self.car.update_step(time_step=self.time, implement=False)
-        # assert self.car.time_step == self.time, f"self.car.time_step {self.car.time_step} self.time {self.time}"
-
         for home in [home for home, bool in enumerate(bool_penalty) if not bool]:
             self.car.check_constraints(home, date, h)
             self.heat.check_constraints(home, h, E_req_only)
@@ -1055,32 +1052,30 @@ class LocalElecEnv():
                     for ih in range(0, h + 2)), "batch_flex too large h + 1"
 
                 for ih in range(h, h + 30):
-                    assert self.batch[home]['loads'][ih] <= \
-                           batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3, \
-                        "loads larger than with flex"
+                    assert self.batch[home]['loads'][ih] \
+                           <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3, \
+                           "loads larger than with flex"
 
     def _new_flex_tests(self, batch_flex, new_batch_flex, h, home):
         if self.test:
-            assert np.sum(new_batch_flex[home][0][1:5]) <= \
-                   sum(batch_flex[home][ih][0] / (1 - self.share_flexs[home]) * self.share_flexs[home]
-                       for ih in range(0, h)) + 1e-3, \
-                "flex too large"
+            assert np.sum(new_batch_flex[home][0][1:5]) <= sum(
+                batch_flex[home][ih][0] / (1 - self.share_flexs[home])
+                * self.share_flexs[home] for ih in range(0, h)
+            ) + 1e-3, "flex too large"
         for i_flex in range(self.max_delay):
             loads_next_flex = new_batch_flex[home][0][i_flex + 1]
             if self.test:
                 assert not (
-                        0 < i_flex < 4
-                        and new_batch_flex[home][1][i_flex] + loads_next_flex
-                        > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
-                        / (1 - self.share_flexs[home]) * self.share_flexs[home] + 1e-3
+                    0 < i_flex < 4
+                    and new_batch_flex[home][1][i_flex] + loads_next_flex
+                    > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
+                    / (1 - self.share_flexs[home]) * self.share_flexs[home] + 1e-3
                 ), "loads_next_flex error"
             new_batch_flex[home][1][i_flex] += loads_next_flex
             if self.test:
                 assert not (
-                        loads_next_flex
-                        > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
+                    loads_next_flex > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
                 ), "loads_next_flex too large"
-
 
     def _loads_test(self):
         for home in self.homes:

@@ -44,7 +44,7 @@ def _eval_entries_plot_colours(prm):
         ]) == 0:
             evaluation_methods = [
                 evaluation_method for evaluation_method in rl['evaluation_methods']
-                if  evaluation_method in ['baseline', 'opt']
+                if evaluation_method in ['baseline', 'opt']
                 or distr_learning(evaluation_method) == 'c'
             ]
 
