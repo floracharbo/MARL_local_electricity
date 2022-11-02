@@ -40,7 +40,7 @@ def plot_eval_action(record, prm):
         labels = prm["RL"]["action_labels_aggregate"]
     else:
         labels = prm["RL"]["action_labels_disaggregate"]
-
+    print(f"l43 check learning over time prm['RL']['evaluation_methods'] {prm['RL']['evaluation_methods']}")
     for evaluation_method in prm["RL"]["evaluation_methods"]:
         if evaluation_method == "baseline" \
                 or any(len(actions[repeat]) == 0 for repeat in range(prm["RL"]["n_repeats"])):
@@ -61,6 +61,7 @@ def check_model_changes(prm):
         method for method in prm["RL"]["evaluation_methods"]
         if method not in ["baseline", "opt", "random"]
     ]
+    print(f"check_model_changes networks {networks}")
     for method in networks:
         folders = [
             folder for folder in os.listdir(prm["paths"]["record_folder"])

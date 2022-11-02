@@ -137,8 +137,15 @@ def set_seeds_rdn(seed):
     th.manual_seed(seed)
 
 
-def data_source(q):
-    return q.split('_')[0]
+def data_source(q, epoch=0):
+    if len(q.split('_')) == 3:
+        return q.split('_')[0]
+    else:
+        n_opt = int(q.split('_')[3])
+        if epoch < n_opt:
+            return 'opt'
+        else:
+            return 'env'
 
 
 def reward_type(q):

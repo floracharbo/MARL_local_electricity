@@ -61,13 +61,14 @@ class Runner():
         self.explorer.ind_seed_deterministic = - 1
         date0, delta, i0_costs = None, None, None
         # multiple repetition to sample different learning trajectories
+        print(f"start run_experiment self.rl['evaluation_methods'] {self.rl['evaluation_methods']}")
+
         while repeat < self.rl['n_repeats']:
             print(f"repeat {repeat}")
             episode, converged = self._new_repeat(repeat, new_env)
 
             # looping through epochs
             # have progress bar while running through epochs
-
             model_save_time = 0
             for epoch in tqdm(range(self.rl['n_epochs']),
                               position=0, leave=True):
@@ -103,7 +104,7 @@ class Runner():
                 self._post_exploration_learning(epoch, train_steps_vals)
 
                 # evaluation step
-                evaluations_methods = self._check_if_opt_needed(epoch, evaluation=True)
+                evaluations_methods = self._check_if_opt_env_needed(epoch, evaluation=True)
                 assert i_explore + 1 == self.rl['n_explore']
 
                 self.env.reinitialise_envfactors(
@@ -380,8 +381,12 @@ class Runner():
                         self.learner[method][home].ActionStateModel.T * \
                         self.rl['T_decay_param']
 
-    def _check_if_opt_needed(self, epoch, evaluation=False):
+    def _check_if_opt_env_needed(self, epoch, evaluation=False):
         opts_in_eval = sum(method != 'opt' and method[0:3] == 'opt' for method in self.rl["evaluation_methods"]) > 0
+        opt_stage = False
+        for method in self.rl["evaluation_methods"]:
+            if not evaluation and len(method.split('_')) == 5 and int(method.split('_')[3]) > epoch:
+                opt_stage = True
         eval_stage = True \
             if evaluation and epoch >= self.rl['start_end_eval'] \
             else False
@@ -394,10 +399,13 @@ class Runner():
         # then do not use optimisations
         if not opts_in_eval \
                 and not self.rl['check_feasibility_with_opt'] \
-                and not eval_stage:
+                and not eval_stage \
+                and not opt_stage:
             types_needed = [method for method in candidate_types if method[0:3] != 'opt']
         else:
             types_needed = candidate_types
+        if opt_stage:
+            types_needed = [method for method in types_needed if len(method.split("_")) < 5]
 
         return types_needed
 
@@ -431,9 +439,8 @@ class Runner():
             date0, epoch, i_explore, evaluation_add1=evaluation_add1)
 
         # exploration - obtain experience
-        exploration_methods = self._check_if_opt_needed(
+        exploration_methods = self._check_if_opt_env_needed(
             epoch, evaluation=evaluation)
-
         steps_vals, self.episode_batch = self.explorer.get_steps(
             exploration_methods, repeat, epoch, i_explore,
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)

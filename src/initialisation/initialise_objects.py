@@ -762,8 +762,10 @@ def _filter_type_learning_facmac(rl):
                 if distr_learning(method) == "d":
                     new_method = f"{method.split('_')[0]}_{method.split('_')[1]}_c"
             new_methods.append(new_method)
-        rl[f"{stage}_methods"] \
-            = [method for method in new_methods if method in valid_types[stage]]
+        rl[f"{stage}_methods"] = []
+        for method in new_methods:
+            if any(valid_type in method for valid_type in valid_types[stage]):
+                rl[f"{stage}_methods"].append(method)
 
 
 def _filter_type_learning_competitive(rl):
@@ -812,6 +814,11 @@ def _make_type_eval_list(rl, large_q_bool=False):
 
         for data_source in data_sources:
             evaluation_methods_list += [data_source + mc for mc in methods_combs]
+
+    if rl['n_start_opt_explo'] is not None and rl['n_start_opt_explo'] > 0:
+        for i in range(len(evaluation_methods_list)):
+            if evaluation_methods_list[i][0: 3] == 'env':
+                evaluation_methods_list[i] += f"_{rl['n_start_opt_explo']}_opt"
 
     rl["evaluation_methods"] = evaluation_methods_list
     _filter_type_learning_competitive(rl)

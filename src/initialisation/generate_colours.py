@@ -186,6 +186,11 @@ def generate_colours(save, prm, colours_only=False, entries=None):
     # list all possible for consistent colours ordering
     all_evaluation_methods = list_all_evaluation_methods(entries)
     n_colours = len(all_evaluation_methods)
+    for i in range(len(all_evaluation_methods)):
+        if all_evaluation_methods[i][0: 3] == "env" and all_evaluation_methods[i] not in prm["RL"]["evaluation_methods"]:
+            method_replacement = [evaluation_method for evaluation_method in prm["RL"]["evaluation_methods"] if all_evaluation_methods[i] in evaluation_method]
+            if len(method_replacement) > 0:
+                all_evaluation_methods[i] = method_replacement[0]
 
     # first, loop through candidate colours and colour palettes
     colours0 = [
@@ -201,4 +206,5 @@ def generate_colours(save, prm, colours_only=False, entries=None):
 
     # save the list to the parameters
     save, prm = _colours_to_prm(save, prm, colours0, colours, all_evaluation_methods)
+
     return save, prm

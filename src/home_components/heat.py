@@ -150,7 +150,12 @@ class Heat:
         if T_out_t is None:
             T_out_t = self.T_out[self.time_step]
         P_heat = E_heat * 1e3 * self.n_int_per_hr
-        M = np.array([np.ones(n_homes), T_start, np.ones(n_homes) * T_out_t, np.zeros(n_homes), P_heat])
+        M = np.ones((5, n_homes))
+        M[1, :] = T_start
+        M[2, :] *= T_out_t
+        M[3, :] *= 0
+        M[4, :] = P_heat
+        # M = np.array([np.ones(n_homes), T_start, np.ones(n_homes) * T_out_t, np.zeros(n_homes), P_heat])
         K = self.T_coeff[homes]
         T_end = np.sum(np.multiply(K, M.T), axis=1)
 

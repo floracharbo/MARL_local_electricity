@@ -84,7 +84,7 @@ class TabularQLearner:
 
     def learn_from_explorations(self, train_steps_vals):
         for i_explore in range(self.rl['n_explore']):
-            for method in self.rl["exploration_methods"]:
+            for method in train_steps_vals[i_explore]:
                 # learn for each experience bundle individually
                 # for the tabular Q learner
                 self.learn(method, train_steps_vals[i_explore][method])
@@ -199,9 +199,11 @@ class TabularQLearner:
     def learn(self, t_explo, step_vals, step=None):
         q_to_update = [] if t_explo == 'baseline' \
             else [t_explo] if t_explo[0:3] == 'env' \
-            else [q for q in self.rl['type_Qs']
-                  if data_source(q) == 'opt' and q[-1] != '0']
-        rangestep = range(len(step_vals['reward'])) if step is None else [step]
+            else [q for q in self.rl['type_Qs'] if data_source(q) == 'opt' and q[-1] != '0']
+        try:
+            rangestep = range(len(step_vals['reward'])) if step is None else [step]
+        except Exception as ex:
+            print(ex)
         for step in rangestep:
             for q in q_to_update:
                 self.update_q_step(q, step, step_vals)

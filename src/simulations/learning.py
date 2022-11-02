@@ -173,8 +173,7 @@ class LearningManager():
 
     def q_learning_instant_feedback(self, evaluation, method, step_vals, step):
         """At the end of each step, learn from experience using Q-learning."""
-        if evaluation is False \
-                and self.rl["type_learning"] == "q_learning":
+        if evaluation is False and self.rl["type_learning"] == "q_learning":
             if self.rl["instant_feedback"] \
                     and not evaluation \
                     and method in self.rl["exploration_methods"]:

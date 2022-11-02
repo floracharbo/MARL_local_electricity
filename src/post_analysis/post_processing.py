@@ -245,6 +245,8 @@ def post_processing(
         for key in settings_i:
             file.write(f"{key} {settings_i[key]}" + "\n")
 
+    print(f"l248 post processing prm['RL']['evaluation_methods'] "
+          f"{prm['RL']['evaluation_methods']}")
     # plotting
     sys.path.append("//")
     file, metrics = plotting(record, env.spaces, prm, file)

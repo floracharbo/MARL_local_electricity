@@ -87,6 +87,7 @@ class EnvSpaces():
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["car"]["c_max"]
         prm = env.prm
+        self.N = env.N
         self.car = env.car
         self.action_translator = env.action_translator
         self._get_space_info(env)
