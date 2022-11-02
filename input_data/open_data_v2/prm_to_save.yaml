@@ -1,4 +1,11 @@
-grd: ['V', 'R', 'loss']
+grd: ['V',
+  'R',
+  'loss',
+  'max_grid_in',
+  'max_grid_out',
+  'penalty_coefficient_in',
+  'penalty_coefficient_out'
+  ]
 ntw: ['n', 'Bcap', 'charge_type']
 syst: ['solver',
   'D',
