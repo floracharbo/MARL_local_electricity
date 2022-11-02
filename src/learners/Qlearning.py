@@ -84,7 +84,10 @@ class TabularQLearner:
 
     def learn_from_explorations(self, train_steps_vals):
         for i_explore in range(self.rl['n_explore']):
-            for method in train_steps_vals[i_explore]:
+            current_exploration_methods = [
+                method for method in train_steps_vals[i_explore] if method in self.rl['exploration_methods']
+            ]
+            for method in current_exploration_methods:
                 # learn for each experience bundle individually
                 # for the tabular Q learner
                 self.learn(method, train_steps_vals[i_explore][method])
