@@ -16,13 +16,22 @@ from src.simulations.runner import run
 settings = {
     'heat': {'file': 'heat2'},
     'RL': {
-        'type_learning': 'q_learning',
+        'type_learning': 'facmac',
         'aggregate_actions': False,
         'mixer': 'qmix',
-        # current experiment
-        # 'state_space': ['grdC_level', 'hour', 'store0', 'dT', 'dT_next', 'loads_cons_prev', 'day_type'],
+        # current experiment#
+        # grdC_level, hour, car_tau, store0, grdC
+        # # avail_car_step, loads_clus_step, loads_fact_step
+        # # gen_fact_step, bat_fact_step, loads_cons_step, gen_prod_step
+        # # bat_cons_step, dT, dT_next, bat_cons_prev
+        # # bat_dem_agg, gen_fact_prev, bat_fact_prev, loads_cons_prev
+        # # gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
+        # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
+        # # flexibility
+        'state_space': ['hour', 'car_tau', 'grdC', 'avail_car_step',
+                        'store0', 'dT', 'dT_next', 'loads_cons_prev', 'day_type', 'bool_flex, store_bool_flex'],
         'n_epochs': 20,
-        'n_repeats': 5,
+        'n_repeats': 3,
         'rnn_hidden_dim': 5e3,
         # 'n_hidden_layers': 1,
         # 'lr': 1e-4,

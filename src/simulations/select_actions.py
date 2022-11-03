@@ -48,7 +48,6 @@ class ActionSelector:
             method: str,
             step: int,
             actions: list,
-            mus_opt: list,
             evaluation: bool,
             current_state: list,
             eps_greedy: bool,

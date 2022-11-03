@@ -1102,11 +1102,12 @@ class LocalElecEnv():
                 [(gc - min(self.grdC[0: self.N]))
                  / (max(self.grdC[0: self.N]) - min(self.grdC[0: self.N]))
                  for gc in self.grdC[0: self.N + 1]]
-            self.spaces.brackets['state'][i_grdC_level[0]] = [
-                [np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
-                 for i in range(self.n_grdC_level)] + [1]
-                for _ in self.homes
-            ]
+            if not (self.spaces.type_env == "continuous"):
+                self.spaces.brackets['state'][i_grdC_level[0]] = [
+                    [np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
+                     for i in range(self.n_grdC_level)] + [1]
+                    for _ in self.homes
+                ]
 
     def _initialise_new_data(self):
         # we have not loaded data from file -> save new data

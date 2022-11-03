@@ -66,13 +66,13 @@ def patch_find_feasible_data(
     data_feasible = True
     if data_feasible and 'opt' in type_actions:  # start with opt
         # exploration through optimisation
-        step_vals, mus_opt, data_feasible = self.get_steps_opt(
+        step_vals, data_feasible = self.get_steps_opt(
             res, step_vals, evaluation, cluss, factors, batch,
             last_epoch=epoch == self.prm['RL']['n_epochs'] - 1)
 
     seed_data = res, factors, cluss, batch
 
-    return seed_data, step_vals, mus_opt
+    return seed_data, step_vals
 
 
 def patch_update_date(self, i0_costs, date0=None):

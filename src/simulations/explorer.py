@@ -155,10 +155,10 @@ class Explorer():
                 seed_ind += 1
                 self.data.deterministic_created = False
 
-                _, step_vals, mus_opt = \
-                    self.data.find_feasible_data(
+                _, step_vals = self.data.find_feasible_data(
                         seed_ind, methods, step_vals,
-                        evaluation, epoch, passive=True)
+                        evaluation, epoch, passive=True
+                )
 
                 self._init_passive_data()
 
@@ -223,7 +223,7 @@ class Explorer():
 
     def _get_one_episode(
             self, method, epoch, actions, state,
-            mus_opt, evaluation, env, batch, step_vals
+            evaluation, env, batch, step_vals
     ):
         step, done = 0, 0
         sequence_feasible = True
@@ -244,7 +244,7 @@ class Explorer():
             current_state = state
 
             action, _ = self.action_selector.select_action(
-                method, step, actions, mus_opt, evaluation,
+                method, step, actions, evaluation,
                 current_state, eps_greedy, rdn_eps_greedy,
                 rdn_eps_greedy_indiv, self.t_env
             )
@@ -340,7 +340,7 @@ class Explorer():
             else self.data.get_seed_ind(repeat, epoch, i_explore)
         seed_ind += self.data.d_ind_seed[self.data.passive_ext]
 
-        [_, _, _, batch], step_vals, mus_opt = self.data.find_feasible_data(
+        [_, _, _, batch], step_vals = self.data.find_feasible_data(
             seed_ind, methods, step_vals, evaluation, epoch
         )
 
@@ -397,7 +397,7 @@ class Explorer():
                 step_vals, traj_reward, sequence_feasible \
                     = self._get_one_episode(
                         method, epoch, actions, state,
-                        mus_opt, evaluation, env, batch, step_vals
+                        evaluation, env, batch, step_vals
                     )
 
                 if rl["type_learning"] in ["DDPG", "DQN"] \
@@ -416,10 +416,10 @@ class Explorer():
 
                 self.data.deterministic_created = False
                 print("find feas opt data again!")
-                [res, _, _, batch], step_vals, mus_opt = \
-                    self.data.find_feasible_data(
+                [_, _, _, batch], step_vals = self.data.find_feasible_data(
                         seed_ind, methods, step_vals,
-                        evaluation, epoch)
+                        evaluation, epoch
+                )
 
         step_vals["seed"] = self.data.seed[self.data.passive_ext]
         step_vals["not_feas_vars"] = not_feas_vars
@@ -812,7 +812,7 @@ class Explorer():
                 and rl["trajectory"]:
             self.learning_manager.learn_trajectory_opt(step_vals)
 
-        return step_vals, all_actions, feasible
+        return step_vals, feasible
 
     def _record_last_epoch_opt(
             self, res, time_step, break_down_rewards, batchflex_opt,

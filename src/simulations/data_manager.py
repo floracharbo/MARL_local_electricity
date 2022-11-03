@@ -148,7 +148,6 @@ class DataManager():
             step_vals: dict,
             evaluation: bool,
             epoch: int,
-            mus_opt: Optional[list]
     ) -> Tuple[list, bool, bool, dict, Optional[list], bool]:
         passive = False
         data_feasible = True
@@ -199,15 +198,14 @@ class DataManager():
 
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
-            step_vals, mus_opt, data_feasible = self.get_steps_opt(
+            step_vals, data_feasible = self.get_steps_opt(
                 res, step_vals, evaluation, clusters, factors, batch,
                 last_epoch=epoch == self.prm['RL']['n_epochs'] - 1
             )
 
         seed_data = [res, factors, clusters, batch]
 
-        return (seed_data, new_res, data_feasible, step_vals,
-                mus_opt, feasibility_checked)
+        return (seed_data, new_res, data_feasible, step_vals, feasibility_checked)
 
     def find_feasible_data(
             self,
@@ -232,7 +230,6 @@ class DataManager():
         factors: scaling factors for the load, PV and EV load profiles
         clusters: behaviour clusters for the load and EV profiles
         step_vals: RL exploration/evaluation data (state, action, rewards, etc)
-        mus_opt: actions selected by the optimiser
         """
         # boolean: whether optimisation problem is feasible;
         # start by assuming it is not
@@ -243,7 +240,6 @@ class DataManager():
             iteration += 1
             feasibility_checked = self.get_seed(seed_ind)
             set_seeds_rdn(self.seed[self.passive_ext])
-            mus_opt = None
             self.res_name = \
                 f"res_P{int(self.seed['P'])}_" \
                 f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
@@ -253,10 +249,10 @@ class DataManager():
                     = self._passive_find_feasible_data()
             else:
                 [seed_data, new_res, data_feasible, step_vals,
-                 mus_opt, feasibility_checked] \
+                 feasibility_checked] \
                     = self._active_find_feasible_data(
                         type_actions, feasibility_checked, step_vals,
-                        evaluation, epoch, mus_opt
+                        evaluation, epoch
                 )
 
             if not data_feasible:
@@ -269,7 +265,7 @@ class DataManager():
         if new_res:
             np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
 
-        return seed_data, step_vals, mus_opt
+        return seed_data, step_vals
 
     def get_seed(self, seed_ind: int) -> bool:
         """Given the seed_ind, compute the random seed."""

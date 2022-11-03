@@ -137,8 +137,8 @@ class EnvSpaces():
         n_other_states = rl["n_other_states"]
         info = [
             ["none", None, None, 1, 0],
-            ["houre0dC", 0, 24, n_other_states, 0],
-            ["store0dC", 0, prm["car"]["cap"], n_other_states, 0],
+            ["hour", 0, 24, n_other_states, 0],
+            ["store0", 0, prm["car"]["cap"], n_other_states, 0],
             ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
             ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
             [
