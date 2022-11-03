@@ -150,7 +150,12 @@ class Heat:
         if T_out_t is None:
             T_out_t = self.T_out[self.i_step]
         P_heat = E_heat * 1e3 * self.n_int_per_hr
-        M = np.array([np.ones(n_homes), T_start, np.ones(n_homes) * T_out_t, np.zeros(n_homes), P_heat])
+        M = np.ones((5, n_homes))
+        M[1, :] = T_start
+        M[2, :] *= T_out_t
+        M[3, :] *= 0
+        M[4, :] = P_heat
+
         K = self.T_coeff[homes]
         T_end = np.sum(np.multiply(K, M.T), axis=1)
 
@@ -223,16 +228,17 @@ class Heat:
                         self.T_out[i_step], home=home)[0]
                     # obtain corrected next temperatures
                     T2_noheatt1_corrected, T_air1_noheatt1_corrected = \
-                        self.next_T(T1_corrected, e_max0_corrected,
-                                     self.T_out[i_step + 1], home=home)
+                        self.next_T(
+                            T1_corrected, e_max0_corrected, self.T_out[i_step + 1], home=home
+                        )
                     T2_noheatt1 = T2_noheatt1_corrected
                     E_heat_max0[home] = e_max0_corrected
 
                 # check in two time steps' time if you do not heat
                 if i_step < len(self.T_out) - 1:
                     T3_noheatt2, T_air2_noheatt2 = \
-                        self.next_T(T2_noheatt1, 0,
-                                     self.T_out[i_step + 2], home=home)
+                        self.next_T(T2_noheatt1, 0, self.T_out[i_step + 2], home=home)
+
                     if T_air2_noheatt2[0] > self.T_UB[home][i_step + 2]:
                         # find T_max next such that if you do not heat
                         # at the next step you land on T_UB

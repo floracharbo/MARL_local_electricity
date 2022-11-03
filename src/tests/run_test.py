@@ -7,10 +7,34 @@ from unittest import mock
 import numpy as np
 import pytest
 
+from src.initialisation.initialise_objects import _naming_file_extension
 from src.initialisation.generate_colors import generate_colors
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
+settings = {
+    'heat': {'file': 'heat2'},
+
+    'RL': {
+        # current experiment
+        'batch_size': 2,
+        'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']],
+        'n_epochs': 5,
+        'n_repeats': 2,
+    },
+
+    'ntw': {
+        'n': 3
+    },
+
+    'grd': {
+        'manage_agg_power' : True,
+        'max_grid_in' : 5,
+        'max_grid_out' : 5,
+        'penalty_coefficient_in' : 0.001,
+        'penalty_coefficient_out' : 0.001
+    }
+}
 
 def random_True_False(colors, color, min_diffs=None):
     return np.random.random() > 0.5
@@ -47,19 +71,25 @@ def patch_find_feasible_data(
         passive: bool = False
 ):
     set_seeds_rdn(0)
-    self.res_name = "res_test.npy"
-    res = np.load(self.paths['res_path']
-                  / self.res_name,
-                  allow_pickle=True).item()
-    cluss = np.load(self.paths['res_path']
-                  / "clusters_test.npy",
-                  allow_pickle=True).item()
-    factors = np.load(self.paths['res_path']
-                  / "factors_test.npy",
-                  allow_pickle=True).item()
+
+    names_files = {}
+    files = ['res', 'clusters', 'batch', 'factors']
+    for file in files:
+        names_files[file] = file + '_test'
+        if self.prm['grd']['manage_agg_power']:
+            names_files[file] += _naming_file_extension(
+                limit_imp = settings['grd']['max_grid_in'],
+                limit_exp = settings['grd']['max_grid_out'],
+                penalty_imp = settings['grd']['penalty_coefficient_in'],
+                penalty_exp = settings['grd']['penalty_coefficient_out']
+            )
+        names_files[file] += '.npy'
+    res, cluss, batch, factors = [np.load(self.paths['res_path'] / names_files[file], allow_pickle=True).item() for file in files]
+    self.res_name = names_files['res']
     self.batch_file, batch = self.env.reset(
             seed=0,
             load_data=True, passive=False)
+
     data_feasibles = self._format_data_optimiser(
         batch, passive=passive)
     data_feasible = True
@@ -85,7 +115,16 @@ def patch_update_date(self, i0_costs, date0=None):
 
 
 def patch_self_id(self):
-    return "_test.npy"
+    extension = "_test"
+    if self.prm['grd']['manage_agg_power']:
+        extension += _naming_file_extension(
+            limit_imp = settings['grd']['max_grid_in'],
+            limit_exp = settings['grd']['max_grid_out'],
+            penalty_imp = settings['grd']['penalty_coefficient_in'],
+            penalty_exp = settings['grd']['penalty_coefficient_out']
+        )    
+    extension += ".npy"
+    return extension
 
 
 def patch_init_i0_costs(self):
@@ -162,21 +201,6 @@ def patch_compute_max_EV_cons_gen_values(env, state_space):
 
 
 def test_all(mocker):
-    settings = {
-        'heat': {'file': 'heat2'},
-
-        'RL': {
-            # current experiment
-            'batch_size': 2,
-            'state_space': [['grdC', 'bat_dem_agg', 'avail_EV_step']],
-            'n_epochs': 5,
-            'n_repeats': 2,
-        },
-
-        'ntw': {
-            'n': 3
-        },
-    }
     run_mode = 1
 
     mocker.patch(
@@ -241,10 +265,12 @@ def test_all(mocker):
         settings['RL']['type_learning'] = type_learning
         for aggregate_actions in [True,  False]:
             settings['RL']['aggregate_actions'] = aggregate_actions
-            print(f"test {type_learning} aggregate_actions {aggregate_actions}")
-            no_run = current_no_run(paths_results)
+            for manage_agg_power in [True, False]:
+                settings['grd']['manage_agg_power'] = manage_agg_power
+                print(f"test {type_learning} aggregate_actions {aggregate_actions} manage_agg_power {manage_agg_power}")
+                no_run = current_no_run(paths_results)
 
-            if prev_no_run is not None:
-                assert no_run == prev_no_run + 1, "results not saving"
-            run(run_mode, settings)
-            prev_no_run = no_run
+                if prev_no_run is not None:
+                    assert no_run == prev_no_run + 1, "results not saving"
+                run(run_mode, settings)
+                prev_no_run = no_run

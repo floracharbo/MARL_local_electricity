@@ -559,7 +559,8 @@ def run(run_mode, settings, no_runs=None):
             runner.run_experiment()
             record.save(end_of='end')  # save progress at end
             post_processing(
-                record, env, prm, start_time=start_time, settings_i=settings_i, no_run=no_run
+                record, env, prm, start_time=start_time,
+                settings_i=settings_i, no_run=no_run, run_mode=run_mode
             )
 
             print(f"--- {time.time() - start_time} seconds ---")
@@ -576,7 +577,7 @@ def run(run_mode, settings, no_runs=None):
             # make user defined environment
             env = LocalElecEnv(prm, profiles)
             record.init_env(env)  # record progress as we train
-            post_processing(record, env, prm, no_run=no_run)
+            post_processing(record, env, prm, no_run=no_run, run_mode=run_mode)
 
     elif run_mode == 3:
         plot_results_vs_nag()

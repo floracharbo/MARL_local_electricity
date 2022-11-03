@@ -562,6 +562,16 @@ def _update_rl_prm(prm, initialise_all):
     return rl
 
 
+def _naming_file_extension(limit_imp, limit_exp, penalty_imp, penalty_exp):
+    file_extension = f"_manage_agg_power_grid_limit{limit_imp}"
+    if limit_imp != limit_exp:
+        file_extension += f"_{limit_exp}"
+    file_extension += f"_pc_coeff{penalty_imp}"
+    if penalty_imp != penalty_exp:
+        file_extension += f"_{penalty_exp}"
+    return file_extension
+
+
 def _seed_save_paths(prm):
     """
     Get strings and seeds which will be used to identify runs.
@@ -592,8 +602,13 @@ def _seed_save_paths(prm):
     if prm["syst"]["change_start"]:
         paths["opt_res_file"] += "_changestart"
     if prm['grd']['manage_agg_power']:
-        paths["opt_res_file"] += "_manage_agg_power"
-
+        for file in ["opt_res_file", "seeds_file"]:
+            paths[file] += _naming_file_extension(
+                limit_imp=prm['grd']['max_grid_in'],
+                limit_exp=prm['grd']['max_grid_out'],
+                penalty_imp=prm['grd']['penalty_coefficient_in'],
+                penalty_exp=prm['grd']['penalty_coefficient_out']
+            )
     # eff does not matter for seeds, but only for res
     if prm["bat"]["efftype"] == 1:
         paths["opt_res_file"] += "_eff1"

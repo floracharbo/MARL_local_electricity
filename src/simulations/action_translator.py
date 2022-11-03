@@ -59,7 +59,7 @@ class Action_translator:
         self.bat.min_max_charge_t(h, date)
         self.initial_processing(loads, home)
 
-        error = [False for _ in homes]
+        error = np.zeros(self.n_homes, dtype=bool)
         bool_flex, actions = [], []
         for home in homes:
             if self.aggregate_actions:
@@ -328,7 +328,12 @@ class Action_translator:
             assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
-            res['ds'] = self.min_charge[home]
+            if self.min_charge[home] > 1e-3:
+                res['ds'] = self.min_charge[home]
+            elif self.min_discharge[home] < - 1e-3:
+                res['ds'] = self.min_discharge[home]
+            else:
+                res['ds'] = 0
         elif battery_action < 0:
             if self.min_charge[home] > 0:
                 res['ds'] = self.min_charge[home]
@@ -561,7 +566,9 @@ class Action_translator:
                <= max_charge_a + 1e-3, \
                f"res charge {res['charge'][home, h]} " \
                f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-        assert max_discharge_a - 1e-3 <= - res['discharge_other'][home, h] \
+
+        assert max_discharge_a - 1e-3 \
+               <= - res['discharge_other'][home, h] / self.bat.eta_dis \
                <= min_discharge_a + 1e-3, \
                f"res discharge_other {res['discharge_other'][home, h]} " \
                f"min_discharge_a {min_discharge_a} " \

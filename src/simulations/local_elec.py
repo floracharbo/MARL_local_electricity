@@ -411,6 +411,27 @@ class LocalElecEnv():
 
         # negative netp is selling, positive buying
         grid = sum(netp) + sum(netp0)
+
+        # import and export limits
+        grid_in = np.where(np.array(grid) >= 0, grid, 0)
+        grid_out = np.where(np.array(grid) < 0, grid, 0)
+
+        if self.prm['grd']['manage_agg_power']:
+            pci = np.where(
+                grid_in
+                >= self.prm['grd']['max_grid_in'],
+                self.prm['grd']['penalty_coefficient_in']
+                * (grid_in - self.prm['grd']['max_grid_in']), 0)
+            pco = np.where(
+                abs(grid_out)
+                >= self.prm['grd']['max_grid_out'],
+                self.prm['grd']['penalty_coefficient_out']
+                * (abs(grid_out) - self.prm['grd']['max_grid_out']), 0)
+
+            pc = pci + pco
+        else:
+            pc = 0
+
         if self.prm['ntw']['charge_type'] == 0:
             sum_netp = sum([abs(netp[home]) if netp[home] < 0
                            else 0 for home in self.homes])
@@ -422,7 +443,7 @@ class LocalElecEnv():
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
             dc = self.prm['ntw']['C'] * netpvar
-        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
+        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2) + pc
         gc_a = [wholesalet * netp[home] for home in self.homes]
         sc = self.prm['bat']['C'] \
             * (sum(discharge_tot[home] + charge[home]
@@ -438,7 +459,7 @@ class LocalElecEnv():
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
-        break_down_rewards = [gc, sc, dc, costs_wholesale, costs_losses,
+        break_down_rewards = [gc, sc, dc, pc, costs_wholesale, costs_losses,
                               emissions, emissions_from_grid,
                               emissions_from_loss, gc_a, sc_a, c_a]
 

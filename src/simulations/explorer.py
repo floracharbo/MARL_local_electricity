@@ -602,7 +602,7 @@ class Explorer():
             f"!= explorer {prm['grd']['C'][i_step]}"
 
         # check we can replicate res['gc']
-        sumgc = np.sum(
+        sumgc = res['pc'] + np.sum(
             [prm["grd"]["C"][i_step_] * (
                 res['grid'][i_step_][0]
                 + prm["grd"]['loss'] * res['grid2'][i_step_][0]
@@ -612,7 +612,7 @@ class Explorer():
             f"we cannot replicate res['gc'] {res['gc']} vs {sumgc}"
 
         # check reward from environment and res variables match
-        res_reward_t = \
+        res_reward_t = - (res['pci'][i_step][0] + res['pco'][i_step][0]) \
             - (prm["grd"]["C"][i_step]
                * (res["grid"][i_step][0]
                   + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)

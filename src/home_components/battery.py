@@ -5,7 +5,6 @@ Created on Tue Dec 8 16:40:04 2021.
 
 @author: Flora Charbonnier
 """
-import copy
 import datetime
 
 import numpy as np
@@ -151,7 +150,10 @@ class Battery:
     def next_trip_details(self, start_h, date, home):
         """Get next trip's load requirements, time until trip, and end."""
         # next time the EV is on a trip
-        iT = np.asarray(~np.array(self.batch['avail_EV'][home][start_h: self.N + 1], dtype=bool)).nonzero()[0]
+        iT = np.asarray(
+            ~np.array(self.batch['avail_EV'][home][start_h: self.N + 1], dtype=bool)
+        ).nonzero()[0]
+
         d_to_end = self.date_end - date
         h_end = start_h + d_to_end.days * 24 + (d_to_end.seconds) / 3600
         if len(iT) > 0 and start_h + iT[0] < h_end:

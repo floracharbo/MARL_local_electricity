@@ -132,11 +132,11 @@ class DataManager():
             file_exists = (self.paths['opt_res'] / self.res_name).is_file()
         else:
             file_exists = (
-                    self.paths['opt_res'] / f"batch{self.file_id()}"
+                self.paths['opt_res'] / f"batch{self.file_id()}"
+
             ).is_file()
         new_data_needed = self.rl['deterministic'] == 2 or not file_exists
         return opt_needed, new_data_needed
-
 
     def _active_find_feasible_data(
             self,
@@ -245,9 +245,6 @@ class DataManager():
             self.res_name = \
                 f"res_P{int(self.seed['P'])}_" \
                 f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
-            if self.prm['ntw']['manage_agg_power']:
-                self.res_name += "_manage_power"
-
             if passive:
                 seed_data, new_res, data_feasible \
                     = self._passive_find_feasible_data()

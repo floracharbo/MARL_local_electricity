@@ -53,7 +53,8 @@ def granularity_to_multipliers(granularity):
 
 
 def compute_max_EV_cons_gen_values(env, state_space):
-    maxEVcons, max_normcons_hour, max_normgen_hour = [-1 for _ in range(3)]
+    max_car_cons, max_normcons, max_normgen = [-1 for _ in range(3)]
+
     for dt in ["wd", "we"]:
         if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
             for c in range(env.n_clus["car"]):
@@ -67,12 +68,12 @@ def compute_max_EV_cons_gen_values(env, state_space):
                     max_normcons = max_normcons_
         if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
             for m in range(12):
-                mac_normgen_ = np.max(env.prof["gen"][m])
+                max_normgen_ = np.max(env.prof["gen"][m])
                 if len(env.prof["gen"][m]) > 0 \
-                        and mac_normgen_ > max_normgen:
-                    max_normgen = mac_normgen_
+                        and max_normgen_ > max_normgen:
+                    max_normgen = max_normgen_
 
-    return maxEVcons, max_normcons_hour, max_normgen_hour
+    return max_car_cons, max_normcons, max_normgen
 
 
 class EnvSpaces():

@@ -11,10 +11,9 @@ labels_day: ['wd', 'we'] # week day, weekend
 labels_day_trans: ['wd2wd', 'wd2we', 'we2wd', 'we2we'] # label for going from weekday to weekday, weekday to weekend, etc.
 change_start: True # change start date for each exploration (within one month) so that grid costs change
 J_per_kWh: 3.6e+6 # J/kWh = 3600 * 1000
-break_down_rewards_entries: [
-  'gc', 'sc', 'dc', 'costs_wholesale', 'costs_losses', 'emissions', 'emissions_from_grid',
-  'emissions_from_loss','indiv_gc','indiv_sc','indiv_c'
-]
+break_down_rewards_entries: ['gc', 'sc', 'dc', 'pc', 'costs_wholesale',
+                                           'costs_losses', 'emissions', 'emissions_from_grid',
+                                           'emissions_from_loss','indiv_gc','indiv_sc','indiv_c']
 share_centroid: 1 # what share of profiles to include in each cluster ordered from closest to furthest from centroid of each cluster
 f0: {'loads' : 9, 'gen' : 8, 'bat' : 8} # demand / generation factor initialisation for RL data generation https://www.ukpower.co.uk/home_energy/average-household-gas-and-electricity-usage / https://www.choice.com.au/home-improvement/energy-saving/solar/articles/how-much-solar-do-i-need / https://www.statista.com/statistics/513456/annual-mileage-of-motorists-in-the-united-kingdom-uk/
 clus0: {'loads' : 0, 'bat' : 0} # demand / generation cluster initialisation for RL data generation
