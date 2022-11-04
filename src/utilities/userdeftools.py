@@ -137,15 +137,15 @@ def set_seeds_rdn(seed):
     th.manual_seed(seed)
 
 
-def data_source(q, epoch=0):
+def data_source(q, epoch=None):
     if len(q.split('_')) == 3:
         return q.split('_')[0]
     else:
         n_opt = int(q.split('_')[3])
-        if epoch < n_opt:
-            return 'opt'
-        else:
+        if epoch is None or epoch >= n_opt:
             return 'env'
+        else:
+            return 'opt'
 
 
 def reward_type(q):
@@ -164,3 +164,14 @@ def current_no_run(results_path):
     no_run = max(no_prev_runs + [0]) + 1
 
     return no_run
+
+def methods_learning_from_exploration(t_explo, epoch, rl):
+    methods_to_update = [] if t_explo == 'baseline' \
+        else [t_explo] if t_explo[0:3] == 'env' \
+        else [method for method in rl['type_Qs']
+              if data_source(method, epoch) == 'opt'
+              and method[-1] != '0'
+              and method in rl["evaluation_methods"]
+              ]
+
+    return methods_to_update

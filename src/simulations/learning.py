@@ -63,7 +63,7 @@ class LearningManager():
 
         return traj_reward
 
-    def learn_trajectory_opt(self, step_vals):
+    def learn_trajectory_opt(self, step_vals, epoch):
         """Learn from optimisation episode using DDPG or DQN."""
         rl = self.prm["RL"]
         for home in self.homes:
@@ -74,12 +74,11 @@ class LearningManager():
                  for e in ["state", "next_state"]]
             for method in self.methods_opt:
                 if reward_type(method) == "d":
-                    reward_diff_e = "reward_diff" \
-                        if data_source(method) == "opt" \
-                        else "reward"
+                    reward_diff_e = "reward_diff" if data_source(method, epoch) == "opt" else "reward"
                     traj_reward_a = sum(
                         [step_vals["opt"][reward_diff_e][time_step][home]
-                         for time_step in range(self.N)])
+                         for time_step in range(self.N)]
+                    )
 
                 elif reward_type(method) == "r":
                     traj_reward_a = \

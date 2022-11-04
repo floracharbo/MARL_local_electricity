@@ -62,7 +62,7 @@ def compute_max_car_cons_gen_values(env, state_space):
         )
     if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
         max_normcons = np.max(
-            [[env.prof["loads"][dt][c] for dt in day_types] for c in range(env.n_clus["loads"])]
+            [[np.max(env.prof["loads"][dt][c]) for dt in day_types] for c in range(env.n_clus["loads"])]
         )
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
         max_normgen = np.max([env.prof["gen"][m] for m in range(12)])
@@ -93,7 +93,7 @@ class EnvSpaces():
     def __init__(self, env):
         """Initialise EnvSpaces class, add properties."""
         self.n_homes = env.n_homes
-        self.n_actions = env.prm["RL"]["n_discrete_actions"]
+        self.n_discrete_actions = env.prm["RL"]["n_discrete_actions"]
         self.evaluation_methods = env.prm["RL"]["evaluation_methods"]
         self.current_date0 = env.prm['syst']['date0_dtm']
         self.get_state_vals = env.get_state_vals
@@ -136,7 +136,7 @@ class EnvSpaces():
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         n_other_states = rl["n_other_states"]
         info = [
-            ["none", None, None, 1, 0],
+            ["None", None, None, 1, 1],
             ["hour", 0, 24, n_other_states, 0],
             ["store0", 0, prm["car"]["cap"], n_other_states, 0],
             ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
@@ -288,7 +288,7 @@ class EnvSpaces():
                 brackets_s = self.brackets[typev][s] + [self.maxval[typev][s]]
                 if typev == "action" and index[s] == 0:
                     val.append(0)
-                elif typev == "action" and index[s] == self.n_actions - 1:
+                elif typev == "action" and index[s] == self.n_discrete_actions - 1:
                     val.append(1)
                 else:
                     val.append((brackets_s[int(index[s])]
@@ -525,8 +525,8 @@ class EnvSpaces():
                 "hour": time_step % 24,
                 "grdC": prm["grd"]["Call"][self.i0_costs + time_step],
                 "day_type": 0 if date.weekday() < 5 else 1,
-                "loads_cons_step": loads_step,
-                "loads_cons_prev": loads_prev,
+                "loads_cons_step": loads_step[home],
+                "loads_cons_prev": loads_prev[home],
                 "dT": prm["heat"]["T_req"][home][time_step]
                 - res["T_air"][home][min(time_step, len(res["T_air"][home]) - 1)]
             }
@@ -568,6 +568,8 @@ class EnvSpaces():
 
         self._revert_changes_bool_flex_computation()
 
+        if not (np.shape(vals) == (self.n_homes, len(self.descriptors["state"]))):
+            print()
         assert np.shape(vals) \
                == (self.n_homes, len(self.descriptors["state"])), \
                f"np.shape(vals) {np.shape(vals)} " \
@@ -603,7 +605,7 @@ class EnvSpaces():
         time_step, res, home, date, _ = inputs
 
         loads_T, deltaT, _ = \
-            self.env.car.next_trip_details(time_step, date, home)
+            self.car.next_trip_details(time_step, date, home)
 
         if loads_T is not None and deltaT > 0:
             val = ((loads_T - res["store"][home][time_step]) / deltaT)

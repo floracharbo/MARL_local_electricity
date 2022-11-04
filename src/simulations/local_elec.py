@@ -1003,12 +1003,13 @@ class LocalElecEnv():
             val = self.normalised_grdC[t]
         elif descriptor == 'dT_next':
             T_req = self.prm['heat']['T_req' + self.passive_ext][home]
-            t_change_T_req = [t for t in range(hour + 1, self.N)
-                              if T_req[t] != T_req[hour]]
-            next_T_req = T_req[t_change_T_req[0]]
-            current_T_req = T_req[hour]
-            val = 0 if len(t_change_T_req) == 0 \
-                else (next_T_req - current_T_req) / (t_change_T_req[0] - hour)
+            t_change_T_req = [t for t in range(hour + 1, self.N) if T_req[t] != T_req[hour]]
+            if len(t_change_T_req) > 0:
+                current_T_req = T_req[hour]
+                next_T_req = T_req[t_change_T_req[0]]
+                val = (next_T_req - current_T_req) / (t_change_T_req[0] - hour)
+            else:
+                val = 0
         elif descriptor == 'car_tau':
             val = self.car.car_tau(hour, date, home, store[home])
         elif len(descriptor) > 9 \

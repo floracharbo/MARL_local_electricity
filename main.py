@@ -16,7 +16,7 @@ from src.simulations.runner import run
 settings = {
     'heat': {'file': 'heat2'},
     'RL': {
-        'type_learning': 'facmac',
+        'type_learning': 'q_learning',
         'aggregate_actions': False,
         'mixer': 'qmix',
         # current experiment#
@@ -28,11 +28,11 @@ settings = {
         # # gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
         # # flexibility
-        'state_space': ['hour', 'car_tau', 'grdC', 'avail_car_step',
-                        'store0', 'dT', 'dT_next', 'loads_cons_prev', 'day_type', 'bool_flex, store_bool_flex'],
+        'state_space': 'None',
         'n_epochs': 20,
         'n_repeats': 3,
         'rnn_hidden_dim': 5e3,
+        # 'n_start_opt_explo': 5
         # 'n_hidden_layers': 1,
         # 'lr': 1e-4,
         # 'facmac': {'lr': 1e-4}

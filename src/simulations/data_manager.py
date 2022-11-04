@@ -199,8 +199,7 @@ class DataManager():
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
             step_vals, data_feasible = self.get_steps_opt(
-                res, step_vals, evaluation, clusters, factors, batch,
-                last_epoch=epoch == self.prm['RL']['n_epochs'] - 1
+                res, step_vals, evaluation, clusters, factors, batch, epoch
             )
 
         seed_data = [res, factors, clusters, batch]

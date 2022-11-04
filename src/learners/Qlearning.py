@@ -10,8 +10,9 @@ import math
 
 import numpy as np
 
-from src.utilities.userdeftools import (data_source, distr_learning,
-                                        initialise_dict, reward_type)
+from src.utilities.userdeftools import (
+    distr_learning, initialise_dict, reward_type, methods_learning_from_exploration
+)
 
 
 # %% TabularQLearner
@@ -82,7 +83,7 @@ class TabularQLearner:
         self.T = self.rl['T0'] if self.rl['q_learning']['T_decay'] \
             else self.rl['q_learning']['T']
 
-    def learn_from_explorations(self, train_steps_vals):
+    def learn_from_explorations(self, train_steps_vals, epoch):
         for i_explore in range(self.rl['n_explore']):
             current_exploration_methods = [
                 method for method in train_steps_vals[i_explore]
@@ -91,7 +92,7 @@ class TabularQLearner:
             for method in current_exploration_methods:
                 # learn for each experience bundle individually
                 # for the tabular Q learner
-                self.learn(method, train_steps_vals[i_explore][method])
+                self.learn(method, train_steps_vals[i_explore][method], epoch)
 
     def sample_action(self, q, ind_state, home, eps_greedy=True):
         ind_action = []
@@ -192,10 +193,8 @@ class TabularQLearner:
                 else self.alpha[q] * beta_to_alpha
         return lr
 
-    def learn(self, t_explo, step_vals, step=None):
-        q_to_update = [] if t_explo == 'baseline' \
-            else [t_explo] if t_explo[0:3] == 'env' \
-            else [q for q in self.rl['type_Qs'] if data_source(q) == 'opt' and q[-1] != '0']
+    def learn(self, t_explo, step_vals, epoch, step=None):
+        q_to_update = methods_learning_from_exploration(t_explo, epoch, self.rl)
         try:
             rangestep = range(len(step_vals['reward'])) if step is None else [step]
         except Exception as ex:

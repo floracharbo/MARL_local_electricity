@@ -18,8 +18,9 @@ import numpy as np
 from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
 from src.simulations.select_actions import ActionSelector
-from src.utilities.userdeftools import (data_source, initialise_dict,
-                                        reward_type, set_seeds_rdn)
+from src.utilities.userdeftools import (
+    data_source, initialise_dict, reward_type, set_seeds_rdn, methods_learning_from_exploration
+)
 
 
 # %% Environment exploration
@@ -443,7 +444,7 @@ class Explorer():
 
         # initialise output
         step_vals = initialise_dict(methods)
-        self._init_facmac_mac(methods, new_episode_batch)
+        self._init_facmac_mac(methods, new_episode_batch, epoch)
 
         # passive consumers
         step_vals = self._passive_get_steps(
@@ -656,7 +657,7 @@ class Explorer():
                 f"from res variables {res_reward_t}"
 
     def _instant_feedback_steps_opt(
-            self, evaluation, exploration_method, time_step, step_vals
+            self, evaluation, exploration_method, time_step, step_vals, epoch
     ):
         rl = self.prm["RL"]
         if (rl["type_learning"] in ["DQN", "DDQN", "DDPG", "facmac"]
@@ -694,7 +695,7 @@ class Explorer():
                     "reward": [(reward,)],
                     "terminated": [(time_step == self.prm["syst"]["N"] - 1,)],
                 }
-                evaluation_methods = self.types_that_learn_from_t(exploration_method)
+                evaluation_methods = methods_learning_from_exploration(exploration_method, epoch, rl)
                 for evaluation_method in evaluation_methods:
                     self.episode_batch[evaluation_method].update(
                         pre_transition_data, ts=time_step)
@@ -717,10 +718,11 @@ class Explorer():
 
     def get_steps_opt(
             self, res, step_vals, evaluation, cluss,
-            factors, batch, last_epoch=False
+            factors, batch, epoch
     ):
         """Translate optimisation results to states, actions, rewards."""
         env, rl = self.env, self.prm["RL"]
+        last_epoch = epoch == rl['n_epochs'] - 1
         feasible = True
         method = "opt"
         sum_rl_rewards = 0
@@ -793,7 +795,7 @@ class Explorer():
 
             # instant learning feedback
             self._instant_feedback_steps_opt(
-                evaluation, method, time_step, step_vals
+                evaluation, method, time_step, step_vals, epoch
             )
 
             # update battery and heat objects
@@ -810,7 +812,7 @@ class Explorer():
         if not evaluation \
                 and rl["type_learning"] in ["DDPG", "DQN"] \
                 and rl["trajectory"]:
-            self.learning_manager.learn_trajectory_opt(step_vals)
+            self.learning_manager.learn_trajectory_opt(step_vals, epoch)
 
         return step_vals, feasible
 
@@ -957,22 +959,10 @@ class Explorer():
 
         return rewards_baseline, feasible
 
-    def types_that_learn_from_t(self, method):
-        """Compute list of methods that learn from method."""
-        if method == 'opt':
-            ts = [
-                t_ for t_ in self.rl['type_Qs']
-                if data_source(t_) == "opt" and t_ in self.rl["evaluation_methods"]
-            ]
-        else:
-            ts = [method]
-
-        return ts
-
-    def _init_facmac_mac(self, methods, new_episode_batch):
+    def _init_facmac_mac(self, methods, new_episode_batch, epoch):
         if self.rl["type_learning"] == "facmac":
             for exploration_method in methods:
-                evaluation_methods = self.types_that_learn_from_t(exploration_method)
+                evaluation_methods = methods_learning_from_exploration(exploration_method, epoch, self.rl)
                 for evaluation_method in evaluation_methods:
                     self.episode_batch[evaluation_method] = new_episode_batch()
                     if evaluation_method not in ["baseline", "opt"]:

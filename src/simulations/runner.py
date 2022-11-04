@@ -33,8 +33,9 @@ from src.post_analysis.plotting.plot_summary_no_agents import \
 from src.post_analysis.post_processing import post_processing
 from src.simulations.explorer import Explorer
 from src.simulations.local_elec import LocalElecEnv
-from src.utilities.userdeftools import (data_source, initialise_dict,
-                                        reward_type, set_seeds_rdn)
+from src.utilities.userdeftools import (
+    data_source, initialise_dict, reward_type, set_seeds_rdn, methods_learning_from_exploration
+)
 
 
 class Runner():
@@ -90,7 +91,7 @@ class Runner():
 
                     if self.rl['type_learning'] == 'facmac':
                         # insert episode batch in buffer, sample, train
-                        self._facmac_episode_batch_insert_and_sample(episode)
+                        self._facmac_episode_batch_insert_and_sample(episode, epoch)
 
                     # append record
                     for e in ['seed', 'n_not_feas', 'not_feas_vars']:
@@ -226,7 +227,6 @@ class Runner():
                 self.learner.new_repeat(repeat)
             else:  # create one instance for all types
                 self.learner = TabularQLearner(self.env, self.rl)
-                self.learner = TabularQLearner(self.env, self.rl)
 
         if self.rl['type_learning'] != 'facmac':
             self.new_episode_batch = None
@@ -295,13 +295,9 @@ class Runner():
 
         return date0, delta, i0_costs
 
-    def _facmac_episode_batch_insert_and_sample(self, episode):
-
+    def _facmac_episode_batch_insert_and_sample(self, episode, epoch):
         for t_explo in self.rl["exploration_methods"]:
-            methods_to_update = [] if t_explo == 'baseline' \
-                else [t_explo] if t_explo[0:3] == 'env' \
-                else [method for method in self.rl['type_Qs']
-                      if data_source(method) == 'opt' and method[-1] != '0']
+            methods_to_update = methods_learning_from_exploration(t_explo, epoch, self.rl)
             for method in methods_to_update:
                 diff = True if reward_type(method) == 'd' else False
                 opt = True if data_source(method) == 'opt' else False
@@ -499,7 +495,7 @@ class Runner():
                 and epoch > 0:
             # if we did not learn instantly after each step,
             # learn here after exploration
-            self.learner.learn_from_explorations(train_steps_vals)
+            self.learner.learn_from_explorations(train_steps_vals, epoch)
 
         elif self.rl['type_learning'] == 'DQN':
             for method in self.rl['type_Qs']:

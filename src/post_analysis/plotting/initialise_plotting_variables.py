@@ -84,8 +84,12 @@ def _eval_entries_plot_colours(prm):
     for method in ['env_r_d', 'env_r_c']:
         prm['save']['colourse'][method] = red
     prm['save']['colourse']['opt'] = 'grey'
-    green = prm['save']['colourse']['env_d_d']
-    prm['save']['colourse']['opt_d_d'] = green
+    env_d_d, opt_d_d = [
+        [method for method in prm['save']['colourse'] if method[0: len(method0)] == method0][0]
+        for method0 in ['env_d_d', 'opt_d_d']
+    ]
+    green = prm['save']['colourse'][env_d_d]
+    prm['save']['colourse'][opt_d_d] = green
 
     return prm
 
