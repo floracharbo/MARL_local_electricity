@@ -986,7 +986,7 @@ class LocalElecEnv():
         t, date, done, batch_flex_h, store = inputs
 
         dict_vals = {
-            None: None,
+            "None": None,
             "hour": hour % self.prm["syst"]["H"],
             "bat_dem_agg": self.batch[home]["bat_dem_agg"][hour],
             "store0": store[home],

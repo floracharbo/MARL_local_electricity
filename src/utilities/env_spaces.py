@@ -202,7 +202,7 @@ class EnvSpaces():
                                       [state_space, action_space]):
             # looping through state and action spaces
             self.descriptors[space] = descriptors
-            descriptors = ["none"] if descriptors == [None] else descriptors
+            descriptors = ["None"] if descriptors == [None] else descriptors
             descriptors_idx = [self.space_info["name"] == descriptor_
                                for descriptor_ in descriptors]
             subtable = [self.space_info.loc[i] for i in descriptors_idx]
@@ -327,7 +327,9 @@ class EnvSpaces():
 
             indexes = []  # one index per value - for current agent
             for v in range(len(vals_home)):
-                if self.discrete[type_][v] == 1:
+                if vals_home[v] is None or np.isnan(vals_home[v]):
+                    indexes.append(0)
+                elif self.discrete[type_][v] == 1:
                     indexes.append(int(vals_home[v]))
                 else:
                     # correct if value is smaller than smallest bracket
@@ -357,7 +359,8 @@ class EnvSpaces():
                         multipliers=self.multipliers[type_]
                     )
                 )
-
+                if index[-1] is not None and index[-1] >= self.n[type_]:
+                    print()
                 assert not (
                     index[-1] is not None and index[-1] >= self.n[type_]
                 ), f"index larger than total size of space agent {home}"
@@ -521,7 +524,7 @@ class EnvSpaces():
         for home in range(n_homes):
             vals_home = []
             state_vals = {
-                None: None,
+                "None": None,
                 "hour": time_step % 24,
                 "grdC": prm["grd"]["Call"][self.i0_costs + time_step],
                 "day_type": 0 if date.weekday() < 5 else 1,
