@@ -195,10 +195,7 @@ class TabularQLearner:
 
     def learn(self, t_explo, step_vals, epoch, step=None):
         q_to_update = methods_learning_from_exploration(t_explo, epoch, self.rl)
-        try:
-            rangestep = range(len(step_vals['reward'])) if step is None else [step]
-        except Exception as ex:
-            print(ex)
+        rangestep = range(len(step_vals['reward'])) if step is None else [step]
         for step in rangestep:
             for q in q_to_update:
                 self.update_q_step(q, step, step_vals)

@@ -24,6 +24,7 @@ n_other_states: 3
 n_grdC_level: 3
 n_discrete_actions: 10
 state_space: ['grdC']
+normalise_states: False
 # grdC_level, hour, car_tau, store0, grdC
 # avail_car_step, loads_clus_step, loads_fact_step
 # gen_fact_step, bat_fact_step, loads_cons_step, gen_prod_step

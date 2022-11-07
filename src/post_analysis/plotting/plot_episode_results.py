@@ -557,10 +557,11 @@ def plot_env_input(repeat, prm, record):
         elif prm["RL"]["deterministic"] == 0 and "batch" in record.last[repeat]:
             # indeterministic, just plot the last epoch, evaluation step
             batch = record.last[repeat]["batch"]["eval"]
+        n_homes_plot = max(prm["ntw"]["n"], 10)
         for e in batch_entries:
-            fig, axs = plt.subplots(prm["ntw"]["n"], 1, squeeze=0)
+            fig, axs = plt.subplots(n_homes_plot, 1, squeeze=0)
             axs = axs.ravel()
-            for home in range(prm["ntw"]["n"]):
+            for home in range(n_homes_plot):
                 axs[home].plot(batch[home][e])
                 axs[home].set_title("{home}")
             title = f"deterministic repeat {repeat} {e}"

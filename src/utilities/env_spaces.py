@@ -66,23 +66,6 @@ def compute_max_car_cons_gen_values(env, state_space):
         )
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
         max_normgen = np.max([env.prof["gen"][m] for m in range(12)])
-    # for dt in ["wd", "we"]:
-    #     if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
-    #         for c in range(env.n_clus["car"]):
-    #             max_car_cons_ = np.max(env.prof["car"]["cons"][dt][c])
-    #             if max_car_cons_ > max_car_cons:
-    #                 max_car_cons = max_car_cons_
-    #     if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
-    #         for c in range(env.n_clus["loads"]):
-    #             max_normcons_ = np.max(env.prof["loads"][dt][c])
-    #             if max_normcons_ > max_normcons:
-    #                 max_normcons = max_normcons_
-    #     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
-    #         for m in range(12):
-    #             mac_normgen_ = np.max(env.prof["gen"][m])
-    #             if len(env.prof["gen"][m]) > 0 \
-    #                     and mac_normgen_ > max_normgen:
-    #                 max_normgen = mac_normgen_
 
     return max_car_cons, max_normcons, max_normgen
 
@@ -118,12 +101,10 @@ class EnvSpaces():
         }
 
     def _init_factors_profiles_parameters(self, env, prm):
-        # self.list_factors = {}
-        # for key in ["gen", "loads", "car"]:
-        #     self.list_factors[key] = env.prm[key]["listfactors"]
         self.perc = {}
         for e in ["loads", "gen", "car", "grd"]:
-            self.perc[e] = prm[e]["perc"]
+            if "perc" in prm[e]:
+                self.perc[e] = prm[e]["perc"]
 
     def _get_space_info(self, env):
         prm = env.prm
@@ -136,7 +117,7 @@ class EnvSpaces():
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         n_other_states = rl["n_other_states"]
         info = [
-            ["None", None, None, 1, 1],
+            ["None", 0, 0, 1, 1],
             ["hour", 0, 24, n_other_states, 0],
             ["store0", 0, prm["car"]["cap"], n_other_states, 0],
             ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
@@ -359,8 +340,6 @@ class EnvSpaces():
                         multipliers=self.multipliers[type_]
                     )
                 )
-                if index[-1] is not None and index[-1] >= self.n[type_]:
-                    print()
                 assert not (
                     index[-1] is not None and index[-1] >= self.n[type_]
                 ), f"index larger than total size of space agent {home}"
@@ -524,7 +503,7 @@ class EnvSpaces():
         for home in range(n_homes):
             vals_home = []
             state_vals = {
-                "None": None,
+                "None": 0,
                 "hour": time_step % 24,
                 "grdC": prm["grd"]["Call"][self.i0_costs + time_step],
                 "day_type": 0 if date.weekday() < 5 else 1,
@@ -566,13 +545,13 @@ class EnvSpaces():
                         val = prm["ntw"]["gen"][home][time_step_val]
                     else:  # remaining are car_cons_step / prev
                         val = prm["car"]["batch_loads_car"][home][time_step]
+                if prm['RL']['normalise_states']:
+                    val = val / self.space_info[descriptor]["max"]
                 vals_home.append(val)
             vals.append(vals_home)
 
         self._revert_changes_bool_flex_computation()
 
-        if not (np.shape(vals) == (self.n_homes, len(self.descriptors["state"]))):
-            print()
         assert np.shape(vals) \
                == (self.n_homes, len(self.descriptors["state"])), \
                f"np.shape(vals) {np.shape(vals)} " \

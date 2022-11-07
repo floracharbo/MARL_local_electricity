@@ -247,7 +247,8 @@ class Record():
         e,
         prm,
         mov_average=False,
-        n_window=None
+        n_window=None,
+        baseline='baseline'
     ):
         """For each epoch, percentiles of evaluation across repeats."""
         p_vals = [25, 50, 75]
@@ -255,9 +256,10 @@ class Record():
         for epoch in range(prm["RL"]["n_all_epochs"]):
             diff_repeats = [
                 self.mean_eval_rewards_per_hh[repeat][e][epoch]
-                - self.mean_eval_rewards_per_hh[repeat]["baseline"][epoch]
+                - self.mean_eval_rewards_per_hh[repeat][baseline][epoch]
                 for repeat in range(prm["RL"]["n_repeats"])
                 if self.mean_eval_rewards_per_hh[repeat][e][epoch] is not None
+                   and self.mean_eval_rewards_per_hh[repeat][baseline][epoch] is not None
             ]
             for p in [25, 50, 75]:
                 percentiles[p].append(None if len(diff_repeats) == 0

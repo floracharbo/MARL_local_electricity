@@ -664,8 +664,8 @@ def _homes_info(loads, ntw, gen, heat):
             if heat["own_heat" + passive_ext] == 1 else heat["own_heat" + passive_ext]
         for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
             if ownership in loads:
-                loads[ownership] = np.ones(ntw["n" + passive_ext]) \
-                    if loads[ownership] == 1 else loads[ownership]
+                loads[ownership] = np.ones(ntw["n" + passive_ext]) * loads[ownership] \
+                    if isinstance(loads[ownership], int) else loads[ownership]
 
 
 def initialise_prm(prm, no_run, initialise_all=True):
@@ -735,8 +735,8 @@ def initialise_prm(prm, no_run, initialise_all=True):
         prm["heat"] = get_heat_coeffs(heat, ntw, syst, paths)
 
     # %% do not save batches if too many of them!
-    if rl["n_repeats"] * rl["n_epochs"] * (rl["n_explore"] + 1) > 200:
-        save["plotting_batch"] = False
+    # if rl["n_repeats"] * rl["n_epochs"] * (rl["n_explore"] + 1) > 200:
+    #     save["plotting_batch"] = False
 
     save, prm = generate_colours(save, prm)
 
@@ -748,11 +748,8 @@ def _filter_type_learning_facmac(rl):
         return
 
     valid_types = {
-        "exploration": ["env_r_c", "env_d_c", "opt", "baseline"],
-        "evaluation": [
-            "env_r_c", "env_d_c", "opt_r_c", "opt_d_c",
-            "opt", "baseline", "random"
-        ]
+        "exploration": ["env_r_c", "opt", "baseline"],
+        "evaluation": ["env_r_c", "opt_r_c", "opt", "baseline", "random"]
     }
     for stage in ["evaluation", "exploration"]:
         new_methods = []
@@ -764,7 +761,8 @@ def _filter_type_learning_facmac(rl):
             new_methods.append(new_method)
         rl[f"{stage}_methods"] = []
         for method in new_methods:
-            if any(valid_type in method for valid_type in valid_types[stage]):
+            if method in valid_types[stage] \
+                    or any(valid_type in method for valid_type in valid_types[stage][0: 2]):
                 rl[f"{stage}_methods"].append(method)
 
 

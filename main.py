@@ -16,7 +16,7 @@ from src.simulations.runner import run
 settings = {
     'heat': {'file': 'heat2'},
     'RL': {
-        'type_learning': 'q_learning',
+        'type_learning': 'facmac',
         'aggregate_actions': False,
         'mixer': 'qmix',
         # current experiment#
@@ -28,24 +28,35 @@ settings = {
         # # gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
         # # flexibility
-        'state_space': 'None',
-        'n_epochs': 20,
+        'state_space': [['grdC', 'avail_car_step', 'store_bool_flex', 'hour']],
+        'n_epochs': 1000,
         'n_repeats': 3,
-        'rnn_hidden_dim': 5e3,
-        # 'n_start_opt_explo': 5
-        # 'n_hidden_layers': 1,
-        # 'lr': 1e-4,
-        # 'facmac': {'lr': 1e-4}
+        'rnn_hidden_dim': 5e2,
+        'n_hidden_layers': 2,
+        'evaluation_methods': [['env_r_c', 'opt']],
+        'lr': 1e-3,
+        'facmac': {'critic_lr': 5e-4},
+        'ou_stop_episode': 1e3, # for cqmix controller - training noise goes to zero after this episode
+        'start_steps': 1e2, # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
+        'hyper_initialization_nonzeros': 0.1
     },
     'ntw': {
         'n': 10
     },
 }
 
+# obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation
+# obs_agent_id: True # Include the agent's one_hot id in the observation
+# rnn_hidden_dim: 1.e+2 # for rnn agent (from 64)
+# n_hidden_layers: 1
+# exploration_mode: "gaussian"
+# hyper_initialization_nonzeros: 0
+# lr: 1.e-5
+# buffer_size: 5000
 # on server check centralised opts false - next lr sensitivity
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 RUN_MODE = 1
-no_runs = [899]  # if plotting
+no_runs = [756]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
 

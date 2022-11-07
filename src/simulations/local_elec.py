@@ -828,7 +828,8 @@ class LocalElecEnv():
                 for e in day.keys():
                     self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
             self._loads_to_flex(homes)
-            self.dloaded += 1
+            if len(homes) == 0:
+                self.dloaded += 1
 
             assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
@@ -883,8 +884,13 @@ class LocalElecEnv():
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for t in range(self.N):
-                tot_t = self.dloaded * self.prm["syst"]["N"] + t
-                loads_t = self.batch[home]["loads"][tot_t]
+                try:
+                    tot_t = self.dloaded * self.prm["syst"]["N"] + t
+                    loads_t = self.batch[home]["loads"][tot_t]
+                except Exception as ex:
+                    print(f"ex {ex} t {t} self.dloaded {self.dloaded} home {home}")
+                    print(f"np.shape(self.batch[home]['loads']) {np.shape(self.batch[home]['loads'])}")
+                    print(f"self.prm['syst']['N'] {self.prm['syst']['N']} self.N {self.N}")
                 dayflex_a[t, 0] = (1 - self.share_flexs[home]) * loads_t
                 dayflex_a[t, self.max_delay] = self.share_flexs[home] * loads_t
             self.batch[home]['flex'] = np.concatenate(
@@ -986,19 +992,20 @@ class LocalElecEnv():
         t, date, done, batch_flex_h, store = inputs
 
         dict_vals = {
-            "None": None,
+            "None": 0,
             "hour": hour % self.prm["syst"]["H"],
             "bat_dem_agg": self.batch[home]["bat_dem_agg"][hour],
             "store0": store[home],
             "grdC": self.grdC[t],
             "day_type": idt,
             "dT": self.prm["heat"]["T_req" + self.passive_ext][home][hour] - self.T_air[home],
-            "bool_flex": self.action_translator.aggregate_action_bool_flex(home),
-            "store_bool_flex": self.action_translator.store_bool_flex(home)
-
         }
         if descriptor in dict_vals:
             val = dict_vals[descriptor]
+        elif descriptor == "bool_flex":
+            val = self.action_translator.aggregate_action_bool_flex(home)
+        elif descriptor == "store_bool_flex":
+            val = self.action_translator.store_bool_flex(home)
         elif len(descriptor) >= 4 and descriptor[0:4] == 'grdC':
             val = self.normalised_grdC[t]
         elif descriptor == 'dT_next':
@@ -1036,6 +1043,9 @@ class LocalElecEnv():
                 # gen_prod_step / prev and car_cons_step / prev
                 batch_type = 'gen' if descriptor[0:3] == 'gen' else 'loads_car'
                 val = self.batch[home][batch_type][h]
+
+        if self.rl['normalise_states']:
+            val = val / self.spaces.space_info[descriptor]['max']
 
         return val
 

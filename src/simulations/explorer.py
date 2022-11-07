@@ -270,9 +270,10 @@ class Explorer():
                 sequence_feasible = False
                 reward = self._apply_reward_penalty(evaluation, reward)
             else:
-                traj_reward = self.learning_manager.learning(
-                    current_state, state, action, reward,
-                    done, method, step, evaluation, traj_reward)
+                for evaluation_method in methods_learning_from_exploration(method, epoch, self.rl):
+                    traj_reward = self.learning_manager.learning(
+                        current_state, state, action, reward,
+                        done, evaluation_method, step, evaluation, traj_reward)
 
                 if len(method.split("_")) > 1 \
                         and reward_type(method) == "d" \

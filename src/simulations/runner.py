@@ -573,7 +573,7 @@ def run(run_mode, settings, no_runs=None):
         for no_run in no_runs:
             lp, prm = load_existing_prm(prm, no_run)
 
-            prm, record, profiles = initialise_objects(prm, no_run=no_run, initialise_record=False)
+            prm, record, profiles = initialise_objects(prm, no_run=no_run)
             # make user defined environment
             env = LocalElecEnv(prm, profiles)
             record.init_env(env)  # record progress as we train

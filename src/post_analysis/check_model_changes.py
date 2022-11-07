@@ -60,11 +60,14 @@ for run in range(608, 611):
             break
 
     for i in range(len(agents) - 1):
-        if not all(
-                mixers[0]["hyper_b_1.bias"] == mixers[i + 1]["hyper_b_1.bias"]
-        ):
-            print(f"run {run} mixer change at {i}")
-            break
+        try:
+            if not all(
+                    mixers[0]["hyper_b_1.bias"] == mixers[i + 1]["hyper_b_1.bias"]
+            ):
+                print(f"run {run} mixer change at {i}")
+                break
+        except Exception as ex:
+            print(f"no mixer ({ex})")
 
     files_actions = [
         file for file in os.listdir(path)

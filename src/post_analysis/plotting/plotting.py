@@ -78,15 +78,13 @@ def plotting(record, spaces, prm, f):
 
     # 1 - plot non-moving  average results 25th, 50th,
     # 75th percentile for all repeat
-    plot_results_all_repeats(
-        prm, record,
-        moving_average=False
-    )
-
-    # 2 - plot moving average results 25th, 50th, 75th percentile for all repeat
-    lower_bound, upper_bound = plot_results_all_repeats(
-        prm, record,
-        moving_average=True)
+    for moving_average in [False, True]:
+        for diff_to_opt in [False, True]:
+            lower_bound, upper_bound = plot_results_all_repeats(
+                prm, record,
+                moving_average=moving_average,
+                diff_to_opt=diff_to_opt
+            )
 
     # 3 - bar plot metrics
     f = barplot_metrics(prm, lower_bound, upper_bound, f)

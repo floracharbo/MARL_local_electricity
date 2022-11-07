@@ -93,11 +93,14 @@ class HEDGE:
         # obtain days
         day = {}
         if "loads" in self.data_types:
-            day["loads"] = [
-                [p * factors["loads"][home]
-                 for p in self.profs["loads"][day_type][
-                     clusters["loads"][home]][i_profiles["loads"][home]]]
-                for home in self.homes]
+            try:
+                day["loads"] = [
+                    [p * factors["loads"][home]
+                     for p in self.profs["loads"][day_type][
+                         clusters["loads"][home]][i_profiles["loads"][home]]]
+                    for home in self.homes]
+            except Exception as ex:
+                print(ex)
         if "gen" in self.data_types:
             gen_profs = self.profs["gen"][i_month]
             day["gen"] = [

@@ -77,7 +77,7 @@ def check_model_changes(prm):
 
             assert not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"]), \
                 "agent network has not changed"
-            if prm['ntw']['n'] > 1:
+            if prm['ntw']['n'] > 1 and prm["RL"]["mixer"] == "qmix":
                 assert not all(
                     mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]
                 ), "mixers network has not changed"

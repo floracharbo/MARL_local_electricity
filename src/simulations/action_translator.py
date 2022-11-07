@@ -349,8 +349,11 @@ class Action_translator:
             elif self.max_charge[home] >= 0:
                 res['ds'] = self.min_charge[home] + battery_action \
                     * (self.max_charge[home] - self.min_charge[home])
-        res['l_ch'] = 0 if res['ds'] < 0 \
-            else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
+        try:
+            res['l_ch'] = 0 if res['ds'] < 0 \
+                else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
+        except Exception as ex:
+            print(ex)
         res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) \
             if res['ds'] < 0 else 0
 
@@ -578,9 +581,9 @@ class Action_translator:
             assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
-        assert self.store_bool_flex(home) == store_bool_flex, \
-            f"self.store_bool_flex(home) {self.store_bool_flex(home)} " \
-            f"store_bool_flex {store_bool_flex}"
+        # assert self.store_bool_flex(home) == store_bool_flex, \
+        #     f"self.store_bool_flex(home) {self.store_bool_flex(home)} " \
+        #     f"store_bool_flex {store_bool_flex}"
 
         bool_flexs = [bool_flex_loads, bool_flex_heat, store_bool_flex]
         actions = [flexible_cons_action, flexible_heat_action, battery_action]

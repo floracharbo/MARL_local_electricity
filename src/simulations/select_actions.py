@@ -198,7 +198,8 @@ class ActionSelector:
         else:
             action = self.mac[method].select_actions(
                 self.episode_batch[method], t_ep=step,
-                t_env=t_env, test_mode=evaluation)
+                t_env=t_env, test_mode=evaluation
+            )
 
         action = [[float(action[0][home][i])
                    for i in range(self.rl['dim_actions'])]
