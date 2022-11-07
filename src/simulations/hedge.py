@@ -428,7 +428,7 @@ class HEDGE:
         else:
             n_profs0 = self.n_prof[data][i_month]
 
-        n_profs = n_profs0.copy()
+        n_profs = n_profs0
         for home in self.homes:
             if data in self.behaviour_types:
                 n_profs_ = n_profs[clusters[data][home]]
