@@ -602,10 +602,13 @@ class Explorer():
             self, res, time_step, batch, reward
     ):
         prm = self.prm
+        assert isinstance(batch[0], dict), f"type(batch[0]) {type(batch)}"
         flex, loads = [np.array(
             [batch[home][e] for home in range(len(batch))])
             for e in ["flex", "loads"]
         ]
+        assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
+
         # check tot cons
         for home in self.homes:
             assert res["totcons"][home][time_step] <= \
@@ -614,12 +617,15 @@ class Explorer():
                    + self.env.heat.potential_E_flex()[home] + 1e-3, \
                    f"cons more than sum fixed + flex!, " \
                    f"home = {home}, time_step = {time_step}"
+        assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
 
         # check loads and consumption match
         sum_consa = 0
         for load_type in range(2):
             sum_consa += np.sum(res[f'consa({load_type})'])
         try:
+            assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
+
             assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 1e-2, \
                 f"res cons {sum_consa} does not match input demand " \
                 f"{np.sum(loads[:, 0: prm['syst']['N']])}"

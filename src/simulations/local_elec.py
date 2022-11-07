@@ -357,7 +357,7 @@ class LocalElecEnv():
         homes = self.homes
         batch_flex = [self.batch[home]['flex'] for home in homes]
         self._batch_tests(batch_flex, h)
-        self.check_batch_flex(h, batch_flex)
+        # self.check_batch_flex(h, batch_flex)
         # update batch if needed
         daynumber = (self.date - self.date0).days
         if h == 1 and self.time > 1 \
@@ -400,7 +400,7 @@ class LocalElecEnv():
                 self.heat.update_step()
                 self.car.update_step(time_step=self.time)
 
-            self.check_batch_flex(h, batch_flex)
+            # self.check_batch_flex(h, batch_flex)
 
             if record or evaluation:
                 loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
