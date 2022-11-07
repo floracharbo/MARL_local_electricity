@@ -258,7 +258,6 @@ class Explorer():
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
             )
-
             [state, done, reward, break_down_rewards, bool_flex,
              constraint_ok, record_output] = env.step(
                 action, record=record,

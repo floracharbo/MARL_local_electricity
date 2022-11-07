@@ -324,6 +324,29 @@ class LocalElecEnv():
 
         return new_batch_flex
 
+    def check_batch_flex(self, h, batch_flex):
+        for ih in range(h + 1, h + self.N):
+            if not all(
+                    self.batch[home]['loads'][ih]
+                    <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
+                    for home in self.homes
+            ):
+                with open("batch_error", 'wb') as file:
+                    pickle.dump(self.batch, file)
+                with open("batch_flex_error", 'wb') as file:
+                    pickle.dump(batch_flex, file)
+            assert all(
+                self.batch[home]['loads'][ih]
+                <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
+                for home in self.homes
+            ), f"h {h} ih {ih} " \
+               f"self.batch[home]['loads'][ih] {[self.batch[home]['loads'][ih] for home in self.homes]} " \
+               f"batch_flex[home][ih] {[batch_flex[home][ih] for home in self.homes]} " \
+               f"len(batch_flex[0]) {len(batch_flex[0])} " \
+               f"self.dloaded {self.dloaded}"
+
+
+
     def step(
             self, action: list, implement: bool = True,
             record: bool = False, evaluation: bool = False,
@@ -334,7 +357,7 @@ class LocalElecEnv():
         homes = self.homes
         batch_flex = [self.batch[home]['flex'] for home in homes]
         self._batch_tests(batch_flex, h)
-
+        self.check_batch_flex(h, batch_flex)
         # update batch if needed
         daynumber = (self.date - self.date0).days
         if h == 1 and self.time > 1 \
@@ -377,24 +400,7 @@ class LocalElecEnv():
                 self.heat.update_step()
                 self.car.update_step(time_step=self.time)
 
-            for ih in range(h + 1, h + self.N):
-                if not all(
-                    self.batch[home]['loads'][ih]
-                    <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
-                    for home in self.homes
-                ):
-                    with open("batch_error", 'wb') as file:
-                        pickle.dump(self.batch, file)
-                    with open("batch_flex_error", 'wb') as file:
-                        pickle.dump(batch_flex, file)
-                assert all(
-                    self.batch[home]['loads'][ih]
-                    <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
-                    for home in self.homes
-                ), f"h {h} ih {ih} self.batch[home]['loads'][ih] {self.batch[home]['loads'][ih]} " \
-                   f"batch_flex[home][ih] {batch_flex[home][ih]} " \
-                   f"len(batch_flex[home]) {len(batch_flex[home])} " \
-                   f"self.dloaded {self.dloaded}"
+            self.check_batch_flex(h, batch_flex)
 
             if record or evaluation:
                 loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
