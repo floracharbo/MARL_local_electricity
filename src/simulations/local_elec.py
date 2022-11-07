@@ -379,19 +379,20 @@ class LocalElecEnv():
                     self.batch[home]['loads'][ih]
                     <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
                     for home in self.homes
-                ), f"h {h} ih {ih}"
+                ), f"h {h} ih {ih} self.batch[home]['loads'][ih] {self.batch[home]['loads'][ih]}" \
+                   f"batch_flex[home][ih][0] {batch_flex[home][ih][0]} batch_flex[home][ih][-1] {batch_flex[home][ih][-1]}"
 
             if record or evaluation:
-                ld_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
+                loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
                     if self.date == self.date_end - timedelta(hours=2 * self.dt) \
                     else [batch_flex[home][h][0] for home in homes]
 
             if record:
-                ldflex = np.zeros(self.n_homes) if self.date == self.date_end \
+                loads_flex = np.zeros(self.n_homes) if self.date == self.date_end \
                     else [sum(batch_flex[home][h][1:]) for home in homes]
                 record_output = \
                     [home_vars['netp'], self.car.discharge, action, reward,
-                     break_down_rewards, self.car.store, ldflex, ld_fixed,
+                     break_down_rewards, self.car.store, loads_flex, loads_fixed,
                      home_vars['tot_cons'].copy(), loads['tot_cons_loads'].copy(),
                      self.heat.tot_E.copy(), self.heat.T.copy(),
                      self.heat.T_air.copy(), self.grdC[self.time].copy(),
