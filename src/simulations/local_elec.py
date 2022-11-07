@@ -266,6 +266,7 @@ class LocalElecEnv():
             self.clusters[home] = initialise_dict([self.loads_p, self.car_p])
         self._initialise_batch_entries(homes)
         date_load = self.date0
+        self.dloaded = 0
         while date_load < self.date_end + timedelta(days=2):
             self._load_next_day(homes=homes)
             date_load += timedelta(days=1)
@@ -380,7 +381,8 @@ class LocalElecEnv():
                     <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
                     for home in self.homes
                 ), f"h {h} ih {ih} self.batch[home]['loads'][ih] {self.batch[home]['loads'][ih]} " \
-                   f"batch_flex[home][ih] {batch_flex[home][ih]}"
+                   f"batch_flex[home][ih] {batch_flex[home][ih]} " \
+                   f"len(batch_flex[home]) {len(batch_flex[home])}"
 
             if record or evaluation:
                 loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
