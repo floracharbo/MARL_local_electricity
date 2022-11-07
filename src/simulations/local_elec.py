@@ -14,6 +14,7 @@ from typing import List, Tuple
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
+import pickle
 from scipy.stats import norm
 from six import integer_types
 
@@ -258,6 +259,7 @@ class LocalElecEnv():
 
     def fix_data_a(self, homes, file_id, its=0):
         """Recompute data for home a that is infeasible."""
+        print(f"fix_data_a {homes} self.dloaded {self.dloaded}")
         self._seed(self.envseed[0] + its)
         for home in homes:
             self.factors[home] = initialise_dict(
@@ -376,13 +378,23 @@ class LocalElecEnv():
                 self.car.update_step(time_step=self.time)
 
             for ih in range(h + 1, h + self.N):
+                if not all(
+                    self.batch[home]['loads'][ih]
+                    <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
+                    for home in self.homes
+                ):
+                    with open("batch_error", 'wb') as file:
+                        pickle.dump(self.batch, file)
+                    with open("batch_flex_error", 'wb') as file:
+                        pickle.dump(batch_flex, file)
                 assert all(
                     self.batch[home]['loads'][ih]
                     <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
                     for home in self.homes
                 ), f"h {h} ih {ih} self.batch[home]['loads'][ih] {self.batch[home]['loads'][ih]} " \
                    f"batch_flex[home][ih] {batch_flex[home][ih]} " \
-                   f"len(batch_flex[home]) {len(batch_flex[home])}"
+                   f"len(batch_flex[home]) {len(batch_flex[home])} " \
+                   f"self.dloaded {self.dloaded}"
 
             if record or evaluation:
                 loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \

@@ -10,6 +10,7 @@ Created on Mon Feb 16 10:47:57 2022.
 import copy
 import glob
 import os
+import sys
 from datetime import timedelta
 from typing import Tuple
 
@@ -19,7 +20,7 @@ from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
 from src.simulations.select_actions import ActionSelector
 from src.utilities.userdeftools import (
-    data_source, initialise_dict, reward_type, set_seeds_rdn, methods_learning_from_exploration
+    initialise_dict, reward_type, set_seeds_rdn, methods_learning_from_exploration
 )
 
 
@@ -619,9 +620,14 @@ class Explorer():
         sum_consa = 0
         for load_type in range(2):
             sum_consa += np.sum(res[f'consa({load_type})'])
-        assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 1e-2, \
-            f"res cons {sum_consa} does not match input demand " \
-            f"{np.sum(loads[:, 0: prm['syst']['N']])}"
+        try:
+            assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 1e-2, \
+                f"res cons {sum_consa} does not match input demand " \
+                f"{np.sum(loads[:, 0: prm['syst']['N']])}"
+        except Exception as ex:
+            print(ex)
+            np.save("loads_error", loads)
+            sys.exit()
 
         # check environment uses the same grid coefficients
         assert self.env.grdC[time_step] == prm["grd"]["C"][time_step], \
