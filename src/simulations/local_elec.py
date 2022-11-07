@@ -374,7 +374,7 @@ class LocalElecEnv():
                 self.heat.update_step()
                 self.car.update_step(time_step=self.time)
 
-            for ih in range(h + 1, h + 30):
+            for ih in range(h + 1, h + self.N):
                 assert all(
                     self.batch[home]['loads'][ih]
                     <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
@@ -730,86 +730,86 @@ class LocalElecEnv():
 
         return day, i_car
 
-    def _generate_new_day(self, homes: list):
-        """If new day of data was not presaved, load here."""
-        # intialise variables
-        homes = self.homes if len(homes) == 0 else homes
-        day = {}
-        dt = self.prm['syst']['labels_day'][self.idt]
-        transition_type = self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
-        loads_p = self.loads_p if self.loads_p in self.factors[0] \
-            else 'lds' + self.loads_p[5:]
-
-        # save factors and clusters at the start of the episode
-        for home in homes:
-            for e in [loads_p, self.gen_p, self.car_p]:
-                self.factors[home][e].append(self.f[e][home])
-            for e in [self.loads_p, self.car_p]:
-                self.clusters[home][e].append(self.clus[e][home])
-
-        # get next clusters (for load and car)
-        self._get_next_clusters(transition_type, homes)
-
-        # get load profile indexes, normalised profile, and scaled profile
-        i_prof_load = self._compute_i_profs('loads', dt, homes=homes)
-        cluss = [self.clus[self.loads_p][home] for home in homes]
-        load_prof = [
-            self.prof["loads"][dt][clus][i_prof]
-            for clus, i_prof in zip(cluss, i_prof_load)
-        ]
-        day["loads"] = \
-            [load_prof[i_home] * self.f[self.loads_p][home]
-             if self.prm["loads"]["own_loads"][home]
-             else [0 for _ in range(self.N)]
-             for i_home, home in enumerate(homes)]
-
-        # get PV profile index, and day profile
-        month = self.date.month
-        while not self.n_prof['gen'][month - 1] > 0:
-            month += 1
-            month = 1 if month == 12 else month
-        i_prof_gen = self._compute_i_profs('gen', idx_month=month - 1, homes=homes)
-        day['gen'] = [[g * self.f[self.gen_p][home]
-                       for g in self.prof['gen'][month - 1][i_prof_gen[i_home]]]
-                      if self.prm['gen']['own_PV'][home]
-                      else [0 for _ in range(self.N)]
-                      for i_home, home in zip(range(len(homes)), homes)]
-
-        # get car cons factor, profile index, normalised profile, scaled profile
-        factor_ev_new_interval = self._next_factors(
-            transition_type=transition_type,
-            rands=[[self.np_random.rand() for _ in range(len(homes))]
-                   for _ in range(len(self.data_types))],
-            homes=homes)
-        i_car = self._compute_i_profs('car', dt=dt, homes=homes)
-        prof = [
-            self.prof['car']['cons'][dt][self.clus[self.car_p][home]][i_car[i_home]]
-            for i_home, home in enumerate(homes)
-        ]
-        day['loads_car'] = \
-            [[x * self.f[self.car_p][home] if self.prm['car']['own_car'][home]
-              else 0 for x in prof[i_home]]
-             for i_home, home in enumerate(homes)]
-
-        # check car consumption is not larger than capacity - if so, correct
-        day, i_car = self._adjust_car_cons(
-            homes, dt, transition_type, day, i_car, factor_ev_new_interval
-        )
-
-        # get car availability profile
-        day['avail_car'] = \
-            [self.prof['car']['avail'][dt][self.clus[self.car_p][home]][i_car[i_home]]
-             for i_home, home in zip(range(len(homes)), homes)]
-        for i_home in range(len(homes)):
-            if sum(day['loads_car'][i_home]) == 0 and sum(day["avail_car"][i_home]) == 0:
-                day["avail_car"][i_home] = np.ones(self.prm["syst"]["N"])
-        for i_home, home in enumerate(homes):
-            for e in day.keys():
-                self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
-        self._loads_to_flex(homes)
-        self.dloaded += 1
-
-        assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
+    # def _generate_new_day(self, homes: list):
+    #     """If new day of data was not presaved, load here."""
+    #     # intialise variables
+    #     homes = self.homes if len(homes) == 0 else homes
+    #     day = {}
+    #     dt = self.prm['syst']['labels_day'][self.idt]
+    #     transition_type = self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
+    #     loads_p = self.loads_p if self.loads_p in self.factors[0] \
+    #         else 'lds' + self.loads_p[5:]
+    #
+    #     # save factors and clusters at the start of the episode
+    #     for home in homes:
+    #         for e in [loads_p, self.gen_p, self.car_p]:
+    #             self.factors[home][e].append(self.f[e][home])
+    #         for e in [self.loads_p, self.car_p]:
+    #             self.clusters[home][e].append(self.clus[e][home])
+    #
+    #     # get next clusters (for load and car)
+    #     self._get_next_clusters(transition_type, homes)
+    #
+    #     # get load profile indexes, normalised profile, and scaled profile
+    #     i_prof_load = self._compute_i_profs('loads', dt, homes=homes)
+    #     cluss = [self.clus[self.loads_p][home] for home in homes]
+    #     load_prof = [
+    #         self.prof["loads"][dt][clus][i_prof]
+    #         for clus, i_prof in zip(cluss, i_prof_load)
+    #     ]
+    #     day["loads"] = \
+    #         [load_prof[i_home] * self.f[self.loads_p][home]
+    #          if self.prm["loads"]["own_loads"][home]
+    #          else [0 for _ in range(self.N)]
+    #          for i_home, home in enumerate(homes)]
+    #
+    #     # get PV profile index, and day profile
+    #     month = self.date.month
+    #     while not self.n_prof['gen'][month - 1] > 0:
+    #         month += 1
+    #         month = 1 if month == 12 else month
+    #     i_prof_gen = self._compute_i_profs('gen', idx_month=month - 1, homes=homes)
+    #     day['gen'] = [[g * self.f[self.gen_p][home]
+    #                    for g in self.prof['gen'][month - 1][i_prof_gen[i_home]]]
+    #                   if self.prm['gen']['own_PV'][home]
+    #                   else [0 for _ in range(self.N)]
+    #                   for i_home, home in zip(range(len(homes)), homes)]
+    #
+    #     # get car cons factor, profile index, normalised profile, scaled profile
+    #     factor_ev_new_interval = self._next_factors(
+    #         transition_type=transition_type,
+    #         rands=[[self.np_random.rand() for _ in range(len(homes))]
+    #                for _ in range(len(self.data_types))],
+    #         homes=homes)
+    #     i_car = self._compute_i_profs('car', dt=dt, homes=homes)
+    #     prof = [
+    #         self.prof['car']['cons'][dt][self.clus[self.car_p][home]][i_car[i_home]]
+    #         for i_home, home in enumerate(homes)
+    #     ]
+    #     day['loads_car'] = \
+    #         [[x * self.f[self.car_p][home] if self.prm['car']['own_car'][home]
+    #           else 0 for x in prof[i_home]]
+    #          for i_home, home in enumerate(homes)]
+    #
+    #     # check car consumption is not larger than capacity - if so, correct
+    #     day, i_car = self._adjust_car_cons(
+    #         homes, dt, transition_type, day, i_car, factor_ev_new_interval
+    #     )
+    #
+    #     # get car availability profile
+    #     day['avail_car'] = \
+    #         [self.prof['car']['avail'][dt][self.clus[self.car_p][home]][i_car[i_home]]
+    #          for i_home, home in zip(range(len(homes)), homes)]
+    #     for i_home in range(len(homes)):
+    #         if sum(day['loads_car'][i_home]) == 0 and sum(day["avail_car"][i_home]) == 0:
+    #             day["avail_car"][i_home] = np.ones(self.prm["syst"]["N"])
+    #     for i_home, home in enumerate(homes):
+    #         for e in day.keys():
+    #             self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
+    #     self._loads_to_flex(homes)
+    #     self.dloaded += 1
+    #
+    #     assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
     def _load_next_day(self, homes: list = []):
         """
@@ -829,8 +829,8 @@ class LocalElecEnv():
                 for e in day.keys():
                     self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
             self._loads_to_flex(homes)
-            if len(homes) == 0:
-                self.dloaded += 1
+            # if len(homes) == 0:
+            self.dloaded += 1
 
             assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
