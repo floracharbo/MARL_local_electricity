@@ -198,6 +198,8 @@ class DataManager():
 
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
+            assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
+                f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
             step_vals, data_feasible = self.get_steps_opt(
                 res, step_vals, evaluation, clusters, factors, batch, epoch
             )

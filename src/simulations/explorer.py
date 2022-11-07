@@ -735,6 +735,8 @@ class Explorer():
             factors, batch, epoch
     ):
         """Translate optimisation results to states, actions, rewards."""
+        assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
+            f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
         env, rl = self.env, self.prm["RL"]
         last_epoch = epoch == rl['n_epochs'] - 1
         feasible = True
@@ -746,12 +748,15 @@ class Explorer():
             [batch[home][e] for home in range(len(batch))]
             for e in ["flex", "avail_car"]
         ]
+        assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
+            f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
         # copy the initial flexible and non-flexible demand -
         # table will be updated according to optimiser's decisions
         self.env.car.reset(self.prm)
         self.env.car.add_batch(batch)
         self.env.heat.reset(self.prm)
-
+        assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
+            f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
         for time_step in range(len(res["grid"])):
             # initialise step variables
             [step_vals_i, date, loads, loads_step, loads_prev, home_vars] = self._opt_step_init(
@@ -777,6 +782,8 @@ class Explorer():
                 evaluation=evaluation
             )
             step_vals_i["indiv_rewards"] = - np.array(break_down_rewards[-1])
+            assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
+                f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
             self._tests_individual_step_rl_matches_res(
                 res, time_step, batch, step_vals_i["reward"]
             )
