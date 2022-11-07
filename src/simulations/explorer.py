@@ -608,6 +608,8 @@ class Explorer():
             for e in ["flex", "loads"]
         ]
         assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
+        assert isinstance(loads, np.ndarray), f"type(loads) {type(loads)}"
+        assert len(loads[2]) == 72, f"len(loads[2]) {len(loads[2])}"
 
         # check tot cons
         for home in self.homes:
