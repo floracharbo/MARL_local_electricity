@@ -379,8 +379,8 @@ class LocalElecEnv():
                     self.batch[home]['loads'][ih]
                     <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
                     for home in self.homes
-                ), f"h {h} ih {ih} self.batch[home]['loads'][ih] {self.batch[home]['loads'][ih]}" \
-                   f"batch_flex[home][ih][0] {batch_flex[home][ih][0]} batch_flex[home][ih][-1] {batch_flex[home][ih][-1]}"
+                ), f"h {h} ih {ih} self.batch[home]['loads'][ih] {self.batch[home]['loads'][ih]} " \
+                   f"batch_flex[home][ih] {batch_flex[home][ih]}"
 
             if record or evaluation:
                 loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
