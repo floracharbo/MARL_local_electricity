@@ -267,7 +267,7 @@ class LocalElecEnv():
         self._initialise_batch_entries(homes)
         date_load = self.date0
         self.dloaded = 0
-        while date_load < self.date_end + timedelta(days=2):
+        while date_load < self.date_end + timedelta(days=1):
             self._load_next_day(homes=homes)
             date_load += timedelta(days=1)
         self.car.add_batch(self.batch)
@@ -891,9 +891,10 @@ class LocalElecEnv():
                     tot_t = self.dloaded * self.prm["syst"]["N"] + t
                     loads_t = self.batch[home]["loads"][tot_t]
                 except Exception as ex:
-                    print(f"ex {ex} t {t} self.dloaded {self.dloaded} home {home}")
-                    print(f"np.shape(self.batch[home]['loads']) {np.shape(self.batch[home]['loads'])}")
-                    print(f"self.prm['syst']['N'] {self.prm['syst']['N']} self.N {self.N}")
+                    print(f"ex {ex} t {t} self.dloaded {self.dloaded} home {home} "
+                          f"np.shape(self.batch[home]['loads']) {np.shape(self.batch[home]['loads'])} "
+                          f"self.prm['syst']['N'] {self.prm['syst']['N']} self.N {self.N} "
+                          f"homes {homes}")
                 dayflex_a[t, 0] = (1 - self.share_flexs[home]) * loads_t
                 dayflex_a[t, self.max_delay] = self.share_flexs[home] * loads_t
             self.batch[home]['flex'] = np.concatenate(

@@ -414,14 +414,21 @@ class HEDGE:
         """Randomly generate index of profile to select for given data."""
         i_profs = []
         if data in self.behaviour_types:
-            n_profs = [
+            n_profs0 = [
                 self.n_prof[data][day_type][cluster]
                 for cluster in range(len(self.n_prof[data][day_type]))
             ]
+            if data == 'car':
+                for cluster in range(len(self.n_prof[data][day_type])):
+                    assert self.n_prof[data][day_type][cluster] \
+                           == len(self.profs[data]["cons"][day_type][cluster]), \
+                    f"self.n_prof[{data}][{day_type}][{cluster}] " \
+                    f"{self.n_prof[data][day_type][cluster]}"
 
         else:
-            n_profs = self.n_prof[data][i_month]
+            n_profs0 = self.n_prof[data][i_month]
 
+        n_profs = n_profs0.copy()
         for home in self.homes:
             if data in self.behaviour_types:
                 n_profs_ = n_profs[clusters[data][home]]
@@ -435,6 +442,18 @@ class HEDGE:
                 if previous_i_prof <= i_prof and n_profs_ > 1:
                     i_prof += 1
             i_profs.append(i_prof)
+            if data == "car":
+                assert i_prof < len(self.profs["car"]["cons"][day_type][clusters[data][home]]), \
+                    f"i_profs {i_profs} i_prof {i_prof} " \
+                    f"n_profs_ {n_profs_} n_profs {n_profs} n_profs0 {n_profs0}"
+            elif data == "loads":
+                assert i_prof < len(self.profs[data][day_type][clusters[data][home]]), \
+                    f"i_profs {i_profs} i_prof {i_prof} " \
+                    f"n_profs_ {n_profs_} n_profs {n_profs} n_profs0 {n_profs0}"
+            else:
+                assert i_prof < len(self.profs[data][i_month]), \
+                    f"i_profs {i_profs} i_prof {i_prof} " \
+                    f"n_profs_ {n_profs_} n_profs {n_profs} n_profs0 {n_profs0}"
 
         return i_profs
 
