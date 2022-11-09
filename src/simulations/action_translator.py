@@ -39,7 +39,7 @@ class Action_translator:
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
         self.z_orders = [1, 3, 2, 0, 4]
         self.H = prm['syst']['H']
-        for e in ['aggregate_actions', 'dim_actions', 'low_action',
+        for e in ['aggregate_actions', 'dim_actions_1', 'low_action',
                   'high_action', 'type_env', 'server', 'no_flex_action_to_target']:
             self.__dict__[e] = prm['RL'][e]
         self.bat_dep = prm['car']['dep']
@@ -664,7 +664,7 @@ class Action_translator:
     def _check_action_errors(
             self, actions, error, res, loads, home, h, bool_flex
     ):
-        for i in range(self.dim_actions):
+        for i in range(self.dim_actions_1):
             if actions[home][i] is not None \
                     and actions[home][i] < self.low_action[i]:
                 if actions[home][i] < self.low_action[i] - 1e-2:

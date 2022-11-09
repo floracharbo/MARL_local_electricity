@@ -263,10 +263,13 @@ class Explorer():
                 sequence_feasible = False
                 reward = self._apply_reward_penalty(evaluation, reward)
             else:
-                for evaluation_method in methods_learning_from_exploration(method, epoch, self.rl):
-                    traj_reward = self.learning_manager.learning(
-                        current_state, state, action, reward,
-                        done, evaluation_method, step, evaluation, traj_reward)
+                if not self.rl['trajectory']:
+                    for evaluation_method in methods_learning_from_exploration(method, epoch, self.rl):
+                        traj_reward = self.learning_manager.learning(
+                            current_state, state, action, reward,
+                            done, evaluation_method, step, evaluation, traj_reward)
+                else:
+                    traj_reward += reward
 
                 if len(method.split("_")) > 1 \
                         and reward_type(method) == "d" \
@@ -382,25 +385,22 @@ class Explorer():
                 vars_env[method] = initialise_dict(self.prm["save"]["last_entries"])
 
                 actions = None
-                if rl["type_learning"] in ["DDPG", "DQN"] \
-                        and rl["trajectory"]:
-                    actions, _, states = \
-                        self.action_selector.trajectory_actions(
-                            method, rdn_eps_greedy_indiv,
-                            eps_greedy, rdn_eps_greedy)
+                if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
+                    actions, _, states = self.action_selector.trajectory_actions(
+                            method, rdn_eps_greedy_indiv, eps_greedy, rdn_eps_greedy, evaluation, self.t_env
+                        )
                 state = env.get_state_vals(inputs=inputs_state_val)
-                step_vals, traj_reward, sequence_feasible \
-                    = self._get_one_episode(
-                        method, epoch, actions, state,
-                        evaluation, env, batch, step_vals
-                    )
+                step_vals, traj_reward, sequence_feasible = self._get_one_episode(
+                    method, epoch, actions, state, evaluation, env, batch, step_vals
+                )
 
-                if rl["type_learning"] in ["DDPG", "DQN"] \
+                if rl["type_learning"] in ["DDPG", "DQN", "DDQN", "facmac"] \
                         and rl["trajectory"] \
                         and not evaluation \
                         and method != "baseline":
-                    self.learning_manager.trajectory_deep_learn(
-                        states, actions, traj_reward, method, evaluation)
+                    for evaluation_method in methods_learning_from_exploration(method, epoch, self.rl):
+                        self.learning_manager.trajectory_deep_learn(
+                            states, actions, traj_reward, evaluation_method, evaluation)
 
             if not sequence_feasible:  # if data is not feasible, make new data
                 n_not_feas += 1
@@ -691,6 +691,7 @@ class Explorer():
                     "obs": [np.reshape(
                         current_state, (self.n_homes, rl["obs_shape"]))]
                 }
+
                 post_transition_data = {
                     "actions": actions,
                     "reward": [(reward,)],
@@ -831,7 +832,7 @@ class Explorer():
 
         self._test_total_rewards_match(evaluation, res, sum_rl_rewards)
         if not evaluation \
-                and rl["type_learning"] in ["DDPG", "DQN"] \
+                and rl["type_learning"] in ["DDPG", "DQN", "facmac"] \
                 and rl["trajectory"]:
             self.learning_manager.learn_trajectory_opt(step_vals, epoch)
 

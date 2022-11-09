@@ -400,8 +400,6 @@ class LocalElecEnv():
                 self.heat.update_step()
                 self.car.update_step(time_step=self.time)
 
-            # self.check_batch_flex(h, batch_flex)
-
             if record or evaluation:
                 loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
                     if self.date == self.date_end - timedelta(hours=2 * self.dt) \
@@ -533,12 +531,10 @@ class LocalElecEnv():
 
             if action is None:
                 return None
-            try:
-                for home in self.homes:
-                    if action[home] is None:
-                        print(f'action[{home}] is None, action = {action[home]}')
-            except Exception as ex:
-                print(f"ex {ex}")
+            for home in self.homes:
+                if action[home] is None:
+                    print(f'action[{home}] is None, action = {action[home]}')
+
             self.heat.current_temperature_bounds(h)
 
         else:
@@ -594,8 +590,7 @@ class LocalElecEnv():
         else:
             date = inputs[1]
 
-        inputs_ = [t, date, done, batch_flex_h, store] if inputs is None \
-            else inputs
+        inputs_ = [t, date, done, batch_flex_h, store] if inputs is None else inputs
 
         idt = 0 if date.weekday() < 5 else 1
         descriptors = descriptors if descriptors is not None \

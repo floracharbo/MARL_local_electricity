@@ -46,7 +46,7 @@ def plot_eval_action(record, prm):
             continue
         for repeat in range(prm["RL"]["n_repeats"]):
             actions_ = actions[repeat][evaluation_method]
-            for i_action in range(prm['RL']['dim_actions']):
+            for i_action in range(prm['RL']['dim_actions_1']):
                 _plot_eval_action_type_repeat(
                     actions_, prm, evaluation_method, labels, i_action, repeat
                 )

@@ -114,10 +114,19 @@ class EpisodeBatch:
                                    f"or episode data")
 
                 dtype = self.scheme[k].get("dtype", th.float32)
+                # if k_ == 'state':  # this is useful for trajectory
+                #     N_v, n_homes, n_states = np.shape(v)
+                #     N_target = int(np.shape(target[k_])[2] / n_homes / n_states)
+                #     if N_v == N_target + 1:
+                #         v = v[0: N_target]
+
                 v = np.array(v, dtype=float)  # get np.nan from None
                 v = th.tensor(v, dtype=dtype, device=self.device)
 
-                target[k_][_slices] = v.view_as(target[k_][_slices])
+                try:
+                    target[k_][_slices] = v.view_as(target[k_][_slices])
+                except Exception as ex:
+                    print(ex)
 
                 if k_ in self.preprocess:
                     new_k = self.preprocess[k][0]

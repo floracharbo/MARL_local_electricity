@@ -291,7 +291,6 @@ class Battery:
                 Creq[home] = max(0, Creq[home] + loads_T - deltaT * self.c_max)
 
         min_charge_t = np.maximum(min_charge_t_0, Creq)
-
         self._check_min_charge_t_feasible(
             min_charge_t, time, date, bool_penalty, print_error, simulation
         )

@@ -19,6 +19,7 @@ class LearningManager():
         """Initialise Learner object."""
         self.env = env
         self.rl = prm["RL"]
+        self.n_homes = prm["ntw"]["n"]
         self.homes = range(prm["ntw"]["n"])
         self.learner = learner
         self.N = prm["syst"]["N"]
@@ -163,7 +164,10 @@ class LearningManager():
                 if len(method.split('_')) > 1 and reward_type(method) == 'd' \
                 and not evaluation \
                 else traj_reward
-            if self.rl["distr_learning"] == "decentralised":
+            if self.rl['type_learning'] == 'facmac':
+                self.learning(states[0: self.N], np.zeros((self.N, self.n_homes, self.rl['dim_actions'])), actions, traj_reward, True, method, 0, evaluation, traj_reward)
+
+            elif self.rl["distr_learning"] == "decentralised":
                 self.learner[method][home].learn(
                     states_a, actions[home], traj_reward_a, next_states_a)
             else:

@@ -192,6 +192,8 @@ def _facmac_initialise(prm):
     rl["n_homes"] = prm["ntw"]["n"]
 
     rl["obs_shape"] = len(rl["state_space"])
+    if rl['trajectory']:
+        rl['obs_shape'] *= prm['syst']['N']
     rl["state_shape"] = rl["obs_shape"] * rl["n_homes"]
 
     if not rl["server"]:
@@ -485,15 +487,18 @@ def _exploration_parameters(rl):
 def _dims_states_actions(rl, syst):
     rl["dim_states"] = len(rl["state_space"])
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
-
+    rl["dim_actions_1"] = rl["dim_actions"]
+    if not rl["aggregate_actions"]:
+        rl["low_action"] = rl["low_actions"]
+        rl["high_action"] = rl["high_actions"]
     if "trajectory" not in rl:
         rl["trajectory"] = False
     if rl["distr_learning"] == "joint":
         rl["dim_actions"] *= rl["n_homes"]
         rl["trajectory"] = False
     if rl["trajectory"]:
-        for key in ["dim_states", "dim_actions"]:
-            rl[key] *= syst["prm"]["N"]
+        for key in ["dim_states", "dim_actions", "low_action", "high_action"]:
+            rl[key] *= syst["N"]
 
 
 def _update_rl_prm(prm, initialise_all):
@@ -517,7 +522,7 @@ def _update_rl_prm(prm, initialise_all):
 
     # learning parameter variables
     rl["ncpu"] = mp.cpu_count() if rl["server"] else 10
-    rl['episode_limit'] = syst['N']
+    rl['episode_limit'] = 0 if rl['trajectory'] else syst['N']
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
     prm["RL"]["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
@@ -526,9 +531,7 @@ def _update_rl_prm(prm, initialise_all):
     rl["n_all_epochs"] = rl["n_epochs"] + rl["n_end_test"]
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
-    if not rl["aggregate_actions"]:
-        rl["low_action"] = rl["low_actions"]
-        rl["high_action"] = rl["high_actions"]
+
     for passive_ext in ["P", ""]:
         rl["default_action" + passive_ext] = [
             [rl["default_action"] for _ in range(rl["dim_actions"])]
@@ -554,6 +557,9 @@ def _update_rl_prm(prm, initialise_all):
                 str_state = "None" if state is None else str(state)
                 rl["statecomb_str"] += str_state + "_"
         rl["statecomb_str"] = rl["statecomb_str"][:-1]
+
+    if rl['trajectory']:
+        rl['gamma'] = 0
 
     return rl
 
@@ -761,8 +767,7 @@ def _filter_type_learning_facmac(rl):
             new_methods.append(new_method)
         rl[f"{stage}_methods"] = []
         for method in new_methods:
-            if method in valid_types[stage] \
-                    or any(valid_type in method for valid_type in valid_types[stage][0: 2]):
+            if method in valid_types[stage] or "env_r_c" in method:
                 rl[f"{stage}_methods"].append(method)
 
 

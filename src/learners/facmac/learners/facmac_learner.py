@@ -51,7 +51,7 @@ class FACMACLearner(Learner):
     def get_critic_outs(self, critic, actions_, mixer, batch):
         critic.init_hidden(batch.batch_size)
         list_critic_out = []
-        for t in range(batch.max_seq_length - 1):
+        for t in range(batch.max_seq_length):
             inputs = self._build_inputs(batch, t=t)
             critic_out, critic.hidden_states = critic(
                 inputs, actions_[:, t:t + 1].detach(),
@@ -66,10 +66,15 @@ class FACMACLearner(Learner):
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         rewards = batch["reward"][:, :-1]
-        actions = batch["actions"][:, :-1]
-
-        terminated = batch["terminated"][:, :-1].float()
-        mask = batch["filled"][:, :-1].float()
+        # actions = batch["actions"][:, :-1]
+        rewards = batch.data.transition_data['reward']
+        if self.rl['trajectory']:
+            rewards = sum(rewards)
+        actions = batch.data.transition_data['actions']
+        terminated = batch.data.transition_data['terminated']
+        # terminated = batch["terminated"][:, :-1].float()
+        mask = batch.data.transition_data['filled']
+        # mask = batch["filled"][:, :-1].float()
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
 
         # Train the critic batched
@@ -152,8 +157,8 @@ class FACMACLearner(Learner):
 
             mac_out.append(agent_outs)
             chosen_action_qvals.append(q)
-        mac_out = th.stack(mac_out[:-1], dim=1)
-        chosen_action_qvals = th.stack(chosen_action_qvals[:-1], dim=1)
+        mac_out = th.stack(mac_out, dim=1)
+        chosen_action_qvals = th.stack(chosen_action_qvals, dim=1)
         pi = mac_out
 
         # Compute the actor loss

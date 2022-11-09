@@ -150,12 +150,10 @@ class Runner():
         if 'buffer' not in self.__dict__.keys():
             self.buffer = {}
             self.mac = {}
-
         self.buffer[method] = ReplayBuffer(
             self.rl['scheme'], self.rl['groups'],
             self.rl['buffer_size'],
-            self.rl['env_info']["episode_limit"] + 1
-            if self.rl['runner_scope'] == "episodic" else 2,
+            self.rl['env_info']["episode_limit"] + 1 if self.rl['runner_scope'] == "episodic" else 2,
             preprocess=self.rl['preprocess'],
             device="cpu" if self.rl['buffer_cpu_only']
             else self.rl['device'])
@@ -305,7 +303,8 @@ class Runner():
                         and (self.buffer[method].episodes_in_buffer
                              > self.rl['buffer_warmup']):
                     episode_sample = self.buffer[method].sample(
-                        self.rl['facmac']['batch_size'])
+                        self.rl['facmac']['batch_size']
+                    )
 
                     # Truncate batch to only filled time steps
                     max_ep_t = episode_sample.max_t_filled()
