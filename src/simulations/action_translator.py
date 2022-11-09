@@ -613,9 +613,12 @@ class Action_translator:
 
         E_heat = 0 if res['E_heat'][home][h] < 1e-3 else res['E_heat'][home][h]
         if bool_flex_heat:
-            flexible_heat_action = \
-                (E_heat - self.heat.E_heat_min[home]) / \
-                (self.heat.E_heat_max[home] - self.heat.E_heat_min[home])
+            if abs(res['E_heat'][home][h] - self.heat.E_heat_min[home]) < 1e-3:
+                flexible_heat_action = 0
+            else:
+                flexible_heat_action = \
+                    (E_heat - self.heat.E_heat_min[home]) / \
+                    (self.heat.E_heat_max[home] - self.heat.E_heat_min[home])
 
         max_charge_a, min_charge_a = [
             self.max_charge[home], self.min_charge[home]
@@ -643,8 +646,12 @@ class Action_translator:
                     (min_discharge_a - res['charge'][home, h]) \
                     / (min_discharge_a - max_discharge_a)
             else:
-                battery_action = (res['charge'][home, h] - min_charge_a) \
-                    / (max_charge_a - min_charge_a)
+                if abs(res['charge'][home, h] - max_charge_a) < 1e-3:
+                    battery_action = 1
+                else:
+                    battery_action = (res['charge'][home, h] - min_charge_a) \
+                        / (max_charge_a - min_charge_a)
+
         actions.append(
             [flexible_cons_action, flexible_heat_action, battery_action]
         )

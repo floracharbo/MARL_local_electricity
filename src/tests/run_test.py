@@ -66,8 +66,6 @@ def patch_find_feasible_data(
     data_feasible = True
     if data_feasible and 'opt' in type_actions:  # start with opt
         # exploration through optimisation
-        assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
-            f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
         step_vals, data_feasible = self.get_steps_opt(
             res, step_vals, evaluation, cluss, factors, batch, epoch
         )
@@ -110,7 +108,7 @@ def patch_set_date(
     i0_costs = int(delta.days * 24 + delta.seconds / 3600)
     self.prm['grd']['C'] = \
         self.prm['grd']['Call'][
-        i0_costs: i0_costs + self.prm['syst']['N']]
+        i0_costs: i0_costs + self.prm['syst']['N'] + 1]
     self.explorer.i0_costs = i0_costs
     self.env.update_date(i0_costs, date0)
 

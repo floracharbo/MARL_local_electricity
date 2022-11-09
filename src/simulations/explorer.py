@@ -68,16 +68,9 @@ class Explorer():
         ] + self.break_down_rewards_entries
         self.method_vals_entries = ["seeds", "n_not_feas", "not_feas_vars"]
 
-        self._init_i0_costs()
+        self.env.update_date(0)
 
         self.paths = prm["paths"]
-
-    def _init_i0_costs(self):
-        self.i0_costs = 0
-        self.prm["grd"]["C"] = self.prm["grd"]["Call"][
-            self.i0_costs: self.i0_costs + self.prm["syst"]["N"]
-        ]
-        self.env.update_date(self.i0_costs)
 
     def _initialise_passive_vars(self, env, repeat, epoch, i_explore):
         self.n_homes = self.prm["ntw"]["nP"]
@@ -607,9 +600,6 @@ class Explorer():
             [batch[home][e] for home in range(len(batch))])
             for e in ["flex", "loads"]
         ]
-        assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
-        assert isinstance(loads, np.ndarray), f"type(loads) {type(loads)}"
-        assert len(loads[2]) == 72, f"len(loads[2]) {len(loads[2])}"
 
         # check tot cons
         for home in self.homes:
@@ -619,35 +609,32 @@ class Explorer():
                    + self.env.heat.potential_E_flex()[home] + 1e-3, \
                    f"cons more than sum fixed + flex!, " \
                    f"home = {home}, time_step = {time_step}"
-        assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
 
         # check loads and consumption match
         sum_consa = 0
         for load_type in range(2):
             sum_consa += np.sum(res[f'consa({load_type})'])
-        try:
-            assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
 
-            assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 1e-2, \
-                f"res cons {sum_consa} does not match input demand " \
-                f"{np.sum(loads[:, 0: prm['syst']['N']])}"
-        except Exception as ex:
-            print(ex)
-            np.save("loads_error", loads)
-            sys.exit()
+        assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
+        assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 5e-2, \
+            f"res cons {sum_consa} does not match input demand " \
+            f"{np.sum(loads[:, 0: prm['syst']['N']])}"
 
-        # check environment uses the same grid coefficients
-        assert self.env.grdC[time_step] == prm["grd"]["C"][time_step], \
-            f"env grdC {self.env.grdC[time_step]} " \
-            f"!= explorer {prm['grd']['C'][time_step]}"
-
-        # check we can replicate res['gc']
         sum_gc = np.sum(
             [prm["grd"]["C"][time_step_] * (
                 res['grid'][time_step_][0]
                 + prm["grd"]['loss'] * res['grid2'][time_step_][0]
             ) for time_step_ in range(24)]
         )
+        i_start_res = [i for i in range(len(prm['grd']['Call']) - 24) if abs(np.sum(
+            [prm["grd"]["Call"][i + time_step_] * (
+                res['grid'][time_step_][0]
+                + prm["grd"]['loss'] * res['grid2'][time_step_][0]
+            ) for time_step_ in range(24)]
+        ) - res['gc']) < 1e-3][0]
+        assert self.env.i0_costs == i_start_res, \
+            f"self.env.i0_costs {self.env.i0_costs} i_start_res {i_start_res}"
+        assert prm['grd']['C'][0] == prm['grd']['Call'][i_start_res]
         assert abs(res['gc'] - sum_gc) < 1e-3, \
             f"we cannot replicate res['gc'] {res['gc']} vs {sum_gc}"
 
@@ -730,13 +717,30 @@ class Explorer():
                 f"sum_rl_rewards = {sum_rl_rewards}, "
             f"sum costs opt = {- (res['gc'] + res['sc'] + res['dc'])}"
 
+    def _check_i0_costs_res(self, res):
+        # check the correct i0_costs is used
+        if not (abs(np.sum(
+            [self.prm["grd"]["C"][time_step_] * (
+                    res['grid'][time_step_][0]
+                    + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
+            ) for time_step_ in range(24)]
+        ) - res['gc']) < 1e-3):
+            i_start_res = [i for i in range(len(self.prm['grd']['Call']) - 24) if abs(np.sum(
+                [self.prm["grd"]["Call"][i + time_step_] * (
+                        res['grid'][time_step_][0]
+                        + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
+                ) for time_step_ in range(24)]
+            ) - res['gc']) < 1e-3][0]
+            if self.env.i0_costs != i_start_res:
+                print(f"update res i0_costs")
+                self.env.update_i0_costs(i_start_res)
+                np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res)
+
     def get_steps_opt(
             self, res, step_vals, evaluation, cluss,
             factors, batch, epoch
     ):
         """Translate optimisation results to states, actions, rewards."""
-        assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
-            f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
         env, rl = self.env, self.prm["RL"]
         last_epoch = epoch == rl['n_epochs'] - 1
         feasible = True
@@ -748,15 +752,13 @@ class Explorer():
             [batch[home][e] for home in range(len(batch))]
             for e in ["flex", "avail_car"]
         ]
-        assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
-            f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
+        self._check_i0_costs_res(res)
+
         # copy the initial flexible and non-flexible demand -
         # table will be updated according to optimiser's decisions
         self.env.car.reset(self.prm)
         self.env.car.add_batch(batch)
         self.env.heat.reset(self.prm)
-        assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
-            f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
         for time_step in range(len(res["grid"])):
             # initialise step variables
             [step_vals_i, date, loads, loads_step, loads_prev, home_vars] = self._opt_step_init(
@@ -782,8 +784,6 @@ class Explorer():
                 evaluation=evaluation
             )
             step_vals_i["indiv_rewards"] = - np.array(break_down_rewards[-1])
-            assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in self.homes), \
-                f"len loads= {[len(batch[home]['loads']) for home in self.homes]}"
             self._tests_individual_step_rl_matches_res(
                 res, time_step, batch, step_vals_i["reward"]
             )
@@ -859,7 +859,7 @@ class Explorer():
             [res["totcons"][home][time_step] - res["E_heat"][home][time_step]
              for home in self.homes]
         wholesalet, cintensityt = \
-            [self.prm["grd"][e][self.i0_costs + time_step]
+            [self.prm["grd"][e][self.env.i0_costs + time_step]
              for e in ["wholesale_all", "cintensity_all"]]
 
         record_output = \

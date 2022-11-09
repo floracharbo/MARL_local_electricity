@@ -160,8 +160,8 @@ class Optimiser():
         grid = p.add_variable('grid', (N), vtype='continuous')
         grid2 = p.add_variable('grid2', (N), vtype='continuous')
         netp = p.add_variable('netp', (n_homes, N), vtype='continuous')
-        totcons = p.add_variable('totcons', (n_homes, N),
-                                 vtype='continuous')
+        totcons = p.add_variable('totcons', (n_homes, N), vtype='continuous'
+        )
         consa = []
         for load_type in range(self.loads['n_types']):
             consa.append(p.add_variable('consa({0})'.format(load_type),
@@ -236,7 +236,7 @@ class Optimiser():
             [grid2[time] >= grid[time] * grid[time] for time in range(N)])
 
         p.add_constraint(
-            gc == (self.grd['C']
+            gc == (self.grd['C'][0: self.N]
                    | (grid + self.grd['R'] / (self.grd['V'] ** 2) * grid2))
         )
         p.add_constraint(sc == self.car['C']

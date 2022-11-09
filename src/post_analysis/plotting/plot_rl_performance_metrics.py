@@ -107,7 +107,7 @@ def compute_lists_barplot_colours(prm):
     return eval_entries_bars, eval_entries_notCd, colours_barplot, colours_barplot_baseentries
 
 
-def barplot_metrics(prm, lower_bound, upper_bound, f):
+def barplot_metrics(prm, lower_bound, upper_bound):
     metrics = prm["RL"]["metrics"]
     eval_entries_bars, eval_entries_notCd, colours_barplot, colours_barplot_baseentries \
         = compute_lists_barplot_colours(prm)
@@ -222,8 +222,6 @@ def barplot_metrics(prm, lower_bound, upper_bound, f):
         legend=False,
         display_title=False
     )
-
-    return f
 
 
 def _plot_compare_all_signs(

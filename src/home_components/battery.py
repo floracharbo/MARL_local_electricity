@@ -416,7 +416,7 @@ class Battery:
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
-            if self.store[home] < self.min_charge_t[home] - 1e-3:
+            if self.store[home] < self.min_charge_t[home] - 5e-3:
                 print(f"home {home} store[{home}] {self.store[home]} "
                       f"self.start_store[home] {self.start_store[home]} "
                       f"res[{home}['ds'] {res[home]['ds']} "
