@@ -140,6 +140,8 @@ def set_seeds_rdn(seed):
 def data_source(q, epoch=None):
     if len(q.split('_')) == 3:
         return q.split('_')[0]
+    elif len(q.split('_')) == 1:
+        return None
     else:
         n_opt = int(q.split('_')[3])
         if epoch is None or epoch >= n_opt:

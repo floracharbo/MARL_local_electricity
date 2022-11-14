@@ -3,7 +3,7 @@
 *.ipynb
 *.th
 *.pdf
-src/post_analysis/organise_results.py
+src/post_analysis/plot_time_performance_layers.py
 results/
 .github/workflows
 *.icloud

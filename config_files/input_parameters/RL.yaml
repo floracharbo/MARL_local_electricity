@@ -223,6 +223,6 @@ action_labels_disaggregate: [
 
 no_flex_action_to_target: True
 n_start_opt_explo: 0
-supervised_loss: True
+supervised_loss: False
 expert_margin: 0.8
 supervised_loss_weight: 1

@@ -142,8 +142,8 @@ def plotting(record, spaces, prm, f):
             _plot_unfeasible_attempts(repeat, record, prm)
 
     # 18 - plot eval_actions over time
-    # if prm['save']['plot_type'] > 0:
-    plot_eval_action(record, prm)
+    if prm['save']['plot_type'] > 0:
+        plot_eval_action(record, prm)
 
     plt.close('all')
 

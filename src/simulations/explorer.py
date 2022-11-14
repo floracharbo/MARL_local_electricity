@@ -299,11 +299,10 @@ class Explorer():
                         "next_state": None
                     }
                 indiv_rewards = - np.array(break_down_rewards[-1])
-                step_vals_ = \
-                    [current_state, global_ind["state"], action,
-                     global_ind["action"], reward, diff_rewards, indiv_rewards,
-                     state, global_ind["next_state"], done, bool_flex,
-                     constraint_ok, *break_down_rewards]
+                step_vals_ = [
+                    current_state, global_ind["state"], action, global_ind["action"], reward, diff_rewards,
+                    indiv_rewards, state, global_ind["next_state"], done, bool_flex, constraint_ok, *break_down_rewards
+                ]
                 for info, var in zip(self.step_vals_entries, step_vals_):
                     step_vals[method][info].append(var)
 
@@ -381,7 +380,8 @@ class Explorer():
                 if method == method0:
                     initt0 += 1
                 step_vals[method] = initialise_dict(
-                    self.step_vals_entries + self.method_vals_entries)
+                    self.step_vals_entries + self.method_vals_entries
+                )
                 vars_env[method] = initialise_dict(self.prm["save"]["last_entries"])
 
                 actions = None
@@ -747,11 +747,9 @@ class Explorer():
         feasible = True
         method = "opt"
         sum_rl_rewards = 0
-        step_vals[method] = initialise_dict(
-            self.step_vals_entries)
+        step_vals[method] = initialise_dict(self.step_vals_entries)
         batchflex_opt, batch_avail_ev = [
-            [batch[home][e] for home in range(len(batch))]
-            for e in ["flex", "avail_car"]
+            [batch[home][e] for home in range(len(batch))] for e in ["flex", "avail_car"]
         ]
         self._check_i0_costs_res(res)
 

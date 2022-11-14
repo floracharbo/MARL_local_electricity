@@ -66,7 +66,7 @@ class LearningManager():
 
     def learn_trajectory_opt(self, step_vals, epoch):
         """Learn from optimisation episode using DDPG or DQN."""
-        rl = self.prm["RL"]
+        rl = self.rl
         for home in self.homes:
             states_a, next_states_a = \
                 [np.reshape([step_vals["opt"][e][time_step][home]
