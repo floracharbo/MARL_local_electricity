@@ -17,3 +17,4 @@ outputs/opt_res/*
 !outputs/opt_res/clusters_test*
 .gitignore.swp
 *.DS_Store
+src/post_analysis/plot_time_performance_layers.py
