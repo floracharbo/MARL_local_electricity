@@ -370,7 +370,8 @@ class LocalElecEnv():
         if h == 2:
             self.slid_day = False
         home_vars, loads, constraint_ok = self.policy_to_rewardvar(
-            action, E_req_only=E_req_only)
+            action, E_req_only=E_req_only
+        )
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
@@ -523,7 +524,6 @@ class LocalElecEnv():
             E_req_only: bool = False
     ):
         """Given selected action, obtain results of the step."""
-        home_vars, loads = [{} for _ in range(2)]
         if other_input is None:
             date = self.date
             h = self._get_time_step()
@@ -597,7 +597,7 @@ class LocalElecEnv():
             else self.spaces.descriptors['state']
         vals = np.zeros((self.n_homes, len(descriptors)))
         time_step = self._get_time_step(date)
-        if any(descriptor in ['bool_flex', 'store_bool_flex'] for descriptor in descriptors):
+        if any(descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors):
             self.car.update_step(time_step=time_step)
             self.car.min_max_charge_t(time_step, date)
             assert self.car.time_step == time_step, \
@@ -610,7 +610,7 @@ class LocalElecEnv():
                 vals[home, i] = self._descriptor_to_val(
                     descriptor, inputs_, time_step, idt, home
                 )
-        if any(descriptor in ['bool_flex', 'store_bool_flex'] for descriptor in descriptors):
+        if any(descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors):
             self.car.revert_last_update_step()
 
         return vals
@@ -948,6 +948,8 @@ class LocalElecEnv():
             val = self.action_translator.aggregate_action_bool_flex(home)
         elif descriptor == "store_bool_flex":
             val = self.action_translator.store_bool_flex(home)
+        elif descriptor == "flexibility":
+            val = self.action_translator.get_flexibility(home)
         elif len(descriptor) >= 4 and descriptor[0:4] == 'grdC':
             val = self.normalised_grdC[t]
         elif descriptor == 'dT_next':

@@ -408,21 +408,22 @@ class Record():
             metric_entries, "empty_dict",
             second_level_entries=subentries, second_type="empty_dict"
         )
-
+        # monthly_multiplier = self.prm['syst']['H'] * 365/12
+        monthly_multiplier = 1
         end_bl_rewards = [
-            self.mean_end_rewards[repeat]["baseline"]
+            self.mean_end_rewards[repeat]["baseline"] * monthly_multiplier
             for repeat in range(n_repeats)
         ]
         end_test_bl_rewards = [
-            self.mean_end_test_rewards[repeat]["baseline"]
+            self.mean_end_test_rewards[repeat]["baseline"] * monthly_multiplier
             for repeat in range(n_repeats)
         ]
 
         for e in eval_entries_plot:
             end_rewards_e = \
-                [self.mean_end_rewards[repeat][e] for repeat in range(n_repeats)]
+                [self.mean_end_rewards[repeat][e] * monthly_multiplier for repeat in range(n_repeats)]
             end_test_rewards_e = [
-                self.mean_end_test_rewards[repeat][e]
+                self.mean_end_test_rewards[repeat][e] * monthly_multiplier
                 for repeat in range(n_repeats)
             ]
             all_nans = True \
@@ -436,8 +437,10 @@ class Record():
                  if not all_nans else None
                  for repeat in range(n_repeats)]
             IQR, CVaR, LRT = [], [], []
-            best_eval = [m for m in self.mean_eval_rewards_per_hh[0][e]
-                         if m is not None][0] if not all_nans else None
+            best_eval = [
+                m for m in self.mean_eval_rewards_per_hh[0][e] * monthly_multiplier
+                if m is not None
+            ][0] if not all_nans else None
             end_above_bl = [
                 r - b for r, b in zip(end_rewards_e, end_bl_rewards)
             ]
@@ -447,29 +450,28 @@ class Record():
             for repeat in range(n_repeats):
                 mean_eval_rewards_per_hh = self.mean_eval_rewards_per_hh[repeat]
                 detrended_rewards = \
-                    [mean_eval_rewards_per_hh[e][epoch]
-                     - mean_eval_rewards_per_hh[e][epoch - 1]
+                    [mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier
+                     - mean_eval_rewards_per_hh[e][epoch - 1] * monthly_multiplier
                      if sum(mean_eval_rewards_per_hh[e][epoch_] is None
                             for epoch_ in [epoch, epoch - 1]) == 0 else None
                      for epoch in range(1, self.n_epochs)]
                 largest_drawdown = - 1e6
-                epochs = [epoch for epoch in range(1, self.n_epochs)
-                          if mean_eval_rewards_per_hh[e][epoch] is not None]
+                epochs = [
+                    epoch for epoch in range(1, self.n_epochs)
+                    if mean_eval_rewards_per_hh[e][epoch] is not None
+                ]
                 for epoch in epochs:
-                    if best_eval - mean_eval_rewards_per_hh[e][epoch] \
-                            > largest_drawdown:
-                        largest_drawdown = \
-                            best_eval \
-                            - mean_eval_rewards_per_hh[e][epoch]
-                    if mean_eval_rewards_per_hh[e][epoch] > best_eval:
-                        best_eval = mean_eval_rewards_per_hh[e][epoch]
+                    if best_eval - mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier > largest_drawdown:
+                        largest_drawdown = best_eval - mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier
+                    if mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier> best_eval:
+                        best_eval = mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier
                     assert largest_drawdown is not None, \
                         "largest_drawdown is None"
 
-                detrended_rewards_notNone = \
-                    [d for d in detrended_rewards if d is not None]
-                IQR.append(sp.stats.iqr(detrended_rewards_notNone)
-                           if not all_nans else None)
+                detrended_rewards_notNone = [d for d in detrended_rewards if d is not None]
+                IQR.append(
+                    sp.stats.iqr(detrended_rewards_notNone) if not all_nans else None
+                )
                 CVaR.append(np.mean(
                     [dr for dr in detrended_rewards_notNone
                      if dr <= np.percentile(detrended_rewards_notNone, 5)])

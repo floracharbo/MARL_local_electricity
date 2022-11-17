@@ -9,7 +9,7 @@ from typing import List
 import numpy as np
 
 from src.utilities.env_spaces import granularity_to_multipliers
-from src.utilities.userdeftools import data_source, reward_type
+from src.utilities.userdeftools import data_source, reward_type, methods_learning_from_exploration
 
 
 class LearningManager():
@@ -67,41 +67,53 @@ class LearningManager():
     def learn_trajectory_opt(self, step_vals, epoch):
         """Learn from optimisation episode using DDPG or DQN."""
         rl = self.rl
-        for home in self.homes:
-            states_a, next_states_a = \
-                [np.reshape([step_vals["opt"][e][time_step][home]
-                             for time_step in range(self.N)],
-                            rl["dim_states"])
-                 for e in ["state", "next_state"]]
-            for method in self.methods_opt:
-                if reward_type(method) == "d":
-                    reward_diff_e = "reward_diff" if data_source(method, epoch) == "opt" else "reward"
-                    traj_reward_a = sum(
-                        [step_vals["opt"][reward_diff_e][time_step][home]
-                         for time_step in range(self.N)]
-                    )
 
-                elif reward_type(method) == "r":
-                    traj_reward_a = \
-                        sum([step_vals["opt"]["reward"][time_step]
-                             for time_step in range(self.N)])
-                actions_a = [step_vals["opt"]["action"][time_step][home]
-                             for time_step in range(self.N)]
+        if rl['type_learning'] == 'facmac':
+            states, actions = [step_vals["opt"][e][0: self.N] for e in ["state", "action"]]
+            traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
 
-                if rl["type_learning"] == "DQN":
-                    self._learn_DQN(
-                        home, method, states_a, next_states_a,
-                        actions_a, traj_reward_a)
+            pre_transition_data = {
+                "state": np.reshape(
+                    states, (self.n_homes, rl["obs_shape"])),
+                "avail_actions": [rl["avail_actions"]],
+                "obs": [np.reshape(
+                    states, (self.n_homes, rl["obs_shape"]))]
+            }
+            post_transition_data = {
+                "actions": actions,
+                "reward": [(traj_reward,)],
+                "terminated": [True],
+            }
+            for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
+                self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)
+                self.episode_batch[evaluation_method].update(post_transition_data, ts=0)
+        else:
+            for home in self.homes:
+                states_a, next_states_a = [
+                    np.reshape(
+                        [step_vals["opt"][e][time_step][home] for time_step in range(self.N)],
+                        rl["dim_states"]
+                    ) for e in ["state", "next_state"]
+                ]
+                for method in self.methods_opt:
+                    if reward_type(method) == "d":
+                        reward_diff_e = "reward_diff" if data_source(method, epoch) == "opt" else "reward"
+                        traj_reward_a = sum(
+                            [step_vals["opt"][reward_diff_e][time_step][home] for time_step in range(self.N)]
+                        )
 
-                elif rl["type_learning"] == "DDPG":
-                    if rl["distr_learning"] == "decentralised":
-                        self.learner[method][home].learn(
-                            states_a, actions_a, traj_reward_a,
-                            next_states_a)
-                    else:
-                        self.learner[method].learn(
-                            states_a, actions_a, traj_reward_a,
-                            next_states_a)
+                    elif reward_type(method) == "r":
+                        traj_reward_a = sum(step_vals["opt"]["reward"][0: self.N])
+                    actions_a = [step_vals["opt"]["action"][time_step][home] for time_step in range(self.N)]
+
+                    if rl["type_learning"] == "DQN":
+                        self._learn_DQN(home, method, states_a, next_states_a, actions_a, traj_reward_a)
+
+                    elif rl["type_learning"] == "DDPG":
+                        if rl["distr_learning"] == "decentralised":
+                            self.learner[method][home].learn(states_a, actions_a, traj_reward_a, next_states_a)
+                        else:
+                            self.learner[method].learn(states_a, actions_a, traj_reward_a, next_states_a)
 
     def independent_deep_learning(self,
                                   current_state: list,
@@ -117,7 +129,8 @@ class LearningManager():
             # and that no trajectory
             if self.rl["distr_learning"] == 'joint':
                 self.learner[method].learn(
-                    current_state[0], actions, reward, state[0])
+                    current_state[0], actions, reward, state[0]
+                )
             else:
                 for home in self.homes:
                     if reward_type(method) == 'r' and self.rl['competitive']:
@@ -141,11 +154,9 @@ class LearningManager():
                                 reward, i_state[home])
                     else:
                         if self.rl["distr_learning"] == "decentralised":
-                            self.learner[method][home].learn(
-                                current_state[home], actions[home], reward, state[home])
+                            self.learner[method][home].learn(current_state[home], actions[home], reward, state[home])
                         else:
-                            self.learner[method].learn(
-                                current_state[home], actions[home], reward, state[home])
+                            self.learner[method].learn(current_state[home], actions[home], reward, state[home])
 
     def trajectory_deep_learn(self,
                               states: list,
