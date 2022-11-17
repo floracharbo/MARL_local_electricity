@@ -406,21 +406,22 @@ for result_no in result_nos:
         else:
             print(f"no file {result_no}")
 
-# remove useless columns
-new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
-log = add_default_values(log)
 
-# remove key from column name
-for i in range(len(new_columns)):
-    splits = new_columns[i].split('-')
-    if len(splits) > 1:
-        len_start_remove = len(splits[0]) + 1
-        new_columns[i] = new_columns[i][len_start_remove:]
-log.columns = new_columns + keys_methods
+if __name__ == "__main__": # remove useless columns
+    new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
+    log = add_default_values(log)
 
-log = compute_best_score_per_run(keys_methods, log)
+    # remove key from column name
+    for i in range(len(new_columns)):
+        splits = new_columns[i].split('-')
+        if len(splits) > 1:
+            len_start_remove = len(splits[0]) + 1
+            new_columns[i] = new_columns[i][len_start_remove:]
+    log.columns = new_columns + keys_methods
 
-print(f"np.shape(log) {np.shape(log)}")
-log.to_csv(log_path)
+    log = compute_best_score_per_run(keys_methods, log)
 
-plot_sensitivity_analyses(new_columns, log, newly_added_runs)
+    print(f"np.shape(log) {np.shape(log)}")
+    log.to_csv(log_path)
+
+    plot_sensitivity_analyses(new_columns, log, newly_added_runs)
