@@ -114,11 +114,6 @@ class EpisodeBatch:
                                    f"or episode data")
 
                 dtype = self.scheme[k].get("dtype", th.float32)
-                # if k_ == 'state':  # this is useful for trajectory
-                #     N_v, n_homes, n_states = np.shape(v)
-                #     N_target = int(np.shape(target[k_])[2] / n_homes / n_states)
-                #     if N_v == N_target + 1:
-                #         v = v[0: N_target]
 
                 v = np.array(v, dtype=float)  # get np.nan from None
                 v = th.tensor(v, dtype=dtype, device=self.device)
@@ -133,8 +128,7 @@ class EpisodeBatch:
                     v = target[k_][_slices]
                     for transform in self.preprocess[k_][1]:
                         v = transform.transform(v)
-                        target[new_k][_slices] = \
-                            v.view_as(target[new_k][_slices])
+                        target[new_k][_slices] = v.view_as(target[new_k][_slices])
 
     def __getitem__(self, item):
         if isinstance(item, str):
@@ -176,7 +170,7 @@ class EpisodeBatch:
                 new_data.episode_data[k] = v[item[0]]
 
             ret_bs = self._get_num_items(item[0], self.batch_size)
-            ret_max_t = self._get_num_items(item[1], self.max_seq_length)
+            ret_max_t = max(self._get_num_items(item[1], self.max_seq_length), 1)
 
             ret = EpisodeBatch(
                 self.scheme, self.groups, ret_bs,

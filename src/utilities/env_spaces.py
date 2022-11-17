@@ -97,6 +97,7 @@ class EnvSpaces():
             "car_tau": self._get_car_tau,
             "bat_dem_agg": self._get_bat_dem_agg,
             "bool_flex": self.get_bool_flex,
+            "flexibility": self.get_flexibility,
             "store_bool_flex": self.get_store_bool_flex
         }
 
@@ -138,6 +139,7 @@ class EnvSpaces():
             ],
             ["day_type", 0, 1, 2, 1],
             ["store_bool_flex", 0, 1, 2, 1],
+            ["flexibility", 0, prm["car"]["c_max"], n_other_states, 0],
             ["bool_flex", 0, 1, 2, 1],
             ["avail_car_step", 0, 1, 2, 1],
             ["avail_car_prev", 0, 1, 2, 1],
@@ -577,6 +579,10 @@ class EnvSpaces():
         """Get general bool flex (if any of the three bool flex is True then True)"""
         home = inputs[2]
         return self.action_translator.aggregate_action_bool_flex(home)
+
+    def get_flexibility(self, inputs):
+        home = inputs[2]
+        return self.action_translator.get_flexibility(home)
 
     def get_store_bool_flex(self, inputs, home=None):
         """Whether there is flexibility in the battery operation"""

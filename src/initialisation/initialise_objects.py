@@ -218,10 +218,9 @@ def _update_paths(paths, prm, no_run):
     paths:
         correpsonding to prm["paths"]; with updated parameters
     """
-    for data in ['carbon_intensity', 'temp']:
-        paths[f"{data}_file"] = f"{paths[data]}_{prm['syst']['H']}.npy"
-    paths["wholesale_file"] \
-        = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['year']}.npy"
+    for data in ["wholesale", "carbon_intensity", "temp"]:
+        paths[f"{data}_file"] \
+            = f"{paths[data]}_n{prm['syst']['H']}_{prm['syst']['year']}.npy"
 
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
     paths["record_folder"] = paths["folder_run"] / "record"
@@ -641,10 +640,11 @@ def _update_grd_prm(prm):
     # gCO2/kWh to tCO2/kWh
     grd["cintensity_all"] = np.load(
         carbon_intensity_path, allow_pickle=True) * 1e-6
-
     # carbon intensity
-    grd["Call"] = [price + carbon * syst["co2tax"]
-                   for price, carbon in zip(wholesale, grd["cintensity_all"])]
+    grd["Call"] = [
+        price + carbon * syst["co2tax"]
+        for price, carbon in zip(wholesale, grd["cintensity_all"])
+    ]
     grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
 
 

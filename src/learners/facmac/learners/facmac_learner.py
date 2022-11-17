@@ -87,11 +87,14 @@ class FACMACLearner(Learner):
             assert not th.isnan(agent_target_outs[0][0][0]), \
                 "agent_target_outs nan"
             target_actions.append(agent_target_outs)
-        target_actions = th.stack(target_actions, dim=1)  # Concat over time
+        try:
+            target_actions = th.stack(target_actions, dim=1)  # Concat over time
+        except Exception as ex:
+            print(ex)
 
         # replace all nan actions with the target action
         # so the gradient will be zero
-        if self.rl['no_flex_action_to_target']:
+        if self.rl['no_flex_action'] == 'target':
             actions, indexes_nan = self._replace_nan_actions_with_target_actions(
                 actions, target_actions
             )

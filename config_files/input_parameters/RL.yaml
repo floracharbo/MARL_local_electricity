@@ -166,7 +166,7 @@ mac: cqmix_mac
 obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation
 obs_agent_id: True # Include the agent's one_hot id in the observation
 rnn_hidden_dim: 1.e+2 # for rnn agent (from 64)
-n_hidden_layers: 1
+n_hidden_layers: 2
 exploration_mode: "gaussian"
 ou_stop_episode: 100 # for cqmix controller - training noise goes to zero after this episode
 start_steps: 0 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
@@ -206,7 +206,7 @@ facmac:
         batch_size: 5 # Num of tuples to train on.
         gamma: 0.85
 
-aggregate_actions: True
+aggregate_actions: False
 
 type_learn_to_space:
         q_learning: 'discrete'
@@ -221,8 +221,9 @@ action_labels_disaggregate: [
         'Flexible EV charge action [-]'
 ]
 
-no_flex_action_to_target: True
+no_flex_action: 'random' # 'target' 'random' 'None', 'one'
 n_start_opt_explo: 0
 supervised_loss: False
 expert_margin: 0.8
 supervised_loss_weight: 1
+nn_learned: True

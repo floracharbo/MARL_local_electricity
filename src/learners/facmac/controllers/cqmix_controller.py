@@ -203,13 +203,12 @@ class CQMixMAC(BasicMAC):
         # Assumes homogenous agents with flat observations.
         # Other MACs might want to e.g. delegate building inputs to each agent
         bs = batch.batch_size
-        inputs = [batch["obs"][:, t]]  # b1av
-
-        inputs = input_last_action(
-            self.rl['obs_last_action'], inputs, batch, t
-        )
+        try:
+            inputs = [batch["obs"][:, t]]  # b1av
+        except Exception as ex:
+            print(ex)
+        inputs = input_last_action(self.rl['obs_last_action'], inputs, batch, t)
         if self.rl['obs_agent_id']:
-
             inputs.append(th.eye(
                 self.n_agents, device=batch.device).unsqueeze(0).expand(
                 bs, -1, -1))

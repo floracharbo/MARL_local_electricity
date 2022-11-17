@@ -8,6 +8,7 @@ Created on Mon Feb 16 10:47:57 2022.
 """
 
 import copy
+import datetime
 import glob
 import os
 import sys
@@ -726,12 +727,16 @@ class Explorer():
                     + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
             ) for time_step_ in range(24)]
         ) - res['gc']) < 1e-3):
-            i_start_res = [i for i in range(len(self.prm['grd']['Call']) - 24) if abs(np.sum(
-                [self.prm["grd"]["Call"][i + time_step_] * (
-                        res['grid'][time_step_][0]
-                        + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
-                ) for time_step_ in range(24)]
-            ) - res['gc']) < 1e-3][0]
+            i_start_res = [
+                i for i in range(len(self.prm['grd']['Call']) - 24)
+                if abs(np.sum(
+                    [
+                        self.prm["grd"]["Call"][i + time_step_]
+                        * (res['grid'][time_step_][0] + self.prm["grd"]['loss'] * res['grid2'][time_step_][0])
+                        for time_step_ in range(24)
+                    ]
+                ) - res['gc']) < 1e-3
+            ][0]
             if self.env.i0_costs != i_start_res:
                 print(f"update res i0_costs")
                 self.env.update_i0_costs(i_start_res)
@@ -915,14 +920,15 @@ class Explorer():
 
         return flex_load, l_fixed, loads_step
 
-    def _get_artificial_baseline_reward_opt(self,
-                                            time_step,
-                                            actions,
-                                            date,
-                                            loads,
-                                            res,
-                                            evaluation
-                                            ) -> Tuple[list, bool]:
+    def _get_artificial_baseline_reward_opt(
+            self,
+            time_step: int,
+            actions: np.ndarray,
+            date: datetime.datetime,
+            loads: dict,
+            res: dict,
+            evaluation: bool
+    ) -> Tuple[list, bool]:
         """
         Get instantaneous rewards if agent took baseline actions.
 
@@ -931,18 +937,15 @@ class Explorer():
         """
         prm, env = self.prm, self.env
         rewards_baseline = []
-        gens = [prm["ntw"]["gen"][home][time_step] for home in self.homes]
+        gens = prm["ntw"]["gen"][:, time_step]
         self.env.heat.T = res["T"][:, time_step]
-        self.env.car.store = \
-            [res["store"][home][time_step] for home in self.homes]
-        combs_actions = []
+        self.env.car.store = res["store"][:, time_step]
+        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
         for home in self.homes:
-            actions_baseline_a = actions.copy()
-            actions_baseline_a[home] = \
-                [1 for _ in range(self.prm["RL"]["dim_actions"])]
-            combs_actions.append(actions_baseline_a)
-        combs_actions.append([[1 for _ in range(self.prm["RL"]["dim_actions"])]
-                              for _ in self.homes])
+            actions_baseline_a = np.array(actions)
+            actions_baseline_a[home] = 1
+            combs_actions[home] = actions_baseline_a
+        combs_actions[-1] = 1
         feasible = True
         for home in self.homes:
             T_air = res["T_air"][home][time_step]

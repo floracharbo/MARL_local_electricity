@@ -296,8 +296,8 @@ class Runner():
                 opt = True if data_source(method) == 'opt' else False
 
                 self.buffer[method].insert_episode_batch(
-                    self.episode_batch[method], difference=diff,
-                    optimisation=opt)
+                    self.episode_batch[method], difference=diff, optimisation=opt
+                )
 
                 if self.buffer[method].can_sample(self.rl['facmac']['batch_size']) \
                         and (self.buffer[method].episodes_in_buffer

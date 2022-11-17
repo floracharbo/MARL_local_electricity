@@ -75,9 +75,14 @@ def check_model_changes(prm):
                 if prm['ntw']['n'] > 1:
                     mixers.append(th.load(path / "mixer.th"))
 
-            assert not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"]), \
-                "agent network has not changed"
-            if prm['ntw']['n'] > 1 and prm["RL"]["mixer"] == "qmix":
-                assert not all(
+            agents_learned = not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"])
+            mixer_learned = prm['ntw']['n'] == 1 or not prm["RL"]["mixer"] == "qmix" or not all(
                     mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]
-                ), "mixers network has not changed"
+                )
+            if not (agents_learned and mixer_learned):
+                prm["RL"]["nn_learned"] = False
+            else:
+                prm["RL"]["nn_learned"] = True
+
+            assert agents_learned, "agent network has not changed"
+            assert mixer_learned, "mixers network has not changed"
