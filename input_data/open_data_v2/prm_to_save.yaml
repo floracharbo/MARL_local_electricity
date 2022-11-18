@@ -19,7 +19,9 @@ syst: ['solver',
   'mean_residual',
   'p_clus',
   'p_trans',
-  'n_clus']
+  'n_clus',
+  'time_end'
+]
 loads: ['flextype', 'share_flex', 'max_delay']
 RL: []
 paths: []

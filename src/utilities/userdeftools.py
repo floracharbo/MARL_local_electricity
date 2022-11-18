@@ -12,6 +12,7 @@ import random
 import numpy as np
 import pandas as pd
 import torch as th
+import yaml
 
 
 def _empty(data):
@@ -177,3 +178,68 @@ def methods_learning_from_exploration(t_explo, epoch, rl):
               ]
 
     return methods_to_update
+
+
+def add_prm_save_list(val, dict_, key):
+    """Save all int/float/bool items."""
+    if isinstance(val, list):
+        dict_[key] = []
+        for item in val:
+            if isinstance(item, (str, int, float, bool)):
+                dict_[key].append(item)
+
+    return dict_
+
+
+def get_prm_save_RL(prm_save, prm):
+    """Add all int/float/bool items in prm["RL"] to dict to save."""
+    prm_save["RL"] = {}
+    for e, val in prm["RL"].items():
+        prm_save["RL"] = add_prm_save_list(val, prm_save["RL"], e)
+        if isinstance(val, dict):
+            prm_save["RL"][e] = {}
+            for key in val.keys():
+                prm_save["RL"][e] = add_prm_save_list(
+                    val[key], prm_save["RL"][e], key
+                )
+                if isinstance(val[key], (str, int, float, bool)):
+                    prm_save["RL"][e][key] = val[key]
+        elif isinstance(val, (str, int, float, bool)):
+            prm_save["RL"][e] = val
+
+    prm_save["RL"]["nn_learned"] = prm["RL"]["nn_learned"]
+
+    return prm_save
+
+
+def get_prm_save(prm):
+    """Save run parameters for record-keeping."""
+    prm_save = {}  # save selected system parameters
+    with open(prm["paths"]["open_inputs"] / "prm_to_save.yaml", "rb") as file:
+        prm_save = yaml.safe_load(file)
+
+    for key in prm_save:
+        prm_save[key] = {}
+        sub_keys = prm_save[key] \
+            if len(prm_save[key]) > 0 \
+            else prm[key].keys()
+        for sub_key in sub_keys:
+            if sub_key == 'n__clus':
+                sub_key = 'n_clus'
+            if sub_key in prm[key]:
+                prm_save[key][sub_key] = prm[key][sub_key]
+            elif sub_key not in prm[key] \
+                    and prm["RL"]["type_learning"] in prm[key] \
+                    and sub_key in prm[key][prm["RL"]["type_learning"]]:
+                prm_save[key][sub_key] = \
+                    prm[key][prm["RL"]["type_learning"]][sub_key]
+            elif sub_key in ["fprms", "fmean", "n_clus"]:
+                sub_key = f"{sub_key[0]}_{sub_key[1:]}"
+                prm_save[key][sub_key] = prm[key][sub_key]
+            else:
+                print(f"{sub_key} not in prm[{key}]")
+                # np.save(f"keys_prm_{key}", list(prm[key].keys()))
+
+    prm_save = get_prm_save_RL(prm_save, prm)
+
+    return prm_save

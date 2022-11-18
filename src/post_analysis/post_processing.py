@@ -16,13 +16,12 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import yaml
 
 from src.post_analysis.plotting.check_learning_over_time import \
     check_model_changes
 from src.post_analysis.plotting.plotting import plotting
 from src.post_analysis.print_results import print_results
-from src.utilities.userdeftools import distr_learning
+from src.utilities.userdeftools import distr_learning, get_prm_save
 
 
 def _max_min_q(q_table, n_states, minq, maxq, prm):
@@ -139,68 +138,6 @@ def _clean_up(prm, no_run):
         shutil.rmtree(prm["paths"]["folder_run"])
 
 
-def add_prm_save_list(val, dict_, key):
-    """Save all int/float/bool items."""
-    if isinstance(val, list):
-        dict_[key] = []
-        for item in val:
-            if isinstance(item, (str, int, float, bool)):
-                dict_[key].append(item)
-
-    return dict_
-
-
-def get_prm_save_RL(prm_save, prm):
-    """Add all int/float/bool items in prm["RL"] to dict to save."""
-    prm_save["RL"] = {}
-    for e, val in prm["RL"].items():
-        prm_save["RL"] = add_prm_save_list(val, prm_save["RL"], e)
-        if isinstance(val, dict):
-            prm_save["RL"][e] = {}
-            for key in val.keys():
-                prm_save["RL"][e] = add_prm_save_list(
-                    val[key], prm_save["RL"][e], key
-                )
-                if isinstance(val[key], (str, int, float, bool)):
-                    prm_save["RL"][e][key] = val[key]
-        elif isinstance(val, (str, int, float, bool)):
-            prm_save["RL"][e] = val
-
-    return prm_save
-
-
-def get_prm_save(prm):
-    """Save run parameters for record-keeping."""
-    prm_save = {}  # save selected system parameters
-    with open(Path(prm["paths"]["open_inputs"]) / "prm_to_save.yaml", "rb") as file:
-        prm_save = yaml.safe_load(file)
-
-    for key in prm_save:
-        prm_save[key] = {}
-        sub_keys = prm_save[key] \
-            if len(prm_save[key]) > 0 \
-            else prm[key].keys()
-        for sub_key in sub_keys:
-            if sub_key == 'n__clus':
-                sub_key = 'n_clus'
-            if sub_key in prm[key]:
-                prm_save[key][sub_key] = prm[key][sub_key]
-            elif sub_key not in prm[key] \
-                    and prm["RL"]["type_learning"] in prm[key] \
-                    and sub_key in prm[key][prm["RL"]["type_learning"]]:
-                prm_save[key][sub_key] = \
-                    prm[key][prm["RL"]["type_learning"]][sub_key]
-            elif sub_key in ["fprms", "fmean", "n_clus"]:
-                sub_key = f"{sub_key[0]}_{sub_key[1:]}"
-                prm_save[key][sub_key] = prm[key][sub_key]
-            else:
-                print(f"{sub_key} not in prm[{key}]")
-                # np.save(f"keys_prm_{key}", list(prm[key].keys()))
-
-    prm_save = get_prm_save_RL(prm_save, prm)
-
-    return prm_save
-
 
 def post_processing(
         record: object,
@@ -242,7 +179,9 @@ def post_processing(
     if "description_run" in prm["save"]:
         file.write("run description: " + prm["save"]["description_run"] + "\n")
     if start_time is not None:
-        file.write(f"time {time.time() - start_time}" + "\n")
+        time_end = time.time() - start_time
+        file.write(f"time {time_end}" + "\n")
+        prm['syst']['time_end'] = time_end
 
     if settings_i is not None:
         for key in settings_i:
@@ -262,3 +201,4 @@ def post_processing(
 
     # check that some learning has occurred
     check_model_changes(prm)
+
