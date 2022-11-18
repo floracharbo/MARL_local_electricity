@@ -2,9 +2,11 @@
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch as th
 
 from src.post_analysis.plotting.plotting_utils import title_and_save
+from src.utilities.userdeftools import get_prm_save
 
 
 def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_action, repeat):
@@ -60,6 +62,9 @@ def check_model_changes(prm):
         if method not in ["baseline", "opt", "random"]
     ]
     print(f"check_model_changes networks {networks}")
+    agents_learned = {}
+    mixer_learned = {}
+    prm["RL"]["nn_learned"] = True
     for method in networks:
         folders = [
             folder for folder in os.listdir(prm["paths"]["record_folder"])
@@ -75,14 +80,16 @@ def check_model_changes(prm):
                 if prm['ntw']['n'] > 1:
                     mixers.append(th.load(path / "mixer.th"))
 
-            agents_learned = not all(agents[0]["fc1.bias"] == agents[-1]["fc1.bias"])
-            mixer_learned = prm['ntw']['n'] == 1 or not prm["RL"]["mixer"] == "qmix" or not all(
-                    mixers[0]["hyper_b_1.bias"] == mixers[-1]["hyper_b_1.bias"]
+            agents_learned[method] = not all(a0 == a1 for a0, a1 in zip(agents[0]["fc1.bias"], agents[-1]["fc1.bias"]))
+            mixer_learned[method] = prm['ntw']['n'] == 1 or not prm["RL"]["mixer"] == "qmix" or not all(
+                mixer0 == mixer1 for mixer0, mixer1 in zip(mixers[0]["hyper_b_1.bias"], mixers[-1]["hyper_b_1.bias"])
                 )
             if not (agents_learned and mixer_learned):
                 prm["RL"]["nn_learned"] = False
-            else:
-                prm["RL"]["nn_learned"] = True
+                print(f"agents_learned {agents_learned} mixer_learned {mixer_learned}")
 
-            assert agents_learned, "agent network has not changed"
-            assert mixer_learned, "mixers network has not changed"
+    prm_save = get_prm_save(prm)
+    np.save(prm["paths"]["save_inputs"] / "prm", prm_save)
+
+    assert all(agents_learned.values()), f"agent network has not changed {agents_learned}"
+    assert all(mixer_learned.values()), f"mixers network has not changed {agents_learned}"
