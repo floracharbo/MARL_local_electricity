@@ -9,7 +9,9 @@ from typing import List
 import numpy as np
 
 from src.utilities.env_spaces import granularity_to_multipliers
-from src.utilities.userdeftools import data_source, reward_type, methods_learning_from_exploration
+from src.utilities.userdeftools import (data_source,
+                                        methods_learning_from_exploration,
+                                        reward_type)
 
 
 class LearningManager():
@@ -97,23 +99,35 @@ class LearningManager():
                 ]
                 for method in self.methods_opt:
                     if reward_type(method) == "d":
-                        reward_diff_e = "reward_diff" if data_source(method, epoch) == "opt" else "reward"
+                        reward_diff_e = "reward_diff" if data_source(method, epoch) == "opt" \
+                            else "reward"
                         traj_reward_a = sum(
-                            [step_vals["opt"][reward_diff_e][time_step][home] for time_step in range(self.N)]
+                            [
+                                step_vals["opt"][reward_diff_e][time_step][home]
+                                for time_step in range(self.N)
+                            ]
                         )
 
                     elif reward_type(method) == "r":
                         traj_reward_a = sum(step_vals["opt"]["reward"][0: self.N])
-                    actions_a = [step_vals["opt"]["action"][time_step][home] for time_step in range(self.N)]
+                    actions_a = [
+                        step_vals["opt"]["action"][time_step][home] for time_step in range(self.N)
+                    ]
 
                     if rl["type_learning"] == "DQN":
-                        self._learn_DQN(home, method, states_a, next_states_a, actions_a, traj_reward_a)
+                        self._learn_DQN(
+                            home, method, states_a, next_states_a, actions_a, traj_reward_a
+                        )
 
                     elif rl["type_learning"] == "DDPG":
                         if rl["distr_learning"] == "decentralised":
-                            self.learner[method][home].learn(states_a, actions_a, traj_reward_a, next_states_a)
+                            self.learner[method][home].learn(
+                                states_a, actions_a, traj_reward_a, next_states_a
+                            )
                         else:
-                            self.learner[method].learn(states_a, actions_a, traj_reward_a, next_states_a)
+                            self.learner[method].learn(
+                                states_a, actions_a, traj_reward_a, next_states_a
+                            )
 
     def independent_deep_learning(self,
                                   current_state: list,
@@ -154,9 +168,13 @@ class LearningManager():
                                 reward, i_state[home])
                     else:
                         if self.rl["distr_learning"] == "decentralised":
-                            self.learner[method][home].learn(current_state[home], actions[home], reward, state[home])
+                            self.learner[method][home].learn(
+                                current_state[home], actions[home], reward, state[home]
+                            )
                         else:
-                            self.learner[method].learn(current_state[home], actions[home], reward, state[home])
+                            self.learner[method].learn(
+                                current_state[home], actions[home], reward, state[home]
+                            )
 
     def trajectory_deep_learn(self,
                               states: list,
@@ -176,7 +194,11 @@ class LearningManager():
                 and not evaluation \
                 else traj_reward
             if self.rl['type_learning'] == 'facmac':
-                self.learning(states[0: self.N], np.zeros((self.N, self.n_homes, self.rl['dim_actions'])), actions, traj_reward, True, method, 0, evaluation, traj_reward)
+                self.learning(
+                    states[0: self.N],
+                    np.zeros((self.N, self.n_homes, self.rl['dim_actions'])),
+                    actions, traj_reward, True, method, 0, evaluation, traj_reward
+                )
 
             elif self.rl["distr_learning"] == "decentralised":
                 self.learner[method][home].learn(

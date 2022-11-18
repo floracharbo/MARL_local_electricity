@@ -4,6 +4,7 @@ import numpy as np
 from src.post_analysis.plotting.plotting_utils import formatting_figure
 from src.utilities.userdeftools import get_moving_average
 
+
 def _update_lower_upper_bounds(min_val, max_val, lower_bound, upper_bound, paths):
     spread = max_val - min_val
     current_lower_bound = min_val - 0.02 * spread

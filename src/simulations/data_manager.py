@@ -346,8 +346,9 @@ class DataManager():
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext], load_data=True, passive=passive)
 
-            assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in range(self.N)), \
-                f"len loads= {[len(batch[home]['loads']) for home in range(self.N)]}"
+            assert all(
+                len(batch[home]['loads']) == len(batch[0]['loads']) for home in range(self.N)
+            ), f"len loads= {[len(batch[home]['loads']) for home in range(self.N)]}"
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(

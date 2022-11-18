@@ -10,9 +10,10 @@ import math
 
 import numpy as np
 
-from src.utilities.userdeftools import (
-    distr_learning, initialise_dict, reward_type, methods_learning_from_exploration, data_source
-)
+from src.utilities.userdeftools import (data_source, distr_learning,
+                                        initialise_dict,
+                                        methods_learning_from_exploration,
+                                        reward_type)
 
 
 # %% TabularQLearner

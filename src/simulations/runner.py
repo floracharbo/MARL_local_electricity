@@ -33,9 +33,9 @@ from src.post_analysis.plotting.plot_summary_no_agents import \
 from src.post_analysis.post_processing import post_processing
 from src.simulations.explorer import Explorer
 from src.simulations.local_elec import LocalElecEnv
-from src.utilities.userdeftools import (
-    data_source, initialise_dict, reward_type, set_seeds_rdn, methods_learning_from_exploration
-)
+from src.utilities.userdeftools import (data_source, initialise_dict,
+                                        methods_learning_from_exploration,
+                                        reward_type, set_seeds_rdn)
 
 
 class Runner():
