@@ -8,13 +8,13 @@ Created on Mon Feb  3 10:47:57 2020.
 """
 
 import copy
+import pickle
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
-import pickle
 from scipy.stats import norm
 from six import integer_types
 
@@ -989,7 +989,15 @@ class LocalElecEnv():
                 val = self.batch[home][batch_type][h]
 
         if self.rl['normalise_states']:
-            val = val / self.spaces.space_info[descriptor]['max']
+            descriptor_info = self.spaces.space_info.loc[self.spaces.space_info['name'] == descriptor]
+            max_home = descriptor_info['max'].item()[home] if isinstance(descriptor_info['max'].item(), list) else descriptor_info['max']
+            try:
+                val = ((val - descriptor_info['min']) / max_home).item()
+                if abs(val) < 1e-5:
+                    val = 0
+                assert 0 <= val <= 1, f"val {val}"
+            except Exception as ex:
+                print(ex)
 
         return val
 
