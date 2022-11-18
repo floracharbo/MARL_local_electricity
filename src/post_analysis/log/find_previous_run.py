@@ -1,11 +1,14 @@
 from pathlib import Path
+
 import pandas as pd
-from src.post_analysis.log.organise_results import list_obs_to_str
-from src.initialisation.input_data import get_settings_i, input_paths, input_params
+
 from src.initialisation.initialise_objects import initialise_prm
+from src.initialisation.input_data import (get_settings_i, input_params,
+                                           input_paths)
+from src.post_analysis.log.organise_results import list_obs_to_str
 
 results_analysis_path = Path("outputs/results_analysis")
-log_path = results_analysis_path / "log_runs_from_pd.csv"
+log_path = results_analysis_path / "log_runs.csv"
 if not results_analysis_path.exists():
     print("no log")
 
