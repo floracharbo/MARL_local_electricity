@@ -9,14 +9,23 @@ class Agent(nn.Module):
         self.cuda_available = True if th.cuda.is_available() else False
         device = th.device("cuda") if self.cuda_available else th.device("cpu")
 
-        self.fc1 = nn.Linear(input_shape, self.rl['rnn_hidden_dim'])
-        self.fcs = []
-        for i in range(self.rl["n_hidden_layers"]):
-            self.fcs.append(
-                nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
-            )
-            self.fcs[-1].to(device)
+        if self.rl['nn_type'] == 'linear':
+            self.fc1 = nn.Linear(input_shape, self.rl['rnn_hidden_dim'])
+            self.fcs = []
+            for i in range(self.rl["n_hidden_layers"]):
+                self.fcs.append(
+                    nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+                )
+        elif self.rl['nn_type'] == 'cnn':
+            self.fc1 = nn.Conv1d(1, 5, kernel_size=3)
+            self.fcs = []
+            self.fcs.append(nn.Linear(self.N - 2, self.rl['rnn_hidden_dim']))
+            for i in range(self.rl["n_hidden_layers"] - 1):
+                self.fcs.append(
+                    nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+                )
 
+        self.fcs[-1].to(device)
         self.fc_out = nn.Linear(
             self.rl['rnn_hidden_dim'], self.rl['dim_actions']
         )

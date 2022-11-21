@@ -49,7 +49,7 @@ class Runner():
         self.env = env
         self.record = record
         self._initialise_buffer_learner_mac()
-
+        self.N = prm['syst']['N']
         # create an instance of the explorer object
         # which will interact with the environment
         self.explorer = Explorer(env, prm, self.learner, record, self.mac)
@@ -160,7 +160,7 @@ class Runner():
         # Setup multiagent controller here
         self.mac[method] = mac_REGISTRY[self.rl['mac']](
             self.buffer[method].scheme, self.rl['groups'],
-            self.rl)
+            self.rl, self.N)
         self.new_episode_batch = \
             partial(EpisodeBatch, self.rl['scheme'],
                     self.rl['groups'],
