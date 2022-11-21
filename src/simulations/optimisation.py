@@ -36,7 +36,7 @@ class Optimiser():
         if prm['car']['efftype'] == 1:
             init_eta = prm['car']['etach']
             prm['car']['etach'] = self._efficiencies(
-                res, prm['syst'], prm['ntw'], prm['car']['cap'])
+                res, prm, prm['car']['cap'])
             deltamax, its = 0.5, 0
             prm['car']['eff'] = 2
             while deltamax > 0.01 and its < 10:
@@ -55,7 +55,7 @@ class Optimiser():
                           f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
                           f"not equal to loads {np.sum(prm['loads'])}")
                 prm['car']['etach'] = self._efficiencies(
-                    res, prm['syst'], prm['ntw'], prm['car']['cap'])
+                    res, prm, prm['car']['cap'])
                 deltamax = np.amax(abs(prm['car']['etach'] - eta_old))
             prm['car']['etach'] = init_eta
             prm['car']['eff'] = 1
@@ -139,7 +139,6 @@ class Optimiser():
             plt.ylabel(y_label)
             plt.tight_layout()
 
-        # if prm['savefigsres']:
         save_res_path = os.path.join(folder, 'saveres')
         for i in range(count + 1):
             figs[i].savefig(os.path.join(save_res_path, labels[i]))
@@ -151,6 +150,7 @@ class Optimiser():
             fin[i].savefig(os.path.join(save_inputs_path, lin[i]))
 
     def _problem(self):
+        """Solve optimisation problem."""
         N = self.N
         n_homes = self.n_homes
         # initialise problem
@@ -260,6 +260,7 @@ class Optimiser():
     def _storage_constraints(
             self, p, charge, discharge_tot, discharge_other, store
     ):
+        """Storage constraints."""
         store_end = self.car['SoC0'] * self.ntw['Bcap'][:, self.N - 1]
         car = self.car
 
@@ -320,6 +321,7 @@ class Optimiser():
         return p
 
     def _distribution_costs(self, p, dc, netp):
+        """Distribution costs."""
         ntw = self.ntw
         if ntw['charge_type'] == 0:
             netp_abs = p.add_variable('netp_abs', (self.n_homes, self.N),
@@ -348,6 +350,7 @@ class Optimiser():
         return p
 
     def _update_prm(self, prm):
+        """Update parameters with new values"""
         if isinstance(prm, (list, tuple)):
             self.syst, self.loads, self.ntw, self.car, self.grd, self.heat \
                 = prm
@@ -362,6 +365,7 @@ class Optimiser():
             plt.plot(time, yb, label=f'agent {home}')
 
     def _plot_inputs(self, prm, time):
+        """Plot inputs"""
         # inputs
         fin = {}
         lin = {}
@@ -429,7 +433,8 @@ class Optimiser():
 
         return lin, fin, cin
 
-    def _efficiencies(self, res, prm, ntw, bat_cap):
+    def _efficiencies(self, res, prm, bat_cap):
+        """Compute efficiencies"""
         store = res['store']
         P_ch = res['charge']
         P_dis = res['discharge_tot']
@@ -520,6 +525,7 @@ class Optimiser():
         return eta, s, s2
 
     def _add_val_to_res(self, res, var, val, size, arr):
+        """Add value to result dict."""
         if size[0] < 2 and size[1] < 2:
             res[var] = val
         else:
@@ -531,6 +537,7 @@ class Optimiser():
         return res
 
     def _save_results(self, pvars):
+        """Save results to file."""
         res = {}
         constls1, constls0 = [], []
         for var in pvars:
@@ -550,6 +557,7 @@ class Optimiser():
         return res
 
     def _cons_constraints(self, p, constl, consa, E_heat, totcons):
+        """Add constraints for consumption."""
         loads = self.loads
         for load_type in range(loads['n_types']):
             for home in range(self.n_homes):
@@ -574,6 +582,7 @@ class Optimiser():
         return p
 
     def _temperature_constraints(self, p, T, E_heat, T_air):
+        """Add temperature constraints to the problem."""
         heat = self.heat
         for home in range(self.n_homes):
             if heat['own_heat'][home]:

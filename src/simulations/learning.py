@@ -31,17 +31,18 @@ class LearningManager():
             if method[0:3] == "opt" and method != "opt"
         ]
 
-    def learning(self,
-                 current_state: list,
-                 state: list,
-                 action: list,
-                 reward: float,
-                 done: bool,
-                 method: str,
-                 step: int,
-                 evaluation: bool,
-                 traj_reward: list
-                 ) -> list:
+    def learning(
+            self,
+             current_state: list,
+             state: list,
+             action: list,
+             reward: float,
+             done: bool,
+             method: str,
+             step: int,
+             evaluation: bool,
+             traj_reward: list
+    ) -> list:
         """Learn from experience tuple."""
         if self.rl['type_learning'] == 'facmac':
             post_transition_data = {

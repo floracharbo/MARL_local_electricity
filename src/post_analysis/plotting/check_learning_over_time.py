@@ -92,4 +92,4 @@ def check_model_changes(prm):
     np.save(prm["paths"]["save_inputs"] / "prm", prm_save)
 
     assert all(agents_learned.values()), f"agent network has not changed {agents_learned}"
-    assert all(mixer_learned.values()), f"mixers network has not changed {agents_learned}"
+    assert all(mixer_learned.values()), f"mixers network has not changed {mixer_learned}"

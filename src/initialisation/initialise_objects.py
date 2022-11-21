@@ -93,6 +93,11 @@ def initialise_objects(
 
 
 def _make_action_space(rl):
+    """
+    Make action space.
+
+    inputs: rl dictionary
+    """
     if rl["discretize_actions"]:
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
@@ -129,6 +134,7 @@ def _make_action_space(rl):
 
 
 def _make_scheme(rl):
+    """Make scheme."""
     action_dtype = th.long if not rl["actions_dtype"] == np.float32 \
         else th.float
     if not rl["discretize_actions"]:

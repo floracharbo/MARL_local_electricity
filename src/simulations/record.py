@@ -496,6 +496,7 @@ class Record():
         return metrics, metric_entries
 
     def _append_eval(self, eval_steps, method, epoch, end_test):
+        """Add evaluation results to the appropriate lists."""
         if method in eval_steps:
             if eval_steps[method]["reward"][-1] is not None:
                 epoch_mean_eval_t = np.mean(eval_steps[method]["reward"])
@@ -529,6 +530,7 @@ class Record():
                 self.stability[self.repeat][method] = epoch
 
     def _update_eps(self, rl, learner, epoch, end_test):
+        """Add epsilon value for epsilon-greedy exploration."""
         if rl["type_learning"] == "DQN" and not end_test:
             for method in rl["type_Qs"]:
                 if rl["distr_learning"] == "centralised":

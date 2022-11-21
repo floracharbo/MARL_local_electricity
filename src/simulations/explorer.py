@@ -617,7 +617,7 @@ class Explorer():
             sum_consa += np.sum(res[f'consa({load_type})'])
 
         assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
-        assert abs(np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) < 5e-2, \
+        assert abs((np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa)/sum_consa) < 1e-2, \
             f"res cons {sum_consa} does not match input demand " \
             f"{np.sum(loads[:, 0: prm['syst']['N']])}"
 
@@ -654,7 +654,7 @@ class Explorer():
                      for home in self.homes))
 
         if not prm["RL"]["competitive"]:
-            assert abs(reward - res_reward_t) < 1e-3, \
+            assert abs(reward - res_reward_t) < 5e-3, \
                 f"reward {reward} != res_reward_t " \
                 f"from res variables {res_reward_t}"
 
@@ -714,9 +714,14 @@ class Explorer():
     def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
         sum_res_rewards = (- (res["gc"] + res["sc"] + res["dc"]))
         if not (self.prm["RL"]["competitive"] and not evaluation):
-            assert abs(sum_rl_rewards - sum_res_rewards) < 5e-3, \
+            if abs(sum_rl_rewards - sum_res_rewards) > 5e-2:
+                print("abs(sum_rl_rewards - sum_res_rewards) > 5e-2")
+                np.save('res_error', res)
+                np.save('sum_rl_rewards', sum_rl_rewards)
+
+            assert abs(sum_rl_rewards - sum_res_rewards) < 5e-2, \
                 "tot rewards don't match: "\
-                f"sum_rl_rewards = {sum_rl_rewards}, "
+                f"sum_rl_rewards = {sum_rl_rewards}, sum_res_rewards {sum_res_rewards} "
             f"sum costs opt = {- (res['gc'] + res['sc'] + res['dc'])}"
 
     def _check_i0_costs_res(self, res):
