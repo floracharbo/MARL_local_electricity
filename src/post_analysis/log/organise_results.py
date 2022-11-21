@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from textwrap import wrap
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -26,7 +27,8 @@ def get_list_all_fields(results_path):
         'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit', 'tot_learn_cycles',
         'start_end_eval', 'n_all_epochs', 'T_decay_param', 'statecomb_str', 'init_len_seeds', 'opt_res_file',
         'seeds_file', 'plot_type', 'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all',
-        'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents', 'save', 'groups', 'paths'
+        'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents', 'save', 'groups', 'paths',
+        'end_decay'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -232,12 +234,15 @@ def compute_best_score_per_run(keys_methods, log):
     return log
 
 def plot_sensitivity_analyses(new_columns, log):
+    font = {'size': 7}
+
+    matplotlib.rc('font', **font)
     # loop through each column
     # search for runs that are all the same except for that one column changing
     # and plot y axis best score vs x axis value (numerical or categorical)
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
-    columns_of_interest = [column for column in new_columns[2:] if column != 'nn_learned']
+    columns_of_interest = [column for column in new_columns[2:] if column not in ['nn_learned', 'time_end']]
     for column_of_interest in columns_of_interest:
         plotted_something = False
         fig, axs = plt.subplots(2, 1)
@@ -329,9 +334,12 @@ def plot_sensitivity_analyses(new_columns, log):
             if column_of_interest == 'state_space':
                 plt.xticks(rotation=90)
                 axs[0].set_xticks([])
+            elif column_of_interest == 'rnn_hidden_dim':
+                axs[0].set_xscale('log')
+                axs[1].set_xscale('log')
 
             height_row0 = 0.1
-            height_intra_row = 0.08
+            height_intra_row = 0.11
 
             # remove columns that are irrelevant to the types learning in the current setups
             if column_of_interest != 'type_learning':
