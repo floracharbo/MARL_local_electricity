@@ -1,12 +1,15 @@
 import os
+import pickle
+from datetime import datetime
 from pathlib import Path
+from textwrap import wrap
+
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from datetime import datetime
 import yaml
-from textwrap import wrap
-import pickle
+
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
 def list_obs_to_str(list_obs):
@@ -20,11 +23,12 @@ def list_obs_to_str(list_obs):
     return obs_str
 
 def get_list_all_fields(results_path):
-    disregard = [
+    ignore = [
         'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit', 'tot_learn_cycles',
         'start_end_eval', 'n_all_epochs', 'T_decay_param', 'statecomb_str', 'init_len_seeds', 'opt_res_file',
         'seeds_file', 'plot_type', 'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all',
-        'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents', 'save', 'groups'
+        'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents', 'save', 'groups', 'paths',
+        'end_decay'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -34,17 +38,19 @@ def get_list_all_fields(results_path):
         if path_prm.is_file():
             prm = np.load(path_prm, allow_pickle=True).item()
             for key, val in prm.items():
-                for subkey, subval in val.items():
-                    if subkey not in disregard:
-                        if (isinstance(subval, (int, float, bool, str)) or subkey == "state_space") and f"{key}-{subkey}" not in columns0:
-                            columns0.append(f"{key}-{subkey}")
-                        elif isinstance(subval, dict):
-                            for subsubkey, subsubval in subval.items():
-                                if isinstance(subsubval, (int, float, bool, str)) and f"{key}-{subkey}-{subsubkey}" not in columns0 and subsubkey not in disregard:
-                                    columns0.append(f"{key}-{subkey}-{subsubkey}")
+                if key not in ignore:
+                    for subkey, subval in val.items():
+                        if subkey not in ignore:
+                            if subkey == 'n_start_opt':
+                                print(f"run {result_no} n_start_opt should be n_start_opt_explo")
+                            elif (isinstance(subval, (int, float, bool, str)) or subkey == "state_space") and f"{key}-{subkey}" not in columns0:
+                                columns0.append(f"{key}-{subkey}")
+                            elif isinstance(subval, dict):
+                                for subsubkey, subsubval in subval.items():
+                                    if isinstance(subsubval, (int, float, bool, str)) and f"{key}-{subkey}-{subsubkey}" not in columns0 and subsubkey not in ignore:
+                                        columns0.append(f"{key}-{subkey}-{subsubkey}")
 
     columns0 = ["run", "date"] + sorted(columns0)
-
 
     return columns0, result_nos
 
@@ -64,7 +70,7 @@ def get_names_evaluation_methods(results_path, result_nos):
     return keys_methods
 
 
-def replace_single_default_value(value, default_data, key, subkey, subsubkey):
+def replace_single_default_value(value, default_data, subkey, subsubkey):
     if value is None and default_data is not None:
         if subkey in default_data:
             if subsubkey is None:
@@ -75,7 +81,7 @@ def replace_single_default_value(value, default_data, key, subkey, subsubkey):
     return value
 
 
-def add_default_values(log):
+def add_default_values(log, previous_defaults):
     file_name = ''
     # add any default value previously saved row by row
     for row in range(len(log)):
@@ -86,14 +92,16 @@ def add_default_values(log):
                 prm_default = pickle.load(file)
             for column in log.columns:
                 if log.loc[row, column] is None:
-                    key, subkey, subsubkey = get_key_subkeys_column(column)
-                    if key in prm_default:
-                        if subkey in prm_default[key]:
-                            if subsubkey is None:
-                                log.loc[row, column] = prm_default[key][subkey]
-                            elif subsubkey in prm_default[key][subkey]:
-                                log.loc[row, column] = prm_default[key][subkey][subsubkey]
-
+                    if column in previous_defaults and log.loc[row, 'run'] <= previous_defaults[column][0]:
+                        log.loc[row, column] = previous_defaults[column][1]
+                    else:
+                        key, subkey, subsubkey = get_key_subkeys_column(column)
+                        if key in prm_default:
+                            if subkey in prm_default[key]:
+                                if subsubkey is None:
+                                    log.loc[row, column] = prm_default[key][subkey]
+                                elif subsubkey in prm_default[key][subkey]:
+                                    log.loc[row, column] = prm_default[key][subkey][subsubkey]
 
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -108,9 +116,8 @@ def add_default_values(log):
                         default_data = yaml.safe_load(file)
                 else:
                     default_data = None
-
             # replace default value
-            log[column] = log[column].apply(lambda x: replace_single_default_value(x, default_data, key, subkey, subsubkey))
+            log[column] = log[column].apply(lambda x: replace_single_default_value(x, default_data, subkey, subsubkey))
 
     # save all defaults in prm_default row by row
     for row in range(len(log)):
@@ -151,15 +158,8 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
     path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
     if path_prm.is_file():
         prm = np.load(path_prm, allow_pickle=True).item()
-        # add missing prm data
-        # manually add missing type_learning for the first 15 ones / obs for first 11
-        q_learning_runs = [703, 705, 706]
-        if result_no in range(703, 718):
-            prm['RL']['type_learning'] = 'q_learning' if result_no in q_learning_runs else 'facmac'
-            np.save(path_prm, prm)
-        if result_no in range(703, 716):
-            prm['RL']['state_space'] = ['grdC'] if result_no == 706 else ['grdC', 'bat_dem_agg', 'avail_car_step']
-            np.save(path_prm, prm)
+        if result_no == 802:
+            prm['RL']['nn_learned'] = False
         date_str = datetime.fromtimestamp(os.stat(path_prm).st_birthtime).strftime("%d/%m/%Y")
         row = [result_no, date_str]
         for column in columns0[2:]:
@@ -233,13 +233,17 @@ def compute_best_score_per_run(keys_methods, log):
 
     return log
 
-def plot_sensitivity_analyses(new_columns, log, newly_added_runs):
+def plot_sensitivity_analyses(new_columns, log):
+    font = {'size': 7}
+
+    matplotlib.rc('font', **font)
     # loop through each column
     # search for runs that are all the same except for that one column changing
     # and plot y axis best score vs x axis value (numerical or categorical)
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
-    for column_of_interest in new_columns[2:]:
+    columns_of_interest = [column for column in new_columns[2:] if column not in ['nn_learned', 'time_end']]
+    for column_of_interest in columns_of_interest:
         plotted_something = False
         fig, axs = plt.subplots(2, 1)
 
@@ -247,7 +251,7 @@ def plot_sensitivity_analyses(new_columns, log, newly_added_runs):
             x_labels = []
             best_values = []
             env_values = []
-        other_columns = [column for column in new_columns[2:] if column != column_of_interest]
+        other_columns = [column for column in new_columns[2:] if column not in [column_of_interest, 'nn_learned', 'time_end']]
         rows_considered = []
         setup_no = 0
 
@@ -270,7 +274,7 @@ def plot_sensitivity_analyses(new_columns, log, newly_added_runs):
                     best_score.append(log['best_score'].loc[row])
                     best_env_score.append(log['best_score_env'].loc[row])
             if len(values_of_interest) > 1:
-                if all(values_of_interest[i] == values_of_interest[0] for i in range(len(values_of_interest))):
+                if all(values_of_interest_ == values_of_interest[0] for values_of_interest_ in values_of_interest):
                     print(f"runs {log.loc[rows_considered[-len(values_of_interest):], 'run'].values} equal?")
                 else:
                     setups.append(current_setup)
@@ -330,9 +334,18 @@ def plot_sensitivity_analyses(new_columns, log, newly_added_runs):
             if column_of_interest == 'state_space':
                 plt.xticks(rotation=90)
                 axs[0].set_xticks([])
+            elif column_of_interest == 'rnn_hidden_dim':
+                axs[0].set_xscale('log')
+                axs[1].set_xscale('log')
 
             height_row0 = 0.1
-            height_intra_row = 0.08
+            height_intra_row = 0.11
+
+            # remove columns that are irrelevant to the types learning in the current setups
+            if column_of_interest != 'type_learning':
+                types_learning = [setup[other_columns.index('type_learning')] for setup in setups]
+                varied_columns = [column for column in varied_columns if
+                                  len(column.split('-')) == 1 or column.split('-')[0] in types_learning]
 
             if len(setups) > 1:
                 col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns]
@@ -382,46 +395,61 @@ def plot_sensitivity_analyses(new_columns, log, newly_added_runs):
             fig.savefig(f"outputs/results_analysis/{column_of_interest}_sensitivity")
             plt.close('all')
 
-# get the list of fields that are recorded in prm (only keeping int, float, bool, str + state_space
-results_path = Path("outputs/results")
-columns0, result_nos = get_list_all_fields(results_path)
 
-# get the names of all the evaluations methods
-keys_methods = get_names_evaluation_methods(results_path, result_nos)
 
-log_path = Path("outputs/results_analysis/log_runs_from_pd.csv")
-# create the log data frame
-# if Path(log_path).is_file():
-#     log = pd.read_csv(log_path)
-# else:
-log = pd.DataFrame(columns=columns0 + keys_methods)
+if __name__ == "__main__": # remove useless columns
+    # get the list of fields that are recorded in prm (only keeping int, float, bool, str + state_space
+    results_path = Path("outputs/results")
+    results_analysis_path = Path("outputs/results_analysis")
+    previous_defaults = {
+        'n_hidden_layers': [813, 1],
+        'aggregate_actions': [813, True],
+        'supervised_loss': [813, True],
+    }
 
-newly_added_runs = []
-for result_no in result_nos:
-    if result_no not in list(log['run']):
-        row = get_prm_data_for_a_result_no(results_path, result_no, columns0)
-        row = append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, row)
-        if row is not None:
-            log.loc[len(log.index)] = row
-            newly_added_runs.append(row[0])
-        else:
-            print(f"no file {result_no}")
 
-# remove useless columns
-new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
-log = add_default_values(log)
-# remove key from column name
-columns = list(log.columns)
-for i in range(len(columns)):
-    splits = columns[i].split('-')
-    if len(splits) > 1:
-        len_start_remove = len(splits[0]) + 1
-        columns[i] = columns[i][len_start_remove:]
-log.columns = new_columns + keys_methods
 
-log = compute_best_score_per_run(keys_methods, log)
+    if not results_analysis_path.exists():
+        os.mkdir(results_analysis_path)
 
-print(f"np.shape(log) {np.shape(log)}")
-log.to_csv(log_path)
+    columns0, result_nos = get_list_all_fields(results_path)
 
-plot_sensitivity_analyses(new_columns, log, newly_added_runs)
+    # get the names of all the evaluations methods
+    keys_methods = get_names_evaluation_methods(results_path, result_nos)
+
+    log_path = results_analysis_path / "log_runs.csv"
+    # create the log data frame
+    # if Path(log_path).is_file():
+    #     log = pd.read_csv(log_path)
+    #     columns0 = log.columns
+    # else:
+    log = pd.DataFrame(columns=columns0 + keys_methods)
+
+    newly_added_runs = []
+    for result_no in result_nos:
+        if result_no not in list(log['run']):
+            row = get_prm_data_for_a_result_no(results_path, result_no, columns0)
+            row = append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, row)
+            if row is not None:
+                log.loc[len(log.index)] = row
+                newly_added_runs.append(row[0])
+            else:
+                print(f"no file {result_no}")
+
+    new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
+    log = add_default_values(log, previous_defaults=previous_defaults)
+
+    # remove key from column name
+    for i in range(len(new_columns)):
+        splits = new_columns[i].split('-')
+        if len(splits) > 1:
+            len_start_remove = len(splits[0]) + 1
+            new_columns[i] = new_columns[i][len_start_remove:]
+    log.columns = new_columns + keys_methods
+
+    log = compute_best_score_per_run(keys_methods, log)
+
+    print(f"np.shape(log) {np.shape(log)}")
+    log.to_csv(log_path)
+
+    plot_sensitivity_analyses(new_columns, log)
