@@ -101,11 +101,13 @@ class CQMixMAC(BasicMAC):
             chosen_actions = self.forward(
                 ep_batch[bs], t_ep,
                 hidden_states=self.hidden_states[bs],
-                test_mode=test_mode, select_actions=True)["actions"]
+                test_mode=test_mode, select_actions=True
+            )["actions"]
             # just to make sure detach
             chosen_actions = chosen_actions.view(
                 ep_batch[bs].batch_size, self.n_agents,
-                self.rl['dim_actions']).detach()
+                self.rl['dim_actions']
+            ).detach()
             pass
         elif self.rl['agent_facmac'] == "icnn":
             inputs = self._build_inputs(ep_batch[bs], t_ep)

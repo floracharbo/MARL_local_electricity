@@ -396,9 +396,7 @@ def plot_sensitivity_analyses(new_columns, log):
             plt.close('all')
 
 
-
-if __name__ == "__main__": # remove useless columns
-    # get the list of fields that are recorded in prm (only keeping int, float, bool, str + state_space
+if __name__ == "__main__":
     results_path = Path("outputs/results")
     results_analysis_path = Path("outputs/results_analysis")
     previous_defaults = {
@@ -406,8 +404,6 @@ if __name__ == "__main__": # remove useless columns
         'aggregate_actions': [813, True],
         'supervised_loss': [813, True],
     }
-
-
 
     if not results_analysis_path.exists():
         os.mkdir(results_analysis_path)

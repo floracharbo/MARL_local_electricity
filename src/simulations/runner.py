@@ -48,8 +48,8 @@ class Runner():
         self.rl = prm['RL']  # learning parameters
         self.env = env
         self.record = record
-        self._initialise_buffer_learner_mac()
         self.N = prm['syst']['N']
+        self._initialise_buffer_learner_mac()
         # create an instance of the explorer object
         # which will interact with the environment
         self.explorer = Explorer(env, prm, self.learner, record, self.mac)
@@ -157,10 +157,12 @@ class Runner():
             preprocess=self.rl['preprocess'],
             device="cpu" if self.rl['buffer_cpu_only']
             else self.rl['device'])
+
         # Setup multiagent controller here
         self.mac[method] = mac_REGISTRY[self.rl['mac']](
             self.buffer[method].scheme, self.rl['groups'],
-            self.rl, self.N)
+            self.rl, self.N
+        )
         self.new_episode_batch = \
             partial(EpisodeBatch, self.rl['scheme'],
                     self.rl['groups'],
@@ -172,6 +174,7 @@ class Runner():
             self.mac[method],
             self.buffer[method].scheme,
             self.rl,
+            self.N
         )
         if self.rl['use_cuda']:
             self.learner[method].cuda()
