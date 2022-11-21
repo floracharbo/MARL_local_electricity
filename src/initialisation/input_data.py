@@ -107,8 +107,8 @@ def get_settings_i(settings, i):
             if isinstance(val, list):
                 settings_i[key][sub_key] = val[i]
             elif isinstance(val, dict):
+                settings_i[key][sub_key] = {}
                 for subsubkey in val.keys():
-                    settings_i[key][sub_key] = {}
                     if isinstance(val[subsubkey], list):
                         settings_i[key][sub_key][subsubkey] = \
                             val[subsubkey][i]
