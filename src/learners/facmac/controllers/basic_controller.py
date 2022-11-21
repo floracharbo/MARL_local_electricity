@@ -12,9 +12,9 @@ class BasicMAC:
         self.n_agents = rl['n_homes']
         self.rl = rl
         input_shape = self._get_input_shape(scheme)
+        self.N = N
         self._build_agents(input_shape)
         self.agent_output_type = rl['agent_output_type']
-        self.N = N
         self.hidden_states = None
 
     def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None),
@@ -57,7 +57,8 @@ class BasicMAC:
 
     def _build_agents(self, input_shape):
         self.agent = agent_REGISTRY[self.rl['agent_facmac']](
-            input_shape, self.rl, self.n_agents, self.N)
+            input_shape, self.rl, self.n_agents, self.N
+        )
 
     def share(self):
         self.agent.share_memory()

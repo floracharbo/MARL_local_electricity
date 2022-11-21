@@ -8,10 +8,11 @@ from src.learners.facmac.modules.agents.agent import Agent
 
 
 class QMIXRNNAgent(nn.Module):
-    def __init__(self, input_shape, rl):
+    def __init__(self, input_shape, rl, n_agents, N):
         super(QMIXRNNAgent, self).__init__()
         self.rl = rl
-
+        self.n_agents = n_agents
+        self.N = N
         self.fc1 = nn.Linear(input_shape, self.rl['rnn_hidden_dim'])
         self.rnn = nn.GRUCell(self.rl['rnn_hidden_dim'],
                               self.rl['rnn_hidden_dim'])

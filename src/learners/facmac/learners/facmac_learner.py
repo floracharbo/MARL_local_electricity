@@ -13,11 +13,11 @@ from src.learners.facmac.modules.critics.facmac import FACMACCritic
 
 
 class FACMACLearner(Learner):
-    def __init__(self, mac, scheme, rl):
+    def __init__(self, mac, scheme, rl, N):
         self.__name__ = 'FACMACLearner'
         super().__init__(mac, rl, scheme)
 
-        self.critic = FACMACCritic(scheme, rl)
+        self.critic = FACMACCritic(scheme, rl, N)
         self.target_critic = copy.deepcopy(self.critic)
         self.critic_params = list(self.critic.parameters())
 
@@ -55,7 +55,8 @@ class FACMACLearner(Learner):
             inputs = self._build_inputs(batch, t=t)
             critic_out, critic.hidden_states = critic(
                 inputs, actions_[:, t:t + 1].detach(),
-                critic.hidden_states)
+                critic.hidden_states
+            )
             if self.mixer is not None:
                 critic_out = mixer(critic_out.view(
                     batch.batch_size, -1, 1), batch["state"][:, t: t + 1])
@@ -221,13 +222,11 @@ class FACMACLearner(Learner):
                             1, self.n_agents, 1).
                         view(bs, self.n_agents, -1)))
                 else:
-                    inputs.append(batch["actions"][:, t - 1].repeat(
-                        1, self.n_agents, 1).view(
-                        bs, self.n_agents, -1))
+                    inputs.append(batch["actions"][:, t - 1].repeat(1, self.n_agents, 1).view(bs, self.n_agents, -1))
 
         else:
             inputs.append(batch["obs"][:, t])
 
-        inputs = th.cat([x.reshape(bs * self.n_agents, -1)
-                         for x in inputs], dim=1)
+        inputs = th.cat([x.reshape(bs * self.n_agents, -1) for x in inputs], dim=1)
+
         return inputs

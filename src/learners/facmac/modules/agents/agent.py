@@ -3,9 +3,11 @@ import torch.nn as nn
 
 
 class Agent(nn.Module):
-    def __init__(self, input_shape, rl):
+    def __init__(self, input_shape, rl, n_agents, N):
         super(Agent, self).__init__()
         self.rl = rl
+        self.n_agents = n_agents
+        self.N = N
         self.cuda_available = True if th.cuda.is_available() else False
         device = th.device("cuda") if self.cuda_available else th.device("cpu")
 
@@ -17,7 +19,7 @@ class Agent(nn.Module):
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
                 )
         elif self.rl['nn_type'] == 'cnn':
-            self.fc1 = nn.Conv1d(1, 5, kernel_size=3)
+            self.fc1 = nn.Conv1d(1, 1, kernel_size=3)
             self.fcs = []
             self.fcs.append(nn.Linear(self.N - 2, self.rl['rnn_hidden_dim']))
             for i in range(self.rl["n_hidden_layers"] - 1):
