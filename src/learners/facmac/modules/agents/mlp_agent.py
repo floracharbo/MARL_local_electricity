@@ -15,6 +15,10 @@ class MLPAgent(Agent):
     def forward(self, inputs, hidden_state, actions=None):
         if self.rl['nn_type'] == 'cnn':
             inputs = inputs.view(inputs.size()[0], 1, inputs.size()[1])
+        inputs = inputs.to(self.device)
+        print(f"self.device {self.device}")
+        print(f"inputs.is_cuda {inputs.is_cuda}")
+        print(f"next(self.fc1.parameters()).is_cuda {next(self.fc1.parameters()).is_cuda}")
         x = F.relu(self.fc1(inputs))
         if self.rl['nn_type'] == 'cnn':
             x = nn.Flatten()(x)

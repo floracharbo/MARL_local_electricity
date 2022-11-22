@@ -9,7 +9,7 @@ class Agent(nn.Module):
         self.n_agents = n_agents
         self.N = N
         self.cuda_available = True if th.cuda.is_available() else False
-        device = th.device("cuda") if self.cuda_available else th.device("cpu")
+        self.device = th.device("cuda") if self.cuda_available else th.device("cpu")
         if self.rl['nn_type'] == 'linear':
             self.fc1 = nn.Linear(input_shape, self.rl['rnn_hidden_dim'])
             self.fcs = []
@@ -37,9 +37,9 @@ class Agent(nn.Module):
             self.fc_out = nn.DataParallel(self.fc_out)
 
         for i in range(len(self.fcs)):
-            self.fcs[i].to(device)
-        self.fc1.to(device)
-        self.fc_out.to(device)
+            self.fcs[i].to(self.device)
+        self.fc1.to(self.device)
+        self.fc_out.to(self.device)
 
         self.agent_return_logits = self.rl["agent_return_logits"]
 
