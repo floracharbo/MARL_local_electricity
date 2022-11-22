@@ -43,6 +43,7 @@ settings = {
         'obs_agent_id': False,
         'cnn_out_channels': 5,
         'cnn_kernel_sizes': 3,
+        'data_parallel': [False, True, False],
     },
     'ntw': {
         'n': 50

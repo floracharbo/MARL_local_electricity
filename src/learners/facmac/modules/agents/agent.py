@@ -17,28 +17,30 @@ class Agent(nn.Module):
                 self.fcs.append(
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
                 )
-                self.fcs[-1] = nn.DataParallel(self.fcs[-1])
-                self.fcs[-1].to(device)
         elif self.rl['nn_type'] == 'cnn':
             self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
             self.fcs = []
             self.fcs.append(nn.Linear((input_shape - 2) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim']))
-            self.fcs[0] = nn.DataParallel(self.fcs[-1])
-            self.fcs[0].to(device)
             for i in range(self.rl["n_hidden_layers"] - 1):
                 self.fcs.append(
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
                 )
-                self.fcs[-1] = nn.DataParallel(self.fcs[-1])
-                self.fcs[-1].to(device)
 
-        self.fc1 = nn.DataParallel(self.fc1)
-        self.fc1.to(device)
         self.fc_out = nn.Linear(
             self.rl['rnn_hidden_dim'], self.rl['dim_actions']
         )
-        self.fc_out = nn.DataParallel(self.fc_out)
+
+        if self.rl['data_parallel']:
+            for i in range(len(self.fcs)):
+                self.fcs[i] = nn.DataParallel(self.fcs[-1])
+            self.fc1 = nn.DataParallel(self.fc1)
+            self.fc_out = nn.DataParallel(self.fc_out)
+
+        for i in range(len(self.fcs)):
+            self.fcs[i].to(device)
+        self.fc1.to(device)
         self.fc_out.to(device)
+
         self.agent_return_logits = self.rl["agent_return_logits"]
 
     def init_hidden(self):
