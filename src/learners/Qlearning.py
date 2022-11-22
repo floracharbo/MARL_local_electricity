@@ -10,9 +10,10 @@ import math
 
 import numpy as np
 
-from src.utilities.userdeftools import (
-    distr_learning, initialise_dict, reward_type, methods_learning_from_exploration
-)
+from src.utilities.userdeftools import (data_source, distr_learning,
+                                        initialise_dict,
+                                        methods_learning_from_exploration,
+                                        reward_type)
 
 
 # %% TabularQLearner
@@ -151,8 +152,10 @@ class TabularQLearner:
 
         return ind_action
 
-    def update_q(self, reward, done, ind_state, ind_action,
-                 ind_next_state, i_table=0, q_table_name=None):
+    def update_q(
+            self, reward, done, ind_state, ind_action, ind_next_state, epoch,
+            i_table=0, q_table_name=None
+    ):
         val_q = 0 if ind_next_state is None \
             else max(self.q_tables[q_table_name][i_table][ind_next_state])
         if type(val_q) in [list, np.ndarray]:
@@ -161,20 +164,20 @@ class TabularQLearner:
         if type(value) in [list, np.ndarray]:
             print(f'value {value}')
         if ind_action is not None:
-            td_error = value \
-                - self.q_tables[q_table_name][i_table][ind_state][ind_action]
+            td_error = value - self.q_tables[q_table_name][i_table][ind_state][ind_action]
             if type(td_error) in [list, np.ndarray]:
                 print(f'td_error {td_error}')
-            try:
-                lr = self.get_lr(td_error, q_table_name)
-            except Exception as ex:
-                print(f'ex = {ex}')
-                print(f'td_error = {td_error}')
-                print(f'type(td_error) = {type(td_error)}')
-                print(f'value = {value}')
-                print(f"ind_action = {ind_action}")
-            self.q_tables[q_table_name][i_table][ind_state][ind_action] \
-                += lr * td_error
+            add_supervised_loss = \
+                True if data_source(q_table_name, epoch) == 'opt' and self.rl['supervised_loss'] else False
+            if add_supervised_loss:
+                n_possible_actions = len(self.q_tables[q_table_name][i_table][ind_state])
+                lE = np.ones(n_possible_actions) * self.rl['expert_margin']
+                lE[ind_action] = 0
+                Q_plus_lE = np.array(self.q_tables[q_table_name][i_table][ind_state]) + lE
+                supervised_loss = np.max(Q_plus_lE) - self.q_tables[q_table_name][i_table][ind_state][ind_action]
+                td_error += self.rl['supervised_loss_weight'] * supervised_loss
+            lr = self.get_lr(td_error, q_table_name)
+            self.q_tables[q_table_name][i_table][ind_state][ind_action] += lr * td_error
             self.counter[q_table_name][i_table][ind_state][ind_action] += 1
 
     def get_lr(self, td_error, q):
@@ -191,6 +194,7 @@ class TabularQLearner:
             lr = self.alpha[q] \
                 if (not self.hysteretic or td_error > 0) \
                 else self.alpha[q] * beta_to_alpha
+
         return lr
 
     def learn(self, t_explo, step_vals, epoch, step=None):
@@ -198,7 +202,7 @@ class TabularQLearner:
         rangestep = range(len(step_vals['reward'])) if step is None else [step]
         for step in rangestep:
             for q in q_to_update:
-                self.update_q_step(q, step, step_vals)
+                self.update_q_step(q, step, step_vals, epoch)
 
     def _control_decrease_eps(self, method, epoch, mean_eval_rewards, decrease_eps):
         n_window \
@@ -295,18 +299,18 @@ class TabularQLearner:
 
         return reward_a
 
-    def update_q_step(self, q, step, step_vals):
+    def update_q_step(self, q, step, step_vals, epoch):
         reward, diff_rewards, indiv_rewards = [
             step_vals[key][step]
             for key in ["reward", "diff_rewards", "indiv_rewards"]
         ]
 
-        [ind_global_s, ind_global_ac, indiv_s, indiv_ac,
-         ind_next_global_s, next_indiv_s, done] = \
-            [step_vals[e][step]
-             for e in ['ind_global_state', 'ind_global_action',
-                       'state', 'action', 'ind_next_global_state',
-                       'next_state', 'done']]
+        [ind_global_s, ind_global_ac, indiv_s, indiv_ac, ind_next_global_s, next_indiv_s, done] = [
+            step_vals[e][step] for e in [
+                'ind_global_state', 'ind_global_action', 'state', 'action',
+                'ind_next_global_state', 'next_state', 'done'
+            ]
+        ]
 
         ind_indiv_ac = self.get_space_indexes(
             done=done, all_vals=indiv_ac, type_='action')
@@ -327,21 +331,18 @@ class TabularQLearner:
         else:
             if reward_type(q) == 'A':
                 self.advantage_update_q_step(
-                    q, indiv_ac, reward, done,
-                    ind_indiv_ac, ind_indiv_s, ind_next_indiv_s,
-                    ind_global_ac, ind_global_s, ind_next_global_s
+                    q, indiv_ac, reward, done, ind_indiv_ac, ind_indiv_s, ind_next_indiv_s,
+                    ind_global_ac, ind_global_s, ind_next_global_s, epoch
                 )
 
             elif distr_learning(q) in ['Cc', 'Cd']:
                 # this is env_d_C or opt_d_C
                 # difference to global baseline
                 if ind_global_ac[0] is not None:
-                    self.update_q(reward[-1], done,
-                                  ind_next_global_s[0],
-                                  ind_global_ac[0],
-                                  ind_next_global_s[0],
-                                  i_table=0, q_table_name=q + '0')
-
+                    self.update_q(
+                        reward[-1], done, ind_next_global_s[0], ind_global_ac[0], ind_next_global_s[0], epoch,
+                        i_table=0, q_table_name=q + '0'
+                    )
                     for home in range(self.n_agents):
                         i_table = 0 if distr_learning == 'Cc' else home
                         local_q_val = self.q_tables[q][i_table][
@@ -362,40 +363,41 @@ class TabularQLearner:
                             diff_rewards, indiv_rewards, reward, q, home
                         )
                         self.update_q(
-                            reward_home, done, ind_indiv_s[home],
-                            ind_indiv_ac[home], ind_next_indiv_s[home],
-                            i_table=i_table, q_table_name=q)
+                            reward_home, done, ind_indiv_s[home], ind_indiv_ac[home], ind_next_indiv_s[home], epoch,
+                            i_table=i_table, q_table_name=q
+                        )
 
     def advantage_update_q_step(
             self, q, indiv_ac, reward, done,
             ind_indiv_ac, ind_indiv_s, ind_next_indiv_s,
-            ind_global_ac, ind_global_s, ind_next_global_s):
+            ind_global_ac, ind_global_s, ind_next_global_s, epoch
+    ):
         if distr_learning(q) in ['Cc', 'Cd']:
             self._advantage_global_table(
-                reward, done, ind_global_s, ind_global_ac,
-                ind_next_global_s, indiv_ac, q, ind_indiv_ac, ind_indiv_s
+                reward, done, ind_global_s, ind_global_ac, ind_next_global_s,
+                indiv_ac, q, ind_indiv_ac, ind_indiv_s, epoch
             )
 
         elif distr_learning(q) == 'c':
             self._advantage_centralised_table(
                 reward, done, ind_indiv_s, ind_indiv_ac,
-                ind_next_indiv_s, indiv_ac, q
+                ind_next_indiv_s, indiv_ac, q, epoch
             )
         elif distr_learning(q) == 'd':
             self._advantage_decentralised_table(
                 reward, done, ind_indiv_s, ind_indiv_ac,
-                ind_next_indiv_s, indiv_ac, q
+                ind_next_indiv_s, indiv_ac, q, epoch
             )
 
     def _advantage_global_table(
-            self, reward, done, ind_global_s, ind_global_ac,
-            ind_next_global_s, indiv_ac, q, ind_indiv_ac, ind_indiv_s
+            self, reward, done, ind_global_s, ind_global_ac, ind_next_global_s,
+            indiv_ac, q, ind_indiv_ac, ind_indiv_s, epoch
     ):
         if ind_global_ac[0] is not None:
             self.update_q(
-                reward, done, ind_global_s[0],
-                ind_global_ac[0], ind_next_global_s[0],
-                i_table=0, q_table_name=q + '0')
+                reward, done, ind_global_s[0], ind_global_ac[0], ind_next_global_s[0], epoch,
+                i_table=0, q_table_name=q + '0'
+            )
         indiv_ind_actions_baselinea = \
             [[self.rl['dim_actions'] - 1 if i_home == home else ind_indiv_ac[home]
               for i_home in range(self.n_agents)]
@@ -427,13 +429,14 @@ class TabularQLearner:
 
     def _advantage_centralised_table(
             self, reward, done, ind_indiv_s, ind_indiv_ac,
-            ind_next_indiv_s, indiv_ac, q
+            ind_next_indiv_s, indiv_ac, q, epoch
     ):
         for home in range(self.n_agents):
             if ind_indiv_ac[home] is not None:
-                self.update_q(reward, done, ind_indiv_s[home],
-                              ind_indiv_ac[home], ind_next_indiv_s[home],
-                              i_table=0, q_table_name=q + '0')
+                self.update_q(
+                    reward, done, ind_indiv_s[home], ind_indiv_ac[home], ind_next_indiv_s[home], epoch,
+                    i_table=0, q_table_name=q + '0'
+                )
                 q0 = self.q_tables[q + '0'][0]
                 reward_a \
                     = q0[ind_indiv_s[home]][ind_indiv_ac[home]] \
@@ -448,13 +451,14 @@ class TabularQLearner:
 
     def _advantage_decentralised_table(
             self, reward, done, ind_indiv_s, ind_indiv_ac,
-            ind_next_indiv_s, indiv_ac, q
+            ind_next_indiv_s, indiv_ac, q, epoch
     ):
         for home in range(self.n_agents):
             if ind_indiv_ac[home] is not None:
                 self.update_q(
-                    reward, done, ind_indiv_s[home], ind_indiv_ac[home],
-                    ind_next_indiv_s[home], i_table=home, q_table_name=q + '0')
+                    reward, done, ind_indiv_s[home], ind_indiv_ac[home], ind_next_indiv_s[home], epoch,
+                    i_table=home, q_table_name=q + '0'
+                )
                 q0 = self.q_tables[q + '0'][home][ind_indiv_s[home]][
                     ind_indiv_ac[home]]
                 q0_baseline_a = self.q_tables[q + '0'][home][

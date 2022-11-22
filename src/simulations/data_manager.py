@@ -167,6 +167,7 @@ class DataManager():
                 passive=passive
             )
             assert batch[0]['loads'][0] == self.env.batch[0]['loads'][0]
+
         else:
             if opt_needed:
                 res = np.load(self.paths['opt_res']
@@ -177,7 +178,6 @@ class DataManager():
                 seed=self.seed[self.passive_ext],
                 load_data=True, passive=passive)
             new_res = False
-
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(batch, passive=passive)
 
@@ -199,8 +199,6 @@ class DataManager():
 
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
-            assert all(len(batch[home]['loads']) == len(batch[0]['loads']) for home in range(self.N)), \
-                f"len loads= {[len(batch[home]['loads']) for home in range(self.N)]}"
             step_vals, data_feasible = self.get_steps_opt(
                 res, step_vals, evaluation, clusters, factors, batch, epoch
             )
@@ -347,6 +345,11 @@ class DataManager():
 
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext], load_data=True, passive=passive)
+
+            assert all(
+                len(batch[home]['loads']) == len(batch[0]['loads']) for home in range(self.N)
+            ), f"len loads= {[len(batch[home]['loads']) for home in range(self.N)]}"
+
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
                 batch, passive=passive

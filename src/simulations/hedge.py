@@ -439,7 +439,7 @@ class HEDGE:
                 n_profs -= 1
             i_prof = round(np.random.rand() * (n_profs_ - 1))
             for previous_i_prof in sorted(i_profs):
-                if previous_i_prof <= i_prof and n_profs_ > 1:
+                if previous_i_prof <= i_prof < n_profs_ - 1 and n_profs_ > 1:
                     i_prof += 1
             i_profs.append(i_prof)
             if data == "car":

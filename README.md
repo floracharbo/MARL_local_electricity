@@ -105,3 +105,8 @@ Where `-o` stands for observation, `-n` for the number of homes. You can add mor
 
 ## License
 [GNU AGPLv3](LICENSE.txt)
+
+## Open-source data references
+- UK electricity grid carbon intensity from https://data.nationalgrideso.com/carbon-intensity1/historic-generation-mix
+- UK electriciy grid prices from Octopus Agile Tariff, Oxford, "https://api.octopus.energy"
+- outdoors temperature data from the NASA MERRA 2 inst1_2d_asm_Nx (M2I1NXASM) reanalysis dataset, Oxford. https://disc.gsfc.nasa.gov/datasets/M2I1NXASM_5.12.4/summary?keywords=M2I1NXASM&start=1920-01-01&end=2022-10-26

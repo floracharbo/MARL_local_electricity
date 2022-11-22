@@ -95,7 +95,7 @@ class Heat:
             self._update_passive_active_vars(prm)
 
         if i0_costs is not None:
-            self.i0_costs = i0_costs
+            self.update_i0_costs(prm, i0_costs)
 
         if E_req_only is None:
             E_req_only = False
@@ -114,6 +114,8 @@ class Heat:
         else:
             self.T_UB, self.T_LB = [self.T_req for _ in range(2)]
 
+    def update_i0_costs(self, prm, i0_costs):
+        self.i0_costs = i0_costs
         # external temperature
         self.T_out = prm["heat"]['T_out_all'][
             self.i0_costs: self.i0_costs + prm['syst']['N'] + 1]

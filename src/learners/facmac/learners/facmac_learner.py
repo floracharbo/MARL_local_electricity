@@ -13,11 +13,11 @@ from src.learners.facmac.modules.critics.facmac import FACMACCritic
 
 
 class FACMACLearner(Learner):
-    def __init__(self, mac, scheme, rl):
+    def __init__(self, mac, scheme, rl, N):
         self.__name__ = 'FACMACLearner'
         super().__init__(mac, rl, scheme)
 
-        self.critic = FACMACCritic(scheme, rl)
+        self.critic = FACMACCritic(scheme, rl, N)
         self.target_critic = copy.deepcopy(self.critic)
         self.critic_params = list(self.critic.parameters())
 
@@ -51,11 +51,12 @@ class FACMACLearner(Learner):
     def get_critic_outs(self, critic, actions_, mixer, batch):
         critic.init_hidden(batch.batch_size)
         list_critic_out = []
-        for t in range(batch.max_seq_length - 1):
+        for t in range(batch.max_seq_length):
             inputs = self._build_inputs(batch, t=t)
             critic_out, critic.hidden_states = critic(
                 inputs, actions_[:, t:t + 1].detach(),
-                critic.hidden_states)
+                critic.hidden_states
+            )
             if self.mixer is not None:
                 critic_out = mixer(critic_out.view(
                     batch.batch_size, -1, 1), batch["state"][:, t: t + 1])
@@ -66,10 +67,15 @@ class FACMACLearner(Learner):
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         rewards = batch["reward"][:, :-1]
-        actions = batch["actions"][:, :-1]
-
-        terminated = batch["terminated"][:, :-1].float()
-        mask = batch["filled"][:, :-1].float()
+        # actions = batch["actions"][:, :-1]
+        rewards = batch.data.transition_data['reward']
+        if self.rl['trajectory']:
+            rewards = sum(rewards)
+        actions = batch.data.transition_data['actions']
+        terminated = batch.data.transition_data['terminated']
+        # terminated = batch["terminated"][:, :-1].float()
+        mask = batch.data.transition_data['filled']
+        # mask = batch["filled"][:, :-1].float()
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
 
         # Train the critic batched
@@ -82,11 +88,14 @@ class FACMACLearner(Learner):
             assert not th.isnan(agent_target_outs[0][0][0]), \
                 "agent_target_outs nan"
             target_actions.append(agent_target_outs)
-        target_actions = th.stack(target_actions, dim=1)  # Concat over time
+        try:
+            target_actions = th.stack(target_actions, dim=1)  # Concat over time
+        except Exception as ex:
+            print(ex)
 
         # replace all nan actions with the target action
         # so the gradient will be zero
-        if self.rl['no_flex_action_to_target']:
+        if self.rl['no_flex_action'] == 'target':
             actions, indexes_nan = self._replace_nan_actions_with_target_actions(
                 actions, target_actions
             )
@@ -152,8 +161,8 @@ class FACMACLearner(Learner):
 
             mac_out.append(agent_outs)
             chosen_action_qvals.append(q)
-        mac_out = th.stack(mac_out[:-1], dim=1)
-        chosen_action_qvals = th.stack(chosen_action_qvals[:-1], dim=1)
+        mac_out = th.stack(mac_out, dim=1)
+        chosen_action_qvals = th.stack(chosen_action_qvals, dim=1)
         pi = mac_out
 
         # Compute the actor loss
@@ -213,13 +222,11 @@ class FACMACLearner(Learner):
                             1, self.n_agents, 1).
                         view(bs, self.n_agents, -1)))
                 else:
-                    inputs.append(batch["actions"][:, t - 1].repeat(
-                        1, self.n_agents, 1).view(
-                        bs, self.n_agents, -1))
+                    inputs.append(batch["actions"][:, t - 1].repeat(1, self.n_agents, 1).view(bs, self.n_agents, -1))
 
         else:
             inputs.append(batch["obs"][:, t])
 
-        inputs = th.cat([x.reshape(bs * self.n_agents, -1)
-                         for x in inputs], dim=1)
+        inputs = th.cat([x.reshape(bs * self.n_agents, -1) for x in inputs], dim=1)
+
         return inputs

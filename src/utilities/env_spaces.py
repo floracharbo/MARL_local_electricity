@@ -53,7 +53,7 @@ def granularity_to_multipliers(granularity):
 
 
 def compute_max_car_cons_gen_values(env, state_space):
-    max_car_cons, max_normcons, max_normgen = [-1 for _ in range(3)]
+    max_car_cons, max_normcons, max_normgen, max_bat_dem_agg = [-1 for _ in range(4)]
     day_types = env.prm["syst"]["day_types"]
 
     if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
@@ -67,7 +67,12 @@ def compute_max_car_cons_gen_values(env, state_space):
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
         max_normgen = np.max([env.prof["gen"][m] for m in range(12)])
 
-    return max_car_cons, max_normcons, max_normgen
+    if any(descriptor == "bat_dem_agg" for descriptor in state_space):
+        max_bat_dem_agg = np.max(
+            [[sum(env.prof["car"]["cons"][dt][c]) for dt in day_types] for c in range(env.n_clus["car"])]
+        )
+
+    return max_car_cons, max_normcons, max_normgen, max_bat_dem_agg
 
 
 class EnvSpaces():
@@ -97,6 +102,7 @@ class EnvSpaces():
             "car_tau": self._get_car_tau,
             "bat_dem_agg": self._get_bat_dem_agg,
             "bool_flex": self.get_bool_flex,
+            "flexibility": self.get_flexibility,
             "store_bool_flex": self.get_store_bool_flex
         }
 
@@ -109,13 +115,22 @@ class EnvSpaces():
     def _get_space_info(self, env):
         prm = env.prm
         # info on state and action spaces
-        max_car_cons, max_normcons, max_normgen \
+        max_car_cons, max_normcons, max_normgen, max_bat_dem_agg \
             = compute_max_car_cons_gen_values(env, prm["RL"]["state_space"])
 
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         n_other_states = rl["n_other_states"]
+        # max_flexibility = np.zeros(self.n_homes)
+        # for home in range(self.n_homes):
+        #     if prm['heat']['own_heat'][home]:
+        #         max_flexibility[home] += 2
+        #     if prm['car']['own_car'][home]:
+        #         max_flexibility[home] += prm['car']['c_max']
+        #     if prm['loads']['own_flex'][home]:
+        #         max_flexibility[home] += 3
+        max_flexibility = prm['car']['c_max'] + prm['car']['d_max']
         info = [
             ["None", 0, 0, 1, 1],
             ["hour", 0, 24, n_other_states, 0],
@@ -138,6 +153,7 @@ class EnvSpaces():
             ],
             ["day_type", 0, 1, 2, 1],
             ["store_bool_flex", 0, 1, 2, 1],
+            ["flexibility", 0, max_flexibility, n_other_states, 0],
             ["bool_flex", 0, 1, 2, 1],
             ["avail_car_step", 0, 1, 2, 1],
             ["avail_car_prev", 0, 1, 2, 1],
@@ -161,7 +177,7 @@ class EnvSpaces():
             ["gen_prod_prev", 0, max_normgen * env.f_max["gen"][i_month], n_other_states, 0],
             ["bat_cons_step", 0, max_car_cons, n_other_states, 0],
             ["bat_cons_prev", 0, max_car_cons, n_other_states, 0],
-            ["bat_dem_agg", 0, max_car_cons, n_other_states, 0],
+            ["bat_dem_agg", 0, max_bat_dem_agg, n_other_states, 0],
 
             # action
             ["action", 0, 1, rl["n_discrete_actions"], 0],
@@ -546,7 +562,12 @@ class EnvSpaces():
                     else:  # remaining are car_cons_step / prev
                         val = prm["car"]["batch_loads_car"][home][time_step]
                 if prm['RL']['normalise_states']:
-                    val = val / self.space_info[descriptor]["max"]
+                    descriptor_info = self.space_info.loc[self.space_info['name'] == descriptor]
+                    max_home = descriptor_info['max'].item()[home] \
+                        if isinstance(descriptor_info['max'].item(), list) \
+                        else descriptor_info['max']
+                    val = ((val - descriptor_info['min']) / max_home).item()
+                    assert 0 <= val <= 1, f"val {val}"
                 vals_home.append(val)
             vals.append(vals_home)
 
@@ -577,6 +598,10 @@ class EnvSpaces():
         """Get general bool flex (if any of the three bool flex is True then True)"""
         home = inputs[2]
         return self.action_translator.aggregate_action_bool_flex(home)
+
+    def get_flexibility(self, inputs):
+        home = inputs[2]
+        return self.action_translator.get_flexibility(home)
 
     def get_store_bool_flex(self, inputs, home=None):
         """Whether there is flexibility in the battery operation"""

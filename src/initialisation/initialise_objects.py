@@ -93,6 +93,11 @@ def initialise_objects(
 
 
 def _make_action_space(rl):
+    """
+    Make action space.
+
+    inputs: rl dictionary
+    """
     if rl["discretize_actions"]:
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
@@ -129,6 +134,7 @@ def _make_action_space(rl):
 
 
 def _make_scheme(rl):
+    """Make scheme."""
     action_dtype = th.long if not rl["actions_dtype"] == np.float32 \
         else th.float
     if not rl["discretize_actions"]:
@@ -192,6 +198,8 @@ def _facmac_initialise(prm):
     rl["n_homes"] = prm["ntw"]["n"]
 
     rl["obs_shape"] = len(rl["state_space"])
+    if rl['trajectory']:
+        rl['obs_shape'] *= prm['syst']['N']
     rl["state_shape"] = rl["obs_shape"] * rl["n_homes"]
 
     if not rl["server"]:
@@ -216,10 +224,9 @@ def _update_paths(paths, prm, no_run):
     paths:
         correpsonding to prm["paths"]; with updated parameters
     """
-    for data in ['carbon_intensity', 'temp']:
-        paths[f"{data}_file"] = f"{paths[data]}_{prm['syst']['H']}.npy"
-    paths["wholesale_file"] \
-        = f"{paths['wholesale']}_n{prm['syst']['H']}_{prm['syst']['year']}.npy"
+    for data in ["wholesale", "carbon_intensity", "temp"]:
+        paths[f"{data}_file"] \
+            = f"{paths[data]}_n{prm['syst']['H']}_{prm['syst']['year']}.npy"
 
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
     paths["record_folder"] = paths["folder_run"] / "record"
@@ -485,15 +492,36 @@ def _exploration_parameters(rl):
 def _dims_states_actions(rl, syst):
     rl["dim_states"] = len(rl["state_space"])
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
-
+    rl["dim_actions_1"] = rl["dim_actions"]
+    if not rl["aggregate_actions"]:
+        rl["low_action"] = rl["low_actions"]
+        rl["high_action"] = rl["high_actions"]
     if "trajectory" not in rl:
         rl["trajectory"] = False
     if rl["distr_learning"] == "joint":
         rl["dim_actions"] *= rl["n_homes"]
         rl["trajectory"] = False
     if rl["trajectory"]:
-        for key in ["dim_states", "dim_actions"]:
-            rl[key] *= syst["prm"]["N"]
+        for key in ["dim_states", "dim_actions", "low_action", "high_action"]:
+            rl[key] *= syst["N"]
+
+
+def _remove_states_incompatible_with_trajectory(rl):
+    if rl['trajectory']:
+        problematic_states = [
+            state for state in rl['state_space']
+            if state in ['store_bool_flex', 'store0', 'bool_flex', 'flexibility']
+        ]
+        for problematic_state in problematic_states:
+            if problematic_state in rl['state_space']:
+                print(
+                    f"Warning: trajectory learning is not compatible with {problematic_state} state. "
+                    f"Removing it from state space."
+                )
+                idx = rl['state_space'].index(problematic_state)
+                rl['state_space'].pop(idx)
+
+    return rl
 
 
 def _update_rl_prm(prm, initialise_all):
@@ -513,11 +541,13 @@ def _update_rl_prm(prm, initialise_all):
     """
     rl, syst, ntw, heat = [prm[key] for key in ["RL", "syst", "ntw", "heat"]]
     rl = _format_rl_parameters(rl)
+    rl = _remove_states_incompatible_with_trajectory(rl)
+
     _dims_states_actions(rl, syst)
 
     # learning parameter variables
     rl["ncpu"] = mp.cpu_count() if rl["server"] else 10
-    rl['episode_limit'] = syst['N']
+    rl['episode_limit'] = 0 if rl['trajectory'] else syst['N']
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
     prm["RL"]["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
@@ -526,9 +556,7 @@ def _update_rl_prm(prm, initialise_all):
     rl["n_all_epochs"] = rl["n_epochs"] + rl["n_end_test"]
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
-    if not rl["aggregate_actions"]:
-        rl["low_action"] = rl["low_actions"]
-        rl["high_action"] = rl["high_actions"]
+
     for passive_ext in ["P", ""]:
         rl["default_action" + passive_ext] = [
             [rl["default_action"] for _ in range(rl["dim_actions"])]
@@ -554,6 +582,9 @@ def _update_rl_prm(prm, initialise_all):
                 str_state = "None" if state is None else str(state)
                 rl["statecomb_str"] += str_state + "_"
         rl["statecomb_str"] = rl["statecomb_str"][:-1]
+
+    if rl['trajectory']:
+        rl['gamma'] = 0
 
     return rl
 
@@ -635,10 +666,11 @@ def _update_grd_prm(prm):
     # gCO2/kWh to tCO2/kWh
     grd["cintensity_all"] = np.load(
         carbon_intensity_path, allow_pickle=True) * 1e-6
-
     # carbon intensity
-    grd["Call"] = [price + carbon * syst["co2tax"]
-                   for price, carbon in zip(wholesale, grd["cintensity_all"])]
+    grd["Call"] = [
+        price + carbon * syst["co2tax"]
+        for price, carbon in zip(wholesale, grd["cintensity_all"])
+    ]
     grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
 
 
@@ -712,9 +744,10 @@ def initialise_prm(prm, no_run, initialise_all=True):
             profiles, car, loads, gen = _load_profiles(
                 paths, car, syst, loads, gen)
             loads["share_flex"], loads["max_delay"] = loads["flex"]
-            loads["share_flexs"] = \
-                [0 if not loads["own_flex"][home]
-                 else loads["share_flex"] for home in range(ntw["n"])]
+            loads["share_flexs"] = [
+                0 if not loads["own_flex"][home] else loads["share_flex"]
+                for home in range(ntw["n"])
+            ]
         else:
             profiles = None
     else:
@@ -733,10 +766,6 @@ def initialise_prm(prm, no_run, initialise_all=True):
     # based on input data
     if initialise_all and heat is not None:
         prm["heat"] = get_heat_coeffs(heat, ntw, syst, paths)
-
-    # %% do not save batches if too many of them!
-    # if rl["n_repeats"] * rl["n_epochs"] * (rl["n_explore"] + 1) > 200:
-    #     save["plotting_batch"] = False
 
     save, prm = generate_colours(save, prm)
 
@@ -761,8 +790,7 @@ def _filter_type_learning_facmac(rl):
             new_methods.append(new_method)
         rl[f"{stage}_methods"] = []
         for method in new_methods:
-            if method in valid_types[stage] \
-                    or any(valid_type in method for valid_type in valid_types[stage][0: 2]):
+            if method in valid_types[stage] or "env_r_c" in method:
                 rl[f"{stage}_methods"].append(method)
 
 

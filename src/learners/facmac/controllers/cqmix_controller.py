@@ -101,11 +101,13 @@ class CQMixMAC(BasicMAC):
             chosen_actions = self.forward(
                 ep_batch[bs], t_ep,
                 hidden_states=self.hidden_states[bs],
-                test_mode=test_mode, select_actions=True)["actions"]
+                test_mode=test_mode, select_actions=True
+            )["actions"]
             # just to make sure detach
             chosen_actions = chosen_actions.view(
                 ep_batch[bs].batch_size, self.n_agents,
-                self.rl['dim_actions']).detach()
+                self.rl['dim_actions']
+            ).detach()
             pass
         elif self.rl['agent_facmac'] == "icnn":
             inputs = self._build_inputs(ep_batch[bs], t_ep)
@@ -203,13 +205,12 @@ class CQMixMAC(BasicMAC):
         # Assumes homogenous agents with flat observations.
         # Other MACs might want to e.g. delegate building inputs to each agent
         bs = batch.batch_size
-        inputs = [batch["obs"][:, t]]  # b1av
-
-        inputs = input_last_action(
-            self.rl['obs_last_action'], inputs, batch, t
-        )
+        try:
+            inputs = [batch["obs"][:, t]]  # b1av
+        except Exception as ex:
+            print(ex)
+        inputs = input_last_action(self.rl['obs_last_action'], inputs, batch, t)
         if self.rl['obs_agent_id']:
-
             inputs.append(th.eye(
                 self.n_agents, device=batch.device).unsqueeze(0).expand(
                 bs, -1, -1))

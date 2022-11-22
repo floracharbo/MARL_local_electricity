@@ -39,8 +39,8 @@ class Action_translator:
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
         self.z_orders = [1, 3, 2, 0, 4]
         self.H = prm['syst']['H']
-        for e in ['aggregate_actions', 'dim_actions', 'low_action',
-                  'high_action', 'type_env', 'server', 'no_flex_action_to_target']:
+        for e in ['aggregate_actions', 'dim_actions_1', 'low_action',
+                  'high_action', 'type_env', 'server', 'no_flex_action']:
             self.__dict__[e] = prm['RL'][e]
         self.bat_dep = prm['car']['dep']
         self.ntw_C = prm['ntw']['C']
@@ -58,8 +58,7 @@ class Action_translator:
 
         self.car.min_max_charge_t(h, date)
         self.initial_processing(loads, home_vars)
-
-        error = [False for _ in homes]
+        error = np.zeros(self.n_homes, dtype=bool)
         bool_flex, actions = [], []
         for home in homes:
             if self.aggregate_actions:
@@ -305,8 +304,10 @@ class Action_translator:
             e_balance = abs((self.res[home]['dp'] + home_vars['gen'][home]
                              + self.car.discharge[home] - self.car.charge[home]
                              - self.car.loss_ch[home] - home_vars['tot_cons'][home]))
-
-            assert e_balance <= 1e-2, f"energy balance {e_balance}"
+            try:
+                assert e_balance <= 1e-2, f"energy balance {e_balance}"
+            except Exception as ex:
+                print(ex)
             assert abs(loads['tot_cons_loads'][home] + self.heat.tot_E[home]
                    - home_vars['tot_cons'][home]) <= 1e-3, \
                 f"tot_cons_loads {loads['tot_cons_loads'][home]}, "\
@@ -350,12 +351,10 @@ class Action_translator:
                 res['ds'] = self.min_charge[home] + battery_action \
                     * (self.max_charge[home] - self.min_charge[home])
         try:
-            res['l_ch'] = 0 if res['ds'] < 0 \
-                else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
+            res['l_ch'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
         except Exception as ex:
             print(ex)
-        res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) \
-            if res['ds'] < 0 else 0
+        res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
 
         return res
 
@@ -510,6 +509,9 @@ class Action_translator:
     def aggregate_action_bool_flex(self, home):
         return self.k[home]['dp'][0][0] > 0
 
+    def get_flexibility(self, home):
+        return self.k[home]['dp'][0][0]
+
     def store_bool_flex(self, home):
         return abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3
 
@@ -552,12 +554,16 @@ class Action_translator:
 
         if loads['l_flex'][home] < 1e-3:
             bool_flex_loads = False
-            if not self.no_flex_action_to_target:
+            if self.no_flex_action == 'one':
                 flexible_cons_action = 1
+            elif self.no_flex_action == 'random':
+                flexible_cons_action = np.random.rand()
         if self.heat.potential_E_flex()[home] < 1e-3:
             bool_flex_heat = False
-            if not self.no_flex_action_to_target:
+            if self.no_flex_action == 'one':
                 flexible_heat_action = 1
+            elif self.no_flex_action == 'random':
+                flexible_heat_action = np.random.rand()
 
         if (
                 (
@@ -576,14 +582,14 @@ class Action_translator:
             store_bool_flex = False
             # abs(max_charge_a - max_discharge_a) < 1e-3 or
             # no flexibility in charging
-            if self.type_env == 'discrete' or self.no_flex_action_to_target:
-                battery_action = 0
+            if self.no_flex_action == 'one':
+                battery_action = 1
+            elif self.no_flex_action == 'random' or self.type_env == 'discrete':
+                battery_action = np.random.rand() * 2 - 1
+
             assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "battery_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
-        # assert self.store_bool_flex(home) == store_bool_flex, \
-        #     f"self.store_bool_flex(home) {self.store_bool_flex(home)} " \
-        #     f"store_bool_flex {store_bool_flex}"
 
         bool_flexs = [bool_flex_loads, bool_flex_heat, store_bool_flex]
         actions = [flexible_cons_action, flexible_heat_action, battery_action]
@@ -613,9 +619,12 @@ class Action_translator:
 
         E_heat = 0 if res['E_heat'][home][h] < 1e-3 else res['E_heat'][home][h]
         if bool_flex_heat:
-            flexible_heat_action = \
-                (E_heat - self.heat.E_heat_min[home]) / \
-                (self.heat.E_heat_max[home] - self.heat.E_heat_min[home])
+            if abs(res['E_heat'][home][h] - self.heat.E_heat_min[home]) < 1e-3:
+                flexible_heat_action = 0
+            else:
+                flexible_heat_action = \
+                    (E_heat - self.heat.E_heat_min[home]) / \
+                    (self.heat.E_heat_max[home] - self.heat.E_heat_min[home])
 
         max_charge_a, min_charge_a = [
             self.max_charge[home], self.min_charge[home]
@@ -643,8 +652,12 @@ class Action_translator:
                     (min_discharge_a - res['charge'][home, h]) \
                     / (min_discharge_a - max_discharge_a)
             else:
-                battery_action = (res['charge'][home, h] - min_charge_a) \
-                    / (max_charge_a - min_charge_a)
+                if abs(res['charge'][home, h] - max_charge_a) < 1e-3:
+                    battery_action = 1
+                else:
+                    battery_action = (res['charge'][home, h] - min_charge_a) \
+                        / (max_charge_a - min_charge_a)
+
         actions.append(
             [flexible_cons_action, flexible_heat_action, battery_action]
         )
@@ -657,7 +670,7 @@ class Action_translator:
     def _check_action_errors(
             self, actions, error, res, loads, home, h, bool_flex
     ):
-        for i in range(self.dim_actions):
+        for i in range(self.dim_actions_1):
             if actions[home][i] is not None \
                     and actions[home][i] < self.low_action[i]:
                 if actions[home][i] < self.low_action[i] - 1e-2:

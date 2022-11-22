@@ -291,7 +291,6 @@ class Battery:
                 Creq[home] = max(0, Creq[home] + loads_T - deltaT * self.c_max)
 
         min_charge_t = np.maximum(min_charge_t_0, Creq)
-
         self._check_min_charge_t_feasible(
             min_charge_t, time, date, bool_penalty, print_error, simulation
         )
@@ -302,7 +301,6 @@ class Battery:
                     f"< {self.store0[home]} - {self.c_max}"
 
         self.min_charge_t = min_charge_t
-
         self.max_charge_t = np.where(last_step and self.avail_car, self.store0, self.cap)
 
         return bool_penalty
@@ -416,7 +414,7 @@ class Battery:
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
-            if self.store[home] < self.min_charge_t[home] - 1e-3:
+            if self.store[home] < self.min_charge_t[home] - 5e-3:
                 print(f"home {home} store[{home}] {self.store[home]} "
                       f"self.start_store[home] {self.start_store[home]} "
                       f"res[{home}['ds'] {res[home]['ds']} "

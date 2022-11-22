@@ -33,9 +33,9 @@ from src.post_analysis.plotting.plot_summary_no_agents import \
 from src.post_analysis.post_processing import post_processing
 from src.simulations.explorer import Explorer
 from src.simulations.local_elec import LocalElecEnv
-from src.utilities.userdeftools import (
-    data_source, initialise_dict, reward_type, set_seeds_rdn, methods_learning_from_exploration
-)
+from src.utilities.userdeftools import (data_source, initialise_dict,
+                                        methods_learning_from_exploration,
+                                        reward_type, set_seeds_rdn)
 
 
 class Runner():
@@ -48,8 +48,8 @@ class Runner():
         self.rl = prm['RL']  # learning parameters
         self.env = env
         self.record = record
+        self.N = prm['syst']['N']
         self._initialise_buffer_learner_mac()
-
         # create an instance of the explorer object
         # which will interact with the environment
         self.explorer = Explorer(env, prm, self.learner, record, self.mac)
@@ -150,19 +150,19 @@ class Runner():
         if 'buffer' not in self.__dict__.keys():
             self.buffer = {}
             self.mac = {}
-
         self.buffer[method] = ReplayBuffer(
             self.rl['scheme'], self.rl['groups'],
             self.rl['buffer_size'],
-            self.rl['env_info']["episode_limit"] + 1
-            if self.rl['runner_scope'] == "episodic" else 2,
+            self.rl['env_info']["episode_limit"] + 1 if self.rl['runner_scope'] == "episodic" else 2,
             preprocess=self.rl['preprocess'],
             device="cpu" if self.rl['buffer_cpu_only']
             else self.rl['device'])
+
         # Setup multiagent controller here
         self.mac[method] = mac_REGISTRY[self.rl['mac']](
             self.buffer[method].scheme, self.rl['groups'],
-            self.rl)
+            self.rl, self.N
+        )
         self.new_episode_batch = \
             partial(EpisodeBatch, self.rl['scheme'],
                     self.rl['groups'],
@@ -174,6 +174,7 @@ class Runner():
             self.mac[method],
             self.buffer[method].scheme,
             self.rl,
+            self.N
         )
         if self.rl['use_cuda']:
             self.learner[method].cuda()
@@ -284,13 +285,8 @@ class Runner():
                 - self.prm['syst']['D'])))
             date0 = self.prm['syst']['date0_dtm'] \
                 + datetime.timedelta(days=delta_days)
-            # self.prm['syst']['current_date0_dtm'] = date0
             delta = date0 - self.prm['syst']['date0_dtm']
             i0_costs = int(delta.days * 24 + delta.seconds / 3600)
-            self.prm['grd']['C'] = \
-                self.prm['grd']['Call'][
-                i0_costs: i0_costs + self.prm['syst']['N']]
-            self.explorer.i0_costs = i0_costs
             self.env.update_date(i0_costs, date0)
 
         return date0, delta, i0_costs
@@ -303,14 +299,15 @@ class Runner():
                 opt = True if data_source(method) == 'opt' else False
 
                 self.buffer[method].insert_episode_batch(
-                    self.episode_batch[method], difference=diff,
-                    optimisation=opt)
+                    self.episode_batch[method], difference=diff, optimisation=opt
+                )
 
                 if self.buffer[method].can_sample(self.rl['facmac']['batch_size']) \
                         and (self.buffer[method].episodes_in_buffer
                              > self.rl['buffer_warmup']):
                     episode_sample = self.buffer[method].sample(
-                        self.rl['facmac']['batch_size'])
+                        self.rl['facmac']['batch_size']
+                    )
 
                     # Truncate batch to only filled time steps
                     max_ep_t = episode_sample.max_t_filled()

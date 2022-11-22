@@ -8,13 +8,13 @@ Created on Mon Feb  3 10:47:57 2020.
 """
 
 import copy
+import pickle
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
-import pickle
 from scipy.stats import norm
 from six import integer_types
 
@@ -133,7 +133,7 @@ class LocalElecEnv():
         self.add_noise = False
 
         # update grid costs
-        self._update_grid_costs()
+        self.update_i0_costs()
 
         self.batch_file = self.batchfile0
         self.save_file = self.batch_file
@@ -249,6 +249,7 @@ class LocalElecEnv():
     def update_date(self, i0_costs: int, date0: datetime = None):
         """Update new date for new day."""
         self.i0_costs = i0_costs
+        self.update_i0_costs()
         if date0 is not None:
             self.date0 = date0
             self.spaces.current_date0 = self.date0
@@ -259,7 +260,6 @@ class LocalElecEnv():
 
     def fix_data_a(self, homes, file_id, its=0):
         """Recompute data for home a that is infeasible."""
-        print(f"fix_data_a {homes} self.dloaded {self.dloaded}")
         self._seed(self.envseed[0] + its)
         for home in homes:
             self.factors[home] = initialise_dict(
@@ -370,7 +370,8 @@ class LocalElecEnv():
         if h == 2:
             self.slid_day = False
         home_vars, loads, constraint_ok = self.policy_to_rewardvar(
-            action, E_req_only=E_req_only)
+            action, E_req_only=E_req_only
+        )
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
@@ -400,8 +401,6 @@ class LocalElecEnv():
                 self.heat.update_step()
                 self.car.update_step(time_step=self.time)
 
-            # self.check_batch_flex(h, batch_flex)
-
             if record or evaluation:
                 loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
                     if self.date == self.date_end - timedelta(hours=2 * self.dt) \
@@ -415,7 +414,7 @@ class LocalElecEnv():
                      break_down_rewards, self.car.store, loads_flex, loads_fixed,
                      home_vars['tot_cons'].copy(), loads['tot_cons_loads'].copy(),
                      self.heat.tot_E.copy(), self.heat.T.copy(),
-                     self.heat.T_air.copy(), self.grdC[self.time].copy(),
+                     self.heat.T_air.copy(), self.prm['grd']['C'][self.time].copy(),
                      self.wholesale[self.time].copy(),
                      self.cintensity[self.time].copy()]
                 return [next_state, self.done, reward, break_down_rewards,
@@ -457,7 +456,7 @@ class LocalElecEnv():
             discharge_tot = self.car.discharge_tot
         charge = self.car.charge if charge is None else charge
         grdCt, wholesalet, cintensityt = [
-            self.grdC[time_step], self.wholesale[time_step], self.cintensity[time_step]
+            self.prm['grd']['C'][time_step], self.wholesale[time_step], self.cintensity[time_step]
         ]
 
         # negative netp is selling, positive buying
@@ -525,7 +524,6 @@ class LocalElecEnv():
             E_req_only: bool = False
     ):
         """Given selected action, obtain results of the step."""
-        home_vars, loads = [{} for _ in range(2)]
         if other_input is None:
             date = self.date
             h = self._get_time_step()
@@ -533,12 +531,10 @@ class LocalElecEnv():
 
             if action is None:
                 return None
-            try:
-                for home in self.homes:
-                    if action[home] is None:
-                        print(f'action[{home}] is None, action = {action[home]}')
-            except Exception as ex:
-                print(f"ex {ex}")
+            for home in self.homes:
+                if action[home] is None:
+                    print(f'action[{home}] is None, action = {action[home]}')
+
             self.heat.current_temperature_bounds(h)
 
         else:
@@ -594,15 +590,14 @@ class LocalElecEnv():
         else:
             date = inputs[1]
 
-        inputs_ = [t, date, done, batch_flex_h, store] if inputs is None \
-            else inputs
+        inputs_ = [t, date, done, batch_flex_h, store] if inputs is None else inputs
 
         idt = 0 if date.weekday() < 5 else 1
         descriptors = descriptors if descriptors is not None \
             else self.spaces.descriptors['state']
         vals = np.zeros((self.n_homes, len(descriptors)))
         time_step = self._get_time_step(date)
-        if any(descriptor in ['bool_flex', 'store_bool_flex'] for descriptor in descriptors):
+        if any(descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors):
             self.car.update_step(time_step=time_step)
             self.car.min_max_charge_t(time_step, date)
             assert self.car.time_step == time_step, \
@@ -615,7 +610,7 @@ class LocalElecEnv():
                 vals[home, i] = self._descriptor_to_val(
                     descriptor, inputs_, time_step, idt, home
                 )
-        if any(descriptor in ['bool_flex', 'store_bool_flex'] for descriptor in descriptors):
+        if any(descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors):
             self.car.revert_last_update_step()
 
         return vals
@@ -750,87 +745,6 @@ class LocalElecEnv():
 
         return day, i_car
 
-    # def _generate_new_day(self, homes: list):
-    #     """If new day of data was not presaved, load here."""
-    #     # intialise variables
-    #     homes = self.homes if len(homes) == 0 else homes
-    #     day = {}
-    #     dt = self.prm['syst']['labels_day'][self.idt]
-    #     transition_type = self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
-    #     loads_p = self.loads_p if self.loads_p in self.factors[0] \
-    #         else 'lds' + self.loads_p[5:]
-    #
-    #     # save factors and clusters at the start of the episode
-    #     for home in homes:
-    #         for e in [loads_p, self.gen_p, self.car_p]:
-    #             self.factors[home][e].append(self.f[e][home])
-    #         for e in [self.loads_p, self.car_p]:
-    #             self.clusters[home][e].append(self.clus[e][home])
-    #
-    #     # get next clusters (for load and car)
-    #     self._get_next_clusters(transition_type, homes)
-    #
-    #     # get load profile indexes, normalised profile, and scaled profile
-    #     i_prof_load = self._compute_i_profs('loads', dt, homes=homes)
-    #     cluss = [self.clus[self.loads_p][home] for home in homes]
-    #     load_prof = [
-    #         self.prof["loads"][dt][clus][i_prof]
-    #         for clus, i_prof in zip(cluss, i_prof_load)
-    #     ]
-    #     day["loads"] = \
-    #         [load_prof[i_home] * self.f[self.loads_p][home]
-    #          if self.prm["loads"]["own_loads"][home]
-    #          else [0 for _ in range(self.N)]
-    #          for i_home, home in enumerate(homes)]
-    #
-    #     # get PV profile index, and day profile
-    #     month = self.date.month
-    #     while not self.n_prof['gen'][month - 1] > 0:
-    #         month += 1
-    #         month = 1 if month == 12 else month
-    #     i_prof_gen = self._compute_i_profs('gen', idx_month=month - 1, homes=homes)
-    #     day['gen'] = [[g * self.f[self.gen_p][home]
-    #                    for g in self.prof['gen'][month - 1][i_prof_gen[i_home]]]
-    #                   if self.prm['gen']['own_PV'][home]
-    #                   else [0 for _ in range(self.N)]
-    #                   for i_home, home in zip(range(len(homes)), homes)]
-    #
-    #     # get car cons factor, profile index, normalised profile, scaled profile
-    #     factor_ev_new_interval = self._next_factors(
-    #         transition_type=transition_type,
-    #         rands=[[self.np_random.rand() for _ in range(len(homes))]
-    #                for _ in range(len(self.data_types))],
-    #         homes=homes)
-    #     i_car = self._compute_i_profs('car', dt=dt, homes=homes)
-    #     prof = [
-    #         self.prof['car']['cons'][dt][self.clus[self.car_p][home]][i_car[i_home]]
-    #         for i_home, home in enumerate(homes)
-    #     ]
-    #     day['loads_car'] = \
-    #         [[x * self.f[self.car_p][home] if self.prm['car']['own_car'][home]
-    #           else 0 for x in prof[i_home]]
-    #          for i_home, home in enumerate(homes)]
-    #
-    #     # check car consumption is not larger than capacity - if so, correct
-    #     day, i_car = self._adjust_car_cons(
-    #         homes, dt, transition_type, day, i_car, factor_ev_new_interval
-    #     )
-    #
-    #     # get car availability profile
-    #     day['avail_car'] = \
-    #         [self.prof['car']['avail'][dt][self.clus[self.car_p][home]][i_car[i_home]]
-    #          for i_home, home in zip(range(len(homes)), homes)]
-    #     for i_home in range(len(homes)):
-    #         if sum(day['loads_car'][i_home]) == 0 and sum(day["avail_car"][i_home]) == 0:
-    #             day["avail_car"][i_home] = np.ones(self.prm["syst"]["N"])
-    #     for i_home, home in enumerate(homes):
-    #         for e in day.keys():
-    #             self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
-    #     self._loads_to_flex(homes)
-    #     self.dloaded += 1
-    #
-    #     assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
-
     def _load_next_day(self, homes: list = []):
         """
         Load next day of data.
@@ -844,22 +758,22 @@ class LocalElecEnv():
                 day = self.hedge.make_next_day(homes)
             else:
                 day = self.passive_hedge.make_next_day(homes)
-
             for i_home, home in enumerate(homes):
                 for e in day.keys():
                     self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
             self._loads_to_flex(homes)
-            # if len(homes) == 0:
             self.dloaded += 1
 
             assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
         else:
-            for e in ['batch', 'clusters', 'factors']:
-                self.__dict__[e] = np.load(
-                    self.res_path / f"{e}{self._file_id()}",
-                    allow_pickle=True).item()
-
+            for e in ['batch', 'clusters', 'factors', 'i0_costs']:
+                if not e == 'i0_costs' or (self.res_path / f"{e}{self._file_id()}").is_file():
+                    self.__dict__[e] = np.load(
+                        self.res_path / f"{e}{self._file_id()}",
+                        allow_pickle=True).item()
+            self.update_i0_costs()
+            self._correct_len_batch()
             loads_p = self.loads_p \
                 if self.loads_p in self.factors[0] \
                 else 'lds' + self.loads_p[5:]
@@ -867,6 +781,13 @@ class LocalElecEnv():
 
         assert len(self.batch) > 0, "empty batch"
         assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
+
+    def _correct_len_batch(self):
+        if len(self.batch[0]['loads']) > 2 * self.N:
+            for home in self.homes:
+                for e in self.batch[home]:
+                    self.batch[home][e] = self.batch[home][e][0: 2 * self.N]
+            np.save(self.res_path / f"batch{self._file_id()}", self.batch)
 
     def _compute_i_profs(
             self,
@@ -1012,13 +933,12 @@ class LocalElecEnv():
     ):
         """Given state of action space descriptor, get value."""
         t, date, done, batch_flex_h, store = inputs
-
         dict_vals = {
             "None": 0,
             "hour": hour % self.prm["syst"]["H"],
             "bat_dem_agg": self.batch[home]["bat_dem_agg"][hour],
             "store0": store[home],
-            "grdC": self.grdC[t],
+            "grdC": self.prm['grd']['C'][t],
             "day_type": idt,
             "dT": self.prm["heat"]["T_req" + self.passive_ext][home][hour] - self.T_air[home],
         }
@@ -1028,6 +948,8 @@ class LocalElecEnv():
             val = self.action_translator.aggregate_action_bool_flex(home)
         elif descriptor == "store_bool_flex":
             val = self.action_translator.store_bool_flex(home)
+        elif descriptor == "flexibility":
+            val = self.action_translator.get_flexibility(home)
         elif len(descriptor) >= 4 and descriptor[0:4] == 'grdC':
             val = self.normalised_grdC[t]
         elif descriptor == 'dT_next':
@@ -1067,7 +989,15 @@ class LocalElecEnv():
                 val = self.batch[home][batch_type][h]
 
         if self.rl['normalise_states']:
-            val = val / self.spaces.space_info[descriptor]['max']
+            descriptor_info = self.spaces.space_info.loc[self.spaces.space_info['name'] == descriptor]
+            max_home = descriptor_info['max'].item()[home] if isinstance(descriptor_info['max'].item(), list) else descriptor_info['max']
+            try:
+                val = ((val - descriptor_info['min']) / max_home).item()
+                if abs(val) < 1e-5:
+                    val = 0
+                assert 0 <= val <= 1, f"val {val}"
+            except Exception as ex:
+                print(ex)
 
         return val
 
@@ -1118,29 +1048,29 @@ class LocalElecEnv():
                         + self.batch[home]['flex'][ih][-1] + 1e-3
                         ), "loads too large"
 
-    def _update_grid_costs(self):
-        grd = self.prm['grd']
-        self.grdC = \
-            grd['Call'][self.i0_costs: self.i0_costs + self.N + 1]
-        self.wholesale = \
-            grd['wholesale_all'][self.i0_costs: self.i0_costs + self.N + 1]
-        self.cintensity = \
-            grd['cintensity_all'][self.i0_costs: self.i0_costs + self.N + 1]
+    def update_i0_costs(self, i0_costs=None):
+        if i0_costs is not None:
+            self.i0_costs = i0_costs
+        self.prm['grd']['C'] = self.prm['grd']['Call'][self.i0_costs: self.i0_costs + self.N + 1]
+        self.wholesale = self.prm['grd']['wholesale_all'][self.i0_costs: self.i0_costs + self.N + 1]
+        self.cintensity = self.prm['grd']['cintensity_all'][self.i0_costs: self.i0_costs + self.N + 1]
         i_grdC_level = [
             i for i in range(len(self.spaces.descriptors['state']))
             if self.spaces.descriptors['state'][i] == 'grdC_level'
         ]
         if len(i_grdC_level) > 0:
             self.normalised_grdC = \
-                [(gc - min(self.grdC[0: self.N]))
-                 / (max(self.grdC[0: self.N]) - min(self.grdC[0: self.N]))
-                 for gc in self.grdC[0: self.N + 1]]
+                [(gc - min(self.prm['grd']['C'][0: self.N]))
+                 / (max(self.prm['grd']['C'][0: self.N]) - min(self.prm['grd']['C'][0: self.N]))
+                 for gc in self.prm['grd']['C'][0: self.N + 1]]
             if not (self.spaces.type_env == "continuous"):
                 self.spaces.brackets['state'][i_grdC_level[0]] = [
                     [np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
                      for i in range(self.n_grdC_level)] + [1]
                     for _ in self.homes
                 ]
+        if 'heat' in self.__dict__:
+            self.heat.update_i0_costs(self.prm, self.i0_costs)
 
     def _initialise_new_data(self):
         # we have not loaded data from file -> save new data
@@ -1153,7 +1083,7 @@ class LocalElecEnv():
             date_load += timedelta(days=1)
         self.batch = self.car.compute_bat_dem_agg(self.batch)
 
-        for e in ['batch', 'clusters', 'factors']:
+        for e in ['batch', 'clusters', 'factors', 'i0_costs']:
             file_id = f"{e}{self._file_id()}"
             np.save(self.res_path / file_id, self.__dict__[e])
 
