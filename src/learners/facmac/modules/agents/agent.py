@@ -45,4 +45,7 @@ class Agent(nn.Module):
 
     def init_hidden(self):
         # make hidden states on same device as model
-        return self.fc1.module.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
+        if self.rl['data_parallel']:
+            return self.fc1.module.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
+        else:
+            return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()

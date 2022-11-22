@@ -80,9 +80,12 @@ def check_model_changes(prm):
                 if prm['ntw']['n'] > 1:
                     mixers.append(th.load(path / "mixer.th"))
 
-            agents_learned[method] = not all(a0 == a1 for a0, a1 in zip(agents[0]["fc1.module.bias"], agents[-1]["fc1.module.bias"]))
+            fc1_bias = "fc1.module.bias" if prm['RL']['data_parallel'] else "fc1.bias"
+            hyper_b_1_bias = "hyper_b_1.module.bias" if prm['RL']['data_parallel'] else "hyper_b_1.bias"
+
+            agents_learned[method] = not all(a0 == a1 for a0, a1 in zip(agents[0][fc1_bias], agents[-1][fc1_bias]))
             mixer_learned[method] = prm['ntw']['n'] == 1 or not prm["RL"]["mixer"] == "qmix" or not all(
-                mixer0 == mixer1 for mixer0, mixer1 in zip(mixers[0]["hyper_b_1.module.bias"], mixers[-1]["hyper_b_1.module.bias"])
+                mixer0 == mixer1 for mixer0, mixer1 in zip(mixers[0][hyper_b_1_bias], mixers[-1][hyper_b_1_bias])
                 )
             if not (agents_learned and mixer_learned):
                 prm["RL"]["nn_learned"] = False
