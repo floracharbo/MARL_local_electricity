@@ -301,7 +301,6 @@ class Battery:
                     f"< {self.store0[home]} - {self.c_max}"
 
         self.min_charge_t = min_charge_t
-
         self.max_charge_t = np.where(last_step and self.avail_car, self.store0, self.cap)
 
         return bool_penalty
