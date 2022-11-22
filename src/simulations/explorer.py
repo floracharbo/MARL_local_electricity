@@ -724,26 +724,34 @@ class Explorer():
                 f"sum_rl_rewards = {sum_rl_rewards}, sum_res_rewards {sum_res_rewards} "
             f"sum costs opt = {- (res['gc'] + res['sc'] + res['dc'])}"
 
+    def sum_gc_for_start_Call_index(self, res, i):
+        C = self.prm["grd"]["Call"][i: i + self.rm["syst"]["N"]]
+        loss = self.prm['grd']['loss']
+        sum_gc_i = np.sum(
+            [
+                C[time_step_]
+                * (res['grid'][time_step_][0] + loss * res['grid2'][time_step_][0])
+                for time_step_ in range(24)
+            ]
+        )
+
+        return sum_gc_i
+
     def _check_i0_costs_res(self, res):
         # check the correct i0_costs is used
-        if not (abs(np.sum(
+        sum_gc_0 = np.sum(
             [self.prm["grd"]["C"][time_step_] * (
                     res['grid'][time_step_][0]
                     + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
             ) for time_step_ in range(24)]
-        ) - res['gc']) < 1e-3):
+        )
+        if not (abs(sum_gc_0 - res['gc']) < 1e-3):
             i_start_res = [
                 i for i in range(len(self.prm['grd']['Call']) - 24)
-                if abs(np.sum(
-                    [
-                        self.prm["grd"]["Call"][i + time_step_]
-                        * (res['grid'][time_step_][0] + self.prm["grd"]['loss'] * res['grid2'][time_step_][0])
-                        for time_step_ in range(24)
-                    ]
-                ) - res['gc']) < 1e-3
+                if abs(self.sum_gc_for_start_Call_index(res, i) - res['gc']) < 1e-3
             ][0]
             if self.env.i0_costs != i_start_res:
-                print(f"update res i0_costs")
+                print("update res i0_costs")
                 self.env.update_i0_costs(i_start_res)
                 np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res)
 
@@ -990,7 +998,9 @@ class Explorer():
     def _init_facmac_mac(self, methods, new_episode_batch, epoch):
         if self.rl["type_learning"] == "facmac":
             for exploration_method in methods:
-                evaluation_methods = methods_learning_from_exploration(exploration_method, epoch, self.rl)
+                evaluation_methods = methods_learning_from_exploration(
+                    exploration_method, epoch, self.rl
+                )
                 for evaluation_method in evaluation_methods:
                     self.episode_batch[evaluation_method] = new_episode_batch()
                     if evaluation_method not in ["baseline", "opt"]:

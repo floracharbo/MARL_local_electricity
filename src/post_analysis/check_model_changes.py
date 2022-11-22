@@ -37,13 +37,10 @@ def plot_actions(actions, path):
 
 
 for run in range(608, 611):
-    path = Path(
-        '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/'
-        f'Python/Phase2/results/run{run}/record'
-    )
+    path = Path('outputs') / 'results' / f"run_{run}" / 'record'
     folders = [
         folder for folder in os.listdir(path)
-        if folder[0:len("models_env_r_c")] == "models_env_r_c"
+        if folder[0: len("models_env_r_c")] == "models_env_r_c"
     ]
     nos = [int(folder.split("_")[-1]) for folder in folders]
     nos.sort()

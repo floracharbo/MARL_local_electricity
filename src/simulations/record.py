@@ -253,17 +253,21 @@ class Record():
         """For each epoch, percentiles of evaluation across repeats."""
         p_vals = [25, 50, 75]
         percentiles = initialise_dict(p_vals)
+        mean_eval_rewards_per_hh = self.mean_eval_rewards_per_hh
+        n_repeats = prm["RL"]["n_repeats"]
         for epoch in range(prm["RL"]["n_all_epochs"]):
+            e_rewards = [mean_eval_rewards_per_hh[repeat][e][epoch] for repeat in range(n_repeats)]
+            baseline_rewards = [
+                mean_eval_rewards_per_hh[repeat][baseline][epoch] for repeat in range(n_repeats)
+            ]
             diff_repeats = [
-                self.mean_eval_rewards_per_hh[repeat][e][epoch]
-                - self.mean_eval_rewards_per_hh[repeat][baseline][epoch]
-                for repeat in range(prm["RL"]["n_repeats"])
-                if self.mean_eval_rewards_per_hh[repeat][e][epoch] is not None
-                   and self.mean_eval_rewards_per_hh[repeat][baseline][epoch] is not None
+                e_rewards[repeat] - baseline_rewards[repeat] for repeat in range(n_repeats)
+                if e_rewards[repeat] is not None and baseline_rewards[repeat] is not None
             ]
             for p in [25, 50, 75]:
-                percentiles[p].append(None if len(diff_repeats) == 0
-                                      else np.percentile(diff_repeats, p))
+                percentiles[p].append(
+                    None if len(diff_repeats) == 0 else np.percentile(diff_repeats, p)
+                )
         if mov_average:
             for p in [25, 50, 75]:
                 percentiles[p] = get_moving_average(
@@ -420,8 +424,9 @@ class Record():
         ]
 
         for e in eval_entries_plot:
-            end_rewards_e = \
-                [self.mean_end_rewards[repeat][e] * monthly_multiplier for repeat in range(n_repeats)]
+            end_rewards_e = [
+                self.mean_end_rewards[repeat][e] * monthly_multiplier for repeat in range(n_repeats)
+            ]
             end_test_rewards_e = [
                 self.mean_end_test_rewards[repeat][e] * monthly_multiplier
                 for repeat in range(n_repeats)
@@ -461,9 +466,10 @@ class Record():
                     if mean_eval_rewards_per_hh[e][epoch] is not None
                 ]
                 for epoch in epochs:
-                    if best_eval - mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier > largest_drawdown:
-                        largest_drawdown = best_eval - mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier
-                    if mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier> best_eval:
+                    drawdown = best_eval - mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier
+                    if drawdown > largest_drawdown:
+                        largest_drawdown = drawdown
+                    if mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier > best_eval:
                         best_eval = mean_eval_rewards_per_hh[e][epoch] * monthly_multiplier
                     assert largest_drawdown is not None, \
                         "largest_drawdown is None"

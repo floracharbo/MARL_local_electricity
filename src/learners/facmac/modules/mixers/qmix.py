@@ -60,6 +60,10 @@ class QMixer(nn.Module):
 
             self.gate = nn.Parameter(th.ones(size=(1,)) * 0.5)
 
+        self.hyper_b_1 = nn.DataParallel(self.hyper_b_1)
+        self.hyper_w_1 = nn.DataParallel(self.hyper_w_1)
+        self.hyper_w_final = nn.DataParallel(self.hyper_w_final)
+        self.V = nn.DataParallel(self.V)
         self.hyper_b_1.to(device)
         self.hyper_w_1.to(device)
         self.hyper_w_final.to(device)

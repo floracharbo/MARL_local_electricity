@@ -515,7 +515,7 @@ def _remove_states_incompatible_with_trajectory(rl):
         for problematic_state in problematic_states:
             if problematic_state in rl['state_space']:
                 print(
-                    f"Warning: trajectory learning is not compatible with {problematic_state} state. "
+                    f"Trajectory learning is not compatible with {problematic_state} state. "
                     f"Removing it from state space."
                 )
                 idx = rl['state_space'].index(problematic_state)

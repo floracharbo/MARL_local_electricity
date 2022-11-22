@@ -25,6 +25,9 @@ class Critic(nn.Module):
             self.fc2 = nn.Linear((self.input_shape - 2) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim'])
             self.fc3 = nn.Linear(rl['rnn_hidden_dim'], 1)
 
+        self.fc1 = nn.DataParallel(self.fc1)
+        self.fc2 = nn.DataParallel(self.fc2)
+        self.fc3 = nn.DataParallel(self.fc3)
         self.fc1.to(device)
         self.fc2.to(device)
         self.fc3.to(device)
