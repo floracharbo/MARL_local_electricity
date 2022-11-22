@@ -16,7 +16,7 @@ from src.simulations.runner import run
 settings = {
     'heat': {'file': 'heat2'},
     'RL': {
-        'type_learning': 'facmac',
+        'type_learning': 'q_learning',
         'aggregate_actions': False,
         'normalise_states': True,
         # current experiment#
@@ -28,17 +28,18 @@ settings = {
         # # gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
         # # flexibility
-        'state_space': [['grdC', 'avail_car_step', 'store_bool_flex']] * 1,
+        'state_space': [['grdC']],
+                            # , 'avail_car_step', 'store_bool_flex']] * 1,
         'n_epochs': 20,
         'n_repeats': 3,
         'rnn_hidden_dim': 500,
-        'evaluation_methods': [['env_r_c', 'opt']] * 1,
+        # 'evaluation_methods': [['env_r_c', 'opt']] * 1,
         'lr': 1e-3,
         'facmac': {'critic_lr': 5e-4, 'batch_size': 2},
         'ou_stop_episode': 1e3,  # for cqmix controller - training noise goes to zero after this episode
         'start_steps': 100,  # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
         'hyper_initialization_nonzeros': 0.1,
-        'trajectory': True,
+        # 'trajectory': True,
         'nn_type': 'cnn',
         'obs_agent_id': False,
         'cnn_out_channels': 5,
