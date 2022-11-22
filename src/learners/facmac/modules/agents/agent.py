@@ -10,7 +10,6 @@ class Agent(nn.Module):
         self.N = N
         self.cuda_available = True if th.cuda.is_available() else False
         device = th.device("cuda") if self.cuda_available else th.device("cpu")
-        print(f"device {device}")
         if self.rl['nn_type'] == 'linear':
             self.fc1 = nn.Linear(input_shape, self.rl['rnn_hidden_dim'])
             self.fcs = []

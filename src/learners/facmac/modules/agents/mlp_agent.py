@@ -20,10 +20,7 @@ class MLPAgent(Agent):
             x = nn.Flatten()(x)
         for i in range(self.rl['n_hidden_layers']):
             x = x.cuda() if self.cuda_available else x
-            print(f"x.is_cuda {x.is_cuda}")
-            print(f"next(self.fcs[i].parameters()).is_cuda {next(self.fcs[i].parameters()).is_cuda}")
-            x = self.fcs[i](x)
-            x = F.relu(x)
+            x = F.relu(self.fcs[i](x))
         if self.agent_return_logits:
             actions = self.fc_out(x)
         else:
