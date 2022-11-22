@@ -21,8 +21,8 @@ class Critic(nn.Module):
             self.fc2 = nn.Linear(rl['rnn_hidden_dim'], rl['rnn_hidden_dim'])
             self.fc3 = nn.Linear(rl['rnn_hidden_dim'], 1)
         elif self.rl['nn_type'] == 'cnn':
-            self.fc1 = nn.Conv1d(1, 1, kernel_size=3)
-            self.fc2 = nn.Linear(self.input_shape - 2, self.rl['rnn_hidden_dim'])
+            self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
+            self.fc2 = nn.Linear((self.input_shape - 2) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim'])
             self.fc3 = nn.Linear(rl['rnn_hidden_dim'], 1)
 
         self.fc1.to(device)

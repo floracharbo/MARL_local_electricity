@@ -228,3 +228,5 @@ supervised_loss_weight: 1
 nn_learned: True
 normalise_states: False
 nn_type: 'linear' # 'linear' 'cnn' 'lstm'
+cnn_out_channels: 5
+cnn_kernel_size: 3

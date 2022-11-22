@@ -19,9 +19,9 @@ class Agent(nn.Module):
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
                 )
         elif self.rl['nn_type'] == 'cnn':
-            self.fc1 = nn.Conv1d(1, 1, kernel_size=3)
+            self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
             self.fcs = []
-            self.fcs.append(nn.Linear(self.N - 2, self.rl['rnn_hidden_dim']))
+            self.fcs.append(nn.Linear((input_shape - 2) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim']))
             for i in range(self.rl["n_hidden_layers"] - 1):
                 self.fcs.append(
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])

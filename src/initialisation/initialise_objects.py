@@ -506,6 +506,24 @@ def _dims_states_actions(rl, syst):
             rl[key] *= syst["N"]
 
 
+def _remove_states_incompatible_with_trajectory(rl):
+    if rl['trajectory']:
+        problematic_states = [
+            state for state in rl['state_space']
+            if state in ['store_bool_flex', 'store0', 'bool_flex', 'flexibility']
+        ]
+        for problematic_state in problematic_states:
+            if problematic_state in rl['state_space']:
+                print(
+                    f"Warning: trajectory learning is not compatible with {problematic_state} state. "
+                    f"Removing it from state space."
+                )
+                idx = rl['state_space'].index(problematic_state)
+                rl['state_space'].pop(idx)
+
+    return rl
+
+
 def _update_rl_prm(prm, initialise_all):
     """
     Compute parameters relating to RL experiments.
@@ -523,6 +541,8 @@ def _update_rl_prm(prm, initialise_all):
     """
     rl, syst, ntw, heat = [prm[key] for key in ["RL", "syst", "ntw", "heat"]]
     rl = _format_rl_parameters(rl)
+    rl = _remove_states_incompatible_with_trajectory(rl)
+
     _dims_states_actions(rl, syst)
 
     # learning parameter variables
@@ -724,9 +744,10 @@ def initialise_prm(prm, no_run, initialise_all=True):
             profiles, car, loads, gen = _load_profiles(
                 paths, car, syst, loads, gen)
             loads["share_flex"], loads["max_delay"] = loads["flex"]
-            loads["share_flexs"] = \
-                [0 if not loads["own_flex"][home]
-                 else loads["share_flex"] for home in range(ntw["n"])]
+            loads["share_flexs"] = [
+                0 if not loads["own_flex"][home] else loads["share_flex"]
+                for home in range(ntw["n"])
+            ]
         else:
             profiles = None
     else:
@@ -745,10 +766,6 @@ def initialise_prm(prm, no_run, initialise_all=True):
     # based on input data
     if initialise_all and heat is not None:
         prm["heat"] = get_heat_coeffs(heat, ntw, syst, paths)
-
-    # %% do not save batches if too many of them!
-    # if rl["n_repeats"] * rl["n_epochs"] * (rl["n_explore"] + 1) > 200:
-    #     save["plotting_batch"] = False
 
     save, prm = generate_colours(save, prm)
 

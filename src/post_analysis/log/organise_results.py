@@ -199,6 +199,7 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
     return row
 
+
 def remove_columns_that_never_change_and_tidy(log, columns0):
     new_columns = []
     for column in columns0:
@@ -268,7 +269,10 @@ def plot_sensitivity_analyses(new_columns, log):
                 # if row not in rows_considered and all(col in log.loc[row])
                 row_setup = log[other_columns].loc[row].values
                 if row not in rows_considered and all(
-                        current_col == row_col for current_col, row_col in zip(current_setup, row_setup)):
+                    current_col == row_col for current_col, row_col in zip(current_setup, row_setup)
+                ) and not (column_of_interest[0:3] == 'cnn' and log['nn_type'].loc[row] != 'cnn'
+                    and not ((column_of_interest[0: 6] == 'facmac' or column_of_interest == 'rnn_hidden_dim') and log['type_learning'].loc[row] != 'facmac')
+                ):
                     rows_considered.append(row)
                     values_of_interest.append(log[column_of_interest].loc[row])
                     best_score.append(log['best_score'].loc[row])

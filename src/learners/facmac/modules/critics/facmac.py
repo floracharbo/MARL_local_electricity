@@ -35,6 +35,7 @@ class FACMACCritic(Critic):
             inputs = inputs.view(inputs.size()[0], 1, inputs.size()[1])
 
         x = F.relu(self.fc1(inputs))
+        x = nn.Flatten()(x)
         x = F.relu(self.fc2(x))
         q = self.fc3(x)
 
@@ -61,6 +62,8 @@ class FACMACDiscreteCritic(nn.Module):
                 [inputs.reshape(-1, self.input_shape - self.n_actions),
                  actions.contiguous().view(-1, self.n_actions)], dim=-1)
         x = F.relu(self.fc1(inputs))
+        if self.rl['nn_type'] == 'cnn':
+            x = nn.Flatten(x)
         x = F.relu(self.fc2(x))
         q = self.fc3(x)
 

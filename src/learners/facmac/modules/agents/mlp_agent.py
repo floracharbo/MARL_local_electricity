@@ -1,6 +1,7 @@
 # adapted from https://github.com/oxwhirl/facmac
 import torch as th
 import torch.nn.functional as F
+from torch import nn
 
 from src.learners.facmac.modules.agents.agent import Agent
 
@@ -15,7 +16,8 @@ class MLPAgent(Agent):
         if self.rl['nn_type'] == 'cnn':
             inputs = inputs.view(inputs.size()[0], 1, inputs.size()[1])
         x = F.relu(self.fc1(inputs))
-
+        if self.rl['nn_type'] == 'cnn':
+            x = nn.Flatten()(x)
         for i in range(self.rl['n_hidden_layers']):
             x = x.cuda() if self.cuda_available else x
             x = F.relu(self.fcs[i](x))
