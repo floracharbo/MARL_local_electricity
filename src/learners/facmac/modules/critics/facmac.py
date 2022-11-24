@@ -36,8 +36,15 @@ class FACMACCritic(Critic):
 
         x = F.relu(self.fc1(inputs))
         x = nn.Flatten()(x)
-        x = F.relu(self.fc2(x))
-        q = self.fc3(x)
+        x = F.relu(self.fcs[0](x))
+        q = self.fc_out(x)
+
+        # x = F.relu(self.fc1(inputs))
+        # for i in range(len(self.fcs)):
+        #     if self.rl['nn_type'] == 'cnn' and i == self.rl['n_cnn_layers'] - 1:
+        #         x = nn.Flatten()(x)
+        #     x = F.relu(self.fcs[i](x))
+        # q = self.fc_out(x)
 
         return q, hidden_state
 
@@ -64,7 +71,7 @@ class FACMACDiscreteCritic(nn.Module):
         x = F.relu(self.fc1(inputs))
         if self.rl['nn_type'] == 'cnn':
             x = nn.Flatten(x)
-        x = F.relu(self.fc2(x))
+        x = F.relu(self.fcs[0](x))
         q = self.fc3(x)
 
         return q, hidden_state

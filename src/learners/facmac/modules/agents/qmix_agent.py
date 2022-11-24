@@ -36,7 +36,7 @@ class FFAgent(Agent):
 
     def forward(self, inputs, hidden_state):
         x = F.relu(self.fc1(inputs))
-        # h_in = hidden_state.reshape(-1, self.rl['rnn_hidden_dim'])
-        h = F.relu(self.fc2(x))
-        q = self.fc3(h)
+        for i in range(len(self.fcs)):
+            h = F.relu(self.fcs[i](x))
+        q = self.fc_out(h)
         return q, h

@@ -17,11 +17,21 @@ class Agent(nn.Module):
                 self.fcs.append(
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
                 )
+
         elif self.rl['nn_type'] == 'cnn':
             self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
             self.fcs = []
-            self.fcs.append(nn.Linear((input_shape - 2) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim']))
+            for i in range(self.rl['n_cnn_layers'] - 1):
+                self.fcs.append(nn.Conv1d(rl['cnn_out_channels'], rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size']))
+            self.fcs.append(nn.Linear((input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim']))
             for i in range(self.rl["n_hidden_layers"] - 1):
+                self.fcs.append(
+                    nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+                )
+        elif self.rl['nn_type'] == 'lstm':
+            self.fc1 = nn.LSTM(self.input_shape, rl['rnn_hidden_dim'], num_layers=rl['num_layers_lstm'])
+            self.fcs = [nn.Linear((self.input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim'])]
+            for i in range(self.rl['n_hidden_layers'] - 1):
                 self.fcs.append(
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
                 )

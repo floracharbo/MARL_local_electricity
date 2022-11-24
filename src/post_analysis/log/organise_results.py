@@ -239,20 +239,23 @@ def plot_sensitivity_analyses(new_columns, log):
 
     matplotlib.rc('font', **font)
     # loop through each column
-    # search for runs that are all the same except for that one column changing
+    # search for runs that are all the same except for that one columnx changing
     # and plot y axis best score vs x axis value (numerical or categorical)
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
     columns_of_interest = [column for column in new_columns[2:] if column not in ['nn_learned', 'time_end']]
     for column_of_interest in columns_of_interest:
         plotted_something = False
-        fig, axs = plt.subplots(2, 1)
-
+        fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         if column_of_interest == 'state_space':
             x_labels = []
             best_values = []
             env_values = []
-        other_columns = [column for column in new_columns[2:] if column not in [column_of_interest, 'nn_learned', 'time_end']]
+            time_values = []
+        other_columns = [
+            column for column in new_columns[2:]
+            if column not in [column_of_interest, 'nn_learned', 'time_end']
+        ]
         rows_considered = []
         setup_no = 0
 
@@ -264,7 +267,7 @@ def plot_sensitivity_analyses(new_columns, log):
             values_of_interest = [log[column_of_interest].loc[initial_setup_row]]
             best_score = [log['best_score'].loc[initial_setup_row]]
             best_env_score = [log['best_score_env'].loc[initial_setup_row]]
-
+            time_best_score = [log['time_end'].loc[initial_setup_row]]
             for row in range(len(log)):
                 # if row not in rows_considered and all(col in log.loc[row])
                 row_setup = log[other_columns].loc[row].values
@@ -277,6 +280,7 @@ def plot_sensitivity_analyses(new_columns, log):
                     values_of_interest.append(log[column_of_interest].loc[row])
                     best_score.append(log['best_score'].loc[row])
                     best_env_score.append(log['best_score_env'].loc[row])
+                    time_best_score.append(log['time_end'].loc[row])
             if len(values_of_interest) > 1:
                 if all(values_of_interest_ == values_of_interest[0] for values_of_interest_ in values_of_interest):
                     print(f"runs {log.loc[rows_considered[-len(values_of_interest):], 'run'].values} equal?")
@@ -286,12 +290,15 @@ def plot_sensitivity_analyses(new_columns, log):
                     values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
                     best_score_sorted = [best_score[i] for i in i_sorted]
                     best_env_score_sorted = [best_env_score[i] for i in i_sorted]
+                    time_best_score_sorted = [time_best_score[i] for i in i_sorted]
                     axs[0].plot(values_of_interest_sorted, best_score_sorted, label=len(setups))
                     axs[1].plot(values_of_interest_sorted, best_env_score_sorted, label=len(setups))
+                    axs[2].plot(values_of_interest_sorted, time_best_score_sorted, label=len(setups))
                     if column_of_interest == 'state_space':
                         x_labels.append(values_of_interest_sorted)
                         best_values.append(best_score_sorted)
                         env_values.append(best_env_score_sorted)
+                        time_values.append(time_best_score_sorted)
                     plotted_something = True
 
             setup_no += 1
@@ -306,11 +313,14 @@ def plot_sensitivity_analyses(new_columns, log):
 
                 all_best_vals = np.empty((len(x_labels), len(all_x_labels)))
                 all_env_vals = np.empty((len(x_labels), len(all_x_labels)))
+                all_time_vals = np.empty((len(x_labels), len(all_x_labels)))
+
                 for i in range(len(x_labels)):
                     for j in range(len(x_labels[i])):
                         idx_value = all_x_labels.index(x_labels[i][j])
                         all_best_vals[i, idx_value] = best_values[i][j]
                         all_env_vals[i, idx_value] = env_values[i][j]
+                        all_time_vals[i, idx_value] = time_values[i][j]
                 plt.close()
                 for i in range(len(all_best_vals)):
                     for j in range(len(all_best_vals[i])):
@@ -318,10 +328,11 @@ def plot_sensitivity_analyses(new_columns, log):
                             all_best_vals[i][j] = None
                         if all_env_vals[i][j] < 1e-5:
                             all_env_vals[i][j] = None
-                fig, axs = plt.subplots(2, 1, figsize=(6.4, 10))
+                fig, axs = plt.subplots(3, 1, figsize=(6.4, 10))
                 for i in range(len(x_labels)):
                     axs[0].plot(all_x_labels, all_best_vals[i], label=i + 1)
                     axs[1].plot(all_x_labels, all_env_vals[i], label=i + 1)
+                    axs[2].plot(all_x_labels, all_time_vals[i], label=i + 1)
 
             # see what varies between setups
             varied_columns = []
@@ -338,9 +349,11 @@ def plot_sensitivity_analyses(new_columns, log):
             if column_of_interest == 'state_space':
                 plt.xticks(rotation=90)
                 axs[0].set_xticks([])
+                axs[1].set_xticks([])
             elif column_of_interest == 'rnn_hidden_dim':
                 axs[0].set_xscale('log')
                 axs[1].set_xscale('log')
+                axs[2].set_xscale('log')
 
             height_row0 = 0.1
             height_intra_row = 0.11
@@ -348,8 +361,10 @@ def plot_sensitivity_analyses(new_columns, log):
             # remove columns that are irrelevant to the types learning in the current setups
             if column_of_interest != 'type_learning':
                 types_learning = [setup[other_columns.index('type_learning')] for setup in setups]
-                varied_columns = [column for column in varied_columns if
-                                  len(column.split('-')) == 1 or column.split('-')[0] in types_learning]
+                varied_columns = [
+                    column for column in varied_columns
+                    if len(column.split('-')) == 1 or column.split('-')[0] in types_learning
+                ]
 
             if len(setups) > 1:
                 col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns]
@@ -370,7 +385,7 @@ def plot_sensitivity_analyses(new_columns, log):
                     x_low += 0.2
                 table = axs[0].table(cellText=df.values, colLabels=df.columns, bbox=[1.03, x_low, width, height])
                 right = 1/(1 + width) + 0.04
-                bottom = 1/(1 + height/2) + 0.05
+                bottom = 1/(1 + height/3) + 0.05
                 if x_low < - 1:
                     plt.subplots_adjust(left=0.1, right=right, bottom=bottom)
                 else:
@@ -394,7 +409,8 @@ def plot_sensitivity_analyses(new_columns, log):
 
             axs[0].set_ylabel("best score [£/home/h]")
             axs[1].set_ylabel('\n'.join(wrap("best score with env-based exploration [£/home/h]", 30)))
-            axs[1].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
+            axs[2].set_ylabel("time [s]")
+            axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
 
             fig.savefig(f"outputs/results_analysis/{column_of_interest}_sensitivity")
             plt.close('all')

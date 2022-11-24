@@ -228,6 +228,8 @@ supervised_loss_weight: 1
 nn_learned: True
 normalise_states: False
 nn_type: 'linear' # 'linear' 'cnn' 'lstm'
+num_layers_lstm: 1
 cnn_out_channels: 5
 cnn_kernel_size: 3
 data_parallel: False # if True, use nn.DataParallel
+n_cnn_layers: 1
