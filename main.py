@@ -24,7 +24,7 @@ settings = {
         'normalise_states': True,
         'obs_agent_id': False,
         'n_cnn_layers': 1,
-        # current experiment#
+        # current experiment
         # grdC_level, hour, car_tau, store0, grdC
         # # avail_car_step, loads_clus_step, loads_fact_step
         # # gen_fact_step, bat_fact_step, loads_cons_step, gen_prod_step
@@ -32,13 +32,14 @@ settings = {
         # # bat_dem_agg, gen_fact_prev, bat_fact_prev, loads_cons_prev
         # # gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
+
         # # flexibility
         'state_space': [['grdC', 'avail_car_step']] * 3,
         'trajectory': True,
         'type_learning': 'facmac',
         'evaluation_methods': [['env_r_c', 'opt']] * 3,
 
-        'n_repeats': [3, 10, 20],
+        'n_repeats': [3],
         'rnn_hidden_dim': 500,
         'lr': 1e-3,
         'facmac': {'critic_lr': 5e-4, 'batch_size': 2},

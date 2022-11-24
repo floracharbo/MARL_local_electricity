@@ -17,11 +17,16 @@ class MLPAgent(Agent):
             inputs = inputs.view(inputs.size()[0], 1, inputs.size()[1])
         inputs = inputs.to(self.device)
         x = F.relu(self.fc1(inputs))
+        if self.rl['nn_type'] == 'cnn':
+            x = nn.Flatten()(x)
         for i in range(len(self.fcs)):
-            if self.rl['nn_type'] == 'cnn' and i == self.rl['n_cnn_layers'] - 1:
-                x = nn.Flatten()(x)
-            x = x.cuda() if self.cuda_available else x
             x = F.relu(self.fcs[i](x))
+        # x = F.relu(self.fc_hidden_1(x))
+        # for i in range(len(self.fcs)):
+        #     if self.rl['nn_type'] == 'cnn' and i == self.rl['n_cnn_layers'] - 1:
+        #         x = nn.Flatten()(x)
+        #     x = x.cuda() if self.cuda_available else x
+        #     x = F.relu(self.fcs[i](x))
         if self.agent_return_logits:
             actions = self.fc_out(x)
         else:

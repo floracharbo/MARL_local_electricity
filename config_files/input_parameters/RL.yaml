@@ -165,7 +165,6 @@ mac: cqmix_mac
 obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation
 obs_agent_id: True # Include the agent's one_hot id in the observation
 rnn_hidden_dim: 1.e+2 # for rnn agent (from 64)
-n_hidden_layers: 2
 exploration_mode: "gaussian"
 ou_stop_episode: 100 # for cqmix controller - training noise goes to zero after this episode
 start_steps: 0 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
@@ -233,3 +232,7 @@ cnn_out_channels: 5
 cnn_kernel_size: 3
 data_parallel: False # if True, use nn.DataParallel
 n_cnn_layers: 1
+n_cnn_layers_critic: 1
+n_hidden_layers: 2
+n_hidden_layers_critic: 1
+nn_type_critic: 'linear'

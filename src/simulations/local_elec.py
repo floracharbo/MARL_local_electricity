@@ -597,7 +597,10 @@ class LocalElecEnv():
             else self.spaces.descriptors['state']
         vals = np.zeros((self.n_homes, len(descriptors)))
         time_step = self._get_time_step(date)
-        if any(descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors):
+        flexibility_state = any(
+            descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors
+        )
+        if flexibility_state and not self.rl['trajectory']:
             self.car.update_step(time_step=time_step)
             self.car.min_max_charge_t(time_step, date)
             assert self.car.time_step == time_step, \
@@ -610,7 +613,7 @@ class LocalElecEnv():
                 vals[home, i] = self._descriptor_to_val(
                     descriptor, inputs_, time_step, idt, home
                 )
-        if any(descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors):
+        if flexibility_state and not self.rl['trajectory']:
             self.car.revert_last_update_step()
 
         return vals

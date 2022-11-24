@@ -18,35 +18,49 @@ class Critic(nn.Module):
         device = th.device("cuda") if self.cuda_available else th.device("cpu")
 
         # Set up network layers
-        if self.rl['nn_type'] == 'linear':
+        if self.rl['nn_type_critic'] == 'linear':
             self.fc1 = nn.Linear(self.input_shape, rl['rnn_hidden_dim'])
             self.fc2 = nn.Linear(rl['rnn_hidden_dim'], rl['rnn_hidden_dim'])
-            self.fc3 = nn.Linear(rl['rnn_hidden_dim'], 1)
-        elif self.rl['nn_type'] == 'cnn':
-            # self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
+
+        elif self.rl['nn_type_critic'] == 'cnn':
             self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
-            self.fc2 = nn.Linear((self.input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim'])
-            self.fcs = [self.fc2]
+            if self.rl['n_cnn_layers_critic'] > 1:
+                self.fc_kernel_2 = nn.Conv1d(rl['cnn_out_channels'], rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
+            if self.rl['n_cnn_layers_critic'] > 2:
+                self.fc_kernel_3 = nn.Conv1d(rl['cnn_out_channels'], rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
+            self.fc2 = nn.Linear((self.input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'],
+                                 self.rl['rnn_hidden_dim'])
 
-            # self.fc3 = nn.Linear(rl['rnn_hidden_dim'], 1)
 
-            # self.fcs = []
-            # for i in range(self.rl['n_cnn_layers'] - 1):
-            #     self.fcs.append(nn.Conv1d(rl['cnn_out_channels'], rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size']))
-            # self.fcs.append(nn.Linear((self.input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim']))
-            # self.fc2 = nn.Linear((self.input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim'])
-            self.fc_out = nn.Linear(rl['rnn_hidden_dim'], 1)
+        if self.rl['n_hidden_layers_critic'] > 1:
+            self.fc_hidden_2 = nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+        if self.rl['n_hidden_layers_critic'] > 2:
+            self.fc_hidden_3 = nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+        self.fc_out = nn.Linear(rl['rnn_hidden_dim'], 1)
 
         if self.rl['data_parallel']:
             self.fc1 = nn.DataParallel(self.fc1)
             self.fc2 = nn.DataParallel(self.fc2)
-            self.fc3 = nn.DataParallel(self.fc3)
+            self.fc_out = nn.DataParallel(self.fc3)
+            if self.rl['nn_type_critic'] == 'cnn':
+                if self.rl['n_cnn_layers_critic'] > 1:
+                    self.fc_kernel_2 = nn.DataParallel(self.fc_kernel_2)
+                if self.rl['n_cnn_layers_critic'] > 2:
+                    self.fc_kernel_3 = nn.DataParallel(self.fc_kernel_3)
+            if self.rl['n_hidden_layers_critic'] > 1:
+                self.fc_hidden_2 = nn.DataParallel(self.fc_hidden_2)
+            if self.rl['n_hidden_layers_critic'] > 2:
+                self.fc_hidden_3 = nn.DataParallel(self.fc_hidden_3)
+
         self.fc1.to(device)
-        self.fcs[0].to(device)
-        # self.fc3.to(device)
-        # for i in range(len(self.fcs)):
-        #     self.fcs[i].to(device)
+        self.fc2.to(device)
         self.fc_out.to(device)
-
-
-
+        if self.rl['nn_type_critic'] == 'cnn':
+            if self.rl['n_cnn_layers_critic'] > 1:
+                self.fc_kernel_2.to(device)
+            if self.rl['n_cnn_layers_critic'] > 2:
+                self.fc_kernel_3.to(device)
+        if self.rl['n_hidden_layers_critic'] > 1:
+            self.fc_hidden_2.to(device)
+        if self.rl['n_hidden_layers_critic'] > 2:
+            self.fc_hidden_3.to(device)
