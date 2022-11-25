@@ -33,44 +33,61 @@ settings = {
         'n': 10
     },
 }
-prm = input_paths()
-settings_i = get_settings_i(settings, 0)
-# initialise learning parameters, system parameters and recording
-prm = input_params(prm, settings_i)
-prm, profiles = initialise_prm(
-    prm, 0, initialise_all=False
-)
 
-log = pd.read_csv(log_path)
-for key, value in prm.items():
-    for subkey, subvalue in value.items():
-        if isinstance(subvalue, dict):
-            for subsubkey, subsubvalue in subvalue.items():
-                col_name = f"{subkey}_{subsubkey}"
-                col_value = list_obs_to_str(subsubvalue) if col_name == 'state_space' else subsubvalue
+def initialise_settings_prm_log(settings, log_path):
+    prm = input_paths()
+    settings_i = get_settings_i(settings, 0)
+    # initialise learning parameters, system parameters and recording
+    prm = input_params(prm, settings_i)
+    prm, profiles = initialise_prm(
+        prm, 0, initialise_all=False
+    )
+
+    log = pd.read_csv(log_path)
+
+    return prm, profiles, log
+def find_previous_run_with_same_settings(settings, log_path):
+    prm, profiles, log = initialise_settings_prm_log(settings, log_path)
+
+    for key, value in prm.items():
+        for subkey, subvalue in value.items():
+            if isinstance(subvalue, dict):
+                for subsubkey, subsubvalue in subvalue.items():
+                    col_name = f"{subkey}_{subsubkey}"
+                    col_value = list_obs_to_str(subsubvalue) if col_name == 'state_space' else subsubvalue
+                    if col_name in log.columns:
+                        if len(log.index[log[col_name] == col_value].tolist()) > 0:
+                            log = log.loc[log[col_name] == col_value]
+                        else:
+                            print("no run found")
+                            print(col_name)
+                            candidates_left = False
+                            break
+            else:
+                col_name = subkey
+                col_value = list_obs_to_str(subvalue) if col_name == 'state_space' else subvalue
                 if col_name in log.columns:
-                    if len(log.index[log[col_name] == col_value].tolist()) > 0:
-                        log = log.loc[log[col_name] == col_value]
-                    else:
-                        print("no run found")
-                        print(col_name)
-                        candidates_left = False
-                        break
-        else:
-            col_name = subkey
-            col_value = list_obs_to_str(subvalue) if col_name == 'state_space' else subvalue
-            if col_name in log.columns:
-                try:
-                    if len(log.index[log[col_name] == col_value].tolist()) > 0:
-                        log = log.loc[log[col_name] == col_value]
-                    else:
-                        print("no run found")
-                        print(col_name)
-                        candidates_left = False
-                        break
-                except Exception as ex:
-                    print(ex)
+                    try:
+                        if len(log.index[log[col_name] == col_value].tolist()) > 0:
+                            log = log.loc[log[col_name] == col_value]
+                        else:
+                            print("no run found")
+                            print(col_name)
+                            candidates_left = False
+                            break
+                    except Exception as ex:
+                        print(ex)
 
-if candidates_left:
-    print(f"run(s) {log['run']}")
-    print(log)
+    if candidates_left:
+        print(f"run(s) {log['run']}")
+        print(log)
+
+def find_best_run_with_settings(settings, log_path):
+    settings_i = get_settings_i(settings, 0)
+    log = pd.read_csv(log_path)
+    list_setups = []
+
+
+
+find_previous_run_with_same_settings(settings, log_path)
+find_best_run_with_settings(settings, log_path)

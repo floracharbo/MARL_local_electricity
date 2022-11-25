@@ -800,6 +800,7 @@ class Explorer():
                 passive_vars=self._get_passive_vars(time_step),
                 evaluation=evaluation
             )
+
             step_vals_i["indiv_rewards"] = - np.array(break_down_rewards[-1])
             self._tests_individual_step_rl_matches_res(
                 res, time_step, batch, step_vals_i["reward"]
@@ -816,6 +817,7 @@ class Explorer():
                     evaluation, step_vals_i["reward"],
                     step_vals_i["diff_rewards"]
                 )
+
             if not (rl["competitive"] and not evaluation):
                 sum_rl_rewards += step_vals_i["reward"]
 

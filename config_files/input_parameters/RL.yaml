@@ -236,3 +236,4 @@ n_cnn_layers_critic: 1
 n_hidden_layers: 2
 n_hidden_layers_critic: 1
 nn_type_critic: 'linear'
+num_layers_rnn: 1

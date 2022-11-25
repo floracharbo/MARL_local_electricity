@@ -98,9 +98,10 @@ class CQMixMAC(BasicMAC):
 
         # Note batch_size_run is set to be 1 in our experiments
         if self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
+            hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] else self.hidden_states[bs]
             chosen_actions = self.forward(
                 ep_batch[bs], t_ep,
-                hidden_states=self.hidden_states[bs],
+                hidden_states=hidden_states,
                 test_mode=test_mode, select_actions=True
             )["actions"]
             # just to make sure detach
@@ -115,7 +116,7 @@ class CQMixMAC(BasicMAC):
             chosen_actions = chosen_actions.view(
                 ep_batch[bs].batch_size, self.n_agents,
                 self.rl['dim_actions']).detach()
-            pass
+
         elif self.rl['agent_facmac'] in ["cem", "cemrnn"]:
             chosen_actions = self.cem_sampling(ep_batch, t_ep, bs)
         elif self.rl['agent_facmac'] in ["cemrand"]:
@@ -205,18 +206,17 @@ class CQMixMAC(BasicMAC):
         # Assumes homogenous agents with flat observations.
         # Other MACs might want to e.g. delegate building inputs to each agent
         bs = batch.batch_size
-        try:
-            inputs = [batch["obs"][:, t]]  # b1av
-        except Exception as ex:
-            print(ex)
+        inputs = [batch["obs"][:, t]]  # b1av
         inputs = input_last_action(self.rl['obs_last_action'], inputs, batch, t)
         if self.rl['obs_agent_id']:
             inputs.append(th.eye(
                 self.n_agents, device=batch.device).unsqueeze(0).expand(
                 bs, -1, -1))
 
-        inputs = th.cat([x.reshape(bs * self.n_agents, - 1)
-                         for x in inputs], dim=1)
+        inputs = th.cat(
+            [x.reshape(bs * self.n_agents, - 1) for x in inputs],
+            dim=1
+        )
 
         return inputs
 

@@ -125,13 +125,7 @@ class FACMACLearner(Learner):
             + self.rl['facmac']['gamma'] * \
             (1 - terminated.expand_as(target_vals)) * target_vals
         td_error = (targets.detach() - q_taken)
-        # print(f"np.shape(td_error) {np.shape(td_error)}")
-        # print(f"np.shape(targets) {np.shape(targets)}")
-        # print(f"np.shape(q_taken) {np.shape(q_taken)}")
-        # print(f"targets {targets}")
-        # print(f"q_taken {q_taken}")
-        # print(f"td_error {td_error}")
-        # sys.exit()
+
         mask = mask.expand_as(td_error)
         mask = mask.cuda() if self.cuda_available else mask
         masked_td_error = td_error * mask
