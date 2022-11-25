@@ -46,6 +46,7 @@ settings = {
         'ou_stop_episode': 1e3,  # for cqmix controller - training noise goes to zero after this episode
         'start_steps': 100,  # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
         'hyper_initialization_nonzeros': 0.1,
+        'n_hidden_layers': 1,
     },
     'ntw': {
         'n': 10,
