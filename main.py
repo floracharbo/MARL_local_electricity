@@ -47,7 +47,8 @@ settings = {
         'start_steps': 100,  # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
         'hyper_initialization_nonzeros': 0.1,
         'n_hidden_layers': 1,
-        'n_hidden_layers_critic': 0,
+        'n_hidden_layers_critic': 1,
+        'nn_type_critic': 'cnn',
     },
     'ntw': {
         'n': 10,
