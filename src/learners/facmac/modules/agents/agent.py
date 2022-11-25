@@ -22,30 +22,25 @@ class Agent(nn.Module):
 
         elif self.rl['nn_type'] == 'cnn':
             self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
+            self.fcs = []
             if self.rl['n_cnn_layers_critic'] > 1:
                 self.fc_kernel_2 = nn.Conv1d(rl['cnn_out_channels'], rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
+                self.fcs.append(self.fc_kernel_2)
             if self.rl['n_cnn_layers_critic'] > 2:
                 self.fc_kernel_3 = nn.Conv1d(rl['cnn_out_channels'], rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
+                self.fcs.append(self.fc_kernel_3)
+
             # additional_cnn_layers = [self.fc_kernel_2, self.fc_kernel_3]
             self.fc2 = nn.Linear((input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim'])
+            self.fcs.append(self.fc2)
             if self.rl['n_hidden_layers_critic'] > 1:
                 self.fc_hidden_2 = nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+                self.fcs.append(self.fc_hidden_2)
+
             if self.rl['n_hidden_layers_critic'] > 2:
                 self.fc_hidden_3 = nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+                self.fcs.append(self.fc_hidden_3)
 
-        # self.fcs = []
-            # self.fcs.append(copy.deepcopy(self.fc2))
-            # self.fcs.append(copy.deepcopy(self.fc_hidden_1))
-            # self.fc_hidden_2 = nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
-            # additional_hidden_layers = [self.fc_hidden_1, self.fc_hidden_2]
-
-            # self.fcs = []
-            # for i in range(self.rl['n_cnn_layers'] - 1):
-            #     self.fcs.append(copy.deepcopy(additional_cnn_layers[i]))
-            # self.fcs.append(copy.deepcopy(self.fc2))
-            # for i in range(self.rl["n_hidden_layers"] - 1):
-            #     self.fcs.append(additional_hidden_layers[i])
-            # self.fcs.append(copy.deepcopy(additional_hidden_layers[0]))
         elif self.rl['nn_type'] == 'lstm':
             self.fc1 = nn.LSTM(input_shape, rl['rnn_hidden_dim'], num_layers=rl['num_layers_lstm'])
             self.fcs = [nn.Linear((input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim'])]
@@ -54,6 +49,7 @@ class Agent(nn.Module):
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
                 )
 
+        self.fcs = nn.ModuleList(self.fcs)
         self.fc_out = nn.Linear(
             self.rl['rnn_hidden_dim'], self.rl['dim_actions']
         )
@@ -76,7 +72,7 @@ class Agent(nn.Module):
         if self.rl['n_hidden_layers_critic'] > 2:
             self.fc_hidden_3.to(self.device)
 
-    def _gpu_paralellisation(self):
+    def _gpu_parallelisation(self):
         if self.rl['data_parallel']:
             self.fc1 = nn.DataParallel(self.fc1)
             self.fc2 = nn.DataParallel(self.fc2)

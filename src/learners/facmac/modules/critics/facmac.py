@@ -49,17 +49,8 @@ class FACMACCritic(Critic):
         if self.rl['n_cnn_layers_critic'] > 2:
             x = F.relu(self.fc_hidden_2(x))
 
-        # for i in range(len(self.fcs)):
-        #     x = F.relu(self.fcs[i](x))
         q = self.fc_out(x)
 
-
-        # x = F.relu(self.fc1(inputs))
-        # for i in range(len(self.fcs)):
-        #     if self.rl['nn_type'] == 'cnn' and i == self.rl['n_cnn_layers'] - 1:
-        #         x = nn.Flatten()(x)
-        #     x = F.relu(self.fcs[i](x))
-        # q = self.fc_out(x)
 
         return q, hidden_state
 
