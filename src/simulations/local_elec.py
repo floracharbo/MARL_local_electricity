@@ -945,8 +945,15 @@ class LocalElecEnv():
             "day_type": idt,
             "dT": self.prm["heat"]["T_req" + self.passive_ext][home][hour] - self.T_air[home],
         }
+
         if descriptor in dict_vals:
             val = dict_vals[descriptor]
+        elif descriptor[0: len('grdC_t')] == 'grdC_t':
+            t_ = int(descriptor[len('grdC_t'):])
+            try:
+                val = self.prm['grd']['C'][t + t_] if t + t_ < self.N else self.prm['grd']['C'][self.N - 1]
+            except Exception as ex:
+                print(ex)
         elif descriptor == "bool_flex":
             val = self.action_translator.aggregate_action_bool_flex(home)
         elif descriptor == "store_bool_flex":
@@ -992,7 +999,7 @@ class LocalElecEnv():
                 val = self.batch[home][batch_type][h]
 
         if self.rl['normalise_states']:
-            descriptor_info = self.spaces.space_info.loc[self.spaces.space_info['name'] == descriptor]
+            descriptor_info = self.spaces.space_info.loc[self.spaces.space_info['name'] == self.spaces.descriptor_for_idx(descriptor)]
             max_home = descriptor_info['max'].item()[home] if isinstance(descriptor_info['max'].item(), list) else descriptor_info['max']
             try:
                 val = ((val - descriptor_info['min']) / max_home).item()

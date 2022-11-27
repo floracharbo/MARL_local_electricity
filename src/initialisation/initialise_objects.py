@@ -524,6 +524,22 @@ def _remove_states_incompatible_with_trajectory(rl):
     return rl
 
 
+def _expand_grdC_states(rl):
+    n_steps = None
+    state_grdC = None
+    for state in rl['state_space']:
+        if state[0: len('grdC_n')] == 'grdC_n':
+            n_steps = int(state[len('grdC_n'):])
+            state_grdC = state
+            rl['grdC_n'] = n_steps
+
+    if n_steps is not None:
+        rl['state_space'].pop(rl['state_space'].index(state_grdC))
+        for step in range(n_steps):
+            rl['state_space'].append(f'grdC_t{step}')
+
+    return rl
+
 def _update_rl_prm(prm, initialise_all):
     """
     Compute parameters relating to RL experiments.
@@ -541,6 +557,7 @@ def _update_rl_prm(prm, initialise_all):
     """
     rl, syst, ntw, heat = [prm[key] for key in ["RL", "syst", "ntw", "heat"]]
     rl = _format_rl_parameters(rl)
+    rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
 
     _dims_states_actions(rl, syst)

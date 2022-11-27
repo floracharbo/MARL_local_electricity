@@ -18,10 +18,9 @@ settings = {
     'RL': {
         'aggregate_actions': False,
         'cnn_kernel_size': 2,
-        'cnn_out_channels': 5,
-        'n_epochs': 20,
+        'n_epochs': [20] * 9 + [200],
         'normalise_states': True,
-        'obs_agent_id': False,
+        'obs_agent_id': True,
         # current experiment
         # grdC_level, hour, car_tau, store0, grdC
         # # avail_car_step, loads_clus_step, loads_fact_step
@@ -32,22 +31,20 @@ settings = {
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
 
         # # flexibility
-        'state_space': [['grdC', 'avail_car_step']] * 2,
-        'type_learning': 'facmac',
-        'evaluation_methods': [['env_r_c', 'opt']] * 2,
-        'n_repeats': [3],
+        'state_space': [['grdC_n2'], ['grdC_n3'], ['grdC_n4'], ['grdC_n6'], ['grdC_n7'], ['grdC_n8'], ['grdC_n9'], ['grdC_n10']],
+        'type_learning': ['facmac'] * 8 + ['q_learning'] * 2,
+        'evaluation_methods': [['env_r_c', 'opt']] * 7,
+        'n_repeats': 3,
         'lr': 1e-3,
-        'facmac': {'critic_lr': 5e-4, 'batch_size': 2},
-        'ou_stop_episode': 1e3,  # for cqmix controller - training noise goes to zero after this episode
+        'facmac': {'critic_lr': 5e-4, 'batch_size': 5},
+        'ou_stop_episode': 1e3,  # for cqmix controller - training  oise goes to zero after this episode
         'start_steps': 100,  # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
         'hyper_initialization_nonzeros': 0.1,
         'n_hidden_layers': 2,
         'n_hidden_layers_critic': 1,
-        'nn_type': ['rnn'],
         'trajectory': True,
         'n_cnn_layers': 1,
         'rnn_hidden_dim': 500,
-
     },
     'ntw': {
         'n': 10,

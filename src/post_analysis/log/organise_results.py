@@ -3,6 +3,7 @@ import pickle
 from datetime import datetime
 from pathlib import Path
 from textwrap import wrap
+import shutil
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -49,6 +50,8 @@ def get_list_all_fields(results_path):
                                 for subsubkey, subsubval in subval.items():
                                     if isinstance(subsubval, (int, float, bool, str)) and f"{key}-{subkey}-{subsubkey}" not in columns0 and subsubkey not in ignore:
                                         columns0.append(f"{key}-{subkey}-{subsubkey}")
+    if 'grdC_n' not in columns0:
+        columns0.append('RL-grdC_n')
 
     columns0 = ["run", "date"] + sorted(columns0)
 
@@ -60,10 +63,13 @@ def get_names_evaluation_methods(results_path, result_nos):
     while not evaluation_methods_found and it < 100:
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
-        metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-        keys_methods = list(metrics0['end_test_bl']['ave'].keys())
-        if len(keys_methods) == 16:
-            evaluation_methods_found = True
+        if path_metrics0.is_file():
+            metrics0 = np.load(path_metrics0, allow_pickle=True).item()
+            keys_methods = list(metrics0['end_test_bl']['ave'].keys())
+            if len(keys_methods) == 16:
+                evaluation_methods_found = True
+        else:
+            shutil.rmtree(results_path / f"run{result_nos[-it]}")
 
     keys_methods.remove("baseline")
 
@@ -164,6 +170,12 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
         row = [result_no, date_str]
         for column in columns0[2:]:
             key, subkey, subsubkey = get_key_subkeys_column(column)
+            str_state_space = list_obs_to_str(prm['RL']['state_space'])
+            if subkey == 'grdC_n' and 'grdC_t' in str_state_space:
+                indices = [i for i in range(len(str_state_space) - 6) if str_state_space[i: i + 6] == 'grdC_t']
+                if len(indices) > 0:
+                    max_t = max([int(str_state_space[i + 6:].split('_')[0]) for i in indices])
+                    prm[key][subkey] = max_t
             if key is None:
                 row.append(None)
                 print(column)
@@ -434,11 +446,6 @@ if __name__ == "__main__":
     keys_methods = get_names_evaluation_methods(results_path, result_nos)
 
     log_path = results_analysis_path / "log_runs.csv"
-    # create the log data frame
-    # if Path(log_path).is_file():
-    #     log = pd.read_csv(log_path)
-    #     columns0 = log.columns
-    # else:
     log = pd.DataFrame(columns=columns0 + keys_methods)
 
     newly_added_runs = []

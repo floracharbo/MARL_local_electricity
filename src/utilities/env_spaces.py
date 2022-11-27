@@ -188,6 +188,9 @@ class EnvSpaces():
 
         self.space_info = pd.DataFrame(info, columns=columns)
 
+    def descriptor_for_idx(self, descriptor):
+        return 'grdC' if descriptor[0: len('grdC_t')] == 'grdC_t' else descriptor
+
     def new_state_space(self, state_space):
         """Initialise current indicators info for state and action spaces."""
         [self.descriptors, self.granularity, self.maxval, self.minval,
@@ -200,8 +203,7 @@ class EnvSpaces():
             # looping through state and action spaces
             self.descriptors[space] = descriptors
             descriptors = ["None"] if descriptors == [None] else descriptors
-            descriptors_idx = [self.space_info["name"] == descriptor_
-                               for descriptor_ in descriptors]
+            descriptors_idx = [self.space_info["name"] == self.descriptor_for_idx(descriptor) for descriptor in descriptors]
             subtable = [self.space_info.loc[i] for i in descriptors_idx]
             [self.granularity[space], self.minval[space],
              self.maxval[space], self.discrete[space]] = [
@@ -537,6 +539,10 @@ class EnvSpaces():
                 elif descriptor in self.state_funcs:
                     inputs = time_step, res, home, date, prm
                     val = self.state_funcs[descriptor](inputs)
+                elif descriptor[0: len('grdC_t')] == 'grdC_t':
+                    t_ = int(descriptor[len('grdC_t'):])
+                    val = prm["grd"]["Call"][self.i0_costs + time_step + t_] if time_step + t_ < self.N \
+                        else prm["grd"]["Call"][self.i0_costs + self.N - 1]
 
                 elif len(descriptor) > 9 \
                         and (descriptor[-9:-5] == "fact"
@@ -562,7 +568,7 @@ class EnvSpaces():
                     else:  # remaining are car_cons_step / prev
                         val = prm["car"]["batch_loads_car"][home][time_step]
                 if prm['RL']['normalise_states']:
-                    descriptor_info = self.space_info.loc[self.space_info['name'] == descriptor]
+                    descriptor_info = self.space_info.loc[self.space_info['name'] == self.descriptor_for_idx(descriptor)]
                     max_home = descriptor_info['max'].item()[home] \
                         if isinstance(descriptor_info['max'].item(), list) \
                         else descriptor_info['max']
