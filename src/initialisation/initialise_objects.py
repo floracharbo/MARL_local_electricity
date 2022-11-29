@@ -507,6 +507,9 @@ def _dims_states_actions(rl, syst):
 
 
 def _remove_states_incompatible_with_trajectory(rl):
+    if rl['type_learning'] == 'q_learning' and rl['trajectory']:
+        print("q learning not implemented with trajectory -> set trajectory = False")
+        rl['trajectory'] = False
     if rl['trajectory']:
         problematic_states = [
             state for state in rl['state_space']
@@ -539,6 +542,7 @@ def _expand_grdC_states(rl):
             rl['state_space'].append(f'grdC_t{step}')
 
     return rl
+
 
 def _update_rl_prm(prm, initialise_all):
     """
