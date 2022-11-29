@@ -445,6 +445,17 @@ class Battery:
             [max(self.min_charge_t[home] - self.start_store[home], 0)
              * self.avail_car[home] for home in range(self.n_homes)]
         )
+        i_too_large = np.where(s_add_0 > self.c_max + 1e-3)[0]
+        if len(i_too_large) > 0:
+            if self.time_step == self.N:
+                for i in i_too_large:
+                    s_add_0[i] = self.c_max
+        assert self.time_step == self.N or len(i_too_large) == 0, \
+            f"s_add_0: {s_add_0[i_too_large[0]]} > self.c_max {self.c_max} " \
+            f"self.min_charge_t[i_too_large[0]] {self.min_charge_t[i_too_large[0]]} " \
+            f"self.start_store[i_too_large[0]] {self.start_store[i_too_large[0]]} " \
+            f"self.time_step {self.time_step} " \
+            f"self.store[i_too_large[0]] {self.store[i_too_large[0]]} "
 
         # how much i need to remove from store
         s_remove_0 = np.array(
