@@ -18,7 +18,7 @@ settings = {
     'RL': {
         'aggregate_actions': False,
         'cnn_kernel_size': 2,
-        'n_epochs': 200,
+        'n_epochs': 20,
         'normalise_states': True,
         'obs_agent_id': True,
         # current experiment
@@ -31,7 +31,7 @@ settings = {
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
 
         # # flexibility
-        'state_space': [['flexibility', 'grdC_n3']],
+        'state_space': [['grdC']],
         'type_learning': 'facmac',
         # 'evaluation_methods': [['env_r_c', 'opt']] * 3,
         'n_repeats': 3,

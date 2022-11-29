@@ -71,16 +71,13 @@ def find_previous_run_with_same_settings(settings, log_path):
                 col_name = subkey
                 col_value = list_obs_to_str(subvalue) if col_name == 'state_space' else subvalue
                 if col_name in log.columns:
-                    try:
-                        if len(log.index[log[col_name] == col_value].tolist()) > 0:
-                            log = log.loc[log[col_name] == col_value]
-                        else:
-                            print("no run found")
-                            print(col_name)
-                            candidates_left = False
-                            break
-                    except Exception as ex:
-                        print(ex)
+                    if len(log.index[log[col_name] == col_value].tolist()) > 0:
+                        log = log.loc[log[col_name] == col_value]
+                    else:
+                        print("no run found")
+                        print(col_name)
+                        candidates_left = False
+                        break
 
     if candidates_left:
         print(f"run(s) {log['run']}")

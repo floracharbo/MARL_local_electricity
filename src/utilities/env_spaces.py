@@ -322,13 +322,12 @@ class EnvSpaces():
         t = type_
         type_ = "state" if type_ in ["state", "next_state"] else "action"
 
-        if type_ == "state":
-            if t == "next_state" and done:
-                # if the sequence is over, return None
-                return [None for _ in range(self.n_homes)]
-            if self.descriptors["state"] == [None]:
-                # if the state space is None, return 0
-                return [0 for _ in range(self.n_homes)]
+        if t == "next_state" and done:
+            # if the sequence is over, return None
+            return [None for _ in range(self.n_homes)]
+        if type_ == "state" and self.descriptors["state"] == [None]:
+            # if the state space is None, return 0
+            return [0 for _ in range(self.n_homes)]
 
         # translate values into indexes
         index = []  # one global index per agent

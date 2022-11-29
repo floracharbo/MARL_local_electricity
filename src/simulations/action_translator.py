@@ -264,7 +264,7 @@ class Action_translator:
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
                         loads['flex_cons'][-1] = 0
             else:
-                flexible_cons_action, flexible_heat_action, battery_action = action[home]
+                flexible_cons_action, flexible_heat_action, flexible_store_action = action[home]
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
@@ -279,7 +279,7 @@ class Action_translator:
                     + loads['flex_cons'][home] \
                     + flex_heat[home]
                 res['c'] = home_vars['tot_cons'][home]
-                res = self._battery_action_to_ds(home, battery_action, res)
+                res = self._flexible_store_action_to_ds(home, flexible_store_action, res)
 
                 discharge = - res['ds'] * self.car.eta_dis \
                     if res['ds'] < 0 else 0
@@ -328,10 +328,10 @@ class Action_translator:
 
         return loads, home_vars, bool_penalty
 
-    def _battery_action_to_ds(self, home, battery_action, res):
-        if battery_action is None:
+    def _flexible_store_action_to_ds(self, home, flexible_store_action, res):
+        if flexible_store_action is None:
             assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
-                "battery_action is None but " \
+                "flexible_store_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
             if self.min_charge[home] > 1e-3:
                 res['ds'] = self.min_charge[home]
@@ -339,17 +339,17 @@ class Action_translator:
                 res['ds'] = self.min_discharge[home]
             else:
                 res['ds'] = 0
-        elif battery_action < 0:
+        elif flexible_store_action < 0:
             if self.min_charge[home] > 0:
                 res['ds'] = self.min_charge[home]
             elif self.min_discharge[home] <= 0:
-                res['ds'] = self.min_discharge[home] + abs(battery_action) \
+                res['ds'] = self.min_discharge[home] + abs(flexible_store_action) \
                     * (self.max_discharge[home] - self.min_discharge[home])
-        elif battery_action >= 0:
+        elif flexible_store_action >= 0:
             if self.min_discharge[home] < 0:
                 res['ds'] = self.min_discharge[home]
             elif self.max_charge[home] >= 0:
-                res['ds'] = self.min_charge[home] + battery_action \
+                res['ds'] = self.min_charge[home] + flexible_store_action \
                     * (self.max_charge[home] - self.min_charge[home])
         res['l_ch'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
         res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
@@ -541,83 +541,41 @@ class Action_translator:
 
         return actions, bool_flex
 
-    def disaggregated_actions_bool_flex(self, loads, res_discharge_other, res_charge, home, h):
-        bool_flex_loads, bool_flex_heat, store_bool_flex = True, True, True
-        flexible_cons_action, flexible_heat_action, battery_action = None, None, None
-        max_charge_a, min_charge_a = [
-            self.max_charge[home], self.min_charge[home]
-        ]
-        max_discharge_a, min_discharge_a = [
-            self.max_discharge[home], self.min_discharge[home]
-        ]
-
+    def _flex_loads_action(self, loads, home, res, h):
+        loads_bool_flex = True
+        flexible_cons_action = None
         if loads['l_flex'][home] < 1e-3:
-            bool_flex_loads = False
+            loads_bool_flex = False
             if self.no_flex_action == 'one':
                 flexible_cons_action = 1
             elif self.no_flex_action == 'random':
                 flexible_cons_action = np.random.rand()
+
+        if loads_bool_flex:
+            cons = res['totcons'][home, h] - res['E_heat'][home, h]
+            if cons < 1e-3:
+                cons = 0
+
+            flex_cons = cons - loads['l_fixed'][home]
+            if flex_cons < 1e-3:
+                flex_cons = 0
+            elif loads['l_flex'][home] < flex_cons < loads['l_flex'][home] + 1e-3:
+                flex_cons = loads['l_flex'][home]
+            flexible_cons_action = flex_cons / loads['l_flex'][home]
+
+        return flexible_cons_action, loads_bool_flex
+
+    def _flex_heat_action(self, home, res, h):
+        heat_bool_flex = True
+        flexible_heat_action = None
         if self.heat.potential_E_flex()[home] < 1e-3:
-            bool_flex_heat = False
+            heat_bool_flex = False
             if self.no_flex_action == 'one':
                 flexible_heat_action = 1
             elif self.no_flex_action == 'random':
                 flexible_heat_action = np.random.rand()
-
-        if (
-                (
-                    abs(max_charge_a - min_charge_a) < 1e-3  # or
-                    and abs(min_discharge_a - max_discharge_a) < 1e-3
-                )
-                or (
-                    abs(min_discharge_a - max_discharge_a) < 1e-3
-                    and res_discharge_other[home, h] > 1e-3
-                )
-                or (
-                    abs(max_charge_a - min_charge_a) < 1e-3
-                    and res_charge[home, h] > 1e-3
-                )
-        ):
-            store_bool_flex = False
-            # abs(max_charge_a - max_discharge_a) < 1e-3 or
-            # no flexibility in charging
-            if self.no_flex_action == 'one':
-                battery_action = 1
-            elif self.no_flex_action == 'random' or self.type_env == 'discrete':
-                battery_action = np.random.rand() * 2 - 1
-
-            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
-                "battery_action is None but " \
-                "self.min_charge[home] != self.max_charge[home]"
-
-        bool_flexs = [bool_flex_loads, bool_flex_heat, store_bool_flex]
-        actions = [flexible_cons_action, flexible_heat_action, battery_action]
-
-        return bool_flexs, actions
-
-    def _get_disaggregated_actions(self, actions, bool_flex, res, loads, home, h):
-        bool_flexs, actions_home = self.disaggregated_actions_bool_flex(
-            loads, res['discharge_other'], res['charge'], home, h
-        )
-        [bool_flex_loads, bool_flex_heat, store_bool_flex] = bool_flexs
-        [flexible_cons_action, flexible_heat_action, battery_action] = actions_home
-
-        cons = res['totcons'][home, h] - res['E_heat'][home, h]
-        if cons < 1e-3:
-            cons = 0
-
-        flex_cons = cons - loads['l_fixed'][home]
-        if flex_cons < 1e-3:
-            flex_cons = 0
-
-        elif loads['l_flex'][home] < flex_cons < loads['l_flex'][home] + 1e-3:
-            flex_cons = loads['l_flex'][home]
-
-        if bool_flex_loads:
-            flexible_cons_action = flex_cons / loads['l_flex'][home]
-
-        E_heat = 0 if res['E_heat'][home][h] < 1e-3 else res['E_heat'][home][h]
-        if bool_flex_heat:
+        if heat_bool_flex:
+            E_heat = 0 if res['E_heat'][home][h] < 1e-3 else res['E_heat'][home][h]
             if abs(res['E_heat'][home][h] - self.heat.E_heat_min[home]) < 1e-3:
                 flexible_heat_action = 0
             else:
@@ -625,40 +583,82 @@ class Action_translator:
                     (E_heat - self.heat.E_heat_min[home]) / \
                     (self.heat.E_heat_max[home] - self.heat.E_heat_min[home])
 
+        return flexible_heat_action, heat_bool_flex
+
+    def _flex_store_action(self, res, home, h):
+        store_bool_flex = True
+        flexible_store_action = None
         max_charge_a, min_charge_a = [
             self.max_charge[home], self.min_charge[home]
         ]
         max_discharge_a, min_discharge_a = [
             self.max_discharge[home], self.min_discharge[home]
         ]
+        if (
+                (
+                    abs(max_charge_a - min_charge_a) < 1e-3  # or
+                    and abs(min_discharge_a - max_discharge_a) < 1e-3
+                )
+                or (
+                    abs(min_discharge_a - max_discharge_a) < 1e-3
+                    and res['discharge_other'][home, h] > 1e-3
+                )
+                or (
+                    abs(max_charge_a - min_charge_a) < 1e-3
+                    and res['charge'][home, h] > 1e-3
+                )
+        ):
+            store_bool_flex = False
+            # abs(max_charge_a - max_discharge_a) < 1e-3 or
+            # no flexibility in charging
+            if self.no_flex_action == 'one':
+                flexible_store_action = 1
+            elif self.no_flex_action == 'random' or self.type_env == 'discrete':
+                flexible_store_action = np.random.rand() * 2 - 1
 
-        assert min_charge_a - 1e-3 <= res['charge'][home, h] \
-               <= max_charge_a + 1e-3, \
-               f"res charge {res['charge'][home, h]} " \
-               f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-        assert max_discharge_a - 1e-3 <= - res['discharge_other'][home, h] / self.car.eta_dis \
-               <= min_discharge_a + 1e-3, \
-               f"res discharge_other {res['discharge_other'][home, h]} " \
-               f"min_discharge_a {- min_discharge_a} " \
-               f"max_discharge_a {- max_discharge_a}"
-
+            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
+                "flexible_store_action is None but " \
+                "self.min_charge[home] != self.max_charge[home]"
         if store_bool_flex:
+            max_charge_a, min_charge_a = [
+                self.max_charge[home], self.min_charge[home]
+            ]
+            max_discharge_a, min_discharge_a = [
+                self.max_discharge[home], self.min_discharge[home]
+            ]
+
+            assert min_charge_a - 1e-3 <= res['charge'][home, h] \
+                   <= max_charge_a + 1e-3, \
+                   f"res charge {res['charge'][home, h]} " \
+                   f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
+            assert max_discharge_a - 1e-3 <= - res['discharge_other'][home, h] / self.car.eta_dis \
+                   <= min_discharge_a + 1e-3, \
+                   f"res discharge_other {res['discharge_other'][home, h]} " \
+                   f"min_discharge_a {- min_discharge_a} " \
+                   f"max_discharge_a {- max_discharge_a}"
             if abs(res['discharge_other'][home, h]) < 1e-3 \
                     and abs(res['charge'][home, h]) < 1e-3:
-                battery_action = 0
+                flexible_store_action = 0
             elif res['discharge_other'][home, h] > 1e-3:
-                battery_action = \
+                flexible_store_action = \
                     (min_discharge_a - res['charge'][home, h]) \
                     / (min_discharge_a - max_discharge_a)
             else:
                 if abs(res['charge'][home, h] - max_charge_a) < 1e-3:
-                    battery_action = 1
+                    flexible_store_action = 1
                 else:
-                    battery_action = (res['charge'][home, h] - min_charge_a) \
+                    flexible_store_action = (res['charge'][home, h] - min_charge_a) \
                         / (max_charge_a - min_charge_a)
 
+        return flexible_store_action, store_bool_flex
+
+    def _get_disaggregated_actions(self, actions, bool_flex, res, loads, home, h):
+        flexible_cons_action, loads_bool_flex = self._flex_loads_action(loads, home, res, h)
+        flexible_heat_action, heat_bool_flex = self._flex_heat_action(home, res, h)
+        flexible_store_action, store_bool_flex = self._flex_store_action(res, home, h)
+
         actions.append(
-            [flexible_cons_action, flexible_heat_action, battery_action]
+            [flexible_cons_action, flexible_heat_action, flexible_store_action]
         )
         bool_flex.append(
             not sum(action is None for action in actions[home]) == 3

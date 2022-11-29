@@ -2,6 +2,7 @@ import os
 import pickle
 import shutil
 from datetime import datetime
+from itertools import chain
 from pathlib import Path
 from textwrap import wrap
 
@@ -29,6 +30,26 @@ def list_obs_to_str(list_obs):
     return obs_str
 
 
+def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
+    if subkey not in ignore:
+        if subkey == 'n_start_opt':
+            print(f"run {result_no} n_start_opt should be n_start_opt_explo")
+        elif (
+                (is_short_type(subval) or subkey == "state_space")
+                and f"{key}-{subkey}" not in columns0
+        ):
+            columns0.append(f"{key}-{subkey}")
+        elif isinstance(subval, dict):
+            for subsubkey, subsubval in subval.items():
+                new_col = f"{key}-{subkey}-{subsubkey}" not in columns0
+                ignore_col = subsubkey in ignore
+                short_type = is_short_type(subsubval)
+                if short_type and new_col and not ignore_col:
+                    columns0.append(f"{key}-{subkey}-{subsubkey}")
+
+    return columns0
+
+
 def get_list_all_fields(results_path):
     ignore = [
         'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit',
@@ -48,21 +69,7 @@ def get_list_all_fields(results_path):
             for key, val in prm.items():
                 if key not in ignore:
                     for subkey, subval in val.items():
-                        if subkey not in ignore:
-                            if subkey == 'n_start_opt':
-                                print(f"run {result_no} n_start_opt should be n_start_opt_explo")
-                            elif (
-                                    (is_short_type(subval) or subkey == "state_space")
-                                    and f"{key}-{subkey}" not in columns0
-                            ):
-                                columns0.append(f"{key}-{subkey}")
-                            elif isinstance(subval, dict):
-                                for subsubkey, subsubval in subval.items():
-                                    new_col = f"{key}-{subkey}-{subsubkey}" not in columns0
-                                    ignore_col = subsubkey in ignore
-                                    short_type = is_short_type(subsubval)
-                                    if short_type and new_col and not ignore_col:
-                                        columns0.append(f"{key}-{subkey}-{subsubkey}")
+                        columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
 
     columns0 = ["run", "date"] + sorted(columns0)
 
@@ -99,6 +106,41 @@ def replace_single_default_value(value, default_data, subkey, subsubkey):
     return value
 
 
+def fill_in_log_value_with_run_data(log, row, column, run_no, prm_default, previous_defaults):
+    if column in previous_defaults and run_no <= previous_defaults[column][0]:
+        log.loc[row, column] = previous_defaults[column][1]
+    else:
+        key, subkey, subsubkey = get_key_subkeys_column(column)
+        if key in prm_default:
+            if subkey in prm_default[key]:
+                if subsubkey is None:
+                    log.loc[row, column] = prm_default[key][subkey]
+                elif subsubkey in prm_default[key][subkey]:
+                    log.loc[row, column] = prm_default[key][subkey][subsubkey]
+
+    return log
+
+
+def save_default_values_to_run_data(log):
+    for row in range(len(log)):
+        run_no = log.loc[row, 'run']
+        path_default = Path(f"outputs/results/run{run_no}/inputData/prm_with_defaults.pickle")
+        prm_default = {}
+        for column in log.columns:
+            key, subkey, subsubkey = get_key_subkeys_column(column)
+            if key is not None:
+                if key not in prm_default:
+                    prm_default[key] = {}
+                if subsubkey is None:
+                    prm_default[key][subkey] = log.loc[row, column]
+                else:
+                    if subkey not in prm_default[key]:
+                        prm_default[key][subkey] = {}
+                    prm_default[key][subkey][subsubkey] = log.loc[row, column]
+        with open(path_default, "wb") as file:
+            pickle.dump(prm_default, file)
+
+
 def add_default_values(log, previous_defaults):
     file_name = ''
     # add any default value previously saved row by row
@@ -110,16 +152,9 @@ def add_default_values(log, previous_defaults):
                 prm_default = pickle.load(file)
             for column in log.columns:
                 if log.loc[row, column] is None:
-                    if column in previous_defaults and run_no <= previous_defaults[column][0]:
-                        log.loc[row, column] = previous_defaults[column][1]
-                    else:
-                        key, subkey, subsubkey = get_key_subkeys_column(column)
-                        if key in prm_default:
-                            if subkey in prm_default[key]:
-                                if subsubkey is None:
-                                    log.loc[row, column] = prm_default[key][subkey]
-                                elif subsubkey in prm_default[key][subkey]:
-                                    log.loc[row, column] = prm_default[key][subkey][subsubkey]
+                    log = fill_in_log_value_with_run_data(
+                        log, row, column, run_no, prm_default, previous_defaults
+                    )
 
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -140,23 +175,7 @@ def add_default_values(log, previous_defaults):
             )
 
     # save all defaults in prm_default row by row
-    for row in range(len(log)):
-        run_no = log.loc[row, 'run']
-        path_default = Path(f"outputs/results/run{run_no}/inputData/prm_with_defaults.pickle")
-        prm_default = {}
-        for column in log.columns:
-            key, subkey, subsubkey = get_key_subkeys_column(column)
-            if key is not None:
-                if key not in prm_default:
-                    prm_default[key] = {}
-                if subsubkey is None:
-                    prm_default[key][subkey] = log.loc[row, column]
-                else:
-                    if subkey not in prm_default[key]:
-                        prm_default[key][subkey] = {}
-                    prm_default[key][subkey][subsubkey] = log.loc[row, column]
-        with open(path_default, "wb") as file:
-            pickle.dump(prm_default, file)
+    save_default_values_to_run_data(log)
 
     return log
 
@@ -330,6 +349,198 @@ def only_columns_relevant_learning_type_comparison(
     return only_col_of_interest_changes
 
 
+def compare_all_runs_for_column_of_interest(
+    column_of_interest, other_columns, x_labels, best_values, env_values, time_values, axs, log
+):
+    rows_considered = []
+    setup_no = 0
+    plotted_something = False
+    setups = []
+    while len(rows_considered) < len(log):
+        initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
+        rows_considered.append(initial_setup_row)
+        current_setup = log[other_columns].loc[initial_setup_row].values
+        values_of_interest = [log[column_of_interest].loc[initial_setup_row]]
+        best_score = [log['best_score'].loc[initial_setup_row]]
+        best_env_score = [log['best_score_env'].loc[initial_setup_row]]
+        time_best_score = [log['time_end'].loc[initial_setup_row]]
+        for row in range(len(log)):
+            # if row not in rows_considered and all(col in log.loc[row])
+            row_setup = log[other_columns].loc[row].values
+            new_row = row not in rows_considered
+            relevant_cnn = not (
+                column_of_interest[0:3] == 'cnn'
+                and log['nn_type'].loc[row] != 'cnn'
+            )
+            relevant_facmac = not (
+                column_of_interest[0: 6] == 'facmac'
+                and log['type_learning'].loc[row] != 'facmac'
+            )
+
+            if column_of_interest == 'grdC_n':
+                only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
+                    other_columns, current_setup, row_setup, initial_setup_row, row
+                )
+            elif column_of_interest == 'type_learning':
+                only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
+                    other_columns, current_setup, row_setup
+                )
+            else:
+                only_col_of_interest_changes = all(
+                    current_col == row_col
+                    for current_col, row_col in zip(current_setup, row_setup)
+                )
+
+            if new_row and only_col_of_interest_changes and relevant_cnn and relevant_facmac:
+                rows_considered.append(row)
+                values_of_interest.append(log[column_of_interest].loc[row])
+                best_score.append(log['best_score'].loc[row])
+                best_env_score.append(log['best_score_env'].loc[row])
+                time_best_score.append(log['time_end'].loc[row])
+        if len(values_of_interest) > 1:
+            all_setups_same_as_0 = all(
+                values_of_interest_ == values_of_interest[0]
+                for values_of_interest_ in values_of_interest
+            )
+            if all_setups_same_as_0:
+                runs = log.loc[rows_considered[- len(values_of_interest):], 'run'].values
+                print(f"runs {runs} equal?")
+            else:
+                setups.append(current_setup)
+                i_sorted = np.argsort(values_of_interest)
+                values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
+                best_score_sorted = [best_score[i] for i in i_sorted]
+                best_env_score_sorted = [best_env_score[i] for i in i_sorted]
+                time_best_score_sorted = [time_best_score[i] for i in i_sorted]
+                axs[0].plot(values_of_interest_sorted, best_score_sorted, label=len(setups))
+                axs[1].plot(values_of_interest_sorted, best_env_score_sorted, label=len(setups))
+                axs[2].plot(
+                    values_of_interest_sorted, time_best_score_sorted,
+                    label=len(setups)
+                )
+                if column_of_interest == 'state_space':
+                    x_labels.append(values_of_interest_sorted)
+                    best_values.append(best_score_sorted)
+                    env_values.append(best_env_score_sorted)
+                    time_values.append(time_best_score_sorted)
+                plotted_something = True
+
+        setup_no += 1
+
+    return plotted_something, axs, setups
+
+
+def adapt_figure_for_state_space(x_labels, best_values, env_values, time_values, axs):
+    all_x_labels = []
+    x_labels_flattened = list(chain.from_iterable(x_labels))
+    for label in x_labels_flattened:
+        if label not in all_x_labels:
+            all_x_labels.append(label)
+
+    all_best_vals = np.empty((len(x_labels), len(all_x_labels)))
+    all_env_vals = np.empty((len(x_labels), len(all_x_labels)))
+    all_time_vals = np.empty((len(x_labels), len(all_x_labels)))
+
+    for i in range(len(x_labels)):
+        for j in range(len(x_labels[i])):
+            idx_value = all_x_labels.index(x_labels[i][j])
+            all_best_vals[i, idx_value] = best_values[i][j]
+            all_env_vals[i, idx_value] = env_values[i][j]
+            all_time_vals[i, idx_value] = time_values[i][j]
+    plt.close()
+    for i in range(len(all_best_vals)):
+        for j in range(len(all_best_vals[i])):
+            if all_best_vals[i][j] < 1e-5:
+                all_best_vals[i][j] = None
+            if all_env_vals[i][j] < 1e-5:
+                all_env_vals[i][j] = None
+    fig, axs = plt.subplots(3, 1, figsize=(6.4, 11))
+    for i in range(len(x_labels)):
+        axs[0].plot(all_x_labels, all_best_vals[i], label=i + 1)
+        axs[1].plot(all_x_labels, all_env_vals[i], label=i + 1)
+        axs[2].plot(all_x_labels, all_time_vals[i], label=i + 1)
+
+    return axs
+
+
+def add_table_legend(setups, fig, varied_columns, column_of_interest, other_columns, axs):
+    height_row0 = 0.1
+    height_intra_row = 0.11
+    if len(setups) > 1:
+        col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns]
+        setups_nos = np.array(list(range(len(setups)))) + 1
+        column_names = [''] + list(setups_nos)
+        values = [
+            [
+                '\n'.join(wrap(str(setup[other_columns.index(column)]), 8))
+                for setup in setups
+            ]
+            for column in varied_columns
+        ]
+        table_body = np.concatenate(
+            [np.reshape(col0, (len(col0), 1)), np.reshape(values, (np.shape(values)))],
+            axis=1
+        )
+        df = pd.DataFrame(table_body, columns=column_names)
+
+        sum_rows = 1
+        for i in range(len(df)):
+            cols = list(df.loc[i])
+            sum_rows += max([len(col.split('\n')) for col in cols])
+        width = (len(df.columns) + 1) * 0.3
+        height = len(df) * height_row0 + sum_rows * height_intra_row
+        x_low = 1 - height
+        if column_of_interest == 'state_space':
+            x_low += 0.2
+        table = axs[0].table(
+            cellText=df.values, colLabels=df.columns, bbox=[1.03, x_low, width, height]
+        )
+        right = 1 / (1 + width) + 0.04
+        left = 0.05 if column_of_interest == 'state_space' else 0.1
+        bottom = 1 / (1 + height / 3) + 0.05
+        if x_low < - 1:
+            plt.subplots_adjust(left=left, right=right, bottom=bottom)
+        else:
+            plt.subplots_adjust(left=left, right=right)
+
+        cellDict = table.get_celld()
+        col0_width = 0.1 if column_of_interest == 'state_space' else 0.25
+        cellDict[(0, 0)].set_width(col0_width)
+        for i in range(1, len(df) + 1):
+            cols = list(df.loc[i - 1])
+            max_n_rows = max([len(col.split('\n')) for col in cols])
+            for j in range(len(df.columns)):
+                cellDict[(i, j)].set_height(height_row0 + height_intra_row * max_n_rows)
+            cellDict[(i, 0)].set_width(col0_width)
+
+        table.auto_set_font_size(False)
+        table.set_fontsize(7)
+        axs[0].legend()
+        set_width = 6 + len(df.columns) * 0.35
+        if column_of_interest == 'state_space':
+            set_width += 3
+        fig.set_figwidth(set_width)
+
+    return axs, fig
+
+
+def list_columns_that_vary_between_setups(setups, other_columns):
+    varied_columns = []
+    for i, setup_i in enumerate(setups):
+        for j, setup_j in enumerate(setups):
+            if i != j:
+                columns_diff_i_j = [
+                    column
+                    for column, setup_i_, setup_j_ in zip(other_columns, setup_i, setup_j)
+                    if setup_i_ != setup_j_
+                ]
+                for column in columns_diff_i_j:
+                    if column not in varied_columns:
+                        varied_columns.append(column)
+
+    return varied_columns
+
+
 def plot_sensitivity_analyses(new_columns, log):
     font = {'size': 7}
 
@@ -343,7 +554,6 @@ def plot_sensitivity_analyses(new_columns, log):
         column for column in new_columns[2:] if column not in ['nn_learned', 'time_end']
     ]
     for column_of_interest in columns_of_interest:
-        plotted_something = False
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         if column_of_interest == 'state_space':
             x_labels = []
@@ -354,125 +564,21 @@ def plot_sensitivity_analyses(new_columns, log):
             column for column in new_columns[2:]
             if column not in [column_of_interest, 'nn_learned', 'time_end']
         ]
-        rows_considered = []
-        setup_no = 0
 
-        setups = []
-        while len(rows_considered) < len(log):
-            initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
-            rows_considered.append(initial_setup_row)
-            current_setup = log[other_columns].loc[initial_setup_row].values
-            values_of_interest = [log[column_of_interest].loc[initial_setup_row]]
-            best_score = [log['best_score'].loc[initial_setup_row]]
-            best_env_score = [log['best_score_env'].loc[initial_setup_row]]
-            time_best_score = [log['time_end'].loc[initial_setup_row]]
-            for row in range(len(log)):
-                # if row not in rows_considered and all(col in log.loc[row])
-                row_setup = log[other_columns].loc[row].values
-                new_row = row not in rows_considered
-                relevant_cnn = not (
-                    column_of_interest[0:3] == 'cnn'
-                    and log['nn_type'].loc[row] != 'cnn'
-                )
-                relevant_facmac = not (
-                    column_of_interest[0: 6] == 'facmac'
-                    and log['type_learning'].loc[row] != 'facmac'
-                )
-
-                if column_of_interest == 'grdC_n':
-                    only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
-                        other_columns, current_setup, row_setup, initial_setup_row, row
-                    )
-                elif column_of_interest == 'type_learning':
-                    only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
-                        other_columns, current_setup, row_setup
-                    )
-                else:
-                    only_col_of_interest_changes = all(
-                        current_col == row_col
-                        for current_col, row_col in zip(current_setup, row_setup)
-                    )
-
-                if new_row and only_col_of_interest_changes and relevant_cnn and relevant_facmac:
-                    rows_considered.append(row)
-                    values_of_interest.append(log[column_of_interest].loc[row])
-                    best_score.append(log['best_score'].loc[row])
-                    best_env_score.append(log['best_score_env'].loc[row])
-                    time_best_score.append(log['time_end'].loc[row])
-            if len(values_of_interest) > 1:
-                all_setups_same_as_0 = all(
-                    values_of_interest_ == values_of_interest[0]
-                    for values_of_interest_ in values_of_interest
-                )
-                if all_setups_same_as_0:
-                    runs = log.loc[rows_considered[- len(values_of_interest):], 'run'].values
-                    print(f"runs {runs} equal?")
-                else:
-                    setups.append(current_setup)
-                    i_sorted = np.argsort(values_of_interest)
-                    values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
-                    best_score_sorted = [best_score[i] for i in i_sorted]
-                    best_env_score_sorted = [best_env_score[i] for i in i_sorted]
-                    time_best_score_sorted = [time_best_score[i] for i in i_sorted]
-                    axs[0].plot(values_of_interest_sorted, best_score_sorted, label=len(setups))
-                    axs[1].plot(values_of_interest_sorted, best_env_score_sorted, label=len(setups))
-                    axs[2].plot(
-                        values_of_interest_sorted, time_best_score_sorted,
-                        label=len(setups)
-                    )
-                    if column_of_interest == 'state_space':
-                        x_labels.append(values_of_interest_sorted)
-                        best_values.append(best_score_sorted)
-                        env_values.append(best_env_score_sorted)
-                        time_values.append(time_best_score_sorted)
-                    plotted_something = True
-
-            setup_no += 1
+        plotted_something, axs, setups = compare_all_runs_for_column_of_interest(
+            column_of_interest, other_columns, x_labels,
+            best_values, env_values, time_values, axs, log
+        )
 
         if plotted_something:
             if column_of_interest == 'state_space':
-                all_x_labels = []
-                for i in range(len(x_labels)):
-                    for label in x_labels[i]:
-                        if label not in all_x_labels:
-                            all_x_labels.append(label)
-
-                all_best_vals = np.empty((len(x_labels), len(all_x_labels)))
-                all_env_vals = np.empty((len(x_labels), len(all_x_labels)))
-                all_time_vals = np.empty((len(x_labels), len(all_x_labels)))
-
-                for i in range(len(x_labels)):
-                    for j in range(len(x_labels[i])):
-                        idx_value = all_x_labels.index(x_labels[i][j])
-                        all_best_vals[i, idx_value] = best_values[i][j]
-                        all_env_vals[i, idx_value] = env_values[i][j]
-                        all_time_vals[i, idx_value] = time_values[i][j]
-                plt.close()
-                for i in range(len(all_best_vals)):
-                    for j in range(len(all_best_vals[i])):
-                        if all_best_vals[i][j] < 1e-5:
-                            all_best_vals[i][j] = None
-                        if all_env_vals[i][j] < 1e-5:
-                            all_env_vals[i][j] = None
-                fig, axs = plt.subplots(3, 1, figsize=(6.4, 11))
-                for i in range(len(x_labels)):
-                    axs[0].plot(all_x_labels, all_best_vals[i], label=i + 1)
-                    axs[1].plot(all_x_labels, all_env_vals[i], label=i + 1)
-                    axs[2].plot(all_x_labels, all_time_vals[i], label=i + 1)
+                axs = adapt_figure_for_state_space(
+                    x_labels, best_values, env_values, time_values, axs
+                )
 
             # see what varies between setups
-            varied_columns = []
-            for i, setup_i in enumerate(setups):
-                for j, setup_j in enumerate(setups):
-                    if i != j:
-                        columns_diff_i_j = [
-                            column
-                            for column, setup_i_, setup_j_ in zip(other_columns, setup_i, setup_j)
-                            if setup_i_ != setup_j_
-                        ]
-                        for column in columns_diff_i_j:
-                            if column not in varied_columns:
-                                varied_columns.append(column)
+            varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
+
             if column_of_interest == 'state_space':
                 plt.xticks(rotation=90)
                 axs[0].set_xticks([])
@@ -482,9 +588,6 @@ def plot_sensitivity_analyses(new_columns, log):
                 axs[1].set_xscale('log')
                 axs[2].set_xscale('log')
 
-            height_row0 = 0.1
-            height_intra_row = 0.11
-
             # remove columns that are irrelevant to the types learning in the current setups
             if column_of_interest != 'type_learning':
                 types_learning = [setup[other_columns.index('type_learning')] for setup in setups]
@@ -493,60 +596,9 @@ def plot_sensitivity_analyses(new_columns, log):
                     if len(column.split('-')) == 1 or column.split('-')[0] in types_learning
                 ]
 
-            if len(setups) > 1:
-                col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns]
-                setups_nos = np.array(list(range(len(setups)))) + 1
-                column_names = [''] + list(setups_nos)
-                values = [
-                    [
-                        '\n'.join(wrap(str(setup[other_columns.index(column)]), 8))
-                        for setup in setups
-                    ]
-                    for column in varied_columns
-                ]
-                table_body = np.concatenate(
-                    [np.reshape(col0, (len(col0), 1)), np.reshape(values, (np.shape(values)))],
-                    axis=1
-                )
-                df = pd.DataFrame(table_body, columns=column_names)
-
-                sum_rows = 1
-                for i in range(len(df)):
-                    cols = list(df.loc[i])
-                    sum_rows += max([len(col.split('\n')) for col in cols])
-                width = (len(df.columns) + 1) * 0.3
-                height = len(df) * height_row0 + sum_rows * height_intra_row
-                x_low = 1 - height
-                if column_of_interest == 'state_space':
-                    x_low += 0.2
-                table = axs[0].table(
-                    cellText=df.values, colLabels=df.columns, bbox=[1.03, x_low, width, height]
-                )
-                right = 1 / (1 + width) + 0.04
-                left = 0.05 if column_of_interest == 'state_space' else 0.1
-                bottom = 1 / (1 + height / 3) + 0.05
-                if x_low < - 1:
-                    plt.subplots_adjust(left=left, right=right, bottom=bottom)
-                else:
-                    plt.subplots_adjust(left=left, right=right)
-
-                cellDict = table.get_celld()
-                col0_width = 0.1 if column_of_interest == 'state_space' else 0.25
-                cellDict[(0, 0)].set_width(col0_width)
-                for i in range(1, len(df) + 1):
-                    cols = list(df.loc[i - 1])
-                    max_n_rows = max([len(col.split('\n')) for col in cols])
-                    for j in range(len(df.columns)):
-                        cellDict[(i, j)].set_height(height_row0 + height_intra_row * max_n_rows)
-                    cellDict[(i, 0)].set_width(col0_width)
-
-                table.auto_set_font_size(False)
-                table.set_fontsize(7)
-                axs[0].legend()
-                set_width = 6 + len(df.columns) * 0.35
-                if column_of_interest == 'state_space':
-                    set_width += 3
-                fig.set_figwidth(set_width)
+            axs, fig = add_table_legend(
+                setups, fig, varied_columns, column_of_interest, other_columns, axs
+            )
 
             axs[0].set_ylabel("best score [£/home/h]")
             axs[1].set_ylabel(

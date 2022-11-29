@@ -93,14 +93,11 @@ class HEDGE:
         # obtain days
         day = {}
         if "loads" in self.data_types:
-            try:
-                day["loads"] = [
-                    [p * factors["loads"][home]
-                     for p in self.profs["loads"][day_type][
-                         clusters["loads"][home]][i_profiles["loads"][home]]]
-                    for home in homes]
-            except Exception as ex:
-                print(ex)
+            day["loads"] = [
+                [p * factors["loads"][home]
+                 for p in self.profs["loads"][day_type][
+                     clusters["loads"][home]][i_profiles["loads"][home]]]
+                for home in homes]
         if "gen" in self.data_types:
             gen_profs = self.profs["gen"][i_month]
             day["gen"] = [
@@ -122,7 +119,7 @@ class HEDGE:
             interval_f_ev, factors, day, i_profiles["car"] \
                 = self._adjust_max_ev_loads(
                 day, interval_f_ev, factors, transition, clusters,
-                day_type, i_profiles["car"]
+                day_type, i_profiles["car"], homes
             )
 
             day["avail_car"] = np.array([
@@ -131,9 +128,9 @@ class HEDGE:
                 for home in homes
             ])
 
-            for home in homes:
-                day["avail_car"][home] = np.where(
-                    day["loads_car"][home] > 0, 0, day["avail_car"][home]
+            for i_home, home in enumerate(homes):
+                day["avail_car"][i_home] = np.where(
+                    day["loads_car"][i_home] > 0, 0, day["avail_car"][i_home]
                 )
 
         self.factors = factors
@@ -381,11 +378,10 @@ class HEDGE:
         return day_type, transition
 
     def _adjust_max_ev_loads(self, day, interval_f_ev, factors,
-                             transition, clusters, day_type, i_ev):
-        for home in self.homes:
+                             transition, clusters, day_type, i_ev, homes):
+        for i_home, home in enumerate(homes):
             it = 0
-            while np.max(day["loads_car"][home]) > self.car["cap"][home] \
-                    and it < 100:
+            while np.max(day["loads_car"][i_home]) > self.car["cap"][home] and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:
@@ -396,7 +392,7 @@ class HEDGE:
                         clusters["car"][home]][i_ev[home]]
                     assert sum(ev_cons) == 0 or abs(sum(ev_cons) - 1) < 1e-3, \
                         f"ev_cons {ev_cons}"
-                    day["loads_car"][home] = ev_cons * factors["car"][home]
+                    day["loads_car"][i_home] = ev_cons * factors["car"][home]
                 else:
                     i_ev[home] = np.random.choice(np.arange(
                         self.n_prof["car"][day_type][clusters["car"][home]]))

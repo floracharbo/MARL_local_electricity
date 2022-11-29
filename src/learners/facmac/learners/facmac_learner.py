@@ -66,16 +66,12 @@ class FACMACLearner(Learner):
         return list_critic_out
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
-        rewards = batch["reward"][:, :-1]
-        # actions = batch["actions"][:, :-1]
         rewards = batch.data.transition_data['reward']
         if self.rl['trajectory']:
             rewards = sum(rewards)
         actions = batch.data.transition_data['actions']
         terminated = batch.data.transition_data['terminated']
-        # terminated = batch["terminated"][:, :-1].float()
         mask = batch.data.transition_data['filled']
-        # mask = batch["filled"][:, :-1].float()
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
 
         # Train the critic batched
@@ -88,10 +84,7 @@ class FACMACLearner(Learner):
             assert not th.isnan(agent_target_outs[0][0][0]), \
                 "agent_target_outs nan"
             target_actions.append(agent_target_outs)
-        try:
-            target_actions = th.stack(target_actions, dim=1)  # Concat over time
-        except Exception as ex:
-            print(ex)
+        target_actions = th.stack(target_actions, dim=1)  # Concat over time
 
         # replace all nan actions with the target action
         # so the gradient will be zero
@@ -115,11 +108,9 @@ class FACMACLearner(Learner):
             q_taken = q_taken.view(batch.batch_size, -1, self.n_agents)
             target_vals = target_vals.view(batch.batch_size, -1, self.n_agents)
 
-        if self.cuda_available:
-            target_vals = target_vals.cuda()
-            terminated = terminated.cuda()
-            rewards = rewards.cuda()
-            q_taken = q_taken.cuda()
+        target_vals, terminated, rewards, q_taken = self._vars_to_cuda(
+            target_vals, terminated, rewards, q_taken
+        )
 
         targets = rewards.expand_as(target_vals) \
             + self.rl['facmac']['gamma'] * \
@@ -228,3 +219,12 @@ class FACMACLearner(Learner):
         inputs = th.cat([x.reshape(bs * self.n_agents, -1) for x in inputs], dim=1)
 
         return inputs
+
+    def _vars_to_cuda(self, target_vals, terminated, rewards, q_taken):
+        if self.cuda_available:
+            target_vals = target_vals.cuda()
+            terminated = terminated.cuda()
+            rewards = rewards.cuda()
+            q_taken = q_taken.cuda()
+
+        return target_vals, terminated, rewards, q_taken
