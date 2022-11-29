@@ -98,7 +98,7 @@ class HEDGE:
                     [p * factors["loads"][home]
                      for p in self.profs["loads"][day_type][
                          clusters["loads"][home]][i_profiles["loads"][home]]]
-                    for home in self.homes]
+                    for home in homes]
             except Exception as ex:
                 print(ex)
         if "gen" in self.data_types:
@@ -108,14 +108,14 @@ class HEDGE:
                     p * factors["gen"][home]
                     for p in gen_profs[i_profiles["gen"][home]]
                 ]
-                for home in self.homes
+                for home in homes
             ]
         if "car" in self.data_types:
             day["loads_car"] = np.array([
                 [p * factors["car"][home]
                  for p in self.profs["car"]["cons"][day_type][
                      clusters["car"][home]][i_profiles["car"][home]]]
-                for home in self.homes
+                for home in homes
             ])
 
             # check loads car are consistent with maximum battery load
@@ -128,10 +128,10 @@ class HEDGE:
             day["avail_car"] = np.array([
                 self.profs["car"]["avail"][day_type][
                     clusters["car"][home]][i_profiles["car"][home]]
-                for home in self.homes
+                for home in homes
             ])
 
-            for home in self.homes:
+            for home in homes:
                 day["avail_car"][home] = np.where(
                     day["loads_car"][home] > 0, 0, day["avail_car"][home]
                 )
@@ -140,14 +140,13 @@ class HEDGE:
         self.clusters = clusters
 
         # save factors and clusters
-        for home in self.homes:
+        for home in homes:
             for data in self.data_types:
                 self.list_factors[data][home].append(self.factors[data][home])
             for data in self.behaviour_types:
                 self.list_clusters[data][home].append(self.clusters[data][home])
 
-        if plotting:
-            self._plotting_profiles(day)
+        self._plotting_profiles(day, plotting)
 
         return day
 
@@ -405,14 +404,7 @@ class HEDGE:
 
         return interval_f_ev, factors, day, i_ev
 
-    def _select_profiles(self,
-                         data: str,
-                         day_type: str = None,
-                         i_month: int = 0,
-                         clusters: List[int] = None
-                         ) -> List[int]:
-        """Randomly generate index of profile to select for given data."""
-        i_profs = []
+    def _compute_number_of_available_profiles(self, data, day_type, i_month):
         if data in self.behaviour_types:
             n_profs0 = [
                 self.n_prof[data][day_type][cluster]
@@ -422,12 +414,24 @@ class HEDGE:
                 for cluster in range(len(self.n_prof[data][day_type])):
                     assert self.n_prof[data][day_type][cluster] \
                            == len(self.profs[data]["cons"][day_type][cluster]), \
-                    f"self.n_prof[{data}][{day_type}][{cluster}] " \
-                    f"{self.n_prof[data][day_type][cluster]}"
+                           f"self.n_prof[{data}][{day_type}][{cluster}] " \
+                           f"{self.n_prof[data][day_type][cluster]}"
 
         else:
             n_profs0 = self.n_prof[data][i_month]
 
+        return n_profs0
+
+    def _select_profiles(
+            self,
+            data: str,
+            day_type: str = None,
+            i_month: int = 0,
+            clusters: List[int] = None
+    ) -> List[int]:
+        """Randomly generate index of profile to select for given data."""
+        i_profs = []
+        n_profs0 = self._compute_number_of_available_profiles(data, day_type, i_month)
         n_profs = n_profs0
         for home in self.homes:
             if data in self.behaviour_types:
@@ -812,7 +816,9 @@ class HEDGE:
         fig.savefig(self.save_day_path / f"avail_car_home{home}")
         plt.close("all")
 
-    def _plotting_profiles(self, day):
+    def _plotting_profiles(self, day, plotting):
+        if not plotting:
+            return
         if not os.path.exists(self.save_day_path):
             os.mkdir(self.save_day_path)
         y_labels = {

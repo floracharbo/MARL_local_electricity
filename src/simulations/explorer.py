@@ -11,7 +11,6 @@ import copy
 import datetime
 import glob
 import os
-import sys
 from datetime import timedelta
 from typing import Tuple
 
@@ -152,8 +151,8 @@ class Explorer():
                 self.data.deterministic_created = False
 
                 _, step_vals = self.data.find_feasible_data(
-                        seed_ind, methods, step_vals,
-                        evaluation, epoch, passive=True
+                    seed_ind, methods, step_vals,
+                    evaluation, epoch, passive=True
                 )
 
                 self._init_passive_data()
@@ -217,12 +216,7 @@ class Explorer():
 
         return rewards_baseline, sequence_feasible
 
-    def _get_one_episode(
-            self, method, epoch, actions, state,
-            evaluation, env, batch, step_vals
-    ):
-        step, done = 0, 0
-        sequence_feasible = True
+    def _init_traj_reward(self, method, evaluation):
         if (
             len(method.split("_")) > 1
             and reward_type(method) == "d"
@@ -231,6 +225,54 @@ class Explorer():
             traj_reward = [0 for _ in self.homes]
         else:
             traj_reward = 0
+
+        return traj_reward
+
+    def _compute_diff_rewards(
+            self, method, evaluation, reward, rewards_baseline, break_down_rewards
+    ):
+        if len(method.split("_")) > 1 \
+                and reward_type(method) == "d" \
+                and not evaluation:
+
+            if self.rl["competitive"]:
+                indiv_rewards = - break_down_rewards[-1]
+                diff_rewards = [
+                    indiv_rewards[home] - rewards_baseline[home][home]
+                    for home in self.homes
+                ]
+            else:
+                if rewards_baseline is None:
+                    print("rewards_baseline is None")
+                diff_rewards = [
+                    reward - baseline for baseline in rewards_baseline
+                ]
+        else:
+            diff_rewards = None
+
+        return diff_rewards
+
+    def _compute_global_ind_state_action(self, current_state, state, action, done, method):
+        if self.rl["type_env"] == "discrete" and method[-2] == 'C':
+            global_ind = self.env.spaces.get_global_ind(
+                current_state, state, action, done, method
+            )
+        else:
+            global_ind = {
+                "state": None,
+                "action": None,
+                "next_state": None
+            }
+
+        return global_ind
+
+    def _get_one_episode(
+            self, method, epoch, actions, state,
+            evaluation, env, batch, step_vals
+    ):
+        step, done = 0, 0
+        sequence_feasible = True
+        traj_reward = self._init_traj_reward(method, evaluation)
         # loop through steps until either end of sequence
         # or one step if infeasible
         eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv \
@@ -265,44 +307,24 @@ class Explorer():
                 reward = self._apply_reward_penalty(evaluation, reward)
             else:
                 if not self.rl['trajectory']:
-                    for evaluation_method in methods_learning_from_exploration(method, epoch, self.rl):
+                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
                         traj_reward = self.learning_manager.learning(
                             current_state, state, action, reward,
-                            done, evaluation_method, step, evaluation, traj_reward)
+                            done, eval_method, step, evaluation, traj_reward)
                 else:
                     traj_reward += reward
 
-                if len(method.split("_")) > 1 \
-                        and reward_type(method) == "d" \
-                        and not evaluation:
-                    if self.rl["competitive"]:
-                        indiv_rewards = - break_down_rewards[-1]
-                        diff_rewards = [
-                            indiv_rewards[home] - rewards_baseline[home][home]
-                            for home in self.homes
-                        ]
-                    else:
-                        if rewards_baseline is None:
-                            print("rewards_baseline is None")
-                        diff_rewards = [
-                            reward - baseline for baseline in rewards_baseline
-                        ]
-                else:
-                    diff_rewards = None
-                if self.rl["type_env"] == "discrete" and method[-2] == 'C':
-                    global_ind = self.env.spaces.get_global_ind(
-                        current_state, state, action, done, method
-                    )
-                else:
-                    global_ind = {
-                        "state": None,
-                        "action": None,
-                        "next_state": None
-                    }
+                diff_rewards = self._compute_diff_rewards(
+                    method, evaluation, reward, rewards_baseline, break_down_rewards
+                )
+                global_ind = self._compute_global_ind_state_action(
+                    current_state, state, action, done, method
+                )
                 indiv_rewards = - np.array(break_down_rewards[-1])
                 step_vals_ = [
-                    current_state, global_ind["state"], action, global_ind["action"], reward, diff_rewards,
-                    indiv_rewards, state, global_ind["next_state"], done, bool_flex, constraint_ok, *break_down_rewards
+                    current_state, global_ind["state"], action, global_ind["action"], reward,
+                    diff_rewards, indiv_rewards, state, global_ind["next_state"], done,
+                    bool_flex, constraint_ok, *break_down_rewards
                 ]
                 for info, var in zip(self.step_vals_entries, step_vals_):
                     step_vals[method][info].append(var)
@@ -333,8 +355,7 @@ class Explorer():
             = self.action_selector.set_eps_greedy_vars(rl, epoch, evaluation)
         # make data for optimisation
         # seed_mult = 1 # for initial passive consumers
-        seed_ind = self.ind_seed_deterministic \
-            if rl["deterministic"] == 1 \
+        seed_ind = self.ind_seed_deterministic if rl["deterministic"] == 1 \
             else self.data.get_seed_ind(repeat, epoch, i_explore)
         seed_ind += self.data.d_ind_seed[self.data.passive_ext]
 
@@ -388,8 +409,9 @@ class Explorer():
                 actions = None
                 if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
                     actions, _, states = self.action_selector.trajectory_actions(
-                            method, rdn_eps_greedy_indiv, eps_greedy, rdn_eps_greedy, evaluation, self.t_env
-                        )
+                        method, rdn_eps_greedy_indiv, eps_greedy,
+                        rdn_eps_greedy, evaluation, self.t_env
+                    )
                 state = env.get_state_vals(inputs=inputs_state_val)
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
                     method, epoch, actions, state, evaluation, env, batch, step_vals
@@ -399,9 +421,9 @@ class Explorer():
                         and rl["trajectory"] \
                         and not evaluation \
                         and method != "baseline":
-                    for evaluation_method in methods_learning_from_exploration(method, epoch, self.rl):
+                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
                         self.learning_manager.trajectory_deep_learn(
-                            states, actions, traj_reward, evaluation_method, evaluation)
+                            states, actions, traj_reward, eval_method, evaluation)
 
             if not sequence_feasible:  # if data is not feasible, make new data
                 n_not_feas += 1
@@ -413,8 +435,8 @@ class Explorer():
                 self.data.deterministic_created = False
                 print("find feas opt data again!")
                 [_, _, _, batch], step_vals = self.data.find_feasible_data(
-                        seed_ind, methods, step_vals,
-                        evaluation, epoch
+                    seed_ind, methods, step_vals,
+                    evaluation, epoch
                 )
 
         step_vals["seed"] = self.data.seed[self.data.passive_ext]
@@ -617,7 +639,7 @@ class Explorer():
             sum_consa += np.sum(res[f'consa({load_type})'])
 
         assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
-        assert abs((np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa)/sum_consa) < 1e-2, \
+        assert abs((np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) / sum_consa) < 1e-2, \
             f"res cons {sum_consa} does not match input demand " \
             f"{np.sum(loads[:, 0: prm['syst']['N']])}"
 
@@ -627,14 +649,15 @@ class Explorer():
                 + prm["grd"]['loss'] * res['grid2'][time_step_][0]
             ) for time_step_ in range(24)]
         )
-        i_start_res = [i for i in range(len(prm['grd']['Call']) - 24) if abs(np.sum(
+        is_start_res = [i for i in range(len(prm['grd']['Call']) - 24) if abs(np.sum(
             [prm["grd"]["Call"][i + time_step_] * (
                 res['grid'][time_step_][0]
                 + prm["grd"]['loss'] * res['grid2'][time_step_][0]
             ) for time_step_ in range(24)]
-        ) - res['gc']) < 1e-3][0]
-        assert self.env.i0_costs == i_start_res, \
-            f"self.env.i0_costs {self.env.i0_costs} i_start_res {i_start_res}"
+        ) - res['gc']) < 1e-3]
+        i_start_res = is_start_res[is_start_res.index(self.env.i0_costs)]
+        # assert self.env.i0_costs in i_start_res, \
+        #     f"self.env.i0_costs {self.env.i0_costs} i_start_res {i_start_res}"
         assert prm['grd']['C'][0] == prm['grd']['Call'][i_start_res]
         assert abs(res['gc'] - sum_gc) < 1e-3, \
             f"we cannot replicate res['gc'] {res['gc']} vs {sum_gc}"
@@ -698,7 +721,9 @@ class Explorer():
                     "reward": [(reward,)],
                     "terminated": [(time_step == self.prm["syst"]["N"] - 1,)],
                 }
-                evaluation_methods = methods_learning_from_exploration(exploration_method, epoch, rl)
+                evaluation_methods = methods_learning_from_exploration(
+                    exploration_method, epoch, rl
+                )
                 for evaluation_method in evaluation_methods:
                     self.episode_batch[evaluation_method].update(
                         pre_transition_data, ts=time_step)
@@ -741,8 +766,8 @@ class Explorer():
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
             [self.prm["grd"]["C"][time_step_] * (
-                    res['grid'][time_step_][0]
-                    + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
+                res['grid'][time_step_][0]
+                + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
             ) for time_step_ in range(24)]
         )
         if not (abs(sum_gc_0 - res['gc']) < 1e-3):

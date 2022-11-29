@@ -340,12 +340,10 @@ class LocalElecEnv():
                 <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
                 for home in self.homes
             ), f"h {h} ih {ih} " \
-               f"self.batch[home]['loads'][ih] {[self.batch[home]['loads'][ih] for home in self.homes]} " \
+               f"loads {[self.batch[home]['loads'][ih] for home in self.homes]} " \
                f"batch_flex[home][ih] {[batch_flex[home][ih] for home in self.homes]} " \
                f"len(batch_flex[0]) {len(batch_flex[0])} " \
                f"self.dloaded {self.dloaded}"
-
-
 
     def step(
             self, action: list, implement: bool = True,
@@ -598,7 +596,7 @@ class LocalElecEnv():
         vals = np.zeros((self.n_homes, len(descriptors)))
         time_step = self._get_time_step(date)
         flexibility_state = any(
-            descriptor in ['bool_flex', 'store_bool_flex', 'flexibility'] for descriptor in descriptors
+            descriptor in self.rl['flexibility_states'] for descriptor in descriptors
         )
         if flexibility_state and not self.rl['trajectory']:
             self.car.update_step(time_step=time_step)
@@ -829,14 +827,8 @@ class LocalElecEnv():
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for t in range(self.N):
-                try:
-                    tot_t = self.dloaded * self.prm["syst"]["N"] + t
-                    loads_t = self.batch[home]["loads"][tot_t]
-                except Exception as ex:
-                    print(f"ex {ex} t {t} self.dloaded {self.dloaded} home {home} "
-                          f"np.shape(self.batch[home]['loads']) {np.shape(self.batch[home]['loads'])} "
-                          f"self.prm['syst']['N'] {self.prm['syst']['N']} self.N {self.N} "
-                          f"homes {homes}")
+                tot_t = self.dloaded * self.prm["syst"]["N"] + t
+                loads_t = self.batch[home]["loads"][tot_t]
                 dayflex_a[t, 0] = (1 - self.share_flexs[home]) * loads_t
                 dayflex_a[t, self.max_delay] = self.share_flexs[home] * loads_t
             self.batch[home]['flex'] = np.concatenate(
@@ -926,6 +918,18 @@ class LocalElecEnv():
 
         return bool_penalty
 
+    def _compute_dT_next(self, home, hour):
+        T_req = self.prm['heat']['T_req' + self.passive_ext][home]
+        t_change_T_req = [t for t in range(hour + 1, self.N) if T_req[t] != T_req[hour]]
+        if len(t_change_T_req) > 0:
+            current_T_req = T_req[hour]
+            next_T_req = T_req[t_change_T_req[0]]
+            val = (next_T_req - current_T_req) / (t_change_T_req[0] - hour)
+        else:
+            val = 0
+
+        return val
+
     def _descriptor_to_val(
             self,
             descriptor: str,
@@ -945,47 +949,33 @@ class LocalElecEnv():
             "day_type": idt,
             "dT": self.prm["heat"]["T_req" + self.passive_ext][home][hour] - self.T_air[home],
         }
+        dict_functions_home = {
+            "bool_flex": self.action_translator.aggregate_action_bool_flex,
+            "store_bool_flex": self.action_translator.store_bool_flex,
+            "flexibility": self.action_translator.get_flexibility
+        }
 
         if descriptor in dict_vals:
             val = dict_vals[descriptor]
+        elif descriptor in dict_functions_home:
+            val = dict_functions_home[descriptor](home)
         elif descriptor[0: len('grdC_t')] == 'grdC_t':
             t_ = int(descriptor[len('grdC_t'):])
-            try:
-                val = self.prm['grd']['C'][t + t_] if t + t_ < self.N else self.prm['grd']['C'][self.N - 1]
-            except Exception as ex:
-                print(ex)
-        elif descriptor == "bool_flex":
-            val = self.action_translator.aggregate_action_bool_flex(home)
-        elif descriptor == "store_bool_flex":
-            val = self.action_translator.store_bool_flex(home)
-        elif descriptor == "flexibility":
-            val = self.action_translator.get_flexibility(home)
+            val = self.prm['grd']['C'][t + t_] if t + t_ < self.N \
+                else self.prm['grd']['C'][self.N - 1]
+            assert val >= 0, f"flexibility = {val}"
         elif len(descriptor) >= 4 and descriptor[0:4] == 'grdC':
             val = self.normalised_grdC[t]
         elif descriptor == 'dT_next':
-            T_req = self.prm['heat']['T_req' + self.passive_ext][home]
-            t_change_T_req = [t for t in range(hour + 1, self.N) if T_req[t] != T_req[hour]]
-            if len(t_change_T_req) > 0:
-                current_T_req = T_req[hour]
-                next_T_req = T_req[t_change_T_req[0]]
-                val = (next_T_req - current_T_req) / (t_change_T_req[0] - hour)
-            else:
-                val = 0
+            val = self._compute_dT_next(home, hour)
         elif descriptor == 'car_tau':
             val = self.car.car_tau(hour, date, home, store[home])
-        elif len(descriptor) > 9 \
-                and (descriptor[-9:-5] == 'fact'
-                     or descriptor[-9:-5] == 'clus'):
+        elif (
+                len(descriptor) > 9
+                and (descriptor[-9:-5] == 'fact' or descriptor[-9:-5] == 'clus')
+        ):
             # scaling factors / profile clusters for the whole day
-            module = descriptor.split('_')[0]  # car, loads or gen
-            if descriptor.split('_')[-1] == 'prev':
-                prev_data = self.factors if descriptor[-9:-5] == 'fact' \
-                    else self.clusters
-                val = prev_data[home][module][-1]
-            else:  # step
-                step_data = self.f if descriptor[-9:-5] == 'fact' \
-                    else self.clus
-                val = step_data[module][home]
+            val = self._get_factor_or_cluster_state(descriptor, home)
         else:  # select current or previous hour - step or prev
             h = self._get_time_step() if descriptor[-4:] == 'step' \
                 else self._get_time_step() - 1
@@ -998,16 +988,7 @@ class LocalElecEnv():
                 batch_type = 'gen' if descriptor[0:3] == 'gen' else 'loads_car'
                 val = self.batch[home][batch_type][h]
 
-        if self.rl['normalise_states']:
-            descriptor_info = self.spaces.space_info.loc[self.spaces.space_info['name'] == self.spaces.descriptor_for_idx(descriptor)]
-            max_home = descriptor_info['max'].item()[home] if isinstance(descriptor_info['max'].item(), list) else descriptor_info['max']
-            try:
-                val = ((val - descriptor_info['min']) / max_home).item()
-                if abs(val) < 1e-5:
-                    val = 0
-                assert 0 <= val <= 1, f"val {val}"
-            except Exception as ex:
-                print(ex)
+        val = self.spaces.normalise_state(descriptor, val, home)
 
         return val
 
@@ -1061,9 +1042,10 @@ class LocalElecEnv():
     def update_i0_costs(self, i0_costs=None):
         if i0_costs is not None:
             self.i0_costs = i0_costs
-        self.prm['grd']['C'] = self.prm['grd']['Call'][self.i0_costs: self.i0_costs + self.N + 1]
-        self.wholesale = self.prm['grd']['wholesale_all'][self.i0_costs: self.i0_costs + self.N + 1]
-        self.cintensity = self.prm['grd']['cintensity_all'][self.i0_costs: self.i0_costs + self.N + 1]
+        i_start, i_end = self.i0_costs, self.i0_costs + self.N + 1
+        self.prm['grd']['C'] = self.prm['grd']['Call'][i_start: i_end]
+        self.wholesale = self.prm['grd']['wholesale_all'][i_start: i_end]
+        self.cintensity = self.prm['grd']['cintensity_all'][i_start: i_end]
         i_grdC_level = [
             i for i in range(len(self.spaces.descriptors['state']))
             if self.spaces.descriptors['state'][i] == 'grdC_level'
@@ -1129,3 +1111,16 @@ class LocalElecEnv():
                     if isinstance(prm["syst"]["clus0"][data_type], list) \
                     else prm["syst"]["clus0"][data_type]
                 self.cluss[home][data_type] = [clus0]
+
+    def _get_factor_or_cluster_state(self, descriptor, home):
+        module = descriptor.split('_')[0]  # car, loads or gen
+        if descriptor.split('_')[-1] == 'prev':
+            prev_data = self.factors if descriptor[-9:-5] == 'fact' \
+                else self.clusters
+            val = prev_data[home][module][-1]
+        else:  # step
+            step_data = self.f if descriptor[-9:-5] == 'fact' \
+                else self.clus
+            val = step_data[module][home]
+
+        return val

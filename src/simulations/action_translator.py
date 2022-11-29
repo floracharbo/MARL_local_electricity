@@ -102,7 +102,8 @@ class Action_translator:
         # required addition to storage for min charge left
         # after contribution from gen
         s_add0_net = s_add_0 - g_to_add0 * eta_ch
-
+        assert np.all(s_add0_net <= self.car.c_max + 1e-3), \
+            f"s_add0_net {s_add0_net} > self.car.c_max {self.car.c_max}"
         # gen to fixed consumption
         g_to_fixed = np.minimum(g_net_add0, self.tot_l_fixed)
 
@@ -171,6 +172,9 @@ class Action_translator:
         for i in ['D', 'E', 'F']:
             d['c'][i] = self.tot_l_fixed + tot_l_flex
         a_dp = d['dp']['F'] - d['dp']['A']
+        a_dp = np.where((- 1e-3 < a_dp) & (a_dp < 0), 0, a_dp)
+        assert len(np.where(a_dp < 0)[0]) == 0, f"a_dp {a_dp}"
+
         b_dp = d['dp']['A']
 
         action_points['A'], action_points['F'] = np.zeros(self.n_homes), np.ones(self.n_homes)
@@ -304,10 +308,7 @@ class Action_translator:
             e_balance = abs((self.res[home]['dp'] + home_vars['gen'][home]
                              + self.car.discharge[home] - self.car.charge[home]
                              - self.car.loss_ch[home] - home_vars['tot_cons'][home]))
-            try:
-                assert e_balance <= 1e-2, f"energy balance {e_balance}"
-            except Exception as ex:
-                print(ex)
+            assert e_balance <= 1e-2, f"energy balance {e_balance}"
             assert abs(loads['tot_cons_loads'][home] + self.heat.tot_E[home]
                    - home_vars['tot_cons'][home]) <= 1e-3, \
                 f"tot_cons_loads {loads['tot_cons_loads'][home]}, "\
@@ -350,10 +351,7 @@ class Action_translator:
             elif self.max_charge[home] >= 0:
                 res['ds'] = self.min_charge[home] + battery_action \
                     * (self.max_charge[home] - self.min_charge[home])
-        try:
-            res['l_ch'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
-        except Exception as ex:
-            print(ex)
+        res['l_ch'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
         res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
 
         return res
@@ -463,6 +461,7 @@ class Action_translator:
 
         self.k.append(initialise_dict(self.entries))
         # reference line - dp
+
         self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
         self.action_intervals.append([0])
 

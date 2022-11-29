@@ -1,9 +1,9 @@
 import os
 import pickle
+import shutil
 from datetime import datetime
 from pathlib import Path
 from textwrap import wrap
-import shutil
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,8 +11,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
-
 # plot timing vs performance for n layers / dim layers; runs 742-656
+
+
+def is_short_type(val):
+    return isinstance(val, (int, float, bool, str))
+
+
 def list_obs_to_str(list_obs):
     """From a list of observations, get one string in alphabetical order for this combination."""
     sorted_obs = sorted(list_obs)
@@ -23,13 +28,15 @@ def list_obs_to_str(list_obs):
 
     return obs_str
 
+
 def get_list_all_fields(results_path):
     ignore = [
-        'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit', 'tot_learn_cycles',
-        'start_end_eval', 'n_all_epochs', 'T_decay_param', 'statecomb_str', 'init_len_seeds', 'opt_res_file',
-        'seeds_file', 'plot_type', 'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all',
-        'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents', 'save', 'groups', 'paths',
-        'end_decay'
+        'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit',
+        'tot_learn_cycles', 'start_end_eval', 'n_all_epochs', 'T_decay_param',
+        'statecomb_str', 'init_len_seeds', 'opt_res_file', 'seeds_file', 'plot_type',
+        'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all',
+        'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
+        'save', 'groups', 'paths', 'end_decay'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -44,18 +51,23 @@ def get_list_all_fields(results_path):
                         if subkey not in ignore:
                             if subkey == 'n_start_opt':
                                 print(f"run {result_no} n_start_opt should be n_start_opt_explo")
-                            elif (isinstance(subval, (int, float, bool, str)) or subkey == "state_space") and f"{key}-{subkey}" not in columns0:
+                            elif (
+                                    (is_short_type(subval) or subkey == "state_space")
+                                    and f"{key}-{subkey}" not in columns0
+                            ):
                                 columns0.append(f"{key}-{subkey}")
                             elif isinstance(subval, dict):
                                 for subsubkey, subsubval in subval.items():
-                                    if isinstance(subsubval, (int, float, bool, str)) and f"{key}-{subkey}-{subsubkey}" not in columns0 and subsubkey not in ignore:
+                                    new_col = f"{key}-{subkey}-{subsubkey}" not in columns0
+                                    ignore_col = subsubkey in ignore
+                                    short_type = is_short_type(subsubval)
+                                    if short_type and new_col and not ignore_col:
                                         columns0.append(f"{key}-{subkey}-{subsubkey}")
-    if 'grdC_n' not in columns0:
-        columns0.append('RL-grdC_n')
 
     columns0 = ["run", "date"] + sorted(columns0)
 
     return columns0, result_nos
+
 
 def get_names_evaluation_methods(results_path, result_nos):
     evaluation_methods_found = False
@@ -98,7 +110,7 @@ def add_default_values(log, previous_defaults):
                 prm_default = pickle.load(file)
             for column in log.columns:
                 if log.loc[row, column] is None:
-                    if column in previous_defaults and log.loc[row, 'run'] <= previous_defaults[column][0]:
+                    if column in previous_defaults and run_no <= previous_defaults[column][0]:
                         log.loc[row, column] = previous_defaults[column][1]
                     else:
                         key, subkey, subsubkey = get_key_subkeys_column(column)
@@ -123,7 +135,9 @@ def add_default_values(log, previous_defaults):
                 else:
                     default_data = None
             # replace default value
-            log[column] = log[column].apply(lambda x: replace_single_default_value(x, default_data, subkey, subsubkey))
+            log[column] = log[column].apply(
+                lambda x: replace_single_default_value(x, default_data, subkey, subsubkey)
+            )
 
     # save all defaults in prm_default row by row
     for row in range(len(log)):
@@ -160,6 +174,7 @@ def get_key_subkeys_column(column):
 
     return key, subkey, subsubkey
 
+
 def get_prm_data_for_a_result_no(results_path, result_no, columns0):
     path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
     if path_prm.is_file():
@@ -172,24 +187,33 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
             key, subkey, subsubkey = get_key_subkeys_column(column)
             str_state_space = list_obs_to_str(prm['RL']['state_space'])
             if subkey == 'grdC_n' and 'grdC_t' in str_state_space:
-                indices = [i for i in range(len(str_state_space) - 6) if str_state_space[i: i + 6] == 'grdC_t']
+                indices = [
+                    i for i in range(len(str_state_space) - 6)
+                    if str_state_space[i: i + 6] == 'grdC_t'
+                ]
                 if len(indices) > 0:
                     max_t = max([int(str_state_space[i + 6:].split('_')[0]) for i in indices])
                     prm[key][subkey] = max_t
             if key is None:
                 row.append(None)
-                print(column)
+                print(f"column {column} does not correspond to a prm key")
             elif subsubkey is None:
                 if subkey == 'state_space' and subkey in prm[key]:
                     row.append(list_obs_to_str(prm[key][subkey]))
                 else:
                     row.append(prm[key][subkey] if subkey in prm[key] else None)
+
             else:
-                row.append(prm[key][subkey][subsubkey] if subkey in prm[key] and subsubkey in prm[key][subkey] else None)
+                row.append(
+                    prm[key][subkey][subsubkey]
+                    if subkey in prm[key] and subsubkey in prm[key][subkey]
+                    else None
+                )
     else:
         row = None
 
     return row
+
 
 def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, row):
     path_metrics = results_path / f"run{result_no}" / 'figures' / 'metrics.npy'
@@ -205,7 +229,11 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
                 ]
                 if len(potential_replacement) == 1:
                     method_ = potential_replacement[0]
-            row.append(metrics['end_test_bl']['ave'][method_] if method_ in metrics['end_test_bl']['ave'] else None)
+            row.append(
+                metrics['end_test_bl']['ave'][method_]
+                if method_ in metrics['end_test_bl']['ave']
+                else None
+            )
     else:
         row = None
 
@@ -216,12 +244,13 @@ def remove_columns_that_never_change_and_tidy(log, columns0):
     new_columns = []
     for column in columns0:
         try:
-            if not column == "RL-state_space" and len(log[column][log[column].notnull()].unique()) == 1:
+            unique_value = len(log[column][log[column].notnull()].unique()) == 1
+            if not column == "RL-state_space" and unique_value:
                 log.drop([column], axis=1, inplace=True)
             else:
                 new_columns.append(column)
         except Exception as ex:
-            print(ex)
+            print(f"column {column} ex {ex}")
 
     # check there are no duplicates
     if len(new_columns) != len(set(new_columns)):
@@ -235,6 +264,7 @@ def remove_columns_that_never_change_and_tidy(log, columns0):
 
     return new_columns, log
 
+
 def compute_best_score_per_run(keys_methods, log):
     keys_methods_not_opt = [method for method in keys_methods if method != 'opt']
     keys_methods_env = [method for method in keys_methods_not_opt if method[0: 3] == 'env']
@@ -246,6 +276,60 @@ def compute_best_score_per_run(keys_methods, log):
 
     return log
 
+
+def check_that_only_grdCn_changes_in_state_space(
+        other_columns, current_setup, row_setup, initial_setup_row, row
+):
+    index_state_space = other_columns.index('state_space')
+    only_col_of_interest_changes_without_state_space = all(
+        current_col == row_col
+        for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
+        if i != index_state_space
+    )
+    if only_col_of_interest_changes_without_state_space:
+        grdC_n_current_setup, state_space_current_setup = [
+            log[column].loc[initial_setup_row]
+            for column in ['grdC_n', 'state_space']
+        ]
+        grdC_n_row_setup, state_space_row_setup = [
+            log[column].loc[row]
+            for column in ['grdC_n', 'state_space']
+        ]
+        if state_space_current_setup == state_space_row_setup:
+            only_col_of_interest_changes = True
+        else:
+            start_n, end_d = min([grdC_n_current_setup, grdC_n_row_setup]), max(
+                [grdC_n_current_setup, grdC_n_row_setup])
+            expected_diff_str = ''
+            for i in range(start_n, end_d):
+                expected_diff_str += f'grdC_t{i}_'
+            actual_diff_str_len = abs(len(state_space_current_setup) - len(state_space_row_setup))
+            only_col_of_interest_changes = actual_diff_str_len == len(expected_diff_str)
+    else:
+        only_col_of_interest_changes = False
+
+    return only_col_of_interest_changes
+
+
+def only_columns_relevant_learning_type_comparison(
+    other_columns, current_setup, row_setup
+):
+    columns_irrelevant_for_q_learning_facmac_comparison = [
+        'act_noise', 'agent_facmac', 'buffer_size', 'cnn_kernel_size',
+        'cnn_out_channels', 'facmac-batch_size', 'facmac-critic_lr',
+        'hyper_initialization_nonzeros', 'lr', 'mixer', 'n_hidden_layers',
+        'n_hidden_layers_critic', 'nn_type', 'nn_type_critic', 'obs_agent_id',
+        'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha'
+    ]
+    only_col_of_interest_changes = all(
+        current_col == row_col
+        for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
+        if other_columns[i] not in columns_irrelevant_for_q_learning_facmac_comparison
+    )
+
+    return only_col_of_interest_changes
+
+
 def plot_sensitivity_analyses(new_columns, log):
     font = {'size': 7}
 
@@ -255,7 +339,9 @@ def plot_sensitivity_analyses(new_columns, log):
     # and plot y axis best score vs x axis value (numerical or categorical)
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
-    columns_of_interest = [column for column in new_columns[2:] if column not in ['nn_learned', 'time_end']]
+    columns_of_interest = [
+        column for column in new_columns[2:] if column not in ['nn_learned', 'time_end']
+    ]
     for column_of_interest in columns_of_interest:
         plotted_something = False
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
@@ -283,19 +369,44 @@ def plot_sensitivity_analyses(new_columns, log):
             for row in range(len(log)):
                 # if row not in rows_considered and all(col in log.loc[row])
                 row_setup = log[other_columns].loc[row].values
-                if row not in rows_considered and all(
-                    current_col == row_col for current_col, row_col in zip(current_setup, row_setup)
-                ) and not (column_of_interest[0:3] == 'cnn' and log['nn_type'].loc[row] != 'cnn'
-                    and not ((column_of_interest[0: 6] == 'facmac' or column_of_interest == 'rnn_hidden_dim') and log['type_learning'].loc[row] != 'facmac')
-                ):
+                new_row = row not in rows_considered
+                relevant_cnn = not (
+                    column_of_interest[0:3] == 'cnn'
+                    and log['nn_type'].loc[row] != 'cnn'
+                )
+                relevant_facmac = not (
+                    column_of_interest[0: 6] == 'facmac'
+                    and log['type_learning'].loc[row] != 'facmac'
+                )
+
+                if column_of_interest == 'grdC_n':
+                    only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
+                        other_columns, current_setup, row_setup, initial_setup_row, row
+                    )
+                elif column_of_interest == 'type_learning':
+                    only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
+                        other_columns, current_setup, row_setup
+                    )
+                else:
+                    only_col_of_interest_changes = all(
+                        current_col == row_col
+                        for current_col, row_col in zip(current_setup, row_setup)
+                    )
+
+                if new_row and only_col_of_interest_changes and relevant_cnn and relevant_facmac:
                     rows_considered.append(row)
                     values_of_interest.append(log[column_of_interest].loc[row])
                     best_score.append(log['best_score'].loc[row])
                     best_env_score.append(log['best_score_env'].loc[row])
                     time_best_score.append(log['time_end'].loc[row])
             if len(values_of_interest) > 1:
-                if all(values_of_interest_ == values_of_interest[0] for values_of_interest_ in values_of_interest):
-                    print(f"runs {log.loc[rows_considered[-len(values_of_interest):], 'run'].values} equal?")
+                all_setups_same_as_0 = all(
+                    values_of_interest_ == values_of_interest[0]
+                    for values_of_interest_ in values_of_interest
+                )
+                if all_setups_same_as_0:
+                    runs = log.loc[rows_considered[- len(values_of_interest):], 'run'].values
+                    print(f"runs {runs} equal?")
                 else:
                     setups.append(current_setup)
                     i_sorted = np.argsort(values_of_interest)
@@ -305,7 +416,10 @@ def plot_sensitivity_analyses(new_columns, log):
                     time_best_score_sorted = [time_best_score[i] for i in i_sorted]
                     axs[0].plot(values_of_interest_sorted, best_score_sorted, label=len(setups))
                     axs[1].plot(values_of_interest_sorted, best_env_score_sorted, label=len(setups))
-                    axs[2].plot(values_of_interest_sorted, time_best_score_sorted, label=len(setups))
+                    axs[2].plot(
+                        values_of_interest_sorted, time_best_score_sorted,
+                        label=len(setups)
+                    )
                     if column_of_interest == 'state_space':
                         x_labels.append(values_of_interest_sorted)
                         best_values.append(best_score_sorted)
@@ -340,7 +454,7 @@ def plot_sensitivity_analyses(new_columns, log):
                             all_best_vals[i][j] = None
                         if all_env_vals[i][j] < 1e-5:
                             all_env_vals[i][j] = None
-                fig, axs = plt.subplots(3, 1, figsize=(6.4, 10))
+                fig, axs = plt.subplots(3, 1, figsize=(6.4, 11))
                 for i in range(len(x_labels)):
                     axs[0].plot(all_x_labels, all_best_vals[i], label=i + 1)
                     axs[1].plot(all_x_labels, all_env_vals[i], label=i + 1)
@@ -352,7 +466,8 @@ def plot_sensitivity_analyses(new_columns, log):
                 for j, setup_j in enumerate(setups):
                     if i != j:
                         columns_diff_i_j = [
-                            column for column, setup_i_, setup_j_ in zip(other_columns, setup_i, setup_j)
+                            column
+                            for column, setup_i_, setup_j_ in zip(other_columns, setup_i, setup_j)
                             if setup_i_ != setup_j_
                         ]
                         for column in columns_diff_i_j:
@@ -382,8 +497,17 @@ def plot_sensitivity_analyses(new_columns, log):
                 col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns]
                 setups_nos = np.array(list(range(len(setups)))) + 1
                 column_names = [''] + list(setups_nos)
-                values = [['\n'.join(wrap(str(setup[other_columns.index(column)]), 8)) for setup in setups] for column in varied_columns]
-                table_body = np.concatenate([np.reshape(col0, (len(col0), 1)), np.reshape(values, (np.shape(values)))], axis=1)
+                values = [
+                    [
+                        '\n'.join(wrap(str(setup[other_columns.index(column)]), 8))
+                        for setup in setups
+                    ]
+                    for column in varied_columns
+                ]
+                table_body = np.concatenate(
+                    [np.reshape(col0, (len(col0), 1)), np.reshape(values, (np.shape(values)))],
+                    axis=1
+                )
                 df = pd.DataFrame(table_body, columns=column_names)
 
                 sum_rows = 1
@@ -395,37 +519,46 @@ def plot_sensitivity_analyses(new_columns, log):
                 x_low = 1 - height
                 if column_of_interest == 'state_space':
                     x_low += 0.2
-                table = axs[0].table(cellText=df.values, colLabels=df.columns, bbox=[1.03, x_low, width, height])
-                right = 1/(1 + width) + 0.04
-                bottom = 1/(1 + height/3) + 0.05
+                table = axs[0].table(
+                    cellText=df.values, colLabels=df.columns, bbox=[1.03, x_low, width, height]
+                )
+                right = 1 / (1 + width) + 0.04
+                left = 0.05 if column_of_interest == 'state_space' else 0.1
+                bottom = 1 / (1 + height / 3) + 0.05
                 if x_low < - 1:
-                    plt.subplots_adjust(left=0.1, right=right, bottom=bottom)
+                    plt.subplots_adjust(left=left, right=right, bottom=bottom)
                 else:
-                    plt.subplots_adjust(left=0.1, right=right)
+                    plt.subplots_adjust(left=left, right=right)
 
                 cellDict = table.get_celld()
-
-                cellDict[(0, 0)].set_width(0.3)
+                col0_width = 0.1 if column_of_interest == 'state_space' else 0.25
+                cellDict[(0, 0)].set_width(col0_width)
                 for i in range(1, len(df) + 1):
                     cols = list(df.loc[i - 1])
                     max_n_rows = max([len(col.split('\n')) for col in cols])
                     for j in range(len(df.columns)):
                         cellDict[(i, j)].set_height(height_row0 + height_intra_row * max_n_rows)
-                    cellDict[(i, 0)].set_width(0.3)
+                    cellDict[(i, 0)].set_width(col0_width)
 
                 table.auto_set_font_size(False)
                 table.set_fontsize(7)
                 axs[0].legend()
-
-                fig.set_figwidth(6 + len(df.columns) * 0.3)
+                set_width = 6 + len(df.columns) * 0.35
+                if column_of_interest == 'state_space':
+                    set_width += 3
+                fig.set_figwidth(set_width)
 
             axs[0].set_ylabel("best score [£/home/h]")
-            axs[1].set_ylabel('\n'.join(wrap("best score with env-based exploration [£/home/h]", 30)))
+            axs[1].set_ylabel(
+                '\n'.join(wrap("best score with env-based exploration [£/home/h]", 30))
+            )
             axs[2].set_ylabel("time [s]")
             axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
 
             fig.savefig(f"outputs/results_analysis/{column_of_interest}_sensitivity")
             plt.close('all')
+        elif column_of_interest == 'grdC_n':
+            print("column_of_interest grdC_n and did not plot anything")
 
 
 if __name__ == "__main__":
@@ -460,6 +593,7 @@ if __name__ == "__main__":
                 print(f"no file {result_no}")
 
     new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
+
     log = add_default_values(log, previous_defaults=previous_defaults)
 
     # remove key from column name
@@ -472,7 +606,6 @@ if __name__ == "__main__":
 
     log = compute_best_score_per_run(keys_methods, log)
 
-    print(f"np.shape(log) {np.shape(log)}")
     log.to_csv(log_path)
 
     plot_sensitivity_analyses(new_columns, log)

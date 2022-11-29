@@ -138,7 +138,6 @@ def _clean_up(prm, no_run):
         shutil.rmtree(prm["paths"]["folder_run"])
 
 
-
 def post_processing(
         record: object,
         env: object,
@@ -201,4 +200,3 @@ def post_processing(
 
     # check that some learning has occurred
     check_model_changes(prm)
-

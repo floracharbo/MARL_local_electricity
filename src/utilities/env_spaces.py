@@ -62,14 +62,20 @@ def compute_max_car_cons_gen_values(env, state_space):
         )
     if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
         max_normcons = np.max(
-            [[np.max(env.prof["loads"][dt][c]) for dt in day_types] for c in range(env.n_clus["loads"])]
+            [
+                [np.max(env.prof["loads"][dt][c]) for dt in day_types]
+                for c in range(env.n_clus["loads"])
+            ]
         )
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
         max_normgen = np.max([env.prof["gen"][m] for m in range(12)])
 
     if any(descriptor == "bat_dem_agg" for descriptor in state_space):
         max_bat_dem_agg = np.max(
-            [[sum(env.prof["car"]["cons"][dt][c]) for dt in day_types] for c in range(env.n_clus["car"])]
+            [
+                [sum(env.prof["car"]["cons"][dt][c]) for dt in day_types]
+                for c in range(env.n_clus["car"])
+            ]
         )
 
     return max_car_cons, max_normcons, max_normgen, max_bat_dem_agg
@@ -81,19 +87,21 @@ class EnvSpaces():
     def __init__(self, env):
         """Initialise EnvSpaces class, add properties."""
         self.n_homes = env.n_homes
-        self.n_discrete_actions = env.prm["RL"]["n_discrete_actions"]
-        self.evaluation_methods = env.prm["RL"]["evaluation_methods"]
         self.current_date0 = env.prm['syst']['date0_dtm']
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["car"]["c_max"]
-        prm = env.prm
         self.N = env.N
         self.car = env.car
         self.action_translator = env.action_translator
         self._get_space_info(env)
+        prm = env.prm
         self._init_factors_profiles_parameters(env, prm)
-        for e in ["dim_actions", "aggregate_actions", "type_env"]:
+        for e in [
+            "dim_actions", "aggregate_actions", "type_env",
+            "n_discrete_actions", "evaluation_methods", "flexibility_states",
+        ]:
             self.__dict__[e] = prm["RL"][e]
+        self.normalise_states_bool = prm["RL"]["normalise_states"]
         self.i0_costs = env.i0_costs
         self.state_funcs = {
             "store0": self._get_store,
@@ -203,7 +211,10 @@ class EnvSpaces():
             # looping through state and action spaces
             self.descriptors[space] = descriptors
             descriptors = ["None"] if descriptors == [None] else descriptors
-            descriptors_idx = [self.space_info["name"] == self.descriptor_for_idx(descriptor) for descriptor in descriptors]
+            descriptors_idx = [
+                self.space_info["name"] == self.descriptor_for_idx(descriptor)
+                for descriptor in descriptors
+            ]
             subtable = [self.space_info.loc[i] for i in descriptors_idx]
             [self.granularity[space], self.minval[space],
              self.maxval[space], self.discrete[space]] = [
@@ -479,8 +490,7 @@ class EnvSpaces():
 
     def _initial_processing_bool_flex_computation(self, time_step, date, loads, home_vars):
         if any(
-                descriptor in ['bool_flex', 'store_bool_flex']
-                for descriptor in self.descriptors['state']
+            descriptor in self.flexibility_states for descriptor in self.descriptors['state']
         ):
             self.car.update_step(time_step=time_step)
             self.car.min_max_charge_t(time_step, date)
@@ -489,8 +499,7 @@ class EnvSpaces():
 
     def _revert_changes_bool_flex_computation(self):
         if any(
-                descriptor in ['bool_flex', 'store_bool_flex']
-                for descriptor in self.descriptors['state']
+            descriptor in self.flexibility_states for descriptor in self.descriptors['state']
         ):
             self.car.revert_last_update_step()
 
@@ -541,7 +550,8 @@ class EnvSpaces():
                     val = self.state_funcs[descriptor](inputs)
                 elif descriptor[0: len('grdC_t')] == 'grdC_t':
                     t_ = int(descriptor[len('grdC_t'):])
-                    val = prm["grd"]["Call"][self.i0_costs + time_step + t_] if time_step + t_ < self.N \
+                    val = prm["grd"]["Call"][self.i0_costs + time_step + t_] \
+                        if time_step + t_ < self.N \
                         else prm["grd"]["Call"][self.i0_costs + self.N - 1]
 
                 elif len(descriptor) > 9 \
@@ -567,13 +577,8 @@ class EnvSpaces():
                         val = prm["ntw"]["gen"][home][time_step_val]
                     else:  # remaining are car_cons_step / prev
                         val = prm["car"]["batch_loads_car"][home][time_step]
-                if prm['RL']['normalise_states']:
-                    descriptor_info = self.space_info.loc[self.space_info['name'] == self.descriptor_for_idx(descriptor)]
-                    max_home = descriptor_info['max'].item()[home] \
-                        if isinstance(descriptor_info['max'].item(), list) \
-                        else descriptor_info['max']
-                    val = ((val - descriptor_info['min']) / max_home).item()
-                    assert 0 <= val <= 1, f"val {val}"
+                val = self.normalise_state(descriptor, val, home)
+
                 vals_home.append(val)
             vals.append(vals_home)
 
@@ -607,7 +612,9 @@ class EnvSpaces():
 
     def get_flexibility(self, inputs):
         home = inputs[2]
-        return self.action_translator.get_flexibility(home)
+        flexibility = self.action_translator.get_flexibility(home)
+        assert flexibility >= 0, f"flexibility {flexibility}"
+        return flexibility
 
     def get_store_bool_flex(self, inputs, home=None):
         """Whether there is flexibility in the battery operation"""
@@ -650,5 +657,20 @@ class EnvSpaces():
     def _get_bat_dem_agg(self, inputs):
         time_step, _, home, _, prm = inputs
         val = prm["car"]["bat_dem_agg"][home][time_step]
+
+        return val
+
+    def normalise_state(self, descriptor, val, home):
+        if self.normalise_states_bool:
+            descriptor_info = self.space_info.loc[
+                self.space_info['name'] == self.descriptor_for_idx(descriptor)
+            ]
+            max_home = descriptor_info['max'].item()[home] \
+                if isinstance(descriptor_info['max'].item(), list) \
+                else descriptor_info['max']
+            val = ((val - descriptor_info['min']) / max_home).item()
+            if abs(val) < 1e-5:
+                val = 0
+            assert 0 <= val <= 1, f"val {val} max_home {max_home} descriptor {descriptor}"
 
         return val

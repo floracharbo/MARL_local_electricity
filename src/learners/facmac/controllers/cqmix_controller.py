@@ -98,7 +98,8 @@ class CQMixMAC(BasicMAC):
 
         # Note batch_size_run is set to be 1 in our experiments
         if self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
-            hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] else self.hidden_states[bs]
+            hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] \
+                else self.hidden_states[bs]
             chosen_actions = self.forward(
                 ep_batch[bs], t_ep,
                 hidden_states=hidden_states,

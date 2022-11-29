@@ -13,6 +13,7 @@ def second(x, a, b):
     """Second-order function."""
     return a * x ** 2 + b
 
+
 def exponential(x, a, b):
     """Exponential function."""
     return x ** a + b

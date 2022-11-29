@@ -81,12 +81,17 @@ def check_model_changes(prm):
                     mixers.append(th.load(path / "mixer.th"))
 
             fc1_bias = "fc1.module.bias" if prm['RL']['data_parallel'] else "fc1.bias"
-            hyper_b_1_bias = "hyper_b_1.module.bias" if prm['RL']['data_parallel'] else "hyper_b_1.bias"
+            hyper_b_1_bias = "hyper_b_1.module.bias" if prm['RL']['data_parallel'] \
+                else "hyper_b_1.bias"
 
-            agents_learned[method] = not all(a0 == a1 for a0, a1 in zip(agents[0][fc1_bias], agents[-1][fc1_bias]))
-            mixer_learned[method] = prm['ntw']['n'] == 1 or not prm["RL"]["mixer"] == "qmix" or not all(
-                mixer0 == mixer1 for mixer0, mixer1 in zip(mixers[0][hyper_b_1_bias], mixers[-1][hyper_b_1_bias])
-                )
+            agents_learned[method] = not all(
+                a0 == a1 for a0, a1 in zip(agents[0][fc1_bias], agents[-1][fc1_bias])
+            )
+            check_mixer = prm['ntw']['n'] > 1 and prm["RL"]["mixer"] == "qmix"
+            mixer_learned[method] = not check_mixer or not all(
+                mixer0 == mixer1
+                for mixer0, mixer1 in zip(mixers[0][hyper_b_1_bias], mixers[-1][hyper_b_1_bias])
+            )
             if not (agents_learned and mixer_learned):
                 prm["RL"]["nn_learned"] = False
                 print(f"agents_learned {agents_learned} mixer_learned {mixer_learned}")

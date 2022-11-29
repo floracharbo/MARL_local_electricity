@@ -71,8 +71,7 @@ class Runner():
             # looping through epochs
             # have progress bar while running through epochs
             model_save_time = 0
-            for epoch in tqdm(range(self.rl['n_epochs']),
-                              position=0, leave=True):
+            for epoch in tqdm(range(self.rl['n_epochs']), position=0, leave=True):
                 t_start = time.time()  # start recording time
                 # explorations in series
                 # (could maybe parallelise but may cause issues)
@@ -147,36 +146,37 @@ class Runner():
                 self.rl['seeds'][passive_ext] = self.explorer.seeds[passive_ext].copy()
 
     def _initialise_buffer_learner_mac_facmac(self, method):
+        rl = self.rl
         if 'buffer' not in self.__dict__.keys():
             self.buffer = {}
             self.mac = {}
         self.buffer[method] = ReplayBuffer(
-            self.rl['scheme'], self.rl['groups'],
-            self.rl['buffer_size'],
-            self.rl['env_info']["episode_limit"] + 1 if self.rl['runner_scope'] == "episodic" else 2,
-            preprocess=self.rl['preprocess'],
-            device="cpu" if self.rl['buffer_cpu_only']
-            else self.rl['device'])
+            rl['scheme'], rl['groups'],
+            rl['buffer_size'],
+            rl['env_info']["episode_limit"] + 1 if rl['runner_scope'] == "episodic" else 2,
+            preprocess=rl['preprocess'],
+            device="cpu" if rl['buffer_cpu_only']
+            else rl['device'])
 
         # Setup multiagent controller here
-        self.mac[method] = mac_REGISTRY[self.rl['mac']](
-            self.buffer[method].scheme, self.rl['groups'],
-            self.rl, self.N
+        self.mac[method] = mac_REGISTRY[rl['mac']](
+            self.buffer[method].scheme, rl['groups'],
+            rl, self.N
         )
         self.new_episode_batch = \
-            partial(EpisodeBatch, self.rl['scheme'],
-                    self.rl['groups'],
-                    self.rl['batch_size_run'],
-                    self.rl['episode_limit'] + 1,
-                    preprocess=self.rl['preprocess'],
-                    device=self.rl['device'])
-        self.learner[method] = le_REGISTRY[self.rl['learner']](
+            partial(EpisodeBatch, rl['scheme'],
+                    rl['groups'],
+                    rl['batch_size_run'],
+                    rl['episode_limit'] + 1,
+                    preprocess=rl['preprocess'],
+                    device=rl['device'])
+        self.learner[method] = le_REGISTRY[rl['learner']](
             self.mac[method],
             self.buffer[method].scheme,
-            self.rl,
+            rl,
             self.N
         )
-        if self.rl['use_cuda']:
+        if rl['use_cuda']:
             self.learner[method].cuda()
 
     def _initialise_buffer_learner_mac_deep_learning(self, method):

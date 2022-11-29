@@ -18,7 +18,7 @@ class MLPAgent(Agent):
             inputs = inputs.view(inputs.size()[0], 1, inputs.size()[1])
         inputs = inputs.to(self.device)
         if self.rl['nn_type'] in ['lstm', 'rnn']:
-            batch_size = int(inputs.size()[0]/self.n_agents)
+            batch_size = int(inputs.size()[0] / self.n_agents)
             inputs = inputs.view(batch_size, self.n_agents, inputs.size()[1])
             if self.rl['nn_type'] == 'lstm':
                 if self.hidden is None:

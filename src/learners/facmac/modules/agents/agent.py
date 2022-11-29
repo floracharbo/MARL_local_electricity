@@ -1,4 +1,3 @@
-import copy
 
 import torch as th
 import torch.nn as nn
@@ -24,10 +23,28 @@ class Agent(nn.Module):
             self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
             self.layers = nn.ModuleList([])
             if self.rl['n_cnn_layers'] > 1:
-                self.layers.extend([nn.Conv1d(rl['cnn_out_channels'], rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size']) for _ in range(self.rl['n_cnn_layers'] - 1)])
-            self.layers.append(nn.Linear((input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim']))
+                self.layers.extend(
+                    [
+                        nn.Conv1d(
+                            rl['cnn_out_channels'], rl['cnn_out_channels'],
+                            kernel_size=rl['cnn_kernel_size']
+                        )
+                        for _ in range(self.rl['n_cnn_layers'] - 1)
+                    ]
+                )
+            self.layers.append(
+                nn.Linear(
+                    (input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'],
+                    self.rl['rnn_hidden_dim']
+                )
+            )
             if self.rl['n_hidden_layers'] > 1:
-                self.layers.extend([nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim']) for _ in range(self.rl['n_hidden_layers'] - 1)])
+                self.layers.extend(
+                    [
+                        nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+                        for _ in range(self.rl['n_hidden_layers'] - 1)
+                    ]
+                )
 
         elif self.rl['nn_type'] in ['rnn', 'lstm']:
             if self.rl['nn_type'] == 'lstm':
@@ -36,9 +53,14 @@ class Agent(nn.Module):
                     batch_first=True
                 )
             elif self.rl['nn_type'] == 'rnn':
-                self.fc1 = nn.RNN(input_shape, rl['rnn_hidden_dim'], num_layers=rl['num_layers_rnn'], batch_first=True)
+                self.fc1 = nn.RNN(
+                    input_shape, rl['rnn_hidden_dim'], num_layers=rl['num_layers_rnn'],
+                    batch_first=True
+                )
 
-            self.layers = nn.ModuleList([nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])])
+            self.layers = nn.ModuleList(
+                [nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])]
+            )
             for i in range(self.rl['n_hidden_layers'] - 1):
                 self.layers.append(
                     nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
@@ -64,6 +86,7 @@ class Agent(nn.Module):
             self.fc_out = nn.DataParallel(self.fc_out)
             for i in range(len(self.layers)):
                 self.layers[i] = nn.DataParallel(self.layers[i])
+
     def init_hidden(self):
         # make hidden states on same device as model
         if self.rl['data_parallel']:

@@ -25,14 +25,15 @@ settings = {
         'evaluation_methods': [['env_r_c', 'opt']] * 1,
         'lr': 1e-3,
         'facmac': {'critic_lr': 5e-4},
-        'ou_stop_episode': 1e3,  # for cqmix controller - training noise goes to zero after this episode
-        'start_steps': [100],  # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
+        'ou_stop_episode': 1e3,
+        'start_steps': [100],
         'hyper_initialization_nonzeros': 0.1,
     },
     'ntw': {
         'n': 10
     },
 }
+
 
 def initialise_settings_prm_log(settings, log_path):
     prm = input_paths()
@@ -56,7 +57,8 @@ def find_previous_run_with_same_settings(settings, log_path):
             if isinstance(subvalue, dict):
                 for subsubkey, subsubvalue in subvalue.items():
                     col_name = f"{subkey}_{subsubkey}"
-                    col_value = list_obs_to_str(subsubvalue) if col_name == 'state_space' else subsubvalue
+                    col_value = list_obs_to_str(subsubvalue) if col_name == 'state_space' \
+                        else subsubvalue
                     if col_name in log.columns:
                         if len(log.index[log[col_name] == col_value].tolist()) > 0:
                             log = log.loc[log[col_name] == col_value]

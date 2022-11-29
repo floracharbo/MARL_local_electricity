@@ -216,7 +216,11 @@ class FACMACLearner(Learner):
                             1, self.n_agents, 1).
                         view(bs, self.n_agents, -1)))
                 else:
-                    inputs.append(batch["actions"][:, t - 1].repeat(1, self.n_agents, 1).view(bs, self.n_agents, -1))
+                    inputs.append(
+                        batch["actions"][:, t - 1].repeat(1, self.n_agents, 1).view(
+                            bs, self.n_agents, -1
+                        )
+                    )
 
         else:
             inputs.append(batch["obs"][:, t])

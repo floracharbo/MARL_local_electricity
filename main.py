@@ -18,7 +18,7 @@ settings = {
     'RL': {
         'aggregate_actions': False,
         'cnn_kernel_size': 2,
-        'n_epochs': [20] * 9 + [200],
+        'n_epochs': 200,
         'normalise_states': True,
         'obs_agent_id': True,
         # current experiment
@@ -31,9 +31,9 @@ settings = {
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
 
         # # flexibility
-        'state_space': [['grdC_n2'], ['grdC_n3'], ['grdC_n4'], ['grdC_n6'], ['grdC_n7'], ['grdC_n8'], ['grdC_n9'], ['grdC_n10']],
-        'type_learning': ['facmac'] * 8 + ['q_learning'] * 2,
-        'evaluation_methods': [['env_r_c', 'opt']] * 7,
+        'state_space': [['flexibility', 'grdC_n3']],
+        'type_learning': 'facmac',
+        # 'evaluation_methods': [['env_r_c', 'opt']] * 3,
         'n_repeats': 3,
         'lr': 1e-3,
         'facmac': {'critic_lr': 5e-4, 'batch_size': 5},
@@ -42,9 +42,10 @@ settings = {
         'hyper_initialization_nonzeros': 0.1,
         'n_hidden_layers': 2,
         'n_hidden_layers_critic': 1,
-        'trajectory': True,
+        'trajectory': False,
         'n_cnn_layers': 1,
         'rnn_hidden_dim': 500,
+        # 'nn_type': 'cnn'
     },
     'ntw': {
         'n': 10,

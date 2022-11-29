@@ -40,9 +40,11 @@ class BasicMAC:
         if self.rl['nn_type'] in ['lstm', 'rnn']:
             hidden_states = self.agent.init_hidden()
             self.hidden_states_ih = hidden_states[0].unsqueeze(0).expand(
-            batch_size, self.n_agents, -1)  # bav
+                batch_size, self.n_agents, -1
+            )  # bav
             self.hidden_states_hh = hidden_states[1].unsqueeze(0).expand(
-            batch_size, self.n_agents, -1)  # bav
+                batch_size, self.n_agents, -1
+            )  # bav
         else:
             self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(
                 batch_size, self.n_agents, -1)  # bav

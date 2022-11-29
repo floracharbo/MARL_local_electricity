@@ -1,5 +1,3 @@
-import copy
-
 import torch as th
 import torch.nn as nn
 
@@ -22,13 +20,32 @@ class Critic(nn.Module):
         if self.rl['nn_type_critic'] == 'linear':
             self.fc1 = nn.Linear(self.input_shape, rl['rnn_hidden_dim'])
             if self.rl['n_hidden_layers_critic'] > 0:
-                self.layers.extend([nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim']) for _ in range(self.rl['n_hidden_layers_critic'])])
+                self.layers.extend(
+                    [
+                        nn.Linear(self.rl['rnn_hidden_dim'], self.rl['rnn_hidden_dim'])
+                        for _ in range(self.rl['n_hidden_layers_critic'])
+                    ]
+                )
 
         elif self.rl['nn_type_critic'] == 'cnn':
             self.fc1 = nn.Conv1d(1, rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size'])
             if self.rl['n_cnn_layers_critic'] > 1:
-                self.layers.extend([nn.Conv1d(self.rl['cnn_out_channels'], self.rl['cnn_out_channels'], kernel_size=rl['cnn_kernel_size']) for _ in range(self.rl['n_hidden_layers_critic'])])
-            self.layers.append(nn.Linear((self.input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'], self.rl['rnn_hidden_dim']))
+                self.layers.extend(
+                    [
+                        nn.Conv1d(
+                            self.rl['cnn_out_channels'],
+                            self.rl['cnn_out_channels'],
+                            kernel_size=rl['cnn_kernel_size']
+                        )
+                        for _ in range(self.rl['n_hidden_layers_critic'])
+                    ]
+                )
+            self.layers.append(
+                nn.Linear(
+                    (self.input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'],
+                    self.rl['rnn_hidden_dim']
+                )
+            )
 
             if self.rl['n_hidden_layers_critic'] > 1:
                 self.layers.extend(

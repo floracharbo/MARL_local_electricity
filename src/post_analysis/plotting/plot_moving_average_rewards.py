@@ -73,10 +73,8 @@ def plot_results_all_repeats(
         plt.fill_between(epoch_not_None, p25_not_None, p75_not_None,
                          color=prm['save']['colourse'][e], alpha=0.3)
 
-
     plt.hlines(y=0, xmin=0, xmax=len(p25), colors='k',
                linestyle='dotted')
-
 
     plt.ylim([lower_bound, upper_bound])
     plt.xlabel('Episode')

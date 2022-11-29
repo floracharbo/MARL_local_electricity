@@ -158,23 +158,25 @@ class TabularQLearner:
     ):
         val_q = 0 if ind_next_state is None \
             else max(self.q_tables[q_table_name][i_table][ind_next_state])
+        qs_state = self.q_tables[q_table_name][i_table][ind_state]
         if type(val_q) in [list, np.ndarray]:
             print(f'val_q {val_q}')
         value = reward + (not done) * self.rl['q_learning']['gamma'] * val_q
         if type(value) in [list, np.ndarray]:
             print(f'value {value}')
         if ind_action is not None:
-            td_error = value - self.q_tables[q_table_name][i_table][ind_state][ind_action]
+            td_error = value - qs_state[ind_action]
             if type(td_error) in [list, np.ndarray]:
                 print(f'td_error {td_error}')
-            add_supervised_loss = \
-                True if data_source(q_table_name, epoch) == 'opt' and self.rl['supervised_loss'] else False
+            add_supervised_loss = True \
+                if data_source(q_table_name, epoch) == 'opt' and self.rl['supervised_loss'] \
+                else False
             if add_supervised_loss:
-                n_possible_actions = len(self.q_tables[q_table_name][i_table][ind_state])
+                n_possible_actions = len(qs_state)
                 lE = np.ones(n_possible_actions) * self.rl['expert_margin']
                 lE[ind_action] = 0
-                Q_plus_lE = np.array(self.q_tables[q_table_name][i_table][ind_state]) + lE
-                supervised_loss = np.max(Q_plus_lE) - self.q_tables[q_table_name][i_table][ind_state][ind_action]
+                Q_plus_lE = np.array(qs_state) + lE
+                supervised_loss = np.max(Q_plus_lE) - qs_state[ind_action]
                 td_error += self.rl['supervised_loss_weight'] * supervised_loss
             lr = self.get_lr(td_error, q_table_name)
             self.q_tables[q_table_name][i_table][ind_state][ind_action] += lr * td_error
@@ -340,7 +342,8 @@ class TabularQLearner:
                 # difference to global baseline
                 if ind_global_ac[0] is not None:
                     self.update_q(
-                        reward[-1], done, ind_next_global_s[0], ind_global_ac[0], ind_next_global_s[0], epoch,
+                        reward[-1], done, ind_next_global_s[0],
+                        ind_global_ac[0], ind_next_global_s[0], epoch,
                         i_table=0, q_table_name=q + '0'
                     )
                     for home in range(self.n_agents):
@@ -363,7 +366,8 @@ class TabularQLearner:
                             diff_rewards, indiv_rewards, reward, q, home
                         )
                         self.update_q(
-                            reward_home, done, ind_indiv_s[home], ind_indiv_ac[home], ind_next_indiv_s[home], epoch,
+                            reward_home, done, ind_indiv_s[home], ind_indiv_ac[home],
+                            ind_next_indiv_s[home], epoch,
                             i_table=i_table, q_table_name=q
                         )
 
@@ -434,7 +438,8 @@ class TabularQLearner:
         for home in range(self.n_agents):
             if ind_indiv_ac[home] is not None:
                 self.update_q(
-                    reward, done, ind_indiv_s[home], ind_indiv_ac[home], ind_next_indiv_s[home], epoch,
+                    reward, done, ind_indiv_s[home], ind_indiv_ac[home],
+                    ind_next_indiv_s[home], epoch,
                     i_table=0, q_table_name=q + '0'
                 )
                 q0 = self.q_tables[q + '0'][0]
@@ -456,7 +461,8 @@ class TabularQLearner:
         for home in range(self.n_agents):
             if ind_indiv_ac[home] is not None:
                 self.update_q(
-                    reward, done, ind_indiv_s[home], ind_indiv_ac[home], ind_next_indiv_s[home], epoch,
+                    reward, done, ind_indiv_s[home], ind_indiv_ac[home],
+                    ind_next_indiv_s[home], epoch,
                     i_table=home, q_table_name=q + '0'
                 )
                 q0 = self.q_tables[q + '0'][home][ind_indiv_s[home]][
