@@ -46,6 +46,8 @@ def initialise_settings_prm_log(settings, log_path):
     log = pd.read_csv(log_path)
 
     return prm, profiles, log
+
+
 def find_previous_run_with_same_settings(settings, log_path):
     prm, profiles, log = initialise_settings_prm_log(settings, log_path)
 
@@ -82,12 +84,12 @@ def find_previous_run_with_same_settings(settings, log_path):
         print(f"run(s) {log['run']}")
         print(log)
 
-def find_best_run_with_settings(settings, log_path):
-    settings_i = get_settings_i(settings, 0)
-    log = pd.read_csv(log_path)
-    list_setups = []
+    return log
 
 
-
-find_previous_run_with_same_settings(settings, log_path)
-find_best_run_with_settings(settings, log_path)
+log = find_previous_run_with_same_settings(settings, log_path)
+if len(log) > 1:
+    idxmax = log['best_score'].idxmax()
+    print(f"best run: {log.iloc[idxmax]}")
+    idxmax_env = log['best_score_env'].idxmax()
+    print(f"best run with env-based exploration: {log.iloc[idxmax_env]}")
