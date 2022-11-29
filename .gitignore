@@ -5,7 +5,6 @@
 *.pdf
 src/post_analysis/plot_time_performance_layers.py
 results/
-.github/workflows
 *.icloud
 potentially_useless
 input_data/hedge_inputs*

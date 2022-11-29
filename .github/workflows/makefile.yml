@@ -17,5 +17,5 @@ jobs:
     - name: Install dependencies
       run: make developer_env
       
-    - name: Run check
+    - name: Run test
       run: make test

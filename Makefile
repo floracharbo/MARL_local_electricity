@@ -1,7 +1,5 @@
 .PHONY: all install lint test format
 
-check: test
-
 developer_env:
 	pip install -r config_files/environments/developer_requirements.txt
 
