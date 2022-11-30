@@ -180,13 +180,15 @@ class TabularQLearner:
                 td_error += self.rl['supervised_loss_weight'] * supervised_loss
             lr = self.get_lr(td_error, q_table_name)
             self.q_tables[q_table_name][i_table][ind_state][ind_action] += lr * td_error
-
             self.counter[q_table_name][i_table][ind_state][ind_action] += 1
 
     def get_lr(self, td_error, q):
-        if isinstance(self.alpha, (int, float)):
-            lr = self.alpha if (not self.hysteretic or td_error > 0) \
-                else self.alpha * self.rl['q_learning']['beta_to_alpha']
+        if isinstance(self.alpha, float):
+            try:
+                lr = self.alpha if (not self.hysteretic or td_error > 0) \
+                    else self.alpha * self.rl['q_learning']['beta_to_alpha']
+            except Exception as ex:
+                print(f"ex = {ex}")
         else:
             beta_to_alpha = self.rl['beta_to_alpha'] \
                 if isinstance(self.rl['beta_to_alpha'], float) \

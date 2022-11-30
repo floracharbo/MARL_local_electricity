@@ -11,11 +11,8 @@ input_data/hedge_inputs*
 outputs/*
 !outputs/opt_res
 outputs/opt_res/*
-!outputs/opt_res/batch_test*
-!outputs/opt_res/res_test*
-!outputs/opt_res/factors_test*
-!outputs/opt_res/clusters_test*
-out_rl*
-.gitignore.swp
-*.DS_Store
-src/post_analysis/plot_time_performance_layers.py
+!outputs/opt_res/batch_test.npy
+!outputs/opt_res/res_test.npy
+!outputs/opt_res/factors_test.npy
+!outputs/opt_res/clusters_test.npy
+out_*

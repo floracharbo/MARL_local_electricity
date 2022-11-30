@@ -53,15 +53,6 @@ settings = {
         'n': 10,
         # 'nP': 10,
     },
-
-    'grd': {
-        'manage_agg_power': [True, False] * 1,
-        'max_grid_in': 15,
-        'max_grid_out': 15,
-        'penalty_coefficient_in': 0.01 ,
-        'penalty_coefficient_out': 0.01 
-        #'manage_agg_power' : True
-    }
 }
 
 # obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation
@@ -79,11 +70,9 @@ no_runs = [823]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
 
-#for type_learning in ['facmac', 'q_learning']:
-#    settings['RL']['type_learning'] = type_learning
-#    for aggregate_actions in [True, False]:
-#        settings['RL']['aggregate_actions'] = aggregate_actions
-#        for manage_agg_power in [True, False]:
-#            settings['grd']['manage_agg_power'] = manage_agg_power
-#            print(f"test {type_learning} aggregate_actions {aggregate_actions} manage_agg_power {manage_agg_power}")
-#            run(RUN_MODE, settings)
+# for type_learning in ['facmac', 'q_learning']:
+#     settings['RL']['type_learning'] = type_learning
+#     for aggregate_actions in [True, False]:
+#         settings['RL']['aggregate_actions'] = aggregate_actions
+#         print(f"test {type_learning} aggregate_actions {aggregate_actions}")
+#         run(RUN_MODE, settings)

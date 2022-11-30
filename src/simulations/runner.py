@@ -536,9 +536,8 @@ def run(run_mode, settings, no_runs=None):
 
             settings_i = get_settings_i(settings, i)
             # initialise learning parameters, system parameters and recording
-            prm, record, profiles, no_run = initialise_objects(
-                prm, settings=settings_i
-            )
+            prm, record, profiles = initialise_objects(
+                prm, settings=settings_i)
 
             description_run = 'current code '
             for e in ['type_learning', 'n_repeats', 'n_epochs',
@@ -561,7 +560,6 @@ def run(run_mode, settings, no_runs=None):
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode
             )
-
             print(f"--- {time.time() - start_time} seconds ---")
 
     # post learning analysis / plotting
@@ -572,7 +570,7 @@ def run(run_mode, settings, no_runs=None):
         for no_run in no_runs:
             rl, prm = load_existing_prm(prm, no_run)
 
-            prm, record, profiles, no_run = initialise_objects(prm, no_run=no_run)
+            prm, record, profiles = initialise_objects(prm, no_run=no_run)
             # make user defined environment
             env = LocalElecEnv(prm, profiles)
             record.init_env(env)  # record progress as we train

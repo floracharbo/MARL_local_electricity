@@ -81,7 +81,6 @@ def compute_max_car_cons_gen_values(env, state_space):
     return max_car_cons, max_normcons, max_normgen, max_bat_dem_agg
 
 
-
 class EnvSpaces():
     """Manage indexes operations for environment states and actions."""
 
@@ -127,11 +126,18 @@ class EnvSpaces():
         max_car_cons, max_normcons, max_normgen, max_bat_dem_agg \
             = compute_max_car_cons_gen_values(env, prm["RL"]["state_space"])
 
-
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         n_other_states = rl["n_other_states"]
+        # max_flexibility = np.zeros(self.n_homes)
+        # for home in range(self.n_homes):
+        #     if prm['heat']['own_heat'][home]:
+        #         max_flexibility[home] += 2
+        #     if prm['car']['own_car'][home]:
+        #         max_flexibility[home] += prm['car']['c_max']
+        #     if prm['loads']['own_flex'][home]:
+        #         max_flexibility[home] += 3
         max_flexibility = prm['car']['c_max'] + prm['car']['d_max']
         info = [
             ["None", 0, 0, 1, 1],
@@ -293,7 +299,6 @@ class EnvSpaces():
                 if typev == "action" and index[s] == 0:
                     val.append(0)
                 elif typev == "action" and index[s] == self.n_discrete_actions - 1:
-
                     val.append(1)
                 else:
                     val.append((brackets_s[int(index[s])]

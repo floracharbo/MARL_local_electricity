@@ -665,7 +665,7 @@ class Explorer():
             f"we cannot replicate res['gc'] {res['gc']} vs {sum_gc}"
 
         # check reward from environment and res variables match
-        res_reward_t = - (res['pci'][time_step][0] + res['pco'][time_step][0]) \
+        res_reward_t = \
             - (prm["grd"]["C"][time_step]
                * (res["grid"][time_step][0]
                   + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)
@@ -732,7 +732,6 @@ class Explorer():
                         pre_transition_data, ts=time_step)
                     self.episode_batch[evaluation_method].update(
                         post_transition_data, ts=time_step)
-
 
             elif rl["type_learning"] in ["DDPG", "DQN", "DDQN"]:
                 self.learning_manager.independent_deep_learning(
@@ -985,7 +984,6 @@ class Explorer():
         self.env.heat.T = res["T"][:, time_step]
         self.env.car.store = res["store"][:, time_step]
         combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
-
         for home in self.homes:
             actions_baseline_a = np.array(actions)
             actions_baseline_a[home] = 1

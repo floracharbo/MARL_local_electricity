@@ -211,11 +211,11 @@ class Record():
     def load(self, prm: dict):
         """List files to load for record object & call loading_file method."""
         repeat_labels = [e for e in self.repeat_entries
-                         if e not in ["q_tables", "counters"]] \
+                         if e not in ["q_tables", "counters"]]\
             if not self.save_qtables \
             else self.repeat_entries
         stateind_labels = self.stateind_entries + \
-            ["q_tables", "counter"] if not self.save_qtables \
+            ["q_tables", "counters"] if not self.save_qtables \
             else self.stateind_entries
         for label in repeat_labels:
             for repeat in range(prm["RL"]["n_repeats"]):
