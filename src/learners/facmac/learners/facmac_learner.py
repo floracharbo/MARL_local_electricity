@@ -65,7 +65,7 @@ class FACMACLearner(Learner):
 
         return list_critic_out
 
-    def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
+    def train(self, batch: EpisodeBatch):
         rewards = batch.data.transition_data['reward']
         if self.rl['trajectory']:
             rewards = sum(rewards)
@@ -116,6 +116,7 @@ class FACMACLearner(Learner):
             + self.rl['facmac']['gamma'] * \
             (1 - terminated.expand_as(target_vals)) * target_vals
         td_error = (targets.detach() - q_taken)
+        td_error = self.add_supervised_loss(td_error, batch)
 
         mask = mask.expand_as(td_error)
         mask = mask.cuda() if self.cuda_available else mask
@@ -165,6 +166,17 @@ class FACMACLearner(Learner):
         else:
             raise Exception(f"unknown target update mode: "
                             f"{self.rl['target_update_mode']}!")
+
+    def add_supervised_loss(self, td_error, batch):
+        if self.rl['supervised_loss']:
+            for episode in range(batch.batch_size):
+                for step in range(batch.max_seq_length):
+                    td_error[episode, step] += th.sum(th.square(
+                        batch.data.transition_data['actions'][episode][step]
+                        - batch.data.transition_data['optimal_actions'][episode, step]
+                    )) * self.rl['supervised_loss_weight']
+
+        return td_error
 
     def _replace_nan_actions_with_target_actions(self, actions, target_actions):
         shape_actions = np.shape(actions)

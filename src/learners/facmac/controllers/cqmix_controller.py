@@ -20,8 +20,7 @@ class CQMixMAC(BasicMAC):
     ):
         if not test_mode:  # do exploration
             if self.rl["exploration_mode"] == "ornstein_uhlenbeck":
-                x = getattr(self, "ou_noise_state",
-                            chosen_actions.clone().zero_())
+                x = getattr(self, "ou_noise_state", chosen_actions.clone().zero_())
                 mu = 0
                 theta = self.rl['ou_theta']
                 sigma = self.rl['ou_sigma']

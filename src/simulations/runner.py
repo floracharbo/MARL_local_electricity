@@ -90,7 +90,7 @@ class Runner():
 
                     if self.rl['type_learning'] == 'facmac':
                         # insert episode batch in buffer, sample, train
-                        self._facmac_episode_batch_insert_and_sample(episode, epoch)
+                        self._facmac_episode_batch_insert_and_sample(epoch)
 
                     # append record
                     for e in ['seed', 'n_not_feas', 'not_feas_vars']:
@@ -291,7 +291,7 @@ class Runner():
 
         return date0, delta, i0_costs
 
-    def _facmac_episode_batch_insert_and_sample(self, episode, epoch):
+    def _facmac_episode_batch_insert_and_sample(self, epoch):
         for t_explo in self.rl["exploration_methods"]:
             methods_to_update = methods_learning_from_exploration(t_explo, epoch, self.rl)
             for method in methods_to_update:
@@ -317,8 +317,6 @@ class Runner():
                         episode_sample.to(self.rl['device'])
                     self.learner[method].train(
                         episode_sample,
-                        self.explorer.t_env,
-                        episode
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods):
@@ -401,6 +399,8 @@ class Runner():
             types_needed = candidate_types
         if opt_stage:
             types_needed = [method for method in types_needed if len(method.split("_")) < 5]
+        if self.rl['supervised_loss'] and 'opt' not in types_needed:
+            types_needed.append('opt')
 
         return types_needed
 
@@ -568,7 +568,7 @@ def run(run_mode, settings, no_runs=None):
             no_runs = [no_runs]  # the runs need to be in an array
 
         for no_run in no_runs:
-            lp, prm = load_existing_prm(prm, no_run)
+            rl, prm = load_existing_prm(prm, no_run)
 
             prm, record, profiles = initialise_objects(prm, no_run=no_run)
             # make user defined environment

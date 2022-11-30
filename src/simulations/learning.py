@@ -41,7 +41,8 @@ class LearningManager():
         method: str,
         step: int,
         evaluation: bool,
-        traj_reward: list
+        traj_reward: list,
+        step_vals
     ) -> list:
         """Learn from experience tuple."""
         if self.rl['type_learning'] == 'facmac':
@@ -50,6 +51,8 @@ class LearningManager():
                 "reward": [(reward,)],
                 "terminated": [(done,)],
             }
+            if self.rl['supervised_loss'] and 'opt' in step_vals:
+                post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
             self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
@@ -198,7 +201,7 @@ class LearningManager():
                 self.learning(
                     states[0: self.N],
                     np.zeros((self.N, self.n_homes, self.rl['dim_actions'])),
-                    actions, traj_reward, True, method, 0, evaluation, traj_reward
+                    actions, traj_reward, True, method, 0, evaluation, traj_reward, step_vals
                 )
 
             elif self.rl["distr_learning"] == "decentralised":

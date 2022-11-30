@@ -155,6 +155,10 @@ def _make_scheme(rl):
             {"vshape": (actions_vshape,),
              "group": "agents",
              "dtype": action_dtype},
+        "optimal_actions":
+            {"vshape": (actions_vshape,),
+             "group": "agents",
+             "dtype": action_dtype},
         "avail_actions":
             {"vshape": (rl["dim_actions"],),
              "group": "agents",

@@ -31,9 +31,9 @@ settings = {
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
 
         # # flexibility
-        'state_space': [['grdC']],
+        'state_space': [['flexibility', 'grdC_n2']],
         'type_learning': 'facmac',
-        # 'evaluation_methods': [['env_r_c', 'opt']] * 3,
+        'evaluation_methods': [['env_r_c', 'opt']] * 3,
         'n_repeats': 3,
         'lr': 1e-3,
         'facmac': {'critic_lr': 5e-4, 'batch_size': 5},
@@ -45,6 +45,8 @@ settings = {
         'trajectory': False,
         'n_cnn_layers': 1,
         'rnn_hidden_dim': 500,
+        'supervised_loss': True,
+        # 'n_start_opt_explo': 5,
         # 'nn_type': 'cnn'
     },
     'ntw': {

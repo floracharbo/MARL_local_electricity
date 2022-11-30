@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-
+ANNOTATE_RUN_NOS = True
 
 def is_short_type(val):
     return isinstance(val, (int, float, bool, str))
@@ -350,12 +350,18 @@ def only_columns_relevant_learning_type_comparison(
 
 
 def compare_all_runs_for_column_of_interest(
-    column_of_interest, other_columns, x_labels, best_values, env_values, time_values, axs, log
+    column_of_interest, other_columns, axs, log
 ):
     rows_considered = []
     setup_no = 0
     plotted_something = False
     setups = []
+    if column_of_interest == 'state_space':
+        x_labels = []
+        best_values = []
+        env_values = []
+        time_values = []
+
     while len(rows_considered) < len(log):
         initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
         rows_considered.append(initial_setup_row)
@@ -402,8 +408,8 @@ def compare_all_runs_for_column_of_interest(
                 values_of_interest_ == values_of_interest[0]
                 for values_of_interest_ in values_of_interest
             )
+            runs = log.loc[rows_considered[- len(values_of_interest):], 'run'].values
             if all_setups_same_as_0:
-                runs = log.loc[rows_considered[- len(values_of_interest):], 'run'].values
                 print(f"runs {runs} equal?")
             else:
                 setups.append(current_setup)
@@ -412,12 +418,23 @@ def compare_all_runs_for_column_of_interest(
                 best_score_sorted = [best_score[i] for i in i_sorted]
                 best_env_score_sorted = [best_env_score[i] for i in i_sorted]
                 time_best_score_sorted = [time_best_score[i] for i in i_sorted]
+                runs_sorted = [runs[i] for i in i_sorted]
                 axs[0].plot(values_of_interest_sorted, best_score_sorted, label=len(setups))
                 axs[1].plot(values_of_interest_sorted, best_env_score_sorted, label=len(setups))
                 axs[2].plot(
                     values_of_interest_sorted, time_best_score_sorted,
                     label=len(setups)
                 )
+                if ANNOTATE_RUN_NOS:
+                    for i, (x, best_score, best_env_score, run) in enumerate(zip(values_of_interest_sorted, best_score_sorted, best_env_score_sorted, runs_sorted)):
+                        axs[0].annotate(
+                            run, (x, best_score), textcoords="offset points", xytext=(0, 10),
+                            ha='center'
+                        )
+                        axs[1].annotate(
+                            run, (x, best_env_score), textcoords="offset points", xytext=(0, 10),
+                            ha='center'
+                        )
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
                     best_values.append(best_score_sorted)
@@ -427,10 +444,14 @@ def compare_all_runs_for_column_of_interest(
 
         setup_no += 1
 
-    return plotted_something, axs, setups
+    state_space_vals = [x_labels, best_values, env_values, time_values] \
+        if column_of_interest == 'state_space' else None
+
+    return plotted_something, axs, setups, state_space_vals
 
 
-def adapt_figure_for_state_space(x_labels, best_values, env_values, time_values, axs):
+def adapt_figure_for_state_space(state_space_vals, axs):
+    x_labels, best_values, env_values, time_values = state_space_vals
     all_x_labels = []
     x_labels_flattened = list(chain.from_iterable(x_labels))
     for label in x_labels_flattened:
@@ -555,26 +576,18 @@ def plot_sensitivity_analyses(new_columns, log):
     ]
     for column_of_interest in columns_of_interest:
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
-        if column_of_interest == 'state_space':
-            x_labels = []
-            best_values = []
-            env_values = []
-            time_values = []
         other_columns = [
             column for column in new_columns[2:]
             if column not in [column_of_interest, 'nn_learned', 'time_end']
         ]
 
-        plotted_something, axs, setups = compare_all_runs_for_column_of_interest(
-            column_of_interest, other_columns, x_labels,
-            best_values, env_values, time_values, axs, log
+        plotted_something, axs, setups, state_space_vals = compare_all_runs_for_column_of_interest(
+            column_of_interest, other_columns, axs, log
         )
 
         if plotted_something:
             if column_of_interest == 'state_space':
-                axs = adapt_figure_for_state_space(
-                    x_labels, best_values, env_values, time_values, axs
-                )
+                axs = adapt_figure_for_state_space(state_space_vals, axs)
 
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)

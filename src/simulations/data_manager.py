@@ -249,10 +249,9 @@ class DataManager():
                     = self._passive_find_feasible_data()
             else:
                 [seed_data, new_res, data_feasible, step_vals,
-                 feasibility_checked] \
-                    = self._active_find_feasible_data(
-                        type_actions, feasibility_checked, step_vals,
-                        evaluation, epoch
+                 feasibility_checked] = self._active_find_feasible_data(
+                    type_actions, feasibility_checked, step_vals,
+                    evaluation, epoch
                 )
 
             if not data_feasible:
