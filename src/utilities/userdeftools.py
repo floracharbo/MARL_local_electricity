@@ -8,6 +8,7 @@ Created on Tue Jan  7 16:56:31 2020.
 
 import os
 import random
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -160,11 +161,14 @@ def distr_learning(q):
 
 
 def current_no_run(results_path):
-    prev_runs = \
-        [r for r in os.listdir(results_path)
-         if r[0:3] == "run"]
-    no_prev_runs = [int(r[3:]) for r in prev_runs]
-    no_run = max(no_prev_runs + [0]) + 1
+    if not Path(results_path).exists():
+        no_run = 1
+    else:
+        prev_runs = \
+            [r for r in os.listdir(results_path)
+             if r[0:3] == "run"]
+        no_prev_runs = [int(r[3:]) for r in prev_runs]
+        no_run = max(no_prev_runs + [0]) + 1
 
     return no_run
 

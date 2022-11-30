@@ -58,6 +58,7 @@ class Action_translator:
 
         self.car.min_max_charge_t(h, date)
         self.initial_processing(loads, home_vars)
+
         error = np.zeros(self.n_homes, dtype=bool)
         bool_flex, actions = [], []
         for home in homes:
@@ -445,9 +446,6 @@ class Action_translator:
             ax2.legend(loc='right', bbox_to_anchor=(2, -2), fancybox=True)
         ax2.set_ylim([-0.05 * max(costs), max(costs)])
         ax2.set_xticklabels([0, 1], fontsize=font_size)
-        # ax2.set_ylabel('Cost', fontsize=font_size)
-        # ax2.set_xlabel('Action variable '+ r'$\mu$ [-]',
-        # fontsize=font_size)
 
         fig.tight_layout()
 
@@ -461,7 +459,6 @@ class Action_translator:
 
         self.k.append(initialise_dict(self.entries))
         # reference line - dp
-
         self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
         self.action_intervals.append([0])
 
@@ -594,6 +591,7 @@ class Action_translator:
         max_discharge_a, min_discharge_a = [
             self.max_discharge[home], self.min_discharge[home]
         ]
+
         if (
                 (
                     abs(max_charge_a - min_charge_a) < 1e-3  # or

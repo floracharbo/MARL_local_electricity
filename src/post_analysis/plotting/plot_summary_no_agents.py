@@ -40,7 +40,7 @@ def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):
     prm['paths']['current_path'] = \
         Path('/Users/floracharbonnier/Documents/GitHub/dphil')
     prm['paths']['input_folder'] = 'Inputs'
-    prm, _, _ = initialise_objects(
+    prm, _, _, _ = initialise_objects(
         prm, no_run=run, initialise_record=False)
     if n_ag == 1:
         prm['RL']['evaluation_methods'] = \

@@ -38,8 +38,6 @@ class ActionSelector:
                     current_state[home], (1, 1))), 0)
                 for home in self.homes]
         else:
-            # tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
-            #     current_state[home]), 0) for home in self.homes]
             tf_prev_state = tf.convert_to_tensor(current_state)
 
         return tf_prev_state
@@ -62,6 +60,7 @@ class ActionSelector:
             tf_prev_state = self._format_tf_prev_state(current_state)
         else:
             tf_prev_state = None
+
         # action choice for current time step
         action_dict = {
             'baseline': self.rl['default_action'],

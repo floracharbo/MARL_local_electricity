@@ -459,6 +459,27 @@ class LocalElecEnv():
 
         # negative netp is selling, positive buying
         grid = sum(netp) + sum(netp0)
+
+        # import and export limits
+        grid_in = np.where(np.array(grid) >= 0, grid, 0)
+        grid_out = np.where(np.array(grid) < 0, grid, 0)
+
+        if self.prm['grd']['manage_agg_power']:
+            pci = np.where(
+                grid_in
+                >= self.prm['grd']['max_grid_in'],
+                self.prm['grd']['penalty_coefficient_in']
+                * (grid_in - self.prm['grd']['max_grid_in']), 0)
+            pco = np.where(
+                abs(grid_out)
+                >= self.prm['grd']['max_grid_out'],
+                self.prm['grd']['penalty_coefficient_out']
+                * (abs(grid_out) - self.prm['grd']['max_grid_out']), 0)
+
+            pc = pci + pco
+        else:
+            pc = 0
+
         if self.prm['ntw']['charge_type'] == 0:
             sum_netp = sum([abs(netp[home]) if netp[home] < 0
                            else 0 for home in self.homes])
@@ -470,7 +491,7 @@ class LocalElecEnv():
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
             dc = self.prm['ntw']['C'] * netpvar
-        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
+        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2) + pc
         gc_a = [wholesalet * netp[home] for home in self.homes]
         sc = self.prm['car']['C'] \
             * (sum(discharge_tot[home] + charge[home]
@@ -486,7 +507,7 @@ class LocalElecEnv():
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
-        break_down_rewards = [gc, sc, dc, costs_wholesale, costs_losses,
+        break_down_rewards = [gc, sc, dc, pc, costs_wholesale, costs_losses,
                               emissions, emissions_from_grid,
                               emissions_from_loss, gc_a, sc_a, c_a]
 
@@ -622,11 +643,11 @@ class LocalElecEnv():
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def _p_trans_label(self, transition_type, data_type):
-        if transition_type == "wd2wd" and "wd2wd" not in self.p_trans[data_type]:
-            transition_type_ = "wd"
-        elif transition_type == "we2we" and "we2we" not in self.p_trans[data_type]:
-            transition_type_ = "we"
+    def _p_trans_label(self, transition_type, e):
+        if transition_type == 'wd2wd' and 'wd2wd' not in self.prm[e]['ptrans']:
+            transition_type_ = 'wd'
+        elif transition_type == 'we2we' and 'we2we' not in self.prm[e]['ptrans']:
+            transition_type_ = 'we'
         else:
             transition_type_ = transition_type
 
@@ -711,6 +732,7 @@ class LocalElecEnv():
                     else transition_type
                 clus_a = self.clus[data_type + self.passive_ext][home]
                 ps = self.p_trans[data_type][transition_type_][clus_a]
+
                 cump = [sum(ps[0:i]) for i in range(1, len(ps))] + [1]
                 rdn = self.np_random.rand()
                 self.clus[data_type + self.passive_ext][home] = \
@@ -745,6 +767,7 @@ class LocalElecEnv():
                 it += 1
 
         return day, i_car
+
 
     def _load_next_day(self, homes: list = []):
         """
@@ -803,6 +826,7 @@ class LocalElecEnv():
         n_profs = self.n_prof[data_type][dt] \
             if dt is not None \
             else [self.n_prof[data_type][idx_month]]
+
         n_profs = [int(self.prm['syst']['share_centroid'] * n_prof)
                    for n_prof in n_profs]
         available_profiles = \
@@ -1016,6 +1040,7 @@ class LocalElecEnv():
                 batch_flex[home][ih][0] / (1 - self.share_flexs[home])
                 * self.share_flexs[home] for ih in range(0, h)
             ) + 1e-3, "flex too large"
+
         for i_flex in range(self.max_delay):
             loads_next_flex = new_batch_flex[home][0][i_flex + 1]
             if self.test:
@@ -1029,6 +1054,7 @@ class LocalElecEnv():
             if self.test:
                 assert not (
                     loads_next_flex > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
+
                 ), "loads_next_flex too large"
 
     def _loads_test(self):

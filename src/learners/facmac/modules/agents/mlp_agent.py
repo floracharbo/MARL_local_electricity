@@ -1,7 +1,10 @@
 # adapted from https://github.com/oxwhirl/facmac
+
 import torch as th
 import torch.nn.functional as F
 from torch import nn
+
+from src.learners.facmac.modules.agents.agent import Agent
 
 from src.learners.facmac.modules.agents.agent import Agent
 

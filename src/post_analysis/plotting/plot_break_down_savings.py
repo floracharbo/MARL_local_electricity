@@ -85,7 +85,7 @@ def heatmap_savings_per_method(prm):
         np.save(prm['paths']['fig_folder'] / 'M_reductions', M)
 
 
-def barplot_breakdown_savings(record, prm):
+def barplot_breakdown_savings(record, prm, plot_type='savings'):
     # all break down rewards except for the last three ones
     # which are individual values
     labels = record.break_down_rewards_entries[:-3]
@@ -97,22 +97,29 @@ def barplot_breakdown_savings(record, prm):
         for i, label in enumerate(labels):
             record_obj = record.__dict__[label]
             mult = prm['syst']['co2tax'] if label == 'emissions' else 1
-            bars[i].append(
-                np.mean([[(record_obj[repeat]['baseline'][epoch]
-                           - record_obj[repeat][method][epoch])
-                          * mult / (prm['ntw']['n'] + prm['ntw']['nP'])
-                          for epoch in range(prm['RL']['start_end_eval'],
-                                             len(record_obj[repeat][method]))]
-                         for repeat in range(prm['RL']['n_repeats'])]))
+            if plot_type == 'savings':
+                bars[i].append(
+                    np.mean([[(record_obj[repeat]['baseline'][epoch]
+                            - record_obj[repeat][method][epoch])
+                            * mult / (prm['ntw']['n'] + prm['ntw']['nP'])
+                            for epoch in range(prm['RL']['start_end_eval'],
+                                               len(record_obj[repeat][method]))]
+                            for repeat in range(prm['RL']['n_repeats'])]))
+            else:
+                bars[i].append(
+                    np.mean([[(record_obj[repeat][method][epoch])
+                            * mult / (prm['ntw']['n'] + prm['ntw']['nP'])
+                            for epoch in range(prm['RL']['start_end_eval'],
+                                               len(record_obj[repeat][method]))]
+                            for repeat in range(prm['RL']['n_repeats'])]))
         tots[method] = sum(
             bars[i][-1] for i, label in enumerate(labels)
-            if label in ['dc', 'sc', 'gc']
+            if label in ['dc', 'sc', 'gc', 'pc']
         )
         shares_reduc[method].append(
             [bars[i][-1] / tots[method] if tots[method] > 0 else None
              for i in range(len(labels))]
         )
-
     barWidth = 1 / (len(labels) + 1)
     rs = []
     rs.append(np.arange(len(prm['RL']['evaluation_methods'])))
@@ -126,7 +133,13 @@ def barplot_breakdown_savings(record, prm):
                 for r in range(len(bars[0]))], prm['RL']['evaluation_methods'],
                rotation='vertical')
     plt.legend()
-    plt.title('savings relative to baseline costs / emissions')
+    plt.tight_layout()
+    if plot_type == 'savings':
+        plt.title('savings relative to baseline costs / emissions')
+    else:
+        plt.title('mean costs distribution')
+    plt.savefig(
+        f"{prm['paths']['fig_folder']}/mean_{plot_type}_bar_plots.png", bbox_inches='tight')
     plt.close('all')
 
 

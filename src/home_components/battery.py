@@ -163,6 +163,7 @@ class Battery:
         iT = np.asarray(
             ~np.array(self.batch['avail_car'][home][start_h: self.N + 1], dtype=bool)
         ).nonzero()[0]
+
         d_to_end = self.date_end - date
         h_end = \
             start_h \
@@ -174,6 +175,7 @@ class Battery:
             # next time the EV is back from the trip to the garage
             iG = iT + np.asarray(self.batch['avail_car'][home][iT: self.N + 1]).nonzero()[0]
             iG = int(iG[0]) if len(iG) > 0 else len(self.batch['avail_car'][home])
+
             deltaT = iT - start_h  # time until trip
             i_end_trip = int(min(iG, h_end))
             # car load while on trip
@@ -222,8 +224,7 @@ class Battery:
         h_trip = time
         while not end:
             loads_T, deltaT, i_end_trip = self.next_trip_details(h_trip, date_a, home)
-            # if i_end_trip is not None:
-            #     i_end_trip = np.min([self.N, i_end_trip])
+
             if loads_T is None or h_trip + deltaT > self.N:
                 end = True
             else:
@@ -234,6 +235,7 @@ class Battery:
                     trips.append([loads_T, deltaT, i_end_trip])
                 date_a += datetime.timedelta(
                     hours=int(i_end_trip - h_trip) * self.dt)
+
                 h_trip = i_end_trip
 
         return trips
@@ -262,6 +264,7 @@ class Battery:
         Creq = []
         for home in range(self.n_homes):
             if not avail_car[home]:
+
                 # if EV not currently in garage
                 Creq.append(0)
                 continue
@@ -269,10 +272,12 @@ class Battery:
             # obtain all future trips
             trips = self._get_list_future_trips(
                 time, date, home, bool_penalty, print_error
+
             )
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time
             n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
+
 
             if len(trips) == 0:
                 n_avail_until_end -= 1
@@ -291,6 +296,7 @@ class Battery:
                 Creq[home] = max(0, Creq[home] + loads_T - deltaT * self.c_max)
 
         min_charge_t = np.maximum(min_charge_t_0, Creq)
+
         self._check_min_charge_t_feasible(
             min_charge_t, time, date, bool_penalty, print_error, simulation
         )

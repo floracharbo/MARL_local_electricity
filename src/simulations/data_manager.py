@@ -178,6 +178,7 @@ class DataManager():
                 seed=self.seed[self.passive_ext],
                 load_data=True, passive=passive)
             new_res = False
+
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(batch, passive=passive)
 
@@ -353,6 +354,7 @@ class DataManager():
             data_feasibles = self._format_data_optimiser(
                 batch, passive=passive
             )
+
             homes = [i for i, ok in enumerate(data_feasibles) if not ok]
             if its > 50:
                 print(f'its {its}, sum(data_feasibles) {sum(data_feasibles)}')

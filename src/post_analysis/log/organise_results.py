@@ -3,6 +3,7 @@ import pickle
 import shutil
 from datetime import datetime
 from itertools import chain
+
 from pathlib import Path
 from textwrap import wrap
 
@@ -216,6 +217,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
             if key is None:
                 row.append(None)
                 print(f"column {column} does not correspond to a prm key")
+
             elif subsubkey is None:
                 if subkey == 'state_space' and subkey in prm[key]:
                     row.append(list_obs_to_str(prm[key][subkey]))
@@ -228,6 +230,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                     if subkey in prm[key] and subsubkey in prm[key][subkey]
                     else None
                 )
+
     else:
         row = None
 
@@ -253,6 +256,7 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
                 if method_ in metrics['end_test_bl']['ave']
                 else None
             )
+
     else:
         row = None
 

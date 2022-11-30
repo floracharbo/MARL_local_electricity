@@ -31,26 +31,6 @@ def plot_results_all_repeats(
     ]
     baseline = 'opt' if diff_to_opt else 'baseline'
     for e in [e for e in prm["save"]["eval_entries_plot"] if e != baseline]:
-        # results = np.array(
-        #     [[None if record.mean_eval_rewards_per_hh[repeat][e][epoch] is None
-        #               or record.mean_eval_rewards_per_hh[repeat][baseline][epoch] is None
-        #       else record.mean_eval_rewards_per_hh[repeat][e][epoch]
-        #       - record.mean_eval_rewards_per_hh[repeat][baseline][epoch]
-        #       for epoch in range(prm['RL']['n_all_epochs'])]
-        #      for repeat in range(prm['RL']['n_repeats'])])
-        # if diff_to_opt:
-        #     results = [[None if r is None else - r for r in result] for result in results]
-        # if moving_average:
-        #     results = np.array(
-        #         [get_moving_average(results[repeat], prm["save"]["n_window"], Nones=False)
-        #          for repeat in range(prm['RL']['n_repeats'])])
-        # results = np.array(results, dtype=np.float)
-
-        # all_nans = True if sum(not np.isnan(r) for r in results[0]) == 0 \
-        #     else False
-        # mean_results = np.nanmean(results, axis=0) \
-        #     if not all_nans else None
-
         p25, p50, p75, p25_not_None, p75_not_None, epoch_not_None = \
             record.results_to_percentiles(
                 e, prm,

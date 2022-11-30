@@ -89,7 +89,7 @@ def initialise_objects(
     else:
         record = None
 
-    return prm, record, profiles
+    return prm, record, profiles, no_run
 
 
 def _make_action_space(rl):
@@ -236,7 +236,9 @@ def _update_paths(paths, prm, no_run):
     paths["record_folder"] = paths["folder_run"] / "record"
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
     paths["input_folder"] = Path(paths["input_folder"])
-    paths["open_inputs"] = paths["input_folder"] / paths["open_inputs_folder"]
+    paths["open_inputs"] \
+        = paths["input_folder"] \
+        / f"{paths['open_inputs_folder']}_v{prm['syst']['data_version']}"
     paths['hedge_inputs'] \
         = paths["input_folder"] / paths["hedge_inputs_folder"] / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
@@ -468,17 +470,6 @@ def _exploration_parameters(rl):
                     = (epsilon_end[exploration_method] / epsilon0) \
                     ** (1 / rl["tot_learn_cycles"])
 
-    # for key in ["epsilon_end", "T", "tauMT", "tauLT",
-    #             "control_window_eps", "epsilon_decay_param"]:
-    #     if key in rl[type_learning]:
-    #         if isinstance(rl[type_learning][key], (float, int)):
-    #             # if only one value of eps end is given,
-    #             # give them all methods the same eps value
-    #             var = rl[type_learning][key]
-    #             rl[type_learning][key] = {}
-    #             for evaluation_method in rl["eval_action_choice"]:
-    #                 rl[type_learning][key][evaluation_method] = var
-    #         elif key == "control_window_eps":
         control_window_eps = rl["control_window_eps"]
         window_per_method_specified \
             = isinstance(control_window_eps, dict) \
@@ -614,6 +605,16 @@ def _update_rl_prm(prm, initialise_all):
     return rl
 
 
+def _naming_file_extension(limit_imp, limit_exp, penalty_imp, penalty_exp):
+    file_extension = f"_manage_agg_power_grid_limit{limit_imp}"
+    if limit_imp != limit_exp:
+        file_extension += f"_{limit_exp}"
+    file_extension += f"_pc_coeff{penalty_imp}"
+    if penalty_imp != penalty_exp:
+        file_extension += f"_{penalty_exp}"
+    return file_extension
+
+
 def _seed_save_paths(prm):
     """
     Get strings and seeds which will be used to identify runs.
@@ -644,7 +645,14 @@ def _seed_save_paths(prm):
                        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
     if prm["syst"]["change_start"]:
         paths["opt_res_file"] += "_changestart"
-
+    if prm['grd']['manage_agg_power']:
+        for file in ["opt_res_file", "seeds_file"]:
+            paths[file] += _naming_file_extension(
+                limit_imp=prm['grd']['max_grid_in'],
+                limit_exp=prm['grd']['max_grid_out'],
+                penalty_imp=prm['grd']['penalty_coefficient_in'],
+                penalty_exp=prm['grd']['penalty_coefficient_out']
+            )
     # eff does not matter for seeds, but only for res
     if prm["car"]["efftype"] == 1:
         paths["opt_res_file"] += "_eff1"
@@ -709,7 +717,6 @@ def _time_info(prm):
     syst["n_int_per_hr"] = int(syst["H"] / 24)
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
-    # syst['current_date0_dtm'] = syst['date0_dtm']
 
 
 def _homes_info(loads, ntw, gen, heat):
@@ -883,6 +890,9 @@ def _make_type_eval_list(rl, large_q_bool=False):
     rl["exploration_methods"] = [
         t for t in rl["evaluation_methods"] if not (t[0:3] == "opt" and len(t) > 3)
     ]
+    if sum(1 for t in rl["evaluation_methods"] if t[0:3] == "opt" and len(t) > 3) > 0:
+        rl["exploration_methods"] += ["opt"]
+
     rl["eval_action_choice"] = [
         t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
     ]

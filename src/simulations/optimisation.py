@@ -159,6 +159,8 @@ class Optimiser():
         # variables
         grid = p.add_variable('grid', (N), vtype='continuous')
         grid2 = p.add_variable('grid2', (N), vtype='continuous')
+        grid_in = p.add_variable('grid_in', (N), vtype='continuous')  # hourly grid import
+        grid_out = p.add_variable('grid_out', (N), vtype='continuous')  # hourly grid export
         netp = p.add_variable('netp', (n_homes, N), vtype='continuous')
         totcons = p.add_variable('totcons', (n_homes, N), vtype='continuous')
         consa = []
@@ -186,6 +188,14 @@ class Optimiser():
         gc = p.add_variable('gc', 1)   # grid costs
         sc = p.add_variable('sc', 1)   # storage costs
         dc = p.add_variable('dc', 1)   # distribution costs
+        pc = p.add_variable('pc', 1)   # total penalty costs
+        pci = p.add_variable('pci', N, vtype='continuous')   # hourly import penalty
+        pco = p.add_variable('pco', N, vtype='continuous')   # hourly export penalty
+        ypi = p.add_variable('ypi', N, vtype='binary')   # (1 = import violation)
+        ypo = p.add_variable('ypo', N, vtype='binary')   # (1 = export violation)
+        # yimp = p.add_variable('ypimp', N, vtype='binary')
+        # yexp = p.add_variable('yexp', N, vtype='binary')
+        n_violations = p.add_variable('n_violations', 1, vtype='integer')  # daily grid violations
 
         # constraints
         # substation energy balance
@@ -195,6 +205,62 @@ class Optimiser():
                       for b0 in range(self.ntw['nP']))
              - pic.sum([netp[home, time] for home in range(n_homes)])
              == 0 for time in range(N)])
+
+        # import and export definition
+        p.add_list_of_constraints(
+            [grid[t] == grid_in[t] - grid_out[t] for t in range(N)])
+
+        p.add_list_of_constraints(grid_in[t] >= 0 for t in range(N))
+        p.add_list_of_constraints(grid_out[t] >= 0 for t in range(N))
+
+        # additionnal constraints to avoid simultaneous import and export
+        # p.add_list_of_constraints(yimp[t] >= grid_in[t] /
+        #   1000 for t in range(N))
+        # p.add_list_of_constraints(yimp[t] <= grid_in[t] + 1
+        #   - 0.00001 for t in range(N))
+        # p.add_list_of_constraints(yexp[t] >= grid_out[t] /
+        #   1000 for t in range(N))
+        # p.add_list_of_constraints(yexp[t] <= grid_out[t] +
+        #   1 - 0.00001 for t in range(N))
+        # p.add_list_of_constraints(yimp[t] + yexp[t] == 1 for t in range(N))
+
+        # number of import and export violations
+        p.add_list_of_constraints(
+            ypi[t] >= grid_in[t] / self.grd['max_grid_in'] - 1 for t in range(N))
+        p.add_list_of_constraints(
+            ypi[t] <= grid_in[t] / self.grd['max_grid_in']
+            - self.grd['small_coefficient'] for t in range(N))
+        p.add_list_of_constraints(
+            ypo[t] >= grid_out[t] / self.grd['max_grid_out'] - 1 for t in range(N))
+        p.add_list_of_constraints(
+            ypo[t] <= grid_out[t] / self.grd['max_grid_out']
+            - self.grd['small_coefficient'] for t in range(N))
+
+        p.add_constraint(n_violations
+                         == np.sum(ypi[t] for t in range(N))
+                         + np.sum(ypo[t] for t in range(N)))
+
+        # penalty for import and export violatios
+        if self.grd['manage_agg_power']:
+            p.add_list_of_constraints(pci[t] >= 0 for t in range(N))
+            p.add_list_of_constraints(pci[t]
+                                      >= self.grd['penalty_coefficient_in']
+                                      * (grid_in[t] - self.grd['max_grid_in']) for t in range(N))
+            p.add_list_of_constraints(pco[t] >= 0 for t in range(N))
+            p.add_list_of_constraints(pco[t]
+                                      >= self.grd['penalty_coefficient_out']
+                                      * (grid_out[t] - self.grd['max_grid_out']) for t in range(N))
+
+        else:
+            p.add_list_of_constraints(pci[t] == 0 for t in range(N))
+            p.add_list_of_constraints(pco[t] == 0 for t in range(N))
+
+        p.add_constraint(pc == np.sum(pci[t] for t in range(N)) + np.sum(pco[t] for t in range(N)))
+
+        # grid costs
+        p.add_constraint(gc
+                         == pc
+                         + (self.grd['C'] | (grid + self.grd['R'] / (self.grd['V'] ** 2) * grid2)))
 
         # prosumer energy balance
         p.add_constraint(netp - charge / self.car['eta_ch']
@@ -235,8 +301,9 @@ class Optimiser():
             [grid2[time] >= grid[time] * grid[time] for time in range(N)])
 
         p.add_constraint(
-            gc == (self.grd['C'][0: self.N]
+            gc == pc + (self.grd['C'][0: self.N]
                    | (grid + self.grd['R'] / (self.grd['V'] ** 2) * grid2))
+
         )
         p.add_constraint(sc == self.car['C']
                          * (pic.sum(discharge_tot) + pic.sum(charge)
@@ -549,9 +616,6 @@ class Optimiser():
             val = pvars[var].value
             arr = np.zeros(size)
             res = self._add_val_to_res(res, var, val, size, arr)
-
-            if self.save['saveresdata']:
-                np.save(self.paths['record_folder'] / 'res', res)
 
         return res
 

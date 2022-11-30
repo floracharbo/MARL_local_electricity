@@ -151,12 +151,14 @@ class Heat:
             E_heat = self.E_heat_min[homes] + self.E_flex[homes]
         if T_out_t is None:
             T_out_t = self.T_out[self.time_step]
+
         P_heat = E_heat * 1e3 * self.n_int_per_hr
         M = np.ones((5, n_homes))
         M[1, :] = T_start
         M[2, :] *= T_out_t
         M[3, :] *= 0
         M[4, :] = P_heat
+
         K = self.T_coeff[homes]
         T_end = np.sum(np.multiply(K, M.T), axis=1)
 
@@ -208,6 +210,7 @@ class Heat:
                 # temperatures at time 1 if heating to the max at time 0
                 T1_max, T_air0_max = self.next_T(
                     self.T[home], E_heat_max0[home], self.T_out[time_step], home=home)
+
                 # check all works well, T_air0_max should be T_UB
                 if abs(T_air0_max[0] - self.T_UB_t[home]) > 1e-2:
                     print(f'T_air0_max[0] {T_air0_max[0]}, '
@@ -217,6 +220,7 @@ class Heat:
                 T2_noheatt1, T_air1_noheatt1 = self.next_T(
                     T1_max, 0, self.T_out[time_step + 1], home=home)
                 if T_air1_noheatt1[0] > self.T_UB[home][time_step + 1]:
+
                     # find T_max next such that if you do not heat
                     # at the next step you land on T_UB
                     T1_corrected = \
@@ -231,6 +235,7 @@ class Heat:
                     T2_noheatt1_corrected, T_air1_noheatt1_corrected = \
                         self.next_T(T1_corrected, e_max0_corrected,
                                     self.T_out[time_step + 1], home=home)
+
                     T2_noheatt1 = T2_noheatt1_corrected
                     E_heat_max0[home] = e_max0_corrected
 
@@ -240,6 +245,7 @@ class Heat:
                         self.next_T(T2_noheatt1, 0,
                                     self.T_out[time_step + 2], home=home)
                     if T_air2_noheatt2[0] > self.T_UB[home][time_step + 2]:
+
                         # find T_max next such that if you do not heat
                         # at the next step you land on T_UB
                         T2_corrected = \
@@ -292,6 +298,7 @@ class Heat:
             self.T = self.T_next
         elif self.time_step < self.N:
             self.T = res["T"][:, self.time_step]
+
 
     def check_constraints(self, home, h, E_req_only):
         """
@@ -358,21 +365,6 @@ class Heat:
             self.E_flex = E_flex
         self.tot_E = self.E_flex + self.E_heat_min
 
-        #     for home in range(self.n_homes):
-        #         if self.own_heat[home] \
-        #                 and res[home]['c'] > l_flex[home] + tot_l_fixed[home]:
-        #             self.E_flex.append(
-        #                 res[home]['c'] - tot_l_fixed[home] - l_flex[home])
-        #         else:
-        #             self.E_flex.append(0)
-        #         self.tot_E.append(self.E_flex[home] + self.E_heat_min[home])
-        # else:
-        #     # if flexible energy consumption was defined through
-        #     # flexible_heat_action in actions_to_env_vars action_translator
-        #     self.E_flex = E_flex
-        #     self.tot_E = [flex + min for flex, min in
-        #                   zip(self.E_flex, self.E_heat_min)]
-
     def _next_E_heat(self, T_air_target, T_start, T_out_t, home=None):
         """
         Obtain heating energy required to reach next T_air_target.
@@ -397,20 +389,11 @@ class Heat:
         M = np.transpose(np.array([np.ones(na), T_start, np.ones(na) * T_out_t]))
         p_heat = np.divide(T_air_target - np.sum(np.multiply(K, M), axis=1), self.T_air_coeff[:, 4])
 
+        homes = list(range(na)) if home is None else [home]
+        K = self.T_air_coeff[homes, 0:3]
+        M = np.transpose(np.array([np.ones(na), T_start, np.ones(na) * T_out_t]))
         # heating power
-        # p_heat0 = [(T_air_target[home]
-        #            - (self.T_air_coeff[home][0]
-        #               + self.T_air_coeff[home][1] * T_start[home]
-        #               + self.T_air_coeff[home][2] * T_out_t))
-        #           / self.T_air_coeff[home][4] for home in range(na)]
-        # + self.T_air_coeff[home][3] * phi_solt
-
-        # conversion of power to energy based on duration of time interval
-        # E_heat0 = [p_heat0[home] * 1e-3 * 24 / self.H for home in range(na)]
-        # E_heat0 = np.array([0 if e < 0 else e for e in E_heat0])
-
         E_heat = np.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0)
-        # assert all(e == e0 for e, e0 in zip(E_heat, E_heat0))
 
         return E_heat
 
