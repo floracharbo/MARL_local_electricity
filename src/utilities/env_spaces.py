@@ -138,10 +138,10 @@ class EnvSpaces():
         #         max_flexibility[home] += prm['car']['c_max']
         #     if prm['loads']['own_flex'][home]:
         #         max_flexibility[home] += 3
-        max_flexibility = prm['car']['c_max'] + prm['car']['d_max']
+        max_flexibility = prm['car']['c_max'] + prm['car']['d_max'] + 1
         info = [
             ["None", 0, 0, 1, 1],
-            ["hour", 0, 24, n_other_states, 0],
+            ["hour", 0, prm['syst']['N'], n_other_states, 0],
             ["store0", 0, prm["car"]["cap"], n_other_states, 0],
             ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
             ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
@@ -664,12 +664,15 @@ class EnvSpaces():
             descriptor_info = self.space_info.loc[
                 self.space_info['name'] == self.descriptor_for_idx(descriptor)
             ]
-            max_home = descriptor_info['max'].item()[home] \
-                if isinstance(descriptor_info['max'].item(), list) \
-                else descriptor_info['max']
-            val = ((val - descriptor_info['min']) / max_home).item()
-            if abs(val) < 1e-5:
-                val = 0
-            assert 0 <= val <= 1, f"val {val} max_home {max_home} descriptor {descriptor}"
+            max_home = descriptor_info['max'].values.item()[home] \
+                if isinstance(descriptor_info['max'].values.item(), list) \
+                else descriptor_info['max'].values.item()
+            min_val = descriptor_info['min'].values.item()
+            if (val - min_val) / (max_home - min_val) > 1:
+                print()
+            normalised_val = (val - min_val) / (max_home - min_val)
+            if abs(normalised_val) < 1e-5:
+                normalised_val = 0
+            assert 0 <= normalised_val <= 1, f"val {normalised_val} max_home {max_home.values.item()} descriptor {descriptor}"
 
-        return val
+        return normalised_val

@@ -45,7 +45,7 @@ settings = {
         'trajectory': False,
         'n_cnn_layers': 1,
         'rnn_hidden_dim': 500,
-        'supervised_loss': True,
+        # 'supervised_loss': True,
         # 'n_start_opt_explo': 5,
         # 'nn_type': 'cnn'
     },
@@ -53,6 +53,7 @@ settings = {
         'n': 10,
         # 'nP': 10,
     },
+    'syst': {'H': 48}
 }
 
 # obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation

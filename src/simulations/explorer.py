@@ -649,13 +649,13 @@ class Explorer():
             [prm["grd"]["C"][time_step_] * (
                 res['grid'][time_step_][0]
                 + prm["grd"]['loss'] * res['grid2'][time_step_][0]
-            ) for time_step_ in range(24)]
+            ) for time_step_ in range(self.N)]
         )
-        is_start_res = [i for i in range(len(prm['grd']['Call']) - 24) if abs(np.sum(
+        is_start_res = [i for i in range(len(prm['grd']['Call']) - self.N) if abs(np.sum(
             [prm["grd"]["Call"][i + time_step_] * (
                 res['grid'][time_step_][0]
                 + prm["grd"]['loss'] * res['grid2'][time_step_][0]
-            ) for time_step_ in range(24)]
+            ) for time_step_ in range(self.N)]
         ) - res['gc']) < 1e-3]
         i_start_res = is_start_res[is_start_res.index(self.env.i0_costs)]
         # assert self.env.i0_costs in i_start_res, \
@@ -753,13 +753,13 @@ class Explorer():
             f"sum costs opt = {- (res['gc'] + res['sc'] + res['dc'])}"
 
     def sum_gc_for_start_Call_index(self, res, i):
-        C = self.prm["grd"]["Call"][i: i + self.rm["syst"]["N"]]
+        C = self.prm["grd"]["Call"][i: i + self.N]
         loss = self.prm['grd']['loss']
         sum_gc_i = np.sum(
             [
                 C[time_step_]
                 * (res['grid'][time_step_][0] + loss * res['grid2'][time_step_][0])
-                for time_step_ in range(24)
+                for time_step_ in range(self.N)
             ]
         )
 
@@ -771,17 +771,19 @@ class Explorer():
             [self.prm["grd"]["C"][time_step_] * (
                 res['grid'][time_step_][0]
                 + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
-            ) for time_step_ in range(24)]
+            ) for time_step_ in range(self.N)]
         )
         if not (abs(sum_gc_0 - res['gc']) < 1e-3):
             i_start_res = [
-                i for i in range(len(self.prm['grd']['Call']) - 24)
+                i for i in range(len(self.prm['grd']['Call']) - self.N)
                 if abs(self.sum_gc_for_start_Call_index(res, i) - res['gc']) < 1e-3
-            ][0]
-            if self.env.i0_costs != i_start_res:
+            ]
+            if len(i_start_res) == 0:
+                print()
+            if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
-                self.env.update_i0_costs(i_start_res)
-                np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res)
+                self.env.update_i0_costs(i_start_res[0])
+                np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res[0])
 
     def get_steps_opt(
             self, res, step_vals, evaluation, cluss,

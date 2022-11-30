@@ -56,20 +56,20 @@ def _plot_all_agents_mean_res(
     means = initialise_dict(["T_air", "cum_rewards"] + entries,
                             "empty_dict")
     for method in all_methods_to_plot:
-        axs[1, 1].step(range(24), np.mean(all_T_air[method], axis=0),
+        axs[1, 1].step(range(prm['syst']['N']), np.mean(all_T_air[method], axis=0),
                        where="post", label=method,
                        color=prm["save"]["colourse"][method],
                        lw=lw_mean, alpha=1)
         means["T_air"][method] = np.mean(all_T_air[method], axis=0)
 
-        axs[3, 0].plot([- 0.01] + list(range(24)),
+        axs[3, 0].plot([- 0.01] + list(range(prm['syst']['N'])),
                        [0] + list(np.mean(all_cum_rewards[method], axis=0)),
                        label=labels[method],
                        color=prm["save"]["colourse"][method],
                        lw=lw_mean, alpha=1)
         means["cum_rewards"][method] = np.mean(all_T_air[method], axis=0)
         for r, c, e in zip(rows, columns, entries):
-            xs = list(range(24))
+            xs = list(range(prm['syst']['N']))
             if e == "store":
                 xs = [-0.01] + xs
             if e == "action":
@@ -98,9 +98,9 @@ def _plot_all_agents_mean_res(
     return axs
 
 
-def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability):
+def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N):
     ax = axs[2, 1]
-    ax.step(xs[0:24], loads_car[home][0:24], color="k", where="post")
+    ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
     for band in bands_car_availability:
         ax.axvspan(band[0], band[1], alpha=0.3, color="grey")
     ax.set_ylabel("EV load [kWh]")
@@ -124,13 +124,13 @@ def _plot_indoor_air_temp(
             for step in range(len(last["T_air"][method]))
         ]
         label = method if display_labels else None
-        ax.step(range(24), T_air_a[method], where="post", label=label,
+        ax.step(range(prm['syst']['N']), T_air_a[method], where="post", label=label,
                 color=prm["save"]["colourse"][method], lw=lw, alpha=alpha)
     ax.set_ylabel(
         f"{title_ylabel_dict['T_air'][0]} {title_ylabel_dict['T_air'][1]}")
-    ax.step(range(24), prm["heat"]["T_LB"][0][0:24], "--",
+    ax.step(range(prm['syst']['N']), prm["heat"]["T_LB"][0][0: prm['syst']['N']], "--",
             where="post", color="k", label="T_LB")
-    ax.step(range(24), prm["heat"]["T_UB"][0][0:24], "--",
+    ax.step(range(prm['syst']['N']), prm["heat"]["T_UB"][0][0: prm['syst']['N']], "--",
             where="post", color="k", label="T_UB")
 
     return T_air_a
@@ -149,7 +149,7 @@ def _plot_cum_rewards(
             for i in range(len(last["reward"][method]))
         ]
         label = labels[method] if display_labels else None
-        ax.plot([- 0.01] + list(range(24)), [0] + cumrewards[method], label=label,
+        ax.plot([- 0.01] + list(range(prm['syst']['N'])), [0] + cumrewards[method], label=label,
                 color=prm["save"]["colourse"][method], lw=lw, alpha=alpha)
     ax.legend(fancybox=True, loc="best", ncol=2)
     ax.set_ylabel("Cumulative rewards [£]")
@@ -160,20 +160,20 @@ def _plot_cum_rewards(
 
 
 def _plot_grid_price(
-        title_ylabel_dict, axs=None, cintensity_kg=None,
+        title_ylabel_dict, N, axs=None, cintensity_kg=None,
         row=0, col=0, last=None, colours_non_methods=None,
         lw=None, display_legend=True):
     ax = axs[row, col]
-    ax.step(range(24), last["wholesale"]["baseline"],
+    ax.step(range(N), last["wholesale"]["baseline"],
             where="post", label="Wholesale",
             color=colours_non_methods[2], lw=lw)
-    ax.step(range(24), last["grdC"]["baseline"], where="post",
+    ax.step(range(N), last["grdC"]["baseline"], where="post",
             label="$C_g$", color=colours_non_methods[0], lw=lw)
     if display_legend:
         ax.set_ylabel("Grid price [£/kWh]")
         ax.legend(fancybox=True, loc="best")
     ax2 = axs[row, col].twinx()
-    ax2.step(range(24), cintensity_kg, where="post",
+    ax2.step(range(N), cintensity_kg, where="post",
              label=title_ylabel_dict["cintensity"][0],
              color=colours_non_methods[1], lw=lw)
     ax2.yaxis.set_label_position("right")
@@ -195,7 +195,7 @@ def _plot_all_agents_all_repeats_res(
         last, cintensity_kg, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, prm["paths"]["folder_run"])
         _plot_grid_price(
-            title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
+            title_ylabel_dict, prm['syst']['N'], axs=axs, cintensity_kg=cintensity_kg,
             row=0, col=0, last=last,
             colours_non_methods=colours_non_methods, lw=lw_indiv)
 
@@ -218,7 +218,7 @@ def _plot_all_agents_all_repeats_res(
         for r, c, e in zip(rows, columns, entries):
             for home in range(prm["ntw"]["n"]):
                 for method in methods_to_plot:
-                    xs, ys = list(range(24)), last[e][method]
+                    xs, ys = list(range(prm['syst']['N'])), last[e][method]
                     ys = [ys[step][home] for step in range(len(ys))]
                     if e == "store":
                         xs = [-0.01] + xs
@@ -235,9 +235,9 @@ def _plot_all_agents_all_repeats_res(
     return axs, all_T_air
 
 
-def _get_bands_car_availability(availabilities_car, home):
+def _get_bands_car_availability(availabilities_car, home, N):
     bands_car_availability = []
-    non_avail = [i for i in range(24) if availabilities_car[home][i] == 0]
+    non_avail = [i for i in range(N) if availabilities_car[home][i] == 0]
     if len(non_avail) > 0:
         current_band = [non_avail[0]]
         if len(non_avail) > 1:
@@ -362,18 +362,18 @@ def _plot_indiv_agent_res(
                 min(prm["ntw"]["n"], prm["save"]["max_n_profiles_plot"])
         ):
             xs = range(len(loads_car[home]))
-            bands_car_availability = _get_bands_car_availability(availabilities_car, home)
+            bands_car_availability = _get_bands_car_availability(availabilities_car, home, prm['syst']['N'])
 
             fig, axs = plt.subplots(4, 2, figsize=(13, 13))
 
             # carbon intensity, wholesale price and grid cost coefficient
             _plot_grid_price(
-                title_ylabel_dict, axs=axs, cintensity_kg=cintensity_kg,
+                title_ylabel_dict, prm['syst']['N'], axs=axs, cintensity_kg=cintensity_kg,
                 row=0, col=0, last=last,
                 colours_non_methods=colours_non_methods, lw=lw_indiv)
 
             axs = _plot_ev_loads_and_availability(
-                axs, xs, loads_car, home, bands_car_availability
+                axs, xs, loads_car, home, bands_car_availability, prm['syst']['N'],
             )
 
             # cum rewards
@@ -394,7 +394,7 @@ def _plot_indiv_agent_res(
             for r, c, e in zip(rows, columns, entries):
                 ax = axs[r, c]
                 for method in methods_to_plot:
-                    xs = [-0.01] + list(range(24))
+                    xs = [-0.01] + list(range(prm['syst']['N']))
                     ys = last[e][method]
                     ys = [ys[step][home] for step in range(len(ys))]
                     if e == "action":
