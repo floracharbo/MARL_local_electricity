@@ -16,8 +16,8 @@ from src.post_analysis.plotting.initialise_plotting_variables import \
 from src.post_analysis.plotting.plot_break_down_savings import (
     barplot_breakdown_savings, barplot_indiv_savings, distribution_savings,
     heatmap_savings_per_method)
-from src.post_analysis.plotting.plot_episode_results import (plot_env_input,
-                                                             plot_res)
+from src.post_analysis.plotting.plot_episode_results import (
+    plot_env_input, plot_imp_exp_check, plot_imp_exp_violations, plot_res)
 from src.post_analysis.plotting.plot_moving_average_rewards import (
     plot_mova_eval_per_repeat, plot_results_all_repeats)
 from src.post_analysis.plotting.plot_q_learning_explorations_values import (
@@ -100,7 +100,7 @@ def plotting(record, spaces, prm, f):
         heatmap_savings_per_method(prm)
 
         # 6 - do bar plot of all costs reduction rel to baseline,
-        barplot_breakdown_savings(record, prm)
+        barplot_breakdown_savings(record, prm, plot_type='costs')
 
         # 7 - plot individual savings as well as share battery
         # vs energy costs in individual savings
@@ -144,6 +144,16 @@ def plotting(record, spaces, prm, f):
     # 18 - plot eval_actions over time
     if prm['save']['plot_type'] > 0:
         plot_eval_action(record, prm)
+
+        # 19 - grid import and export and corresponding limit violations
+        all_methods_to_plot = prm['RL']['evaluation_methods']
+        folder_run = prm["paths"]["folder_run"]
+        # plot the aggregated hourly import and export and the limits
+        plot_imp_exp_violations(
+            prm, all_methods_to_plot, folder_run)
+        # (Sanity Check) plot grid = grid_in - grid_out
+        plot_imp_exp_check(
+            prm, all_methods_to_plot, folder_run)
 
     plt.close('all')
 

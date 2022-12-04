@@ -26,6 +26,9 @@ class Learner():
         elif self.__name__ in ['FACMACLearner', 'CQLearner']:
             self.init_mixer(rl)
 
+        for info in ['hysteretic', 'beta_to_alpha']:
+            self.__dict__[info] = rl['facmac'][info]
+
     def init_mixer(self, rl):
         if rl['mixer'] is not None \
                 and self.n_agents > 1:
@@ -83,7 +86,7 @@ class Learner():
             target_param.data.copy_(target_param.data * (1.0 - tau)
                                     + param.data * tau)
 
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             for target_param, param in zip(self.target_mixer.parameters(),
                                            self.mixer.parameters()):
                 target_param.data.copy_(target_param.data * (1.0 - tau)
@@ -119,14 +122,14 @@ class Learner():
         if self.critic is not None:
             self.critic.cuda(device=device)
             self.target_critic.cuda(device=device)
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             self.mixer.cuda(device=device)
             self.target_mixer.cuda(device=device)
 
     def _update_targets(self):
         self.target_mac.load_state(self.mac)
         self.target_critic.load_state_dict(self.critic.state_dict())
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             self.target_mixer.load_state_dict(self.mixer.state_dict())
 
     def compute_grad_loss(self, q_taken, targets, mask):
@@ -141,7 +144,7 @@ class Learner():
 
     def save_models(self, path):
         self.mac.save_models(path)
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             th.save(self.mixer.state_dict(), "{}/mixer.th".format(path))
 
         th.save(self.agent_optimiser.state_dict(), "{}/opt.th".format(path))
@@ -150,7 +153,7 @@ class Learner():
         self.mac.load_models(path)
         # Not quite right but I don't want to save target networks
         self.target_mac.load_models(path)
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             self.mixer.load_state_dict(
                 th.load(
                     f"{path}/mixer.th",

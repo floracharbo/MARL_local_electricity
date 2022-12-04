@@ -183,12 +183,9 @@ class TabularQLearner:
             self.counter[q_table_name][i_table][ind_state][ind_action] += 1
 
     def get_lr(self, td_error, q):
-        if isinstance(self.alpha, float):
-            try:
-                lr = self.alpha if (not self.hysteretic or td_error > 0) \
-                    else self.alpha * self.rl['q_learning']['beta_to_alpha']
-            except Exception as ex:
-                print(f"ex = {ex}")
+        if isinstance(self.alpha, (int, float)):
+            lr = self.alpha if (not self.hysteretic or td_error > 0) \
+                else self.alpha * self.rl['q_learning']['beta_to_alpha']
         else:
             beta_to_alpha = self.rl['beta_to_alpha'] \
                 if isinstance(self.rl['beta_to_alpha'], float) \
@@ -328,8 +325,7 @@ class TabularQLearner:
                     i_table = home if distr_learning(q) == 'd' else 0
                     self.q_tables[q][i_table][ind_indiv_s[home]][
                         ind_indiv_ac[home]] += 1
-                    self.counter[q][i_table][ind_indiv_s[home]][
-                        ind_indiv_ac[home]] += 1
+                    self.counter[q][i_table][ind_indiv_s[home]][ind_indiv_ac[home]] += 1
         else:
             if reward_type(q) == 'A':
                 self.advantage_update_q_step(

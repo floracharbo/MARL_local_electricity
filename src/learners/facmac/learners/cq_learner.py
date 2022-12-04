@@ -65,7 +65,7 @@ class CQLearner(Learner):
         target_max_qvals = th.stack(target_max_qvals[1:], dim=1)
 
         # Mix
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             chosen_action_qvals = self.mixer(
                 chosen_action_qvals.view(-1, self.n_agents, 1),
                 batch["state"][:, :-1])
@@ -118,6 +118,6 @@ class CQLearner(Learner):
 
     def _update_targets(self):
         self.target_mac.load_state(self.mac)
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             self.target_mixer.load_state_dict(self.mixer.state_dict())
         self.logger.console_logger.info("Updated target network")

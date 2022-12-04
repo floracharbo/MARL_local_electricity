@@ -1,2 +1,8 @@
 V: 415 # V nominal voltage from Mortsyn 2019 multiclass
 R: 0.084 # Ohm average resistance between the prosumers and main grid from Mortsyn 2019 multiclass
+manage_agg_power: False # Add constraints and penalty on max aggregated imports and exports
+max_grid_in : 6 # Limit to grid import
+max_grid_out : 6 # Limit to grid export
+penalty_coefficient_in: 0.01 # Coefficient multiplied with import values to determine penalty
+penalty_coefficient_out: 0.01 # Coefficient multiplied with export values to determine penalty
+small_coefficient: 0.00001 # Small coefficient used in the import and export constraints

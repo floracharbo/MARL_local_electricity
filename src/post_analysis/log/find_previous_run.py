@@ -16,43 +16,48 @@ candidates_left = True
 settings = {
     'heat': {'file': 'heat2'},
     'RL': {
-        'type_learning': 'facmac',
-        'aggregate_actions': False,
-        'state_space': [['avail_car_step', 'grdC', 'store_bool_flex']],
-        'n_epochs': [20],
-        'n_repeats': 3,
-        'rnn_hidden_dim': [500],
-        'evaluation_methods': [['env_r_c', 'opt']] * 1,
-        'lr': 1e-3,
-        'facmac': {'critic_lr': 5e-4},
-        'ou_stop_episode': 1e3,
-        'start_steps': [100],
-        'hyper_initialization_nonzeros': 0.1,
+        'type_learning': 'q_learning',
+        # 'aggregate_actions': False,
+        # 'state_space': [['avail_car_step', 'grdC', 'store_bool_flex']],
+        'n_epochs': 200,
+        # 'n_repeats': 3,
+        # 'rnn_hidden_dim': [500],
+        # 'evaluation_methods': [['env_r_c', 'opt']] * 1,
+        # 'lr': 1e-3,
+        # 'facmac': {'critic_lr': 5e-4},
+        # 'ou_stop_episode': 1e3,
+        # 'start_steps': [100],
+        # 'hyper_initialization_nonzeros': 0.1,
     },
     'ntw': {
         'n': 10
     },
 }
+SETTINGS_ONLY = True
 
 
-def initialise_settings_prm_log(settings, log_path):
-    prm = input_paths()
+def initialise_settings_prm_log(settings, log_path, settings_only=True):
+    if not settings_only:
+        prm = input_paths()
     settings_i = get_settings_i(settings, 0)
     # initialise learning parameters, system parameters and recording
-    prm = input_params(prm, settings_i)
-    prm, profiles = initialise_prm(
-        prm, 0, initialise_all=False
-    )
+    if settings_only:
+        prm = settings_i
+    else:
+        prm = input_params(prm, settings_i)
+        prm = initialise_prm(
+            prm, 0, initialise_all=False
+        )
 
     log = pd.read_csv(log_path)
 
-    return prm, profiles, log
+    return prm, log
 
 
 def find_previous_run_with_same_settings(settings, log_path):
-    prm, profiles, log = initialise_settings_prm_log(settings, log_path)
-
-    for key, value in prm.items():
+    prm, log = initialise_settings_prm_log(settings, log_path, settings_only=SETTINGS_ONLY)
+    candidates_left = True
+    for key, value in settings.items():
         for subkey, subvalue in value.items():
             if isinstance(subvalue, dict):
                 for subsubkey, subsubvalue in subvalue.items():
@@ -88,7 +93,6 @@ def find_previous_run_with_same_settings(settings, log_path):
 
 log = find_previous_run_with_same_settings(settings, log_path)
 if len(log) > 1:
-    idxmax = log['best_score'].idxmax()
-    print(f"best run: {log.iloc[idxmax]}")
-    idxmax_env = log['best_score_env'].idxmax()
-    print(f"best run with env-based exploration: {log.iloc[idxmax_env]}")
+    print(f"best run: {log.loc[log['best_score'] == max(log['best_score'])]}")
+    print(f"best run with env-based exploration: "
+          f"{log.loc[log['best_score_env'] == max(log['best_score_env'])]}")

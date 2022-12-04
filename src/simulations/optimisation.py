@@ -28,6 +28,7 @@ class Optimiser():
         self.n_homes = prm["ntw"]["n"]
         self.save = prm["save"]
         self.paths = prm["paths"]
+        self.manage_agg_power = prm["grd"]["manage_agg_power"]
 
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
@@ -149,43 +150,11 @@ class Optimiser():
         for i in range(cin + 1):
             fin[i].savefig(os.path.join(save_inputs_path, lin[i]))
 
-    def _problem(self):
-        """Solve optimisation problem."""
-        N = self.N
-        n_homes = self.n_homes
-        # initialise problem
-        p = pic.Problem()
-
+    def _grid_constraints(self, p):
         # variables
-        grid = p.add_variable('grid', (N), vtype='continuous')
-        grid2 = p.add_variable('grid2', (N), vtype='continuous')
-        netp = p.add_variable('netp', (n_homes, N), vtype='continuous')
-        totcons = p.add_variable('totcons', (n_homes, N), vtype='continuous')
-        consa = []
-        for load_type in range(self.loads['n_types']):
-            consa.append(p.add_variable('consa({0})'.format(load_type),
-                                        (n_homes, N)))
-        constl = {}
-        tlpairs = comb(np.array([N, self.loads['n_types']]))
-        for tl in tlpairs:
-            constl[tl] = p.add_variable('constl{0}'.format(tl),
-                                        (n_homes, N))
-
-        charge = p.add_variable('charge', (n_homes, N),
-                                vtype='continuous')
-        discharge_tot = p.add_variable('discharge_tot', (n_homes, N),
-                                       vtype='continuous')
-        discharge_other = p.add_variable('discharge_other', (n_homes, N),
-                                         vtype='continuous')
-        store = p.add_variable('store', (n_homes, N), vtype='continuous')
-        T = p.add_variable('T', (n_homes, N), vtype='continuous')
-        T_air = p.add_variable('T_air', (n_homes, N), vtype='continuous')
-        # in kWh use P in W  Eheat * 1e3 * self.syst['prm']['H']/2 =  Pheat
-        E_heat = p.add_variable('E_heat', (n_homes, N),
-                                vtype='continuous')
-        gc = p.add_variable('gc', 1)   # grid costs
-        sc = p.add_variable('sc', 1)   # storage costs
-        dc = p.add_variable('dc', 1)   # distribution costs
+        grid = p.add_variable('grid', (self.N), vtype='continuous')
+        netp = p.add_variable('netp', (self.n_homes, self.N), vtype='continuous')
+        grid2 = p.add_variable('grid2', (self.N), vtype='continuous')
 
         # constraints
         # substation energy balance
@@ -193,75 +162,58 @@ class Optimiser():
             [grid[time]
              - np.sum(self.loads['netp0'][b0][time]
                       for b0 in range(self.ntw['nP']))
-             - pic.sum([netp[home, time] for home in range(n_homes)])
-             == 0 for time in range(N)])
+             - pic.sum([netp[home, time] for home in range(self.n_homes)])
+             == 0 for time in range(self.N)])
+        p.add_list_of_constraints(
+            [grid2[time] >= grid[time] * grid[time] for time in range(self.N)])
+        p, pc = self._import_export_constraints(p, grid)
+
+        return p, netp, grid, grid2, pc
+
+    def _problem(self):
+        """Solve optimisation problem."""
+        # initialise problem
+        p = pic.Problem()
+
+        p, charge, discharge_tot, discharge_other = self._storage_constraints(p)
+        p, E_heat = self._temperature_constraints(p)
+        p, totcons = self._cons_constraints(p, E_heat)
+        p, netp, grid, grid2, pc = self._grid_constraints(p)
 
         # prosumer energy balance
         p.add_constraint(netp - charge / self.car['eta_ch']
                          + discharge_other
-                         + self.ntw['gen'][:, 0: N]
+                         + self.ntw['gen'][:, 0: self.N]
                          - totcons == 0)
 
-        # battery energy balance
-        p.add_constraint(discharge_tot
-                         == discharge_other / self.car['eta_dis']
-                         + self.car['batch_loads_car'][:, 0: N])
-
-        p = self._storage_constraints(
-            p, charge, discharge_tot, discharge_other, store
-        )
-
-        # consumption
-        p = self._cons_constraints(p, constl, consa, E_heat, totcons)
-
-        # temperature
-        p = self._temperature_constraints(p, T, E_heat, T_air)
-
-        # positivity constraints
-        p.add_constraint(totcons >= 0)
-        p.add_constraint(store >= 0)
-        p.add_constraint(charge >= 0)
-        p.add_constraint(discharge_tot >= 0)
-        p.add_constraint(discharge_other >= 0)
-        p.add_constraint(E_heat >= 0)
-        p.add_list_of_constraints(
-            [consa[load_type] >= 0
-             for load_type in range(self.loads['n_types'])])
-        p.add_list_of_constraints(
-            [constl[tl] >= 0 for tl in tlpairs])
-
         # costs constraints
-        p.add_list_of_constraints(
-            [grid2[time] >= grid[time] * grid[time] for time in range(N)])
-
-        p.add_constraint(
-            gc == (self.grd['C'][0: self.N]
-                   | (grid + self.grd['R'] / (self.grd['V'] ** 2) * grid2))
-        )
-        p.add_constraint(sc == self.car['C']
-                         * (pic.sum(discharge_tot) + pic.sum(charge)
-                            + np.sum(self.loads['discharge_tot0'])
-                            + np.sum(self.loads['charge0'])
-                            )
-                         )
-
-        p = self._distribution_costs(p, dc, netp)
+        p = self._set_objective(p, netp, grid, discharge_tot, charge, grid2, pc)
 
         # solve
-        p.set_objective('min', gc + sc + dc)
         p.solve(verbose=0, solver=self.syst['solver'])
 
-        # %% save results
+        # save results
         res = self._save_results(p.variables)
 
         return res
 
-    def _storage_constraints(
-            self, p, charge, discharge_tot, discharge_other, store
-    ):
+    def _storage_constraints(self, p):
         """Storage constraints."""
+        charge = p.add_variable('charge', (self.n_homes, self.N),
+                                vtype='continuous')
+        discharge_tot = p.add_variable('discharge_tot', (self.n_homes, self.N),
+                                       vtype='continuous')
+        discharge_other = p.add_variable('discharge_other', (self.n_homes, self.N),
+                                         vtype='continuous')
+        store = p.add_variable('store', (self.n_homes, self.N), vtype='continuous')
+
         store_end = self.car['SoC0'] * self.ntw['Bcap'][:, self.N - 1]
         car = self.car
+
+        # battery energy balance
+        p.add_constraint(discharge_tot
+                         == discharge_other / self.car['eta_dis']
+                         + self.car['batch_loads_car'][:, 0: self.N])
 
         if car['eff'] == 1:
             p.add_list_of_constraints(
@@ -316,8 +268,12 @@ class Optimiser():
         p.add_constraint(store <= self.ntw['Bcap'])
         p.add_constraint(car['c_max'] >= charge)
         p.add_constraint(car['d_max'] >= discharge_tot)
+        p.add_constraint(store >= 0)
+        p.add_constraint(charge >= 0)
+        p.add_constraint(discharge_tot >= 0)
+        p.add_constraint(discharge_other >= 0)
 
-        return p
+        return p, charge, discharge_tot, discharge_other
 
     def _distribution_costs(self, p, dc, netp):
         """Distribution costs."""
@@ -555,10 +511,21 @@ class Optimiser():
 
         return res
 
-    def _cons_constraints(self, p, constl, consa, E_heat, totcons):
+    def _cons_constraints(self, p, E_heat):
         """Add constraints for consumption."""
-        loads = self.loads
-        for load_type in range(loads['n_types']):
+        totcons = p.add_variable('totcons', (self.n_homes, self.N), vtype='continuous')
+
+        consa = []
+        for load_type in range(self.loads['n_types']):
+            consa.append(p.add_variable('consa({0})'.format(load_type),
+                                        (self.n_homes, self.N)))
+        constl = {}
+        tlpairs = comb(np.array([self.N, self.loads['n_types']]))
+        for tl in tlpairs:
+            constl[tl] = p.add_variable('constl{0}'.format(tl),
+                                        (self.n_homes, self.N))
+
+        for load_type in range(self.loads['n_types']):
             for home in range(self.n_homes):
                 for time in range(self.N):
                     # time = tD
@@ -574,14 +541,26 @@ class Optimiser():
                         == consa[load_type][home, time])
         p.add_constraint(
             pic.sum([consa[load_type]
-                     for load_type in range(loads['n_types'])])
+                     for load_type in range(self.loads['n_types'])])
             + E_heat
             == totcons)
 
-        return p
+        p.add_list_of_constraints(
+            [consa[load_type] >= 0
+             for load_type in range(self.loads['n_types'])])
+        p.add_list_of_constraints(
+            [constl[tl] >= 0 for tl in tlpairs])
+        p.add_constraint(totcons >= 0)
 
-    def _temperature_constraints(self, p, T, E_heat, T_air):
+        return p, totcons
+
+    def _temperature_constraints(self, p):
         """Add temperature constraints to the problem."""
+        T = p.add_variable('T', (self.n_homes, self.N), vtype='continuous')
+        T_air = p.add_variable('T_air', (self.n_homes, self.N), vtype='continuous')
+        # in kWh use P in W  Eheat * 1e3 * self.syst['prm']['H']/2 =  Pheat
+        E_heat = p.add_variable('E_heat', (self.n_homes, self.N),
+                                vtype='continuous')
         heat = self.heat
         for home in range(self.n_homes):
             if heat['own_heat'][home]:
@@ -621,5 +600,68 @@ class Optimiser():
                 p.add_list_of_constraints(
                     [T[home, time] == (heat['T_LB'][home][time] + heat['T_UB'][home][time]) / 2
                      for time in range(self.N)])
+
+        p.add_constraint(E_heat >= 0)
+
+        return p, E_heat
+
+    def _import_export_constraints(self, p, grid):
+        pc = p.add_variable('pc', 1)  # total penalty costs
+        pci = p.add_variable('pci', self.N, vtype='continuous')  # hourly import penalty
+        pco = p.add_variable('pco', self.N, vtype='continuous')  # hourly export penalty
+        if self.manage_agg_power:
+            # hourly grid import
+            grid_in = p.add_variable('grid_in', (self.N), vtype='continuous')
+            # hourly grid export
+            grid_out = p.add_variable('grid_out', (self.N), vtype='continuous')
+
+            p.add_list_of_constraints(pci[t] >= 0 for t in range(self.N))
+            p.add_list_of_constraints(
+                pci[t]
+                >= self.grd['penalty_coefficient_in']
+                * (grid_in[t] - self.grd['max_grid_in']) for t in range(self.N)
+            )
+            p.add_list_of_constraints(pco[t] >= 0 for t in range(self.N))
+            p.add_list_of_constraints(
+                pco[t]
+                >= self.grd['penalty_coefficient_out']
+                * (grid_out[t] - self.grd['max_grid_out'])
+                for t in range(self.N)
+            )
+
+            # import and export definition
+            p.add_list_of_constraints(
+                [grid[t] == grid_in[t] - grid_out[t] for t in range(self.N)])
+            p.add_list_of_constraints(grid_in[t] >= 0 for t in range(self.N))
+            p.add_list_of_constraints(grid_out[t] >= 0 for t in range(self.N))
+            p.add_constraint(pc == pic.sum(pci) + pic.sum(pco))
+        else:
+            p.add_constraint(pc == 0)
+            p.add_constraint(pci == 0)
+            p.add_constraint(pco == 0)
+
+        return p, pc
+
+    def _set_objective(self, p, netp, grid, discharge_tot, charge, grid2, pc):
+        gc = p.add_variable('gc', 1)   # grid costs
+        sc = p.add_variable('sc', 1)   # storage costs
+        dc = p.add_variable('dc', 1)   # distribution costs
+
+        # grid costs
+        p.add_constraint(
+            gc
+            == pc
+            + (self.grd['C'][0: self.N] | (grid + self.grd['R'] / (self.grd['V'] ** 2) * grid2))
+        )
+
+        p.add_constraint(sc == self.car['C']
+                         * (pic.sum(discharge_tot) + pic.sum(charge)
+                            + np.sum(self.loads['discharge_tot0'])
+                            + np.sum(self.loads['charge0'])
+                            )
+                         )
+        p = self._distribution_costs(p, dc, netp)
+
+        p.set_objective('min', gc + sc + dc)
 
         return p

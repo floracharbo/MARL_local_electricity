@@ -329,6 +329,7 @@ class Action_translator:
         return loads, home_vars, bool_penalty
 
     def _flexible_store_action_to_ds(self, home, flexible_store_action, res):
+        """Convert flexible store action to change in storage level ds."""
         if flexible_store_action is None:
             assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
                 "flexible_store_action is None but " \
@@ -457,6 +458,7 @@ class Action_translator:
                          bbox_inches='tight', format='svg', dpi=1200)
 
     def _compute_k(self, home, a_dp, b_dp, action_points, d):
+        """Get the coefficients of the linear function for the action variable."""
         letters = ['A', 'B', 'C', 'D', 'E', 'F']
 
         self.k.append(initialise_dict(self.entries))
@@ -488,6 +490,7 @@ class Action_translator:
     def _check_input_types(
             self, loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
     ):
+        """Check the input types."""
         assert isinstance(loads['l_fixed'], np.ndarray), \
             f"type(loads['l_fixed']) {type(loads['l_fixed'])}"
         assert isinstance(loads['l_flex'], np.ndarray), \
@@ -506,22 +509,26 @@ class Action_translator:
             f"type(s_remove_0) = {type(s_remove_0)}"
 
     def aggregate_action_bool_flex(self, home):
+        """Check that there is flexibility over all three sub-actions."""
         return self.k[home]['dp'][0][0] > 0
 
     def get_flexibility(self, home):
+        """Compute total flexibility between minimum and maximum possible imports/exports."""
         return self.k[home]['dp'][0][0]
 
     def store_bool_flex(self, home):
+        """Check that there is flexibility over the storage sub-action."""
         return abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3
 
     def get_aggregate_action(self, actions, bool_flex, netp, home):
+        """Compute the aggregate action variable from the current import/export."""
         if abs(self.k[home]['dp'][0][0]) < 1e-2:
             self.k[home]['dp'][0][0] = 0
         bool_flex_ = self.aggregate_action_bool_flex(home)
         bool_flex.append(bool_flex_)
 
-        if not bool_flex_:  # there is not flexibility
-            # boolean for whether or not we have flexibility
+        if not bool_flex_:  # there is no flexibility
+            # boolean for whether we have flexibility
             actions.append([None])
         else:
             # action none if no flexibility
@@ -542,6 +549,7 @@ class Action_translator:
         return actions, bool_flex
 
     def _flex_loads_action(self, loads, home, res, h):
+        """Compute the flexible household loads consumption action from the optimisation result."""
         loads_bool_flex = True
         flexible_cons_action = None
         if loads['l_flex'][home] < 1e-3:
@@ -566,6 +574,7 @@ class Action_translator:
         return flexible_cons_action, loads_bool_flex
 
     def _flex_heat_action(self, home, res, h):
+        """Compute the flexible heat energy consumption action from the optimisation result."""
         heat_bool_flex = True
         flexible_heat_action = None
         if self.heat.potential_E_flex()[home] < 1e-3:
@@ -586,6 +595,7 @@ class Action_translator:
         return flexible_heat_action, heat_bool_flex
 
     def _flex_store_action(self, res, home, h):
+        """Compute the flexible storage action from the optimisation result."""
         store_bool_flex = True
         flexible_store_action = None
         max_charge_a, min_charge_a = [
@@ -631,7 +641,8 @@ class Action_translator:
                    <= max_charge_a + 1e-3, \
                    f"res charge {res['charge'][home, h]} " \
                    f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-            assert max_discharge_a - 1e-3 <= - res['discharge_other'][home, h] / self.car.eta_dis \
+            assert max_discharge_a - 1e-3 \
+                   <= - res['discharge_other'][home, h] / self.car.eta_dis \
                    <= min_discharge_a + 1e-3, \
                    f"res discharge_other {res['discharge_other'][home, h]} " \
                    f"min_discharge_a {- min_discharge_a} " \
@@ -653,6 +664,7 @@ class Action_translator:
         return flexible_store_action, store_bool_flex
 
     def _get_disaggregated_actions(self, actions, bool_flex, res, loads, home, h):
+        """Get all three sub-action values from the optimisation result."""
         flexible_cons_action, loads_bool_flex = self._flex_loads_action(loads, home, res, h)
         flexible_heat_action, heat_bool_flex = self._flex_heat_action(home, res, h)
         flexible_store_action, store_bool_flex = self._flex_store_action(res, home, h)
@@ -669,6 +681,7 @@ class Action_translator:
     def _check_action_errors(
             self, actions, error, res, loads, home, h, bool_flex
     ):
+        """Check assertion errors for the translation of optimisation results into rl actions."""
         for i in range(self.dim_actions_1):
             if actions[home][i] is not None \
                     and actions[home][i] < self.low_action[i]:

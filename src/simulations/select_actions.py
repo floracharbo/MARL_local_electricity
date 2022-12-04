@@ -38,8 +38,6 @@ class ActionSelector:
                     current_state[home], (1, 1))), 0)
                 for home in self.homes]
         else:
-            # tf_prev_state = [tf.expand_dims(tf.convert_to_tensor(
-            #     current_state[home]), 0) for home in self.homes]
             tf_prev_state = tf.convert_to_tensor(current_state)
 
         return tf_prev_state
@@ -136,18 +134,18 @@ class ActionSelector:
 
         # with DDPG we input an array of states for each agent and time
         elif rl['type_learning'] == 'DDPG':
-            actions, ind_actions = self._trajectory_actions_DDPG(
+            actions, ind_actions = self._trajectory_actions_ddpg(
                 states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
             )
 
         # with DQN we convert the list of states to a global state descriptor
         elif rl['type_learning'] == 'DQN':
-            actions, ind_actions = self._trajectory_actions_DQN(
+            actions, ind_actions = self._trajectory_actions_dqn(
                 states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
             )
 
         elif rl['type_learning'] == 'DDQN':
-            actions, ind_actions = self._trajectory_actions_DDQN(eps_greedy)
+            actions, ind_actions = self._trajectory_actions_ddqn(eps_greedy)
 
         elif rl['type_learning'] == 'facmac':
             tf_prev_state = self._format_tf_prev_state(states)
@@ -254,7 +252,7 @@ class ActionSelector:
 
         return ind_action
 
-    def _trajectory_actions_DDPG(
+    def _trajectory_actions_ddpg(
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
     ):
         method = "DDPG"
@@ -292,7 +290,7 @@ class ActionSelector:
 
         return actions, ind_actions
 
-    def _trajectory_actions_DQN(
+    def _trajectory_actions_dqn(
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv
     ):
         method = "DQN"
@@ -332,7 +330,7 @@ class ActionSelector:
 
         return actions, ind_actions
 
-    def _trajectory_actions_DDQN(self, eps_greedy):
+    def _trajectory_actions_ddqn(self, eps_greedy):
         method = "DDQN"
         if self.rl["distr_learning"] == "decentralised":
             ind_actions = [self.learner[method][home].sample_action(

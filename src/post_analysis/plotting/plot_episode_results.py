@@ -362,7 +362,9 @@ def _plot_indiv_agent_res(
                 min(prm["ntw"]["n"], prm["save"]["max_n_profiles_plot"])
         ):
             xs = range(len(loads_car[home]))
-            bands_car_availability = _get_bands_car_availability(availabilities_car, home, prm['syst']['N'])
+            bands_car_availability = _get_bands_car_availability(
+                availabilities_car, home, prm['syst']['N']
+            )
 
             fig, axs = plt.subplots(4, 2, figsize=(13, 13))
 
@@ -568,3 +570,47 @@ def plot_env_input(repeat, prm, record):
             title_and_save(title, fig, prm)
         else:
             print(f"no new deterministic batch for repeat = {repeat}")
+
+
+def plot_imp_exp_violations(
+        prm, all_methods_to_plot, folder_run):
+    for repeat in range(prm['RL']['n_repeats']):
+        last, _, methods_to_plot = _get_repeat_data(
+            repeat, all_methods_to_plot, folder_run)
+        for t in methods_to_plot:
+            fig, ax1 = plt.subplots()
+            ax2 = ax1.twinx()
+            netp = last['netp'][t]  # [step][a]
+            grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
+            break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
+            pc = [break_down_rewards[step][3] for step in range(prm['syst']['N'])]
+            ax1.plot(grid)
+            ax2.bar(range(prm['syst']['N']), pc, label=f'{t}_pc')
+            ax1.axhline(y=prm['grd']['max_grid_in'], color='k', linestyle='dotted')
+            ax1.axhline(y=-prm['grd']['max_grid_out'], color='k', linestyle='dotted')
+            ax1.set_ylabel('grid')
+            ax2.set_ylabel('penalty')
+            plt.legend()
+            plt.tight_layout()
+            title = f'grid_flows_vs_limits_repeat{repeat}_{t}'
+            title_and_save(title, fig, prm)
+
+
+def plot_imp_exp_check(
+        prm, all_methods_to_plot, folder_run):
+    for repeat in range(prm['RL']['n_repeats']):
+        last, _, methods_to_plot = _get_repeat_data(
+            repeat, all_methods_to_plot, folder_run)
+        for t in methods_to_plot:
+            fig = plt.figure()
+            netp = last['netp'][t]  # [step][a]
+            grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
+            grid_in = np.where(np.array(grid) >= 0, grid, 0)
+            grid_out = np.where(np.array(grid) < 0, grid, 0)
+            plt.plot(grid_in, label='grid imp', color='b')
+            plt.plot(grid_out, label='grid exp', color='g')
+            plt.plot(grid, label='grid tot', color='r', linestyle='--')
+            plt.legend()
+            plt.tight_layout()
+            title = f'grid_imports_exports_check_repeat{repeat}_{t}'
+            title_and_save(title, fig, prm)

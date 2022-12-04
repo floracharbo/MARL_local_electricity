@@ -104,6 +104,7 @@ def initialise_variables(prm, spaces, record):
     prm["save"]["n_window"] = int(
         max(min(100, rl['n_all_epochs'] / 10), 2)
     )
+    prm["save"]["save_qtables"] = record.save_qtables
     spaces.new_state_space(rl['state_space'])
     rl["q_tables"], rl["counters"] = record.q_tables, record.counter
     if rl["type_env"] == "discrete":

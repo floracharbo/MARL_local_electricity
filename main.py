@@ -20,7 +20,7 @@ settings = {
         'cnn_kernel_size': 2,
         'n_epochs': 20,
         'normalise_states': True,
-        'obs_agent_id': True,
+        'obs_agent_id': False,
         # current experiment
         # grdC_level, hour, car_tau, store0, grdC
         # # avail_car_step, loads_clus_step, loads_fact_step
@@ -31,29 +31,35 @@ settings = {
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
 
         # # flexibility
-        'state_space': [['flexibility', 'grdC_n2']],
+        'state_space': [['grdC']],
         'type_learning': 'facmac',
-        'evaluation_methods': [['env_r_c', 'opt']] * 3,
+        'evaluation_methods': [['env_r_c', 'opt']],
         'n_repeats': 3,
         'lr': 1e-3,
         'facmac': {'critic_lr': 5e-4, 'batch_size': 5},
         'ou_stop_episode': 1e3,  # for cqmix controller - training  oise goes to zero after this episode
         'start_steps': 100,  # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
         'hyper_initialization_nonzeros': 0.1,
-        'n_hidden_layers': 2,
-        'n_hidden_layers_critic': 1,
-        'trajectory': False,
+        'n_hidden_layers': 2,   # number of hidden layers
+        'n_hidden_layers_critic': 1,  # number of hidden layers for the critic
+        'trajectory': True,
         'n_cnn_layers': 1,
-        'rnn_hidden_dim': 500,
+        'rnn_hidden_dim': 5e2,
+        # 'supervised_loss_weight': [10],
         # 'supervised_loss': True,
-        # 'n_start_opt_explo': 5,
-        # 'nn_type': 'cnn'
+        # 'learner': 'facmac_learner_discrete',
+        'n_start_opt_explo': 5,
+        'nn_type': 'lstm',
+        'target_update_mode': 'hard',   # 'soft' or 'hard'
     },
     'ntw': {
         'n': 10,
         # 'nP': 10,
     },
-    'syst': {'H': 48}
+    'grd': {
+        'manage_agg_power': False
+    },
+    'syst': {'H': 24}
 }
 
 # obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation

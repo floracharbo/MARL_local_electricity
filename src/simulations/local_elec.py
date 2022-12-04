@@ -37,7 +37,7 @@ class LocalElecEnv():
     # =============================================================================
     # # initialisation / data interface
     # =============================================================================
-    def __init__(self, prm, profiles):
+    def __init__(self, prm):
         """Initialise Local Elec environment, add properties."""
         self.batchfile0 = 'batch'
         self.envseed = self._seed()
@@ -51,7 +51,6 @@ class LocalElecEnv():
         self.rl = prm['RL']
         self.labels_day_trans = prm['syst']['labels_day_trans']
 
-        self.prof = profiles
         self.n_homes = prm['ntw']['n']
         self.homes = range(self.n_homes)
 
@@ -62,6 +61,12 @@ class LocalElecEnv():
         self.action_translator = Action_translator(prm, self)
         self.i0_costs = 0
         self.car = Battery(prm)
+        self.hedge = HEDGE(
+            n_homes=prm['ntw']['n'],
+            factors0=prm['syst']['f0'],
+            clusters0=prm['syst']['clus0'],
+            prm=prm
+        )
         self.spaces = EnvSpaces(self)
         self.spaces.new_state_space(self.rl['state_space'])
         self.add_noise = 1 if self.rl['deterministic'] == 2 else 0
@@ -87,12 +92,6 @@ class LocalElecEnv():
             prm["loads"]["max_delay"] * self.n_int_per_hr
         )
 
-        self.hedge = HEDGE(
-            n_homes=prm['ntw']['n'],
-            factors0=prm['syst']['f0'],
-            clusters0=prm['syst']['clus0'],
-            prm=prm
-        )
         if prm['ntw']['nP'] > 0:
             self.passive_hedge = HEDGE(
                 n_homes=prm['ntw']['nP'],
@@ -180,54 +179,55 @@ class LocalElecEnv():
             self, date0, epoch, i_explore, evaluation_add1=False
     ):
         """Reinitialise factors and clusters lists."""
-        if evaluation_add1:
-            i_explore += 1
+        # if evaluation_add1:
+        #     i_explore += 1
 
-        random_clus, random_f = [[[
-            self.np_random.rand()
-            for _ in range(self.prm['ntw']['n_all'])]
-            for _ in labels]
-            for labels in [self.behaviour_types, self.data_types]
-        ]
+        # random_clus, random_f = [[[
+        #     self.np_random.rand()
+        #     for _ in range(self.prm['ntw']['n_all'])]
+        #     for _ in labels]
+        #     for labels in [self.behaviour_types, self.data_types]
+        # ]
+        # self.hedge.date = date0 - timedelta(days=1)
+        # i_day_type = 0 if date0.weekday() < 5 else 1
+        # next_dt = 0 if (date0 + timedelta(days=1)).weekday() < 5 else 1
+        # transition_type = self.labels_day_trans[i_day_type * 2 + next_dt * 1]
 
-        i_day_type = 0 if date0.weekday() < 5 else 1
-        next_dt = 0 if (date0 + timedelta(days=1)).weekday() < 5 else 1
-        transition_type = self.labels_day_trans[i_day_type * 2 + next_dt * 1]
-
-        for passive_ext in ['', 'P']:
-            for i_data_type, data_type in enumerate(self.behaviour_types):
-                day_type = self.prm["syst"]["labels_day"][i_day_type]
-                clusas = []
-                da = self.prm['ntw']['n'] if passive_ext == 'P' else 0
-                transition_type_ = self._p_trans_label(transition_type, data_type)
-                for home in range(self.prm['ntw']['n' + passive_ext]):
-                    if epoch == 0 and i_explore == 0:
-                        psclus = self.p_clus[data_type][day_type]
-                    else:
-                        clus = self.clus[f"{data_type}{passive_ext}"][home]
-                        psclus = self.p_trans[data_type][transition_type_][clus]
-                    choice = self._ps_rand_to_choice(
-                        psclus, random_clus[i_data_type][home + da])
-                    clusas.append(choice)
-                self.clus[data_type + passive_ext] = clusas
-
-            if epoch == 0 and i_explore == 0:
-                for data_type in self.data_types:
-                    self.f[data_type + passive_ext] = [
-                        self.prm["syst"]["f0"][data_type]
-                        for _ in range(self.prm["ntw"]["n" + passive_ext])
-                    ]
-            else:
-                ia0 = self.prm["ntw"]["n"] if passive_ext == "P" else 0
-                iaend = ia0 + self.prm["ntw"]["nP"] if passive_ext == "P" \
-                    else ia0 + self.prm["ntw"]["n"]
-                self._next_factors(
-                    passive_ext=passive_ext, transition_type=transition_type,
-                    rands=[
-                        random_f[i_data_type][ia0: iaend]
-                        for i_data_type in range(len(self.data_types))
-                    ]
-                )
+        # for passive_ext in ['', 'P']:
+        #     for i_data_type, data_type in enumerate(self.behaviour_types):
+        #         day_type = self.prm["syst"]["labels_day"][i_day_type]
+        #         clusas = []
+        #         da = self.prm['ntw']['n'] if passive_ext == 'P' else 0
+        #         transition_type_ = self._p_trans_label(transition_type, data_type)
+        #         for home in range(self.prm['ntw']['n' + passive_ext]):
+        #             if epoch == 0 and i_explore == 0:
+        #                 psclus = self.p_clus[data_type][day_type]
+        #             else:
+        #                 clus = self.clus[f"{data_type}{passive_ext}"][home]
+        #                 psclus = self.p_trans[data_type][transition_type_][clus]
+        #             choice = self._ps_rand_to_choice(
+        #                 psclus, random_clus[i_data_type][home + da])
+        #             clusas.append(choice)
+        #         self.clus[data_type + passive_ext] = clusas
+        #
+        #     if epoch == 0 and i_explore == 0:
+        #         for data_type in self.data_types:
+        #             self.f[data_type + passive_ext] = [
+        #                 self.prm["syst"]["f0"][data_type]
+        #                 for _ in range(self.prm["ntw"]["n" + passive_ext])
+        #             ]
+        #     else:
+        #         ia0 = self.prm["ntw"]["n"] if passive_ext == "P" else 0
+        #         iaend = ia0 + self.prm["ntw"]["nP"] if passive_ext == "P" \
+        #             else ia0 + self.prm["ntw"]["n"]
+        #         self._next_factors(
+        #             passive_ext=passive_ext, transition_type=transition_type,
+        #             rands=[
+        #                 random_f[i_data_type][ia0: iaend]
+        #                 for i_data_type in range(len(self.data_types))
+        #             ]
+        #         )
+        pass
 
     def set_passive_active(self, passive: bool = False):
         """Update environment properties for passive or active case."""
@@ -252,6 +252,7 @@ class LocalElecEnv():
         self.update_i0_costs()
         if date0 is not None:
             self.date0 = date0
+            self.hedge.date = date0 - timedelta(days=1)
             self.spaces.current_date0 = self.date0
             self.action_translator.date0 = self.date0
             self.date_end = date0 + timedelta(hours=self.N * self.dt)
@@ -459,6 +460,26 @@ class LocalElecEnv():
 
         # negative netp is selling, positive buying
         grid = sum(netp) + sum(netp0)
+        # import and export limits
+        grid_in = np.where(np.array(grid) >= 0, grid, 0)
+        grid_out = np.where(np.array(grid) < 0, grid, 0)
+
+        if self.prm['grd']['manage_agg_power']:
+            pci = np.where(
+                grid_in
+                >= self.prm['grd']['max_grid_in'],
+                self.prm['grd']['penalty_coefficient_in']
+                * (grid_in - self.prm['grd']['max_grid_in']), 0)
+            pco = np.where(
+                abs(grid_out)
+                >= self.prm['grd']['max_grid_out'],
+                self.prm['grd']['penalty_coefficient_out']
+                * (abs(grid_out) - self.prm['grd']['max_grid_out']), 0)
+
+            pc = pci + pco
+        else:
+            pc = 0
+
         if self.prm['ntw']['charge_type'] == 0:
             sum_netp = sum([abs(netp[home]) if netp[home] < 0
                            else 0 for home in self.homes])
@@ -470,7 +491,7 @@ class LocalElecEnv():
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
             dc = self.prm['ntw']['C'] * netpvar
-        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
+        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2) + pc
         gc_a = [wholesalet * netp[home] for home in self.homes]
         sc = self.prm['car']['C'] \
             * (sum(discharge_tot[home] + charge[home]
@@ -486,7 +507,7 @@ class LocalElecEnv():
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
-        break_down_rewards = [gc, sc, dc, costs_wholesale, costs_losses,
+        break_down_rewards = [gc, sc, dc, pc, costs_wholesale, costs_losses,
                               emissions, emissions_from_grid,
                               emissions_from_loss, gc_a, sc_a, c_a]
 
@@ -690,13 +711,13 @@ class LocalElecEnv():
                 = self.prm["car"]["mid_fs_brackets"][transition_type_][int(choice)]
             for data_type in ["loads", "car"]:
                 self.f[f"{data_type}{passive_ext}"][home] = min(
-                    max(self.f_min[data_type], self.f[f"{data_type}{passive_ext}"][home]),
-                    self.f_max[data_type]
+                    max(self.hedge.f_min[data_type], self.f[f"{data_type}{passive_ext}"][home]),
+                    self.hedge.f_max[data_type]
                 )
             i_month = self.date.month - 1
             self.f[f"gen{passive_ext}"][home] = min(
-                max(self.f_min["gen"][i_month], self.f[f"gen{passive_ext}"][home]),
-                self.f_max["gen"][i_month]
+                max(self.hedge.f_min["gen"][i_month], self.f[f"gen{passive_ext}"][home]),
+                self.hedge.f_max["gen"][i_month]
             )
 
         return factor_ev_new_interval
@@ -717,34 +738,34 @@ class LocalElecEnv():
                     [c > rdn for c in cump].index(True)
                 self.cluss[home][data_type].append(self.clus[data_type + self.passive_ext][home])
 
-    def _adjust_car_cons(self, homes, dt, transition_type, day, i_car, factor_ev_new_interval):
-        transition_type_ = transition_type[0:2] \
-            if transition_type not in self.prm['car']['mid_fs_brackets'] \
-            else transition_type
-        for i_home in range(len(homes)):
-            home = homes[i_home]
-            clus = self.clus[self.car_p][home]
-            it = 0
-            while (
-                    np.max(day['loads_car'][i_home])
-                    > self.prm['car'][self.cap_p][home]
-                    and it < 100
-            ):
-                if factor_ev_new_interval[i_home] > 0:
-                    factor_ev_new_interval[i_home] -= 1
-                    interval = int(factor_ev_new_interval[i_home])
-                    self.f[self.car_p][home] = \
-                        self.prm["car"]["mid_fs_brackets"][transition_type_][interval]
-                    prof = self.prof['car']['cons'][dt][clus][i_car[i_home]]
-                    day['loads_car'][i_home] = [
-                        x * self.f[self.car_p][home] for x in prof
-                    ]
-                else:
-                    i_car[i_home] = self.np_random.choice(
-                        np.arange(self.n_prof['car'][dt][clus]))
-                it += 1
-
-        return day, i_car
+    # def _adjust_car_cons(self, homes, dt, transition_type, day, i_car, factor_ev_new_interval):
+    #     transition_type_ = transition_type[0:2] \
+    #         if transition_type not in self.prm['car']['mid_fs_brackets'] \
+    #         else transition_type
+    #     for i_home in range(len(homes)):
+    #         home = homes[i_home]
+    #         clus = self.clus[self.car_p][home]
+    #         it = 0
+    #         while (
+    #                 np.max(day['loads_car'][i_home])
+    #                 > self.prm['car'][self.cap_p][home]
+    #                 and it < 100
+    #         ):
+    #             if factor_ev_new_interval[i_home] > 0:
+    #                 factor_ev_new_interval[i_home] -= 1
+    #                 interval = int(factor_ev_new_interval[i_home])
+    #                 self.f[self.car_p][home] = \
+    #                     self.prm["car"]["mid_fs_brackets"][transition_type_][interval]
+    #                 prof = self.prof['car']['cons'][dt][clus][i_car[i_home]]
+    #                 day['loads_car'][i_home] = [
+    #                     x * self.f[self.car_p][home] for x in prof
+    #                 ]
+    #             else:
+    #                 i_car[i_home] = self.np_random.choice(
+    #                     np.arange(self.n_prof['car'][dt][clus]))
+    #             it += 1
+    #
+    #     return day, i_car
 
     def _load_next_day(self, homes: list = []):
         """
@@ -789,37 +810,6 @@ class LocalElecEnv():
                 for e in self.batch[home]:
                     self.batch[home][e] = self.batch[home][e][0: 2 * self.N]
             np.save(self.res_path / f"batch{self._file_id()}", self.batch)
-
-    def _compute_i_profs(
-            self,
-            data_type: str,
-            dt: str = None,
-            idx_month: int = None,
-            homes: list = None
-    ) -> list:
-        """Get random indexes for profile selection."""
-        homes = self.homes if len(homes) == 0 else homes
-        i_profs = []
-        n_profs = self.n_prof[data_type][dt] \
-            if dt is not None \
-            else [self.n_prof[data_type][idx_month]]
-        n_profs = [int(self.prm['syst']['share_centroid'] * n_prof)
-                   for n_prof in n_profs]
-        available_profiles = \
-            [[i for i in range(n_prof)] for n_prof in n_profs]
-        for home in homes:
-            if data_type in self.labels_clus:
-                clus = self.clus[self.__dict__[data_type + '_p']][home]
-                avail_prof = available_profiles[clus]
-            else:
-                avail_prof = available_profiles[0]
-            i_prof = self.np_random.choice(avail_prof)
-
-            if len(avail_prof) > 1:
-                avail_prof.remove(i_prof)
-            i_profs.append(i_prof)
-
-        return i_profs
 
     def _loads_to_flex(self, homes: list = None):
         """Apply share of flexible loads to new day loads data."""
@@ -1005,7 +995,8 @@ class LocalElecEnv():
                     / (1 - self.share_flexs[home]) * self.share_flexs[home]
                     for ih in range(0, h + 2)), "batch_flex too large h + 1"
 
-                for ih in range(h, h + 30):
+                n = min(h + 30, len(self.batch[home]['loads']))
+                for ih in range(h, n):
                     assert self.batch[home]['loads'][ih] \
                            <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3, \
                            "loads larger than with flex"
@@ -1039,9 +1030,12 @@ class LocalElecEnv():
                         + self.batch[home]['flex'][ih][-1] + 1e-3
                         ), "loads too large"
 
-    def update_i0_costs(self, i0_costs=None):
+    def set_i0_costs(self, i0_costs):
         if i0_costs is not None:
             self.i0_costs = i0_costs
+
+    def update_i0_costs(self, i0_costs=None):
+        self.set_i0_costs(i0_costs)
         i_start, i_end = self.i0_costs, self.i0_costs + self.N + 1
         self.prm['grd']['C'] = self.prm['grd']['Call'][i_start: i_end]
         self.wholesale = self.prm['grd']['wholesale_all'][i_start: i_end]

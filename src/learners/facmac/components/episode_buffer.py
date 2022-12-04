@@ -119,7 +119,6 @@ class EpisodeBatch:
                 v = th.tensor(v, dtype=dtype, device=self.device)
 
                 target[k_][_slices] = v.view_as(target[k_][_slices])
-
                 if k_ in self.preprocess:
                     new_k = self.preprocess[k][0]
                     v = target[k_][_slices]

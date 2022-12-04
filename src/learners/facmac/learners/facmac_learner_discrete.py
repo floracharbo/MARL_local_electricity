@@ -76,7 +76,7 @@ class FACMACDiscreteLearner(Learner):
             self, batch, actions, critic, mixer, obs, state
     ):
         q_taken, _ = critic(obs, actions)
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             if self.rl['mixer'] == "vdn":
                 q_taken = mixer(
                     q_taken.view(-1, self.n_agents, 1),
@@ -109,7 +109,7 @@ class FACMACDiscreteLearner(Learner):
             batch["obs"][:, :], batch["state"][:, :]
         )
 
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             q_taken = q_taken.view(batch.batch_size, -1, 1)
             target_vals = target_vals.view(batch.batch_size, -1, 1)
         else:
@@ -135,7 +135,7 @@ class FACMACDiscreteLearner(Learner):
         # (one hot action input to the critic)
         chosen_action_qvals = self._compute_critic_chosen_actions_qvals(batch, t_env)
 
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             if self.rl['mixer'] == "vdn":
                 chosen_action_qvals = self.mixer(
                     chosen_action_qvals.view(-1, self.n_agents, 1),

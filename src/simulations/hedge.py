@@ -49,10 +49,14 @@ class HEDGE:
         self.homes = range(self.n_homes)
 
         # load input data
+        self._load_input_data(prm, factors0, clusters0)
+
+        self.save_day_path = Path(prm["paths"]["record_folder"])
+
+    def _load_input_data(self, prm, factors0, clusters0):
         prm = self._load_inputs(prm)
         self._init_factors(factors0)
         self._init_clusters(clusters0)
-
         self.profs = self._load_profiles(prm)
 
         # number of time steps per day
@@ -62,8 +66,6 @@ class HEDGE:
             self.n_steps = len(self.profs["car"]["cons"]["wd"][0][0])
         else:
             self.n_steps = len(self.profs["gen"][0][0])
-
-        self.save_day_path = Path(prm["paths"]["record_folder"])
 
     def make_next_day(
             self,
@@ -856,3 +858,6 @@ class HEDGE:
         self.date = datetime(*prm["syst"]["date0"])
 
         return prm
+
+
+

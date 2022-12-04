@@ -20,9 +20,7 @@ class FACMACLearner(Learner):
         self.critic = FACMACCritic(scheme, rl, N)
         self.target_critic = copy.deepcopy(self.critic)
         self.critic_params = list(self.critic.parameters())
-
-        if rl['mixer'] is not None \
-                and self.n_agents > 1:
+        if rl['mixer'] is not None and self.n_agents > 1:
             self.critic_params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 
@@ -57,7 +55,7 @@ class FACMACLearner(Learner):
                 inputs, actions_[:, t:t + 1].detach(),
                 critic.hidden_states
             )
-            if self.mixer is not None:
+            if self.n_agents > 1 and self.mixer is not None:
                 critic_out = mixer(critic_out.view(
                     batch.batch_size, -1, 1), batch["state"][:, t: t + 1])
             list_critic_out.append(critic_out)
@@ -95,13 +93,16 @@ class FACMACLearner(Learner):
 
         list_critics = [self.critic, self.target_critic]
         list_actions = [actions, target_actions]
-        list_mixers = [self.mixer, self.target_mixer]
+        if self.mixer is not None and self.n_agents > 1:
+            list_mixers = [self.mixer, self.target_mixer]
+        else:
+            list_mixers = [None, None]
         q_taken, target_vals = [
             self.get_critic_outs(critic, actions_, mixer, batch)
             for critic, actions_, mixer in zip(list_critics, list_actions, list_mixers)
         ]
 
-        if self.mixer is not None:
+        if self.n_agents > 1 and self.mixer is not None:
             q_taken = q_taken.view(batch.batch_size, -1, 1)
             target_vals = target_vals.view(batch.batch_size, -1, 1)
         else:
@@ -122,6 +123,10 @@ class FACMACLearner(Learner):
         mask = mask.cuda() if self.cuda_available else mask
         masked_td_error = td_error * mask
         loss = (masked_td_error ** 2).sum() / mask.sum()
+        lr = self.rl['lr'] if (not self.hysteretic or loss > 0) \
+            else self.rl['lr'] * self.beta_to_alpha
+        for g in self.critic_optimiser.param_groups:
+            g['lr'] = lr
 
         self.critic_optimiser.zero_grad()
         loss.backward()
@@ -141,7 +146,7 @@ class FACMACLearner(Learner):
                 self._build_inputs(batch, t=t), agent_outs,
                 self.critic.hidden_states)
 
-            if self.mixer is not None:
+            if self.n_agents > 1 and self.mixer is not None:
                 q = self.mixer(q.view(batch.batch_size, -1, 1),
                                batch["state"][:, t: t + 1])
 
@@ -151,8 +156,14 @@ class FACMACLearner(Learner):
         chosen_action_qvals = th.stack(chosen_action_qvals, dim=1)
         pi = mac_out
 
+        chosen_action_qvals = self.add_supervised_loss(chosen_action_qvals, batch)
         # Compute the actor loss
         pg_loss = - chosen_action_qvals.mean() + (pi**2).mean() * 1e-3
+        lr = self.rl['lr'] if (not self.hysteretic or pg_loss > 0) \
+            else self.rl['lr'] * self.beta_to_alpha
+        for g in self.agent_optimiser.param_groups:
+            g['lr'] = lr
+
         # Optimise agents
         self.agent_optimiser.zero_grad()
         pg_loss.backward()
@@ -181,10 +192,6 @@ class FACMACLearner(Learner):
     def _replace_nan_actions_with_target_actions(self, actions, target_actions):
         shape_actions = np.shape(actions)
         indexes_nan = []
-        # print(f"n batch {shape_actions[0]}")
-        # print(f"n step {shape_actions[1]}")
-        # print(f"n agent {shape_actions[2]}")
-        # print(f"n action {shape_actions[3]}")
 
         for i_batch in range(shape_actions[0]):
             for time_step in range(shape_actions[1]):

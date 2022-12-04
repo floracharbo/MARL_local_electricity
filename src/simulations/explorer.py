@@ -506,7 +506,6 @@ class Explorer():
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
             time_step, batchflex_opt
         )
-
         assert all(
             res['totcons'][:, time_step] - res['E_heat'][:, time_step]
             <= loads["l_flex"] + loads["l_fixed"] + 1e-3
@@ -645,27 +644,26 @@ class Explorer():
             f"res cons {sum_consa} does not match input demand " \
             f"{np.sum(loads[:, 0: prm['syst']['N']])}"
 
-        sum_gc = np.sum(
-            [prm["grd"]["C"][time_step_] * (
-                res['grid'][time_step_][0]
-                + prm["grd"]['loss'] * res['grid2'][time_step_][0]
-            ) for time_step_ in range(self.N)]
+        gc_i = res['pci'][time_step] + res['pco'][time_step]  \
+            + prm["grd"]["C"][time_step] * (
+                res['grid'][time_step][0] + prm["grd"]['loss'] * res['grid2'][time_step][0]
         )
-        is_start_res = [i for i in range(len(prm['grd']['Call']) - self.N) if abs(np.sum(
-            [prm["grd"]["Call"][i + time_step_] * (
-                res['grid'][time_step_][0]
-                + prm["grd"]['loss'] * res['grid2'][time_step_][0]
-            ) for time_step_ in range(self.N)]
-        ) - res['gc']) < 1e-3]
-        i_start_res = is_start_res[is_start_res.index(self.env.i0_costs)]
-        # assert self.env.i0_costs in i_start_res, \
-        #     f"self.env.i0_costs {self.env.i0_costs} i_start_res {i_start_res}"
-        assert prm['grd']['C'][0] == prm['grd']['Call'][i_start_res]
-        assert abs(res['gc'] - sum_gc) < 1e-3, \
-            f"we cannot replicate res['gc'] {res['gc']} vs {sum_gc}"
+        gc_per_start_i = [
+            prm["grd"]["Call"][i + time_step] * (
+                res['grid'][time_step][0]
+                + prm["grd"]['loss'] * res['grid2'][time_step][0]
+            )
+                + res['pci'][time_step] + res['pco'][time_step]
+            for i in range(len(prm['grd']['Call']) - self.N)
+        ]
+        potential_i0s = [
+            i for i, gc_start_i in enumerate(gc_per_start_i)
+            if abs(gc_start_i - gc_i) < 1e-3
+        ]
+        assert self.env.i0_costs in potential_i0s
 
         # check reward from environment and res variables match
-        res_reward_t = \
+        res_reward_t = - (res['pci'][time_step][0] + res['pco'][time_step][0]) \
             - (prm["grd"]["C"][time_step]
                * (res["grid"][time_step][0]
                   + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)
@@ -755,7 +753,7 @@ class Explorer():
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
         loss = self.prm['grd']['loss']
-        sum_gc_i = np.sum(
+        sum_gc_i = res['pc'] + np.sum(
             [
                 C[time_step_]
                 * (res['grid'][time_step_][0] + loss * res['grid2'][time_step_][0])
@@ -778,8 +776,6 @@ class Explorer():
                 i for i in range(len(self.prm['grd']['Call']) - self.N)
                 if abs(self.sum_gc_for_start_Call_index(res, i) - res['gc']) < 1e-3
             ]
-            if len(i_start_res) == 0:
-                print()
             if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
                 self.env.update_i0_costs(i_start_res[0])

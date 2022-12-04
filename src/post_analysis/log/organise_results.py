@@ -15,6 +15,7 @@ import yaml
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 
+
 def is_short_type(val):
     return isinstance(val, (int, float, bool, str))
 
@@ -51,13 +52,14 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
 
 
 def get_list_all_fields(results_path):
+
     ignore = [
         'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit',
         'tot_learn_cycles', 'start_end_eval', 'n_all_epochs', 'T_decay_param',
         'statecomb_str', 'init_len_seeds', 'opt_res_file', 'seeds_file', 'plot_type',
         'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all',
         'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
-        'save', 'groups', 'paths', 'end_decay'
+        'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -349,6 +351,26 @@ def only_columns_relevant_learning_type_comparison(
     return only_col_of_interest_changes
 
 
+def annotate_run_nos(
+        axs, values_of_interest_sorted, best_score_sorted, best_env_score_sorted, runs_sorted
+):
+    if ANNOTATE_RUN_NOS:
+        for i, (x, best_score, best_env_score, run) in enumerate(zip(
+                values_of_interest_sorted, best_score_sorted,
+                best_env_score_sorted, runs_sorted
+        )):
+            axs[0].annotate(
+                run, (x, best_score), textcoords="offset points", xytext=(0, 10),
+                ha='center'
+            )
+            axs[1].annotate(
+                run, (x, best_env_score), textcoords="offset points", xytext=(0, 10),
+                ha='center'
+            )
+
+    return axs
+
+
 def compare_all_runs_for_column_of_interest(
     column_of_interest, other_columns, axs, log
 ):
@@ -403,6 +425,7 @@ def compare_all_runs_for_column_of_interest(
                 best_score.append(log['best_score'].loc[row])
                 best_env_score.append(log['best_score_env'].loc[row])
                 time_best_score.append(log['time_end'].loc[row])
+
         if len(values_of_interest) > 1:
             all_setups_same_as_0 = all(
                 values_of_interest_ == values_of_interest[0]
@@ -425,16 +448,11 @@ def compare_all_runs_for_column_of_interest(
                     values_of_interest_sorted, time_best_score_sorted,
                     label=len(setups)
                 )
-                if ANNOTATE_RUN_NOS:
-                    for i, (x, best_score, best_env_score, run) in enumerate(zip(values_of_interest_sorted, best_score_sorted, best_env_score_sorted, runs_sorted)):
-                        axs[0].annotate(
-                            run, (x, best_score), textcoords="offset points", xytext=(0, 10),
-                            ha='center'
-                        )
-                        axs[1].annotate(
-                            run, (x, best_env_score), textcoords="offset points", xytext=(0, 10),
-                            ha='center'
-                        )
+                axs = annotate_run_nos(
+                    axs, values_of_interest_sorted, best_score_sorted,
+                    best_env_score_sorted, runs_sorted
+                )
+
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
                     best_values.append(best_score_sorted)
@@ -572,7 +590,8 @@ def plot_sensitivity_analyses(new_columns, log):
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
     columns_of_interest = [
-        column for column in new_columns[2:] if column not in ['nn_learned', 'time_end']
+        column for column in new_columns[2:]
+        if column not in ['nn_learned', 'time_end']
     ]
     for column_of_interest in columns_of_interest:
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))

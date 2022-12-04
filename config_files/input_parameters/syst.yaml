@@ -12,7 +12,7 @@ labels_day_trans: ['wd2wd', 'wd2we', 'we2wd', 'we2we'] # label for going from we
 change_start: True # change start date for each exploration (within one month) so that grid costs change
 J_per_kWh: 3.6e+6 # J/kWh = 3600 * 1000
 break_down_rewards_entries: [
-  'gc', 'sc', 'dc', 'costs_wholesale', 'costs_losses', 'emissions', 'emissions_from_grid',
+  'gc', 'sc', 'dc', 'pc', 'costs_wholesale', 'costs_losses', 'emissions', 'emissions_from_grid',
   'emissions_from_loss','indiv_gc','indiv_sc','indiv_c'
 ]
 share_centroid: 1 # what share of profiles to include in each cluster ordered from closest to furthest from centroid of each cluster

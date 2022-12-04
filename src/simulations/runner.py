@@ -147,7 +147,7 @@ class Runner():
 
     def _initialise_buffer_learner_mac_facmac(self, method):
         rl = self.rl
-        if 'buffer' not in self.__dict__.keys():
+        if 'buffer' not in self.__dict__:
             self.buffer = {}
             self.mac = {}
         self.buffer[method] = ReplayBuffer(
@@ -181,7 +181,7 @@ class Runner():
 
     def _initialise_buffer_learner_mac_deep_learning(self, method):
         if self.rl['distr_learning'] == 'decentralised':
-            if method in self.learner.keys():
+            if method in self.learner:
                 # the learner as already been intialised; simply reset
                 for home in range(self.n):
                     self.learner[method][home].reset()
@@ -197,7 +197,7 @@ class Runner():
                         self.rl, method + f'_{home}', method, self.prm['syst']['N'])
                         for home in range(self.n)]
         else:
-            if method in self.learner.keys():
+            if method in self.learner:
                 # the learner as already been intialised;
                 # simply reset
                 self.learner[method].reset()  # reset learner
@@ -212,7 +212,7 @@ class Runner():
 
     def _initialise_buffer_learner_mac(self, repeat=0):
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN', 'facmac']:
-            if 'learner' not in self.__dict__.keys():
+            if 'learner' not in self.__dict__:
                 self.learner = {}
             for method in self.rl['type_Qs']:
                 if self.rl['type_learning'] == 'facmac':
@@ -221,7 +221,7 @@ class Runner():
                     self._initialise_buffer_learner_mac_deep_learning(method)
 
         elif self.rl['type_learning'] == 'q_learning':
-            if 'learner' in self.__dict__.keys():
+            if 'learner' in self.__dict__:
                 # the Q learner needs to initialise epsilon
                 # and temperature values, and set counters
                 # and Q tables to 0
@@ -451,14 +451,14 @@ class Runner():
 
             if self.prm['RL']['type_learning'] == 'facmac' \
                     and self.prm["save"]["save_nns"]:
-                for t_explo in self.rl["exploration_methods"]:
-                    if t_explo not in self.learner:
+                for evaluation_method in self.rl["evaluation_methods"]:
+                    if evaluation_method not in self.learner:
                         continue
                     save_path \
                         = self.prm["paths"]["record_folder"] \
-                        / f"models_{t_explo}_{self.explorer.t_env}"
+                        / f"models_{evaluation_method}_{self.explorer.t_env}"
                     os.makedirs(save_path, exist_ok=True)
-                    self.learner[t_explo].save_models(save_path)
+                    self.learner[evaluation_method].save_models(save_path)
         return model_save_time
 
     def _end_evaluation(
@@ -536,7 +536,7 @@ def run(run_mode, settings, no_runs=None):
 
             settings_i = get_settings_i(settings, i)
             # initialise learning parameters, system parameters and recording
-            prm, record, profiles = initialise_objects(
+            prm, record = initialise_objects(
                 prm, settings=settings_i)
 
             description_run = 'current code '
@@ -550,7 +550,7 @@ def run(run_mode, settings, no_runs=None):
                 # Setting the random seed throughout the modules
                 set_seeds_rdn(prm["syst"]["seed"])
 
-            env = LocalElecEnv(prm, profiles)
+            env = LocalElecEnv(prm)
             # second part of initialisation specifying environment
             # with relevant parameters
             record.init_env(env)  # record progress as we train
@@ -570,9 +570,9 @@ def run(run_mode, settings, no_runs=None):
         for no_run in no_runs:
             rl, prm = load_existing_prm(prm, no_run)
 
-            prm, record, profiles = initialise_objects(prm, no_run=no_run)
+            prm, record = initialise_objects(prm, no_run=no_run)
             # make user defined environment
-            env = LocalElecEnv(prm, profiles)
+            env = LocalElecEnv(prm)
             record.init_env(env)  # record progress as we train
             post_processing(record, env, prm, no_run=no_run, run_mode=run_mode)
 

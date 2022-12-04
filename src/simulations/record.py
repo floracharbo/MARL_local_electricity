@@ -43,7 +43,7 @@ class Record():
         self.all_methods = rl["evaluation_methods"] + \
             list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
         # parameters needed for generating paths string
-        for e in ["n_epochs", "instant_feedback", "type_env"]:
+        for e in ["n_epochs", "instant_feedback", "type_env", "n_repeats"]:
             self.__dict__[e] = rl[e]
 
         for e in ["gamma", "epsilon_decay"]:
@@ -191,15 +191,15 @@ class Record():
         """
         labels = self.repeat_entries if end_of == "repeat" \
             else self.stateind_entries
-        if not self.save_qtables:
-            labels = [label for label in labels
-                      if label not in ["q_tables", "counter"]] \
+        if not self.save_qtables and self.repeat < self.n_repeats - 1:
+            labels = [label for label in labels if label not in ["q_tables", "counter"]] \
                 if end_of == "repeat" \
                 else labels + ["q_tables", "counter"]
         repeat = self.repeat if end_of == "repeat" else None
         for label in labels:
-            save_path \
-                = Path(f"{label}" if repeat is None else f"{label}_repeat{repeat}")
+            save_path = Path(f"{label}" if repeat is None else f"{label}_repeat{repeat}")
+            if label == 'q_tables':
+                print(f"label {label} save_path {save_path} self.repeat {self.repeat} end_of {end_of} self.save_qtables {self.save_qtables}")
             if self.paths["record_folder"] is not None:
                 save_path = Path(self.paths["record_folder"]) / save_path
             to_save = self.__dict__[label] if end_of == "end" \
@@ -211,11 +211,11 @@ class Record():
     def load(self, prm: dict):
         """List files to load for record object & call loading_file method."""
         repeat_labels = [e for e in self.repeat_entries
-                         if e not in ["q_tables", "counters"]]\
+                         if e not in ["q_tables", "counter"]]\
             if not self.save_qtables \
             else self.repeat_entries
         stateind_labels = self.stateind_entries + \
-            ["q_tables", "counters"] if not self.save_qtables \
+            ["q_tables", "counter"] if not self.save_qtables \
             else self.stateind_entries
         for label in repeat_labels:
             for repeat in range(prm["RL"]["n_repeats"]):
@@ -231,16 +231,13 @@ class Record():
         """
         str_ = f"{label}" if repeat is None else f"{label}_repeat{repeat}"
         str_ = os.path.join(self.paths["record_folder"], str_ + ".npy")
-        try:
-            obj = np.load(str_, allow_pickle=True)
-            if len(np.shape(obj)) == 0:
-                obj = obj.item()
-            if repeat is not None:
-                self.__dict__[label][repeat] = obj
-            else:
-                self.__dict__[label] = obj
-        except Exception as ex:
-            print(f"l 1433 record ex {ex}")
+        obj = np.load(str_, allow_pickle=True)
+        if len(np.shape(obj)) == 0:
+            obj = obj.item()
+        if repeat is not None:
+            self.__dict__[label][repeat] = obj
+        else:
+            self.__dict__[label] = obj
 
     def results_to_percentiles(
         self,

@@ -26,7 +26,7 @@ from src.simulations.record import Record
 from src.utilities.env_spaces import (_actions_from_unit_box,
                                       _actions_to_unit_box)
 from src.utilities.userdeftools import (current_no_run, distr_learning,
-                                        initialise_dict, reward_type)
+                                        reward_type)
 
 
 def initialise_objects(
@@ -58,10 +58,6 @@ def initialise_objects(
         and intermediate variables computed
     record:
         the object to keep a record of the data and experiments
-    profiles:
-        the battery, generation and loads profiles
-        to input to the environment
-        (not in prm so as not to carry those large datasets around)
     """
     # general input paths and system parameters are in inputs
     # where
@@ -79,7 +75,7 @@ def initialise_objects(
         no_run = current_no_run(prm['paths']["results"])
 
     # turn into a usable format
-    prm, profiles = initialise_prm(
+    prm = initialise_prm(
         prm, no_run, initialise_all=initialise_record
     )
 
@@ -89,7 +85,10 @@ def initialise_objects(
     else:
         record = None
 
-    return prm, record, profiles
+    if prm['RL']['supervised_loss'] and prm['RL']['supervised_loss_weight'] == 0:
+        prm['RL']['supervised_loss_weight'] = 1
+
+    return prm, record
 
 
 def _make_action_space(rl):
@@ -236,9 +235,13 @@ def _update_paths(paths, prm, no_run):
     paths["record_folder"] = paths["folder_run"] / "record"
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
     paths["input_folder"] = Path(paths["input_folder"])
-    paths["open_inputs"] = paths["input_folder"] / paths["open_inputs_folder"]
+    paths["open_inputs"] \
+        = paths["input_folder"] \
+        / f"{paths['open_inputs_folder']}_v{prm['syst']['data_version']}"
     paths['hedge_inputs'] \
-        = paths["input_folder"] / paths["hedge_inputs_folder"] / f"n{prm['syst']['H']}"
+        = paths["input_folder"] \
+        / f"{paths['hedge_inputs_folder']}_v{prm['syst']['data_version']}" \
+        / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
 
@@ -259,86 +262,6 @@ def _load_data_dictionaries(paths, syst):
     syst['n_clus']['car'] += 1
 
     return syst
-
-
-def _load_car_profiles(prof_path, profiles, syst):
-    folders = {'cons': 'norm_car', 'avail': 'car_avail'}
-    for data in ["cons", "avail"]:
-        path = prof_path / folders[data]
-        files = os.listdir(path)
-        for file in files:
-            if file[0] != ".":
-                day_type = file[3:5]
-                cluster = int(file[1])
-                profiles["car"][data][day_type][cluster] = \
-                    np.load(path / file, mmap_mode="r")
-                if len(np.shape(profiles["car"][data][day_type][cluster])) == 1:
-                    new_shape = (1, len(profiles["car"][data][day_type][cluster]))
-                    profiles["car"][data][day_type][cluster] = np.reshape(
-                        profiles["car"][data][day_type][cluster], new_shape)
-
-    for day_type in syst["labels_day"]:
-        syst['n_prof']['car'][day_type] = [
-            len(profiles["car"]['cons'][day_type][clus])
-            for clus in range(syst['n_clus']['car'])
-        ]
-
-    return profiles, syst
-
-
-def _load_loads_profiles(prof_path, profiles, syst):
-    profiles["loads"] = {}
-    for day_type in syst["labels_day"]:
-        profiles["loads"][day_type] = [
-            np.load(
-                prof_path / 'norm_loads' / f'c{clus}_{day_type}.npy', mmap_mode="r"
-            ) for clus in range(syst["n_loads_clus"])
-        ]
-        syst['n_prof']['loads'][day_type] = [
-            len(profiles['loads'][day_type][clus])
-            for clus in range(syst['n_clus']['loads'])
-        ]
-
-    return profiles, syst
-
-
-def _load_profiles(paths, car, syst, loads, gen):
-    # load car profiles and availability
-    # (mmap_mode = "r" means not actually loaded, but elements accessible)
-
-    profiles = {"car": {}}
-    for data in ["cons", "avail"]:
-        profiles["car"][data] = initialise_dict(syst["labels_day"])
-        for day_type in syst["labels_day"]:
-            profiles["car"][data][day_type] = \
-                initialise_dict(range(syst['n_clus']["car"]))
-
-    syst['n_prof'] = initialise_dict(syst['data_types'], "empty_dict")
-    prof_path = paths['hedge_inputs'] / paths['profiles_folder']
-
-    profiles, syst = _load_car_profiles(prof_path, profiles, syst)
-    profiles, syst = _load_loads_profiles(prof_path, profiles, syst)
-    profiles, syst = _load_gen_profiles(prof_path, profiles, syst)
-
-    with open(paths['hedge_inputs'] / "percentiles.pickle", "rb") as file:
-        percentiles = pickle.load(file)
-    loads['perc'] = percentiles["loads"]
-    car['perc'] = percentiles["car"]
-    gen['perc'] = percentiles["gen"]
-
-    return profiles, car, loads, gen
-
-
-def _load_gen_profiles(prof_path, profiles, syst):
-    profiles["gen"] = {}
-    for month in range(12):
-        profiles['gen'][month] = np.load(
-            prof_path / 'norm_gen' / f'i_month{month}.npy',
-            mmap_mode='r'
-        )
-    syst['n_prof']['gen'] = [len(profiles['gen'][m]) for m in range(12)]
-
-    return profiles, syst
 
 
 def _load_bat_factors_parameters(paths, car):
@@ -484,9 +407,7 @@ def _exploration_parameters(rl):
             = isinstance(control_window_eps, dict) \
             and len(list(control_window_eps.keys())) > 0
         if window_per_method_specified:
-            specified_per_reward_only = \
-                len(list(control_window_eps.keys())[0].split("_")
-                    ) == 1
+            specified_per_reward_only = len(list(control_window_eps.keys())[0].split("_")) == 1
             if specified_per_reward_only:
                 for evaluation_method in rl["eval_action_choice"]:
                     rl["control_window_eps"][evaluation_method] = \
@@ -614,6 +535,16 @@ def _update_rl_prm(prm, initialise_all):
     return rl
 
 
+def _naming_file_extension(limit_imp, limit_exp, penalty_imp, penalty_exp):
+    file_extension = f"_manage_agg_power_grid_limit{limit_imp}"
+    if limit_imp != limit_exp:
+        file_extension += f"_{limit_exp}"
+    file_extension += f"_pc_coeff{penalty_imp}"
+    if penalty_imp != penalty_exp:
+        file_extension += f"_{penalty_exp}"
+    return file_extension
+
+
 def _seed_save_paths(prm):
     """
     Get strings and seeds which will be used to identify runs.
@@ -636,19 +567,28 @@ def _seed_save_paths(prm):
         paths["opt_res_file"] += f"{heat['file']}"
     paths["seeds_file"] \
         = f"outputs/seeds/seeds{paths['opt_res_file']}_v{prm['syst']['data_version']}"
-    if rl["deterministic"] == 2:
-        for file in ["opt_res_file", "seeds_file"]:
-            paths[file] += "_noisy"
+
     for file in ["opt_res_file", "seeds_file"]:
+        if rl["deterministic"] == 2:
+            paths[file] += "_noisy"
         paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
                        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
-    if prm["syst"]["change_start"]:
-        paths["opt_res_file"] += "_changestart"
 
-    # eff does not matter for seeds, but only for res
-    if prm["car"]["efftype"] == 1:
-        paths["opt_res_file"] += "_eff1"
-    for file in ["opt_res_file", "seeds_file"]:
+        if file == "opt_res_file" and prm["syst"]["change_start"]:
+            paths["opt_res_file"] += "_changestart"
+
+        if prm['grd']['manage_agg_power']:
+            paths[file] += _naming_file_extension(
+                limit_imp=prm['grd']['max_grid_in'],
+                limit_exp=prm['grd']['max_grid_out'],
+                penalty_imp=prm['grd']['penalty_coefficient_in'],
+                penalty_exp=prm['grd']['penalty_coefficient_out']
+            )
+
+        # eff does not matter for seeds, but only for res
+        if file == "opt_res_file" and prm["car"]["efftype"] == 1:
+            paths["opt_res_file"] += "_eff1"
+
         paths[file] += ".npy"
 
     if os.path.exists(paths["seeds_file"]):
@@ -705,7 +645,6 @@ def _time_info(prm):
         syst["H"] = 24
     syst["N"] = syst["D"] * syst["H"]
     syst["duration"] = datetime.timedelta(days=syst["D"])
-    # loads and cluster prob and profile banks (mmap = "r")
     syst["n_int_per_hr"] = int(syst["H"] / 24)
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
@@ -744,10 +683,6 @@ def initialise_prm(prm, no_run, initialise_all=True):
 
     outputs:
     prm:
-        updated parameters
-    profiles:
-        the battery, generation and loads profiles
-        to input to the environment
     """
     prm_entries = [
         "paths", "syst", "car", "ntw", "loads", "gen", "save", "heat"
@@ -762,29 +697,21 @@ def initialise_prm(prm, no_run, initialise_all=True):
     _homes_info(loads, ntw, gen, heat)
 
     # update paths and parameters from inputs
-    if paths is not None:
-        if initialise_all:
-            syst = _load_data_dictionaries(paths, syst)
-            _update_grd_prm(prm)
-            profiles, car, loads, gen = _load_profiles(
-                paths, car, syst, loads, gen)
-            loads["share_flex"], loads["max_delay"] = loads["flex"]
-            loads["share_flexs"] = [
-                0 if not loads["own_flex"][home] else loads["share_flex"]
-                for home in range(ntw["n"])
-            ]
-        else:
-            profiles = None
-    else:
-        profiles = None
+    if paths is not None and initialise_all:
+        syst = _load_data_dictionaries(paths, syst)
+        _update_grd_prm(prm)
+        loads["share_flex"], loads["max_delay"] = loads["flex"]
+        loads["share_flexs"] = [
+            0 if not loads["own_flex"][home] else loads["share_flex"]
+            for home in range(ntw["n"])
+        ]
 
     # car avail, type, factors
-    car = _update_bat_prm(prm)
+    prm['car'] = _update_bat_prm(prm)
+    prm['RL'] = _update_rl_prm(prm, initialise_all)
+    prm['RL'], prm['paths'] = _seed_save_paths(prm)
 
-    rl = _update_rl_prm(prm, initialise_all)
-    rl, paths = _seed_save_paths(prm)
-
-    if rl["type_learning"] == "facmac":
+    if prm['RL']["type_learning"] == "facmac":
         prm = _facmac_initialise(prm)
 
     # calculate heating coefficients for recursive expression
@@ -794,7 +721,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
 
     save, prm = generate_colours(save, prm)
 
-    return prm, profiles
+    return prm
 
 
 def _filter_type_learning_facmac(rl):

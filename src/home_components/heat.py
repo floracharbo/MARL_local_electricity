@@ -358,21 +358,6 @@ class Heat:
             self.E_flex = E_flex
         self.tot_E = self.E_flex + self.E_heat_min
 
-        #     for home in range(self.n_homes):
-        #         if self.own_heat[home] \
-        #                 and res[home]['c'] > l_flex[home] + tot_l_fixed[home]:
-        #             self.E_flex.append(
-        #                 res[home]['c'] - tot_l_fixed[home] - l_flex[home])
-        #         else:
-        #             self.E_flex.append(0)
-        #         self.tot_E.append(self.E_flex[home] + self.E_heat_min[home])
-        # else:
-        #     # if flexible energy consumption was defined through
-        #     # flexible_heat_action in actions_to_env_vars action_translator
-        #     self.E_flex = E_flex
-        #     self.tot_E = [flex + min for flex, min in
-        #                   zip(self.E_flex, self.E_heat_min)]
-
     def _next_E_heat(self, T_air_target, T_start, T_out_t, home=None):
         """
         Obtain heating energy required to reach next T_air_target.

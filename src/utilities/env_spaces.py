@@ -53,6 +53,7 @@ def granularity_to_multipliers(granularity):
 
 
 def compute_max_car_cons_gen_values(env, state_space):
+    """Get the maximum possible values for car consumption, household consumption and generation."""
     max_car_cons, max_normcons, max_normgen, max_bat_dem_agg = [-1 for _ in range(4)]
     day_types = env.prm["syst"]["day_types"]
 
@@ -73,7 +74,7 @@ def compute_max_car_cons_gen_values(env, state_space):
     if any(descriptor == "bat_dem_agg" for descriptor in state_space):
         max_bat_dem_agg = np.max(
             [
-                [sum(env.prof["car"]["cons"][dt][c]) for dt in day_types]
+                [sum(env.hedge.profs["car"]["cons"][dt][c]) for dt in day_types]
                 for c in range(env.n_clus["car"])
             ]
         )
@@ -82,7 +83,7 @@ def compute_max_car_cons_gen_values(env, state_space):
 
 
 class EnvSpaces():
-    """Manage indexes operations for environment states and actions."""
+    """Manage operations for environment states and actions spaces."""
 
     def __init__(self, env):
         """Initialise EnvSpaces class, add properties."""
@@ -91,11 +92,12 @@ class EnvSpaces():
         self.get_state_vals = env.get_state_vals
         self.c_max = env.prm["car"]["c_max"]
         self.N = env.N
+        self.i0_costs = env.i0_costs
         self.car = env.car
         self.action_translator = env.action_translator
         self._get_space_info(env)
         prm = env.prm
-        self._init_factors_profiles_parameters(env, prm)
+        self._init_factors_profiles_parameters(prm)
         for e in [
             "dim_actions", "aggregate_actions", "type_env",
             "n_discrete_actions", "evaluation_methods", "flexibility_states",
@@ -114,30 +116,26 @@ class EnvSpaces():
             "store_bool_flex": self.get_store_bool_flex
         }
 
-    def _init_factors_profiles_parameters(self, env, prm):
+    def _init_factors_profiles_parameters(self, prm):
         self.perc = {}
         for e in ["loads", "gen", "car", "grd"]:
             if "perc" in prm[e]:
                 self.perc[e] = prm[e]["perc"]
 
     def _get_space_info(self, env):
+        """Initialise information on action and state spaces."""
         prm = env.prm
         # info on state and action spaces
         max_car_cons, max_normcons, max_normgen, max_bat_dem_agg \
             = compute_max_car_cons_gen_values(env, prm["RL"]["state_space"])
-
+        if self.i0_costs == 12 * 24:
+            np.save("max_bat_dem_agg", max_bat_dem_agg)
+            print("save max_bat_dem_agg")
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         n_other_states = rl["n_other_states"]
-        # max_flexibility = np.zeros(self.n_homes)
-        # for home in range(self.n_homes):
-        #     if prm['heat']['own_heat'][home]:
-        #         max_flexibility[home] += 2
-        #     if prm['car']['own_car'][home]:
-        #         max_flexibility[home] += prm['car']['c_max']
-        #     if prm['loads']['own_flex'][home]:
-        #         max_flexibility[home] += 3
+        f_min, f_max = env.hedge.f_min, env.hedge.f_max
         max_flexibility = prm['car']['c_max'] + prm['car']['d_max'] + 1
         info = [
             ["None", 0, 0, 1, 1],
@@ -172,17 +170,17 @@ class EnvSpaces():
             ["bat_cbat_clus_step", 0, env.n_clus["car"] - 1, env.n_clus["car"], 1],
             ["bat_clus_prev", 0, env.n_clus["car"] - 1, env.n_clus["car"], 1],
             # scaling factors - for whole day
-            ["loads_fact_step", env.f_min["loads"], env.f_max["loads"], n_other_states, 0],
-            ["loads_fact_prev", env.f_min["loads"], env.f_max["loads"], n_other_states, 0],
-            ["gen_fact_step", env.f_min["gen"], env.f_max["gen"], n_other_states, 0],
-            ["gen_fact_prev", env.f_min["gen"], env.f_max["gen"], n_other_states, 0],
-            ["bat_fact_step", env.f_min["car"], env.f_max["car"], n_other_states, 0],
-            ["bat_fact_prev", env.f_min["car"], env.f_max["car"], n_other_states, 0],
+            ["loads_fact_step", f_min["loads"], f_max["loads"], n_other_states, 0],
+            ["loads_fact_prev", f_min["loads"], f_max["loads"], n_other_states, 0],
+            ["gen_fact_step", f_min["gen"], f_max["gen"], n_other_states, 0],
+            ["gen_fact_prev", f_min["gen"], f_max["gen"], n_other_states, 0],
+            ["bat_fact_step", f_min["car"], f_max["car"], n_other_states, 0],
+            ["bat_fact_prev", f_min["car"], f_max["car"], n_other_states, 0],
             # absolute value at time step / hour
-            ["loads_cons_step", 0, max_normcons * env.f_max["loads"], n_other_states, 0],
-            ["loads_cons_prev", 0, max_normcons * env.f_max["loads"], n_other_states, 0],
-            ["gen_prod_step", 0, max_normgen * env.f_max["gen"][i_month], n_other_states, 0],
-            ["gen_prod_prev", 0, max_normgen * env.f_max["gen"][i_month], n_other_states, 0],
+            ["loads_cons_step", 0, max_normcons * f_max["loads"], n_other_states, 0],
+            ["loads_cons_prev", 0, max_normcons * f_max["loads"], n_other_states, 0],
+            ["gen_prod_step", 0, max_normgen * f_max["gen"][i_month], n_other_states, 0],
+            ["gen_prod_prev", 0, max_normgen * f_max["gen"][i_month], n_other_states, 0],
             ["bat_cons_step", 0, max_car_cons, n_other_states, 0],
             ["bat_cons_prev", 0, max_car_cons, n_other_states, 0],
             ["bat_dem_agg", 0, max_bat_dem_agg, n_other_states, 0],
@@ -196,7 +194,7 @@ class EnvSpaces():
 
         self.space_info = pd.DataFrame(info, columns=columns)
 
-    def descriptor_for_idx(self, descriptor):
+    def descriptor_for_info_lookup(self, descriptor):
         return 'grdC' if descriptor[0: len('grdC_t')] == 'grdC_t' else descriptor
 
     def new_state_space(self, state_space):
@@ -212,7 +210,7 @@ class EnvSpaces():
             self.descriptors[space] = descriptors
             descriptors = ["None"] if descriptors == [None] else descriptors
             descriptors_idx = [
-                self.space_info["name"] == self.descriptor_for_idx(descriptor)
+                self.space_info["name"] == self.descriptor_for_info_lookup(descriptor)
                 for descriptor in descriptors
             ]
             subtable = [self.space_info.loc[i] for i in descriptors_idx]
@@ -398,6 +396,7 @@ class EnvSpaces():
         return global_ind
 
     def _init_brackets(self):
+        """Initialise intervals to convert state/action values into indexes."""
         brackets = {}
         for typev in ["state", "action"]:
             if (
@@ -420,11 +419,6 @@ class EnvSpaces():
 
                 if self.discrete[typev][s] == 1:
                     brackets[typev].append([0])
-                # elif ind_str[-1] == "f":
-                #     brackets[typev].append(
-                #         [np.percentile(
-                #             self.list_factors[ind_str[0:3]],
-                #             1 / n_bins * 100 * i) for i in range(n_bins)])
                 elif ind_str in perc_dict:
                     i_perc = [
                         int(1 / n_bins * 100 * i)
@@ -460,6 +454,7 @@ class EnvSpaces():
         return brackets
 
     def get_ind_global_state_action(self, step_vals_i):
+        """Get the global index for a given states or actions combination."""
         action = step_vals_i["action"]
         if (
                 self.type_env == "discrete"
@@ -488,6 +483,7 @@ class EnvSpaces():
         return step_vals_i
 
     def _initial_processing_bool_flex_computation(self, time_step, date, loads, home_vars):
+        """Prepare variables for flexibility assessment."""
         if any(
             descriptor in self.flexibility_states for descriptor in self.descriptors['state']
         ):
@@ -497,6 +493,7 @@ class EnvSpaces():
             self.action_translator.initial_processing(loads, home_vars)
 
     def _revert_changes_bool_flex_computation(self):
+        """Undo variable changes made for flexibility assessment."""
         if any(
             descriptor in self.flexibility_states for descriptor in self.descriptors['state']
         ):
@@ -592,6 +589,7 @@ class EnvSpaces():
         return vals
 
     def _get_dT_next(self, inputs):
+        """Get temperature requirements parameter at current time step."""
         time_step, _, home, _, prm = inputs
         T_req = prm["heat"]["T_req"][home]
         t_next = [time for time in range(time_step + 1, self.N)
@@ -610,6 +608,7 @@ class EnvSpaces():
         return self.action_translator.aggregate_action_bool_flex(home)
 
     def get_flexibility(self, inputs):
+        """Get the flexibility (energy different between min/max import/export) for time step."""
         home = inputs[2]
         flexibility = self.action_translator.get_flexibility(home)
         assert flexibility >= 0, f"flexibility {flexibility}"
@@ -621,6 +620,8 @@ class EnvSpaces():
         return self.action_translator.store_bool_flex(home)
 
     def _get_car_tau(self, inputs):
+        """Get the battery requirement tau parameter for the current time step."""
+
         time_step, res, home, date, _ = inputs
 
         loads_T, deltaT, _ = \
@@ -634,6 +635,7 @@ class EnvSpaces():
         return val
 
     def _get_store(self, inputs):
+        """Get the battery storage level for the current time step."""
         time_step, res, home, _, prm = inputs
         if time_step < len(res["store"][home]):
             val = res["store"][home][time_step]
@@ -643,6 +645,7 @@ class EnvSpaces():
         return val
 
     def _get_grdC_level(self, inputs):
+        """Get the grdC level for the current time step."""
         time_step = inputs[0]
         prm = inputs[-1]
         costs = prm["grd"]["Call"][
@@ -654,15 +657,17 @@ class EnvSpaces():
         return val
 
     def _get_bat_dem_agg(self, inputs):
+        """Get the aggregated battery demand at current time step."""
         time_step, _, home, _, prm = inputs
         val = prm["car"]["bat_dem_agg"][home][time_step]
 
         return val
 
     def normalise_state(self, descriptor, val, home):
+        """Normalise state value between 0 and 1."""
         if self.normalise_states_bool:
             descriptor_info = self.space_info.loc[
-                self.space_info['name'] == self.descriptor_for_idx(descriptor)
+                self.space_info['name'] == self.descriptor_for_info_lookup(descriptor)
             ]
             max_home = descriptor_info['max'].values.item()[home] \
                 if isinstance(descriptor_info['max'].values.item(), list) \
@@ -673,6 +678,9 @@ class EnvSpaces():
             normalised_val = (val - min_val) / (max_home - min_val)
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
-            assert 0 <= normalised_val <= 1, f"val {normalised_val} max_home {max_home.values.item()} descriptor {descriptor}"
+            assert 0 <= normalised_val <= 1, \
+                f"val {normalised_val} max_home {max_home.values.item()} descriptor {descriptor}"
+        else:
+            normalised_val = val
 
         return normalised_val

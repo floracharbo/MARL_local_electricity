@@ -52,7 +52,10 @@ class LearningManager():
                 "terminated": [(done,)],
             }
             if self.rl['supervised_loss'] and 'opt' in step_vals:
-                post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
+                if self.rl['trajectory']:
+                    post_transition_data["optimal_actions"] = step_vals['opt']['action']
+                else:
+                    post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
             self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
@@ -75,7 +78,7 @@ class LearningManager():
         rl = self.rl
 
         if rl['type_learning'] == 'facmac':
-            states, actions = [step_vals["opt"][e][0: self.N] for e in ["state", "action"]]
+            states, actions = [np.array(step_vals["opt"][e][0: self.N]) for e in ["state", "action"]]
             traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
 
             pre_transition_data = {
@@ -90,6 +93,8 @@ class LearningManager():
                 "reward": [(traj_reward,)],
                 "terminated": [True],
             }
+            if self.rl['supervised_loss'] and 'opt' in step_vals:
+                post_transition_data["optimal_actions"] = step_vals['opt']['action']
             for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
                 self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)
                 self.episode_batch[evaluation_method].update(post_transition_data, ts=0)
@@ -185,7 +190,8 @@ class LearningManager():
                               actions: list,
                               traj_reward: list,
                               method: str,
-                              evaluation: bool
+                              evaluation: bool,
+                              step_vals
                               ):
         """Learn from trajectory."""
         for home in self.homes:
