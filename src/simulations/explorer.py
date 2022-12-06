@@ -652,8 +652,7 @@ class Explorer():
             prm["grd"]["Call"][i + time_step] * (
                 res['grid'][time_step][0]
                 + prm["grd"]['loss'] * res['grid2'][time_step][0]
-            )
-                + res['pci'][time_step] + res['pco'][time_step]
+            ) + res['pci'][time_step] + res['pco'][time_step]
             for i in range(len(prm['grd']['Call']) - self.N)
         ]
         potential_i0s = [

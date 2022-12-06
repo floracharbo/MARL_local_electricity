@@ -198,8 +198,6 @@ class Record():
         repeat = self.repeat if end_of == "repeat" else None
         for label in labels:
             save_path = Path(f"{label}" if repeat is None else f"{label}_repeat{repeat}")
-            if label == 'q_tables':
-                print(f"label {label} save_path {save_path} self.repeat {self.repeat} end_of {end_of} self.save_qtables {self.save_qtables}")
             if self.paths["record_folder"] is not None:
                 save_path = Path(self.paths["record_folder"]) / save_path
             to_save = self.__dict__[label] if end_of == "end" \

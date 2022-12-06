@@ -858,6 +858,3 @@ class HEDGE:
         self.date = datetime(*prm["syst"]["date0"])
 
         return prm
-
-
-

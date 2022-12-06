@@ -10,7 +10,6 @@ from src.initialisation.initialise_objects import _naming_file_extension
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
-
 I0_COSTS = 288
 
 def random_True_False(colours, colour, min_diffs=None):

@@ -78,7 +78,9 @@ class LearningManager():
         rl = self.rl
 
         if rl['type_learning'] == 'facmac':
-            states, actions = [np.array(step_vals["opt"][e][0: self.N]) for e in ["state", "action"]]
+            states, actions = [
+                np.array(step_vals["opt"][e][0: self.N]) for e in ["state", "action"]
+            ]
             traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
 
             pre_transition_data = {

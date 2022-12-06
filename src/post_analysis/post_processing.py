@@ -38,7 +38,7 @@ def _max_min_q(q_table, n_states, minq, maxq, prm):
     return minq, maxq
 
 
-def _post_run_update(prm, record):
+def _post_run_update(prm, record, start_time):
     """
     Update variables e.g. min/max q values, seeds, save inputs.
 
@@ -91,6 +91,10 @@ def _post_run_update(prm, record):
     if not os.path.exists(prm["paths"]["save_inputs"]):
         # make a folder for saving results if it does not yet exist
         os.mkdir(prm["paths"]["save_inputs"])
+
+    if start_time is not None:
+        time_end = time.time() - start_time
+        prm['syst']['time_end'] = time_end
 
     prm_save = get_prm_save(prm)
 
@@ -152,7 +156,7 @@ def post_processing(
 
     if run_mode == 1:  # if this is straight after learning
         # update min and max q for random initialisation
-        _post_run_update(prm, record)
+        _post_run_update(prm, record, start_time)
     else:
         record.no_run = no_run  # current run number
         # load results from file and add to record object
@@ -177,10 +181,7 @@ def post_processing(
 
     if "description_run" in prm["save"]:
         file.write("run description: " + prm["save"]["description_run"] + "\n")
-    if start_time is not None:
-        time_end = time.time() - start_time
-        file.write(f"time {time_end}" + "\n")
-        prm['syst']['time_end'] = time_end
+        file.write(f"time {prm['syst']['time_end']}")
 
     if settings_i is not None:
         for key in settings_i:

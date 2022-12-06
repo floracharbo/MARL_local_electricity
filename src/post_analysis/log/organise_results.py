@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
+from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
@@ -593,7 +594,7 @@ def plot_sensitivity_analyses(new_columns, log):
         column for column in new_columns[2:]
         if column not in ['nn_learned', 'time_end']
     ]
-    for column_of_interest in columns_of_interest:
+    for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
