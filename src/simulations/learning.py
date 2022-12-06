@@ -73,39 +73,40 @@ class LearningManager():
 
         return traj_reward
 
+    def _learn_trajectory_opt_facmac(self, step_vals, epoch):
+        states, actions = [
+            np.array(step_vals["opt"][e][0: self.N]) for e in ["state", "action"]
+        ]
+        traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
+
+        pre_transition_data = {
+            "state": np.reshape(
+                states, (self.n_homes, self.rl["obs_shape"])),
+            "avail_actions": [self.rl["avail_actions"]],
+            "obs": [np.reshape(
+                states, (self.n_homes, self.rl["obs_shape"]))]
+        }
+        post_transition_data = {
+            "actions": actions,
+            "reward": [(traj_reward,)],
+            "terminated": [True],
+        }
+        if self.rl['supervised_loss'] and 'opt' in step_vals:
+            post_transition_data["optimal_actions"] = step_vals['opt']['action']
+        for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
+            self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)
+            self.episode_batch[evaluation_method].update(post_transition_data, ts=0)
+
     def learn_trajectory_opt(self, step_vals, epoch):
         """Learn from optimisation episode using DDPG or DQN."""
-        rl = self.rl
-
-        if rl['type_learning'] == 'facmac':
-            states, actions = [
-                np.array(step_vals["opt"][e][0: self.N]) for e in ["state", "action"]
-            ]
-            traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
-
-            pre_transition_data = {
-                "state": np.reshape(
-                    states, (self.n_homes, rl["obs_shape"])),
-                "avail_actions": [rl["avail_actions"]],
-                "obs": [np.reshape(
-                    states, (self.n_homes, rl["obs_shape"]))]
-            }
-            post_transition_data = {
-                "actions": actions,
-                "reward": [(traj_reward,)],
-                "terminated": [True],
-            }
-            if self.rl['supervised_loss'] and 'opt' in step_vals:
-                post_transition_data["optimal_actions"] = step_vals['opt']['action']
-            for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
-                self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)
-                self.episode_batch[evaluation_method].update(post_transition_data, ts=0)
+        if self.rl['type_learning'] == 'facmac':
+            self._learn_trajectory_opt_facmac(step_vals, epoch)
         else:
             for home in self.homes:
                 states_a, next_states_a = [
                     np.reshape(
                         [step_vals["opt"][e][time_step][home] for time_step in range(self.N)],
-                        rl["dim_states"]
+                        self.rl["dim_states"]
                     ) for e in ["state", "next_state"]
                 ]
                 for method in self.methods_opt:
@@ -125,13 +126,13 @@ class LearningManager():
                         step_vals["opt"]["action"][time_step][home] for time_step in range(self.N)
                     ]
 
-                    if rl["type_learning"] == "DQN":
+                    if self.rl["type_learning"] == "DQN":
                         self._learn_DQN(
                             home, method, states_a, next_states_a, actions_a, traj_reward_a
                         )
 
-                    elif rl["type_learning"] == "DDPG":
-                        if rl["distr_learning"] == "decentralised":
+                    elif self.rl["type_learning"] == "DDPG":
+                        if self.rl["distr_learning"] == "decentralised":
                             self.learner[method][home].learn(
                                 states_a, actions_a, traj_reward_a, next_states_a
                             )

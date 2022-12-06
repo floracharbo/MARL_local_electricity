@@ -2,6 +2,7 @@ import pickle
 from datetime import timedelta
 from pathlib import Path
 from unittest import mock
+import shutil
 
 import numpy as np
 import pytest
@@ -28,7 +29,7 @@ def patch_find_feasible_data(
 ):
     set_seeds_rdn(0)
     names_files = {}
-    files = ['res', 'clusters', 'batch', 'factors']
+    files = ['res', 'batch']
     for file in files:
         names_files[file] = file + '_test'
         if self.prm['grd']['manage_agg_power']:
@@ -39,9 +40,17 @@ def patch_find_feasible_data(
                 penalty_exp=self.prm['grd']['penalty_coefficient_out']
             )
         names_files[file] += '.npy'
-    res, cluss, batch, factors = [
-        np.load(self.paths['opt_res'] / names_files[file], allow_pickle=True).item() for file in files
+    res, batch = [
+        np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
+    for file in files:
+        print(f"copy {self.paths['test_data'] / names_files[file]}"
+              f" to {self.prm['paths']['opt_res'] / f'{file}{self.file_id()}'}")
+        shutil.copyfile(
+            self.paths['test_data'] / names_files[file],
+            self.prm['paths']['opt_res'] / names_files[file]
+        )
+
     self.res_name = names_files['res']
     self.batch_file, batch = self.env.reset(
             seed=0,
@@ -53,10 +62,10 @@ def patch_find_feasible_data(
     if data_feasible and 'opt' in type_actions:  # start with opt
         # exploration through optimisation
         step_vals, data_feasible = self.get_steps_opt(
-            res, step_vals, evaluation, cluss, factors, batch, epoch
+            res, step_vals, evaluation, batch, epoch
         )
 
-    seed_data = res, factors, cluss, batch
+    seed_data = res, batch
 
     return seed_data, step_vals
 
@@ -111,26 +120,10 @@ def patch_load_data_dictionaries(paths, syst):
     return syst
 
 
-def patch_init_factors_clusters_profiles_parameters(self, prm):
-    for data in ["f_min", "f_max", "residual_distribution_prms", "mean_residual",
-                 "n_clus", "p_clus", "p_trans", "n_prof",
-                 "N", "n_int_per_hr", "dt", "behaviour_types",
-                 "data_types", "labels_day_trans"
-                 ]:
-        if data in prm["syst"]:
-            self.__dict__[data] = prm["syst"][data]
-
-
 def patch_init_factors_profiles_parameters(self, prm):
     self.perc = {
         'grd': prm['grd']['perc']
     }
-
-
-def patch_reinitialise_envfactors(
-        self, date0, epoch, i_explore, evaluation_add1=False
-):
-    return
 
 
 def patch_load_profiles(prm):
@@ -147,16 +140,29 @@ def patch_compute_max_car_cons_gen_values(env, state_space):
         "max_car_cons", "max_normcons", "max_normgen", "max_bat_dem_agg"
     ]
     return [
-        np.load(f"input_data/open_data_v{env.prm['syst']['data_version']}/{label}_test.npy")
+        np.load(env.prm['paths']['test_data'] / f"{label}_test.npy")
         for label in labels
     ]
 
 
 def patch_load_input_data(self, prm, factors0, clusters0):
-    for info in ['f_min', 'f_max']:
-        file_path = f"input_data/open_data_v{prm['syst']['data_version']}/{info}.pickle"
+    test_data_path = prm['paths']['test_data']
+
+    for info in ['f_min', 'f_max', 'n_clus']:
+        file_path = test_data_path / f"{info}.pickle"
         with open(file_path, "rb") as file:
             self.__dict__[info] = pickle.load(file)
+    prm['n_clus'] = self.n_clus
+    self.clusters = {
+        'loads': np.zeros(self.n_homes),
+        'car': np.zeros(self.n_homes),
+    }
+    self.factors = {
+        'loads': np.ones(self.n_homes) * 9,
+        'car': np.ones(self.n_homes) * 8,
+        'gen': np.ones(self.n_homes) * 8,
+    }
+
     return prm
 
 
@@ -235,16 +241,6 @@ def test_all(mocker):
     mocker.patch(
         "src.initialisation.initialise_objects._load_bat_factors_parameters",
         side_effect=patch_load_bat_factors_parameters
-    )
-    mocker.patch(
-        "src.simulations.local_elec.LocalElecEnv._init_factors_clusters_profiles_parameters",
-        side_effect=patch_init_factors_clusters_profiles_parameters,
-        autospec=True
-    )
-    mocker.patch(
-        "src.simulations.local_elec.LocalElecEnv.reinitialise_envfactors",
-        side_effect=patch_reinitialise_envfactors,
-        autospec=True
     )
     mocker.patch(
         "src.utilities.env_spaces.EnvSpaces._init_factors_profiles_parameters",

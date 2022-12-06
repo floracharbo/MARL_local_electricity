@@ -675,7 +675,7 @@ if __name__ == "__main__":
                 log.loc[len(log.index)] = row
                 newly_added_runs.append(row[0])
             else:
-                print(f"no file {result_no}")
+                shutil.rmtree(results_path / f"run{result_no}")
 
     new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
 
@@ -688,7 +688,8 @@ if __name__ == "__main__":
             len_start_remove = len(splits[0]) + 1
             new_columns[i] = new_columns[i][len_start_remove:]
     log.columns = new_columns + keys_methods
-
+    log['share_active'] = log.apply(lambda x: x.n / (x.n + x.nP), axis=1)
+    new_columns.append('share_active')
     log = compute_best_score_per_run(keys_methods, log)
 
     log.to_csv(log_path)

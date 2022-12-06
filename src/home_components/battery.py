@@ -41,7 +41,7 @@ class Battery:
         From action_translator.actions_to_env_vars, check battery constraints.
     """
 
-    def __init__(self, prm, passive_ext=None):
+    def __init__(self, prm, passive=False):
         """
         Initialise Battery object.
 
@@ -51,19 +51,16 @@ class Battery:
         passive_ext:
             are the current agents passive? '' is not, 'P' if yes
         """
-        # number of agents / households
-        self.n_homes = prm['ntw']['n']
-
         # very large number for enforcing constraints
-        self.M = prm['syst']['M']
+        self.set_passive_active(passive, prm)
 
-        # import input parameters
-        for info in ['own_car', 'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin']:
+        for info in ['M', 'N', 'dt']:
+            self.__dict__[info] = prm['syst'][info]
+
+        for info in [
+            'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin',
+        ]:
             self.__dict__[info] = prm['car'][info]
-
-        # total number of time steps
-        self.N = prm['syst']['N']
-        self.dt = prm['syst']['dt']
 
         # date of end of episode - updated from update_date() is env
         self.date_end = None
@@ -74,34 +71,21 @@ class Battery:
         self.batch_entries = ['loads_car', 'avail_car']
 
         # episode specific parameters
-        self.reset(prm, passive_ext)
+        self.reset(prm)
 
-    def reset(self, prm, passive_ext=None):
+    def reset(self, prm):
         """Reset object for new episode."""
         # time step
         self.time_step = 0
 
-        if passive_ext is not None:
-            # passive extension
-            self.passive_ext = passive_ext
-            self.n_homes = prm["ntw"]["n" + self.passive_ext]
+        # initial state
+        self.store = {}
+        for home in range(self.n_homes):
+            self.store[home] = prm['car']['store0' + self.passive_ext][home] \
+                if prm['car']['own_car' + self.passive_ext][home] else 0
 
-            # initial state
-            self.store = {}
-            for home in range(self.n_homes):
-                self.store[home] = prm['car']['store0' + passive_ext][home] \
-                    if prm['car']['own_car'][home] else 0
-
-            # storage at the start of current time step
-            self.start_store = self.store.copy()
-
-            # store0 is initial/final charge at the start and end
-            # of the episode
-            # cap is the maximum capacity of tbe battery
-            # min_charge is the minimum state of charge / base load
-            # that needs to always be available
-            for info in ['store0', 'cap', 'min_charge']:
-                self.__dict__[info] = prm['car'][info + self.passive_ext]
+        # storage at the start of current time step
+        self.start_store = self.store.copy()
 
     def update_step(self, res=None, time_step=None, implement=True):
         """Update current object variables for new step."""
@@ -123,6 +107,13 @@ class Battery:
     def revert_last_update_step(self):
         self.start_store = self.prev_start_store
         self.update_step(time_step=self.prev_time_step, implement=False)
+
+    def set_passive_active(self, passive: bool, prm: dict):
+        self.passive_ext = 'P' if passive else ''
+        # number of agents / households
+        self.n_homes = prm['ntw']['n' + self.passive_ext]
+        for info in ['own_car', 'store0', 'cap', 'min_charge']:
+            self.__dict__[info] = prm['car'][info + self.passive_ext]
 
     def compute_bat_dem_agg(
             self,

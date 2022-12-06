@@ -20,24 +20,21 @@ Charbonnier F, Morstyn T, McCulloch MD. Scalable multi-agent reinforcement learn
 ## Main Features
 
 The learning methods are:
-- Q-learning
-- DDPG
-- DQN
-- DDQN
+- independent learners: Q-learning, DDPG, DQN, DDQN
 - FACMAC (https://papers.nips.cc/paper/2021/hash/65b9eea6e1cc6bb9f0cd2a47751a186f-Abstract.html)
 
 The flexible technologies modelled are:
 - electric vehicles (including realistic random training and evaluation consumption and availability profiles)
 - heat pumps (modelled based on required comfort temperature profiles, house modelling and external temperatures)
-- generic flexibile household loads (realistic random training and evaluation profiles generated)
+- generic flexible household loads (realistic random training and evaluation profiles generated)
 
 Exploration sources are:
 - Environment exploration. Traditionally, agents collect experience by interacting with an environment. 
 - Optimisations. A novel approach collects experience from optimisations. Agents learn from convex “omniscient” optimisations on historical data with perfect knowledge of current and future variables. This experience is then used under partial observability and control for stable coordination between prosumers at scale. A standard convex optimiser uses the same data that would be used to populate the environment explorations but solves over the whole day-horizon with perfect knowledge of all variables. Then, at each time step, the system variables are translated into equivalent RL 
  tuples for each agent, which are used to update the policies in the same way as for standard Q-learning as presented below.
 
-The learning can be
-- global value-function / Q-table: this does not scale beyond 3 agents for Q-learning.
+The learning for independent learners can be
+- Global value-function / Q-table: this does not scale beyond 3 agents for Q-learning.
 - Centralised learning. A single home-level Q-table uses experience from all agents during pre-learning. All agents use the centrally learned policy for decentralised implementation.
 - Distributed learning. Each agent learns its table with its own experience. No information is shared between agents.
 
@@ -45,12 +42,11 @@ The action space can be
 - aggregated into a single action. This reduces the state space for implementation with Q-learning.
 - disaggregated into the heating, EV charging, and household load flexibility action variables. This yields better performance using FACMAC.
 
-Rewards can be defined as:
+Rewards for independent learners can be defined as:
 - Total reward. The instantaneous total system reward is used to update the Q-table for all agents.
 - Marginal reward. The difference in total instant rewards between that if agent 
  selects the greedy action and that if it selects the default action is used
-- Advantage reward. The post difference between 
- values when performs the greedy and the default action is used. 
+- Advantage reward. The post difference between values when performs the greedy and the default action is used. 
 - Count. The Q-table stores the number of times each state–action pair is selected by the optimiser.
 
 Energy prices follow historical Octopus's agile tariff.

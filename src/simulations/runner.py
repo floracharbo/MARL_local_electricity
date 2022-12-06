@@ -107,8 +107,6 @@ class Runner():
                 evaluations_methods = self._check_if_opt_env_needed(epoch, evaluation=True)
                 assert i_explore + 1 == self.rl['n_explore']
 
-                self.env.reinitialise_envfactors(
-                    date0, epoch, self.rl['n_explore'])
                 eval_steps, _ = self.explorer.get_steps(
                     evaluations_methods, repeat, epoch, self.rl['n_explore'],
                     evaluation=True, new_episode_batch=self.new_episode_batch)
@@ -429,10 +427,6 @@ class Runner():
                 repeat, epoch, i_explore, date0, delta,
                 i0_costs, new_env)
 
-        # initialise environment cluster, scaling factors, etc.
-        self.env.reinitialise_envfactors(
-            date0, epoch, i_explore, evaluation_add1=evaluation_add1)
-
         # exploration - obtain experience
         exploration_methods = self._check_if_opt_env_needed(
             epoch, evaluation=evaluation)
@@ -474,8 +468,6 @@ class Runner():
                     repeat, epoch_test, i_explore, date0,
                     delta, i0_costs, new_env
                 )
-            self.env.reinitialise_envfactors(
-                date0, epoch_test, i_explore, evaluation_add1=True)
             eval_steps, _ = self.explorer.get_steps(
                 evaluations_methods, repeat, epoch_test, self.rl['n_explore'],
                 evaluation=True, new_episode_batch=self.new_episode_batch)

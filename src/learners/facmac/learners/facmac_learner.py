@@ -63,7 +63,7 @@ class FACMACLearner(Learner):
 
         return list_critic_out
 
-    def train(self, batch: EpisodeBatch):
+    def _train_critic(self, batch):
         rewards = batch.data.transition_data['reward']
         if self.rl['trajectory']:
             rewards = sum(rewards)
@@ -72,7 +72,6 @@ class FACMACLearner(Learner):
         mask = batch.data.transition_data['filled']
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
 
-        # Train the critic batched
         target_actions = []
         self.target_mac.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
@@ -114,8 +113,7 @@ class FACMACLearner(Learner):
         )
 
         targets = rewards.expand_as(target_vals) \
-            + self.rl['facmac']['gamma'] * \
-            (1 - terminated.expand_as(target_vals)) * target_vals
+            + self.rl['facmac']['gamma'] * (1 - terminated.expand_as(target_vals)) * target_vals
         td_error = (targets.detach() - q_taken)
         td_error = self.add_supervised_loss(td_error, batch)
 
@@ -132,7 +130,7 @@ class FACMACLearner(Learner):
         loss.backward()
         self.critic_optimiser.step()
 
-        # Train the actor
+    def _train_actor(self, batch):
         # Optimize over the entire joint action space
         mac_out = []
         chosen_action_qvals = []
@@ -140,7 +138,7 @@ class FACMACLearner(Learner):
         self.critic.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
             agent_outs = self.mac.forward(
-                batch, t=t, select_actions=True)["actions"].\
+                batch, t=t, select_actions=True)["actions"]. \
                 view(batch.batch_size, self.n_agents, self.n_actions)
             q, self.critic.hidden_states = self.critic(
                 self._build_inputs(batch, t=t), agent_outs,
@@ -158,7 +156,7 @@ class FACMACLearner(Learner):
 
         chosen_action_qvals = self.add_supervised_loss(chosen_action_qvals, batch)
         # Compute the actor loss
-        pg_loss = - chosen_action_qvals.mean() + (pi**2).mean() * 1e-3
+        pg_loss = - chosen_action_qvals.mean() + (pi ** 2).mean() * 1e-3
         lr = self.rl['lr'] if (not self.hysteretic or pg_loss > 0) \
             else self.rl['lr'] * self.beta_to_alpha
         for g in self.agent_optimiser.param_groups:
@@ -177,6 +175,13 @@ class FACMACLearner(Learner):
         else:
             raise Exception(f"unknown target update mode: "
                             f"{self.rl['target_update_mode']}!")
+
+    def train(self, batch: EpisodeBatch):
+        # Train the critic batched
+        self._train_critic(batch)
+
+        # Train the actor
+        self._train_actor(batch)
 
     def add_supervised_loss(self, td_error, batch):
         if self.rl['supervised_loss']:

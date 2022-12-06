@@ -12,5 +12,6 @@ efftype: 0 # 0 just constant efficiency, 1 iterate to make it dependent on SoC
 eff: 1
 # 'maxthrough' : 750, # max thoughput per day [kWh]
 intervals_fprob: 50
-own_car: 1 # 1 if all have EVs, else array of ownership
+own_car: 1  # 1 if all have EVs, else array of ownership
+own_carP: 1  # 1 if all passive homes have EVs, else array of ownership
 n_clus: 3  # excluding no trip days

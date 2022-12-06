@@ -84,16 +84,16 @@ class DataManager():
             (syst['N'], loads['n_types'], ntw['n' + passive_ext], syst['N']))
 
         ntw['gen'] = np.zeros((ntw['n' + passive_ext], syst['N'] + 1))
+        share_flexs = loads['share_flexs' + passive_ext]
         for home in range(ntw['n' + passive_ext]):
             ntw['gen'][home] = batch[home]['gen'][0: len(ntw['gen'][home])]
             for time in range(syst['N']):
                 ntw['Bcap'][home, time] = car['cap' + passive_ext][home]
                 for load_type in range(loads['n_types']):
-                    loads_str = 'loads' if 'loads' in batch[home] else 'lds'
                     ntw['loads'][0][home][time] \
-                        = batch[home][loads_str][time] * (1 - loads['share_flexs'][home])
+                        = batch[home]['loads'][time] * (1 - share_flexs[home])
                     ntw['loads'][1][home][time] \
-                        = batch[home][loads_str][time] * loads['share_flexs'][home]
+                        = batch[home]['loads'][time] * share_flexs[home]
                     for time_cons in range(syst['N']):
                         if time <= time_cons <= time + int(potential_delay[load_type][time]):
                             ntw['flex'][time, load_type, home, time_cons] = 1
@@ -105,25 +105,24 @@ class DataManager():
 
         file_id_path = self.paths['opt_res'] / f"batch{self.file_id()}"
         if file_id_path.is_file():
-            [factors, clusters] = self._load_res()
+            # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext], load_data=True,
                 passive=passive)
         else:
             # presave data to be used for multiple methods
-            [batch, factors, clusters] = self._env_make_data(
+            batch = self._env_make_data(
                 int(self.seed[self.passive_ext]), passive=passive)
 
         # turn input data into usable format for optimisation problem
-        data_feasibles = self._format_data_optimiser(
-            batch, passive=passive)
-        factors, clusters, batch, data_feasibles = self._loop_replace_data(
-            data_feasibles, passive, factors, clusters)
+        data_feasibles = self._format_data_optimiser(batch, passive=passive)
+        if not all(data_feasibles):
+            batch, data_feasibles = self._loop_replace_data(data_feasibles, passive)
 
         data_feasible = all(data_feasibles)
         res = None
         new_res = False
-        seed_data = res, factors, clusters, batch
+        seed_data = res, batch
 
         return seed_data, new_res, data_feasible
 
@@ -162,7 +161,7 @@ class DataManager():
         # check if data is feasible by solving optimisation problem
         if new_data_needed:
             # pre-save data to be used for multiple methods
-            [batch, factors, clusters] = self._env_make_data(
+            batch = self._env_make_data(
                 int(self.seed[self.passive_ext]),
                 passive=passive
             )
@@ -173,7 +172,7 @@ class DataManager():
                 res = np.load(self.paths['opt_res']
                               / self.res_name,
                               allow_pickle=True).item()
-            [factors, clusters] = self._load_res()
+            # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext],
                 load_data=True, passive=passive)
@@ -182,8 +181,8 @@ class DataManager():
         data_feasibles = self._format_data_optimiser(batch, passive=passive)
 
         if not all(data_feasibles):
-            factors, clusters, batch, data_feasibles = self._loop_replace_data(
-                data_feasibles, passive, factors, clusters
+            batch, data_feasibles = self._loop_replace_data(
+                data_feasibles, passive
             )
             feasibility_checked = False
 
@@ -200,10 +199,10 @@ class DataManager():
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
             step_vals, data_feasible = self.get_steps_opt(
-                res, step_vals, evaluation, clusters, factors, batch, epoch
+                res, step_vals, evaluation, batch, epoch
             )
 
-        seed_data = [res, factors, clusters, batch]
+        seed_data = [res, batch]
 
         return (seed_data, new_res, data_feasible, step_vals, feasibility_checked)
 
@@ -329,8 +328,8 @@ class DataManager():
             self,
             data_feasibles: np.ndarray,
             passive: bool,
-            factors: dict,
-            clusters: dict
+            # factors: dict,
+            # clusters: dict
     ) -> Tuple[dict, dict, dict, np.ndarray]:
         """Replace the data for infeasible homes."""
         its = 0
@@ -340,14 +339,15 @@ class DataManager():
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
             self.env.fix_data_a(homes, self.file_id(), its=its)
-            [factors, clusters] = self._load_res()
+            # [factors, clusters] = self._load_res()
 
             self.batch_file, batch = self.env.reset(
-                seed=self.seed[self.passive_ext], load_data=True, passive=passive)
+                seed=self.seed[self.passive_ext], load_data=True, passive=passive
+            )
 
             assert all(
-                len(batch[home]['loads']) == len(batch[0]['loads']) for home in range(self.N)
-            ), f"len loads= {[len(batch[home]['loads']) for home in range(self.N)]}"
+                len(batch[home]['loads']) == len(batch[0]['loads']) for home in homes
+            ), f"len loads= {[len(batch[home]['loads']) for home in homes]}"
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
@@ -361,7 +361,7 @@ class DataManager():
                     print(f'home = {home} in infeasibles')
             its += 1
 
-        return factors, clusters, batch, data_feasibles
+        return batch, data_feasibles
 
     def _load_res(self, labels: list = ['factors', 'clusters']) -> List[dict]:
         """Load pre-saved day data."""
@@ -417,11 +417,12 @@ class DataManager():
             # do not load data for env reset - instead make new data
             load_data = False
             batch_file, batch = self.env.reset(
-                seed=seed, load_data=load_data, passive=passive)
+                seed=seed, load_data=load_data, passive=passive
+            )
 
         # for subsequent methods, on reinitialisation, it will use this data
         # obtain data needed saved in batchfile
-        [batch, factors, clusters] = self._load_res(labels=['batch', 'factors', 'clusters'])
+        [batch] = self._load_res(labels=['batch'])
 
         new_batch_file = 'batch_file' in self.__dict__ \
                          and batch_file != self.batch_file
@@ -434,7 +435,7 @@ class DataManager():
                     os.remove(file)
         self.batch_file = batch_file
 
-        return [batch, factors, clusters]
+        return batch
 
     def _format_data_optimiser(
             self,

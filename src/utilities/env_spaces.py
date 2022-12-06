@@ -115,6 +115,7 @@ class EnvSpaces():
             "flexibility": self.get_flexibility,
             "store_bool_flex": self.get_store_bool_flex
         }
+        self.cluss, self.factors = env.hedge.clusters, env.hedge.factors
 
     def _init_factors_profiles_parameters(self, prm):
         self.perc = {}
@@ -137,6 +138,7 @@ class EnvSpaces():
         n_other_states = rl["n_other_states"]
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
         max_flexibility = prm['car']['c_max'] + prm['car']['d_max'] + 1
+        n_clus = prm['n_clus']
         info = [
             ["None", 0, 0, 1, 1],
             ["hour", 0, prm['syst']['N'], n_other_states, 0],
@@ -165,10 +167,10 @@ class EnvSpaces():
             ["avail_car_prev", 0, 1, 2, 1],
             ["car_tau", 0, prm["car"]["c_max"], 3, 0],
             # clusters - for whole day
-            ["loads_clus_step", 0, env.n_clus["loads"] - 1, env.n_clus["loads"], 1],
-            ["loads_clus_prev", 0, env.n_clus["loads"] - 1, env.n_clus["loads"], 1],
-            ["bat_cbat_clus_step", 0, env.n_clus["car"] - 1, env.n_clus["car"], 1],
-            ["bat_clus_prev", 0, env.n_clus["car"] - 1, env.n_clus["car"], 1],
+            ["loads_clus_step", 0, n_clus['loads'] - 1, n_clus['loads'], 1],
+            ["loads_clus_prev", 0, n_clus["loads"] - 1, n_clus["loads"], 1],
+            ["bat_cbat_clus_step", 0, n_clus["car"] - 1, n_clus["car"], 1],
+            ["bat_clus_prev", 0, n_clus["car"] - 1, n_clus["car"], 1],
             # scaling factors - for whole day
             ["loads_fact_step", f_min["loads"], f_max["loads"], n_other_states, 0],
             ["loads_fact_prev", f_min["loads"], f_max["loads"], n_other_states, 0],
@@ -504,8 +506,6 @@ class EnvSpaces():
             prm: dict,
             res: dict,
             time_step: int,
-            cluss: list,
-            factors: list,
             loads_prev: list,
             loads_step: list,
             batch_avail_car: np.ndarray,
@@ -559,7 +559,7 @@ class EnvSpaces():
                     index_day = day - \
                         1 if descriptor.split("_")[-1] == "prev" else day
                     index_day = max(index_day, 0)
-                    data = factors if descriptor[-9:-5] == "fact" else cluss
+                    data = self.factors if descriptor[-9:-5] == "fact" else self.cluss
                     val = data[home][module][index_day]
                 else:  # select current or previous hour - step or prev
                     time_step_val = time_step if descriptor[-4:] == "step" else time_step - 1

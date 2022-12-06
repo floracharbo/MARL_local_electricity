@@ -244,6 +244,7 @@ def _update_paths(paths, prm, no_run):
         / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
+    paths['test_data'] = paths['open_inputs'] / 'testing_data'
 
     return paths
 
@@ -303,8 +304,9 @@ def _update_bat_prm(prm):
     if "own_car" in car:
         car["cap"] = car["cap"] if isinstance(car["cap"], list) \
             else [car["cap"] for _ in range(ntw["n"])]
-        car["own_car"] = [1 for _ in range(ntw["n"])] \
-            if car["own_car"] == 1 else car["own_car"]
+        for passive_ext in ["", "P"]:
+            car["own_car" + passive_ext] = [1 for _ in range(ntw["n" + passive_ext])] \
+                if car["own_car" + passive_ext] == 1 else car["own_car" + passive_ext]
         car["cap"] = [c if o == 1 else 0
                       for c, o in zip(car["cap"], car["own_car"])]
 
@@ -701,10 +703,11 @@ def initialise_prm(prm, no_run, initialise_all=True):
         syst = _load_data_dictionaries(paths, syst)
         _update_grd_prm(prm)
         loads["share_flex"], loads["max_delay"] = loads["flex"]
-        loads["share_flexs"] = [
-            0 if not loads["own_flex"][home] else loads["share_flex"]
-            for home in range(ntw["n"])
-        ]
+        for passive_ext in ['', 'P']:
+            loads["share_flexs" + passive_ext] = [
+                0 if not loads["own_flex" + passive_ext][home] else loads["share_flex"]
+                for home in range(ntw["n" + passive_ext])
+            ]
 
     # car avail, type, factors
     prm['car'] = _update_bat_prm(prm)

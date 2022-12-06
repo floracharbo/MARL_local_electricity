@@ -39,11 +39,12 @@ class HEDGE:
         n_homes: int,
         factors0: dict = None,
         clusters0: dict = None,
-        prm: dict = None
+        prm: dict = None,
+        passive: bool = False,
     ):
         """Initialise HEDGE object and initial properties."""
         # update object properties
-
+        self.passive_ext = 'P' if passive else ''
         self.labels_day = ["wd", "we"]
         self.n_homes = n_homes
         self.homes = range(self.n_homes)
@@ -218,10 +219,10 @@ class HEDGE:
             self.residual_distribution_prms["gen"] = list(self.residual_distribution_prms["gen"])
             self.residual_distribution_prms["gen"][1] *= prm["syst"]["f_std_share"]
 
-            self.select_cdfs["gen"] \
-                = [min_cdf + prm["syst"]["clust_dist_share"] * (max_cdf - min_cdf)
-                   for min_cdf, max_cdf in zip(
-                    self.min_cdfs["gen"], self.max_cdfs["gen"])]
+            self.select_cdfs["gen"] = [
+                min_cdf + prm["syst"]["clust_dist_share"] * (max_cdf - min_cdf)
+                for min_cdf, max_cdf in zip(self.min_cdfs["gen"], self.max_cdfs["gen"])
+            ]
 
         return prm
 
@@ -383,7 +384,8 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            while np.max(day["loads_car"][i_home]) > self.car["cap"][home] and it < 100:
+            cap = self.car["cap" + self.passive_ext]
+            while np.max(day["loads_car"][i_home]) > cap[home] and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:
@@ -853,7 +855,7 @@ class HEDGE:
         ]
 
         self.car = prm["car"]
-        self.store0 = self.car["SoC0"] * np.array(self.car["cap"])
+        self.store0 = self.car["SoC0"] * np.array(self.car["cap" + self.passive_ext])
         # update date and time information
         self.date = datetime(*prm["syst"]["date0"])
 

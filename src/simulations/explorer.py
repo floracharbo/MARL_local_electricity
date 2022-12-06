@@ -105,10 +105,10 @@ class Explorer():
             = self._initialise_passive_vars(env, repeat, epoch, i_explore)
 
         # find feasible data
-        _, step_vals, _ = \
-            self.data.find_feasible_data(
-                seed_ind, methods, step_vals, evaluation,
-                epoch, passive=True)
+        _, step_vals = self.data.find_feasible_data(
+            seed_ind, methods, step_vals, evaluation,
+            epoch, passive=True
+        )
 
         # reset environment
         env.reset(seed=self.data.seed[self.data.passive_ext],
@@ -116,7 +116,7 @@ class Explorer():
 
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
-            action = self.rl["default_actionP"]
+            action = np.ones((self.n_homes, self.prm['RL']['dim_actions_1']))
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
                 action, record=record,
@@ -360,7 +360,7 @@ class Explorer():
             else self.data.get_seed_ind(repeat, epoch, i_explore)
         seed_ind += self.data.d_ind_seed[self.data.passive_ext]
 
-        [_, _, _, batch], step_vals = self.data.find_feasible_data(
+        [_, batch], step_vals = self.data.find_feasible_data(
             seed_ind, methods, step_vals, evaluation, epoch
         )
 
@@ -493,7 +493,7 @@ class Explorer():
                            f"better than opt {np.mean(step_vals['opt']['reward'])}"
 
     def _opt_step_init(
-            self, time_step, batchflex_opt, cluss, factors, batch_avail_ev, res
+            self, time_step, batchflex_opt, batch_avail_ev, res
     ):
         step_vals_i = {}
         # update time at each time step
@@ -520,7 +520,7 @@ class Explorer():
         }
 
         step_vals_i["state"] = self.env.spaces.opt_step_to_state(
-            self.prm, res, time_step, cluss, factors, loads_prev,
+            self.prm, res, time_step, loads_prev,
             loads_step, batch_avail_ev, loads, home_vars
         )
 
@@ -569,7 +569,7 @@ class Explorer():
         return diff_rewards, feasible
 
     def _append_step_vals(
-            self, method, step_vals_i, res, time_step, cluss, factors,
+            self, method, step_vals_i, res, time_step,
             loads_prev, loads_step, batch_avail_ev, step_vals,
             break_down_rewards, feasible, loads, home_vars
     ):
@@ -596,7 +596,7 @@ class Explorer():
         if time_step == len(res["grid"]) - 1:
             step_vals[method]["next_state"].append(
                 self.env.spaces.opt_step_to_state(
-                    self.prm, res, time_step + 1, cluss, factors, loads_prev,
+                    self.prm, res, time_step + 1, loads_prev,
                     loads_step, batch_avail_ev, loads, home_vars
                 )
             )
@@ -662,18 +662,33 @@ class Explorer():
         assert self.env.i0_costs in potential_i0s
 
         # check reward from environment and res variables match
-        res_reward_t = - (res['pci'][time_step][0] + res['pco'][time_step][0]) \
-            - (prm["grd"]["C"][time_step]
-               * (res["grid"][time_step][0]
-                  + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)
-                  * res["grid2"][time_step][0])
-               + prm["car"]["C"]
-               * sum(res["discharge_tot"][home][time_step]
-                     + res["charge"][home][time_step]
-                     for home in self.homes)
-               + prm["ntw"]["C"]
-               * sum(res["netp_abs"][home][time_step]
-                     for home in self.homes))
+        gc_t = res['pci'][time_step][0] + res['pco'][time_step][0] \
+            + prm["grd"]["C"][time_step] * (
+                res["grid"][time_step][0]
+                + prm["grd"]["R"] / (prm["grd"]["V"] ** 2) * res["grid2"][time_step][0]
+        )
+        sc_t = prm["car"]["C"] * (
+            sum(
+                res["discharge_tot"][home][time_step]
+                + res["charge"][home][time_step]
+                for home in range(prm['ntw']['n'])
+            ) + sum(
+                self.prm["loads"]['discharge_tot0'][home][time_step]
+                + self.prm["loads"]['charge0'][home][time_step]
+                for home in range(prm['ntw']['nP'])
+            )
+        )
+        dc_t = prm["ntw"]["C"] * (
+            sum(
+                res["netp_abs"][home][time_step]
+                for home in range(self.prm['ntw']['n'])
+            )
+            + sum(
+                self.env.netp_to_exports(self.prm['loads']['netp0'])[home][time_step]
+                for home in range(self.prm['ntw']['nP'])
+            )
+        )
+        res_reward_t = - (gc_t + sc_t + dc_t)
 
         if not prm["RL"]["competitive"]:
             assert abs(reward - res_reward_t) < 5e-3, \
@@ -781,8 +796,7 @@ class Explorer():
                 np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res[0])
 
     def get_steps_opt(
-            self, res, step_vals, evaluation, cluss,
-            factors, batch, epoch
+            self, res, step_vals, evaluation, batch, epoch
     ):
         """Translate optimisation results to states, actions, rewards."""
         env, rl = self.env, self.prm["RL"]
@@ -804,7 +818,7 @@ class Explorer():
         for time_step in range(len(res["grid"])):
             # initialise step variables
             [step_vals_i, date, loads, loads_step, loads_prev, home_vars] = self._opt_step_init(
-                time_step, batchflex_opt, cluss, factors, batch_avail_ev, res
+                time_step, batchflex_opt, batch_avail_ev, res
             )
 
             # translate dp into action value
@@ -848,7 +862,7 @@ class Explorer():
 
             # append experience dictionaries
             step_vals = self._append_step_vals(
-                method, step_vals_i, res, time_step, cluss, factors,
+                method, step_vals_i, res, time_step,
                 loads_prev, loads_step, batch_avail_ev, step_vals,
                 break_down_rewards, feasible, loads, home_vars
             )
