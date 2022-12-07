@@ -22,12 +22,12 @@ def _plot_last_epochs_actions(
             all_vals_e_t_step = np.array(
                 [[all_vals[e][method][repeat][home][step][action]
                   for repeat in list_repeat]
-                 for home in range(prm["ntw"]["n"])]
+                 for home in range(prm["syst"]["n_homes"])]
             )
             if all(
                     [[all_vals[e][method][repeat][home][step][action] is None
                       for repeat in list_repeat]
-                     for home in range(prm["ntw"]["n"])]
+                     for home in range(prm["syst"]["n_homes"])]
             ):
                 all_vals_e_t_step = None
 
@@ -85,7 +85,7 @@ def _plot_all_agents_mean_res(
                     all_vals_e_t_step = np.array(
                         [[all_vals[e][method][repeat][home][step]
                           for repeat in list_repeat]
-                         for home in range(prm["ntw"]["n"])]
+                         for home in range(prm["syst"]["n_homes"])]
                     )
                     all_vals_e_t_step_mean[step] = np.mean(
                         np.mean(all_vals_e_t_step)
@@ -205,7 +205,7 @@ def _plot_all_agents_all_repeats_res(
             display_labels=False)
         for method in all_methods_to_plot:
             all_cum_rewards[method].append(cum_rewards_repeat[method])
-        for home in range(prm["ntw"]["n"]):
+        for home in range(prm["syst"]["n_homes"]):
             T_air_a = _plot_indoor_air_temp(
                 axs, methods_to_plot, last, title_ylabel_dict,
                 prm, home, row=1, col=1, alpha=alpha_not_indiv,
@@ -216,7 +216,7 @@ def _plot_all_agents_all_repeats_res(
                 all_T_air[method].append(T_air_a[method])
 
         for r, c, e in zip(rows, columns, entries):
-            for home in range(prm["ntw"]["n"]):
+            for home in range(prm["syst"]["n_homes"]):
                 for method in methods_to_plot:
                     xs, ys = list(range(prm['syst']['N'])), last[e][method]
                     ys = [ys[step][home] for step in range(len(ys))]
@@ -353,13 +353,13 @@ def _plot_indiv_agent_res(
         loads_car, availabilities_car = [
             [
                 last["batch"][home][e]
-                for home in range(prm["ntw"]["n"])
+                for home in range(prm["syst"]["n_homes"])
             ]
             for e in ["loads_car", "avail_car"]
         ]
 
         for home in range(
-                min(prm["ntw"]["n"], prm["save"]["max_n_profiles_plot"])
+                min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
         ):
             xs = range(len(loads_car[home]))
             bands_car_availability = _get_bands_car_availability(
@@ -511,9 +511,9 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, repeat):
     seeds = np.load(prm["paths"]["seeds_path"])
     heatavail = {}
     for e in batch_entries:
-        fig, axs = plt.subplots(prm["ntw"]["n"], 1, squeeze=0)
+        fig, axs = plt.subplots(prm["syst"]["n_homes"], 1, squeeze=0)
         axs = axs.ravel()
-        for home in range(prm["ntw"]["n"]):
+        for home in range(prm["syst"]["n_homes"]):
             n = len(np.load(f"batch_{int(seeds[0] + 1)}_a0_lds.npy",
                             mmap_mode="c"))
             heatavail[home] = np.zeros((n,))
@@ -559,7 +559,7 @@ def plot_env_input(repeat, prm, record):
         elif prm["RL"]["deterministic"] == 0 and "batch" in record.last[repeat]:
             # indeterministic, just plot the last epoch, evaluation step
             batch = record.last[repeat]["batch"]["eval"]
-        n_homes_plot = max(prm["ntw"]["n"], 10)
+        n_homes_plot = max(prm["syst"]["n_homes"], 10)
         for e in batch_entries:
             fig, axs = plt.subplots(n_homes_plot, 1, squeeze=0)
             axs = axs.ravel()

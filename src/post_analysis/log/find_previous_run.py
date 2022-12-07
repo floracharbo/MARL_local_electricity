@@ -29,8 +29,8 @@ settings = {
         # 'start_steps': [100],
         # 'hyper_initialization_nonzeros': 0.1,
     },
-    'ntw': {
-        'n': 10
+    'syst': {
+        'n_homes': 10
     },
 }
 SETTINGS_ONLY = True

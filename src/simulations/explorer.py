@@ -73,7 +73,7 @@ class Explorer():
         self.paths = prm["paths"]
 
     def _initialise_passive_vars(self, env, repeat, epoch, i_explore):
-        self.n_homes = self.prm["ntw"]["nP"]
+        self.n_homes = self.prm['syst']['n_homesP']
         self.homes = range(self.n_homes)
         # get environment seed
         seed_ind = self.ind_seed_deterministic \
@@ -97,7 +97,7 @@ class Explorer():
     ):
         self.data.passive_ext = "P"
         self._init_passive_data()
-        if self.prm["ntw"]["nP"] == 0:
+        if self.prm['syst']['n_homesP'] == 0:
             return step_vals
 
         # initialise variables for passive case
@@ -346,7 +346,7 @@ class Explorer():
     ):
         rl = self.rl
         self.data.passive_ext = ""
-        self.n_homes = self.prm["ntw"]["n"]
+        self.n_homes = self.prm["syst"]["n_homes"]
         self.homes = range(self.n_homes)
         # initialise data
         methods_nonopt = [method for method in methods if method != "opt"]
@@ -515,7 +515,7 @@ class Explorer():
             max(0, time_step - 1), batchflex_opt)
         home_vars = {
             "gen": np.array(
-                [self.prm["ntw"]["gen"][home][time_step] for home in self.homes]
+                [self.prm["grd"]["gen"][home][time_step] for home in self.homes]
             )
         }
 
@@ -532,7 +532,7 @@ class Explorer():
     def _get_passive_vars(self, time_step):
         passive_vars = \
             [[self.prm["loads"][e][home][time_step]
-              for home in range(self.prm["ntw"]["nP"])]
+              for home in range(self.prm['syst']['n_homesP'])]
              for e in ["netp0", "discharge_tot0", "charge0"]]
 
         return passive_vars
@@ -671,21 +671,21 @@ class Explorer():
             sum(
                 res["discharge_tot"][home][time_step]
                 + res["charge"][home][time_step]
-                for home in range(prm['ntw']['n'])
+                for home in range(prm['syst']['n_homes'])
             ) + sum(
                 self.prm["loads"]['discharge_tot0'][home][time_step]
                 + self.prm["loads"]['charge0'][home][time_step]
-                for home in range(prm['ntw']['nP'])
+                for home in range(prm['syst']['n_homesP'])
             )
         )
-        dc_t = prm["ntw"]["C"] * (
+        dc_t = prm["grd"]["export_C"] * (
             sum(
                 res["netp_abs"][home][time_step]
-                for home in range(self.prm['ntw']['n'])
+                for home in range(self.prm['syst']['n_homes'])
             )
             + sum(
                 self.env.netp_to_exports(self.prm['loads']['netp0'])[home][time_step]
-                for home in range(self.prm['ntw']['nP'])
+                for home in range(self.prm['syst']['n_homesP'])
             )
         )
         res_reward_t = - (gc_t + sc_t + dc_t)
@@ -991,7 +991,7 @@ class Explorer():
         """
         prm, env = self.prm, self.env
         rewards_baseline = []
-        gens = prm["ntw"]["gen"][:, time_step]
+        gens = prm["grd"]["gen"][:, time_step]
         self.env.heat.T = res["T"][:, time_step]
         self.env.car.store = res["store"][:, time_step]
         combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))

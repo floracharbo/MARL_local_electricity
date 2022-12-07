@@ -33,7 +33,7 @@ def _get_mean_rewards_from_record(prm, record):
 def _eval_entries_plot_colours(prm):
     rl = prm["RL"]
     evaluation_methods = rl['evaluation_methods']
-    if prm['ntw']['n'] == 1:
+    if prm['syst']['n_homes'] == 1:
         evaluation_methods = [
             evaluation_method for evaluation_method in evaluation_methods
             if evaluation_method in ['baseline', 'opt']

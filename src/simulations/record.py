@@ -48,7 +48,7 @@ class Record():
 
         for e in ["gamma", "epsilon_decay"]:
             self.__dict__[e] = rl[rl["type_learning"]]
-        self.n_homes = prm["ntw"]["n"]
+        self.n_homes = prm["syst"]["n_homes"]
         # save q tables at each step in record
         # depending on the dimension of the q tables
         self.save_qtables = True \
@@ -305,7 +305,7 @@ class Record():
         for repeat in range(prm["RL"]["n_repeats"]):  # loop through repetitions
             mean_eval_rewards_per_hh = {}
             action_state_space_0[repeat], state_space_0[repeat] = \
-                [initialise_dict(range(prm["ntw"]["n"])) for _ in range(2)]
+                [initialise_dict(range(prm["syst"]["n_homes"])) for _ in range(2)]
             # 1 - mean rewards
             end_rewards_repeat, end_test_rewards_repeat = {}, {}
             if "end_decay" not in prm["RL"] or "DQN" not in prm["RL"]:
@@ -334,7 +334,7 @@ class Record():
 
             for e in eval_entries_plot:
                 mean_eval_rewards_per_hh[e] = \
-                    [r / (prm["ntw"]["n"] + prm["ntw"]["nP"])
+                    [r / (prm["syst"]["n_homes"] + prm["syst"]["n_homesP"])
                      if r is not None else None
                      for r in self.mean_eval_rewards[repeat][e]]
                 end_rewards_repeat[e] = np.mean(

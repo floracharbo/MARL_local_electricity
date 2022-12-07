@@ -570,7 +570,7 @@ class EnvSpaces():
                         else:
                             val = 1
                     elif descriptor[0:3] == "gen":
-                        val = prm["ntw"]["gen"][home][time_step_val]
+                        val = prm["grd"]["gen"][home][time_step_val]
                     else:  # remaining are car_cons_step / prev
                         val = prm["car"]["batch_loads_car"][home][time_step]
                 val = self.normalise_state(descriptor, val, home)

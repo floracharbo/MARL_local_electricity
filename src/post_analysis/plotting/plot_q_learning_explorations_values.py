@@ -14,7 +14,7 @@ def _plot_1d_state_space_best_psi(
         prm, best_theta, repeat
 ):
     rl = prm["RL"]
-    for home in range(prm['ntw']['n']):
+    for home in range(prm['syst']['n_homes']):
         fig, ax = plt.subplots()
         theta_M = []
         for method in prm["save"]["eval_entries_plot_indiv"]:
@@ -39,7 +39,7 @@ def _plot_2d_state_space_best_psi(
     prm, record, spaces, best_theta, repeat
 ):
     rl = prm["RL"]
-    for home in range(prm['ntw']['n']):
+    for home in range(prm['syst']['n_homes']):
         for i_t in range(len(prm["save"]["eval_entries_plot_indiv"])):
             method = prm["save"]["eval_entries_plot_indiv"][i_t]
             M = np.zeros((record.granularity_state0,
@@ -75,7 +75,7 @@ def _plot_unique_state_best_psi(
     eval_entries_plot_indiv = prm["save"]["eval_entries_plot_indiv"]
 
     for method in eval_entries_plot_indiv:
-        n_homes = prm['ntw']['n'] if distr_learning(method) in ['d', 'Cd'] else 1
+        n_homes = prm['syst']['n_homes'] if distr_learning(method) in ['d', 'Cd'] else 1
         best_theta[method] = initialise_dict(range(n_homes), type_obj='empty_dict')
         for home in range(n_homes):
             best_theta[method][home] = np.zeros((possible_states,))
@@ -122,7 +122,7 @@ def plot_best_actions(
     rl = prm["RL"]
     if not (
             rl['type_learning'] == 'q_learning'
-            and prm['ntw']['n'] < 4
+            and prm['syst']['n_homes'] < 4
     ):
         return
 
@@ -131,7 +131,7 @@ def plot_best_actions(
         if record.save_qtables else rl["q_tables"][repeat]
 
     for method in prm["save"]["eval_entries_plot_indiv"]:
-        n_homes = prm['ntw']['n'] if distr_learning(method) in ['d', 'Cd'] else 1
+        n_homes = prm['syst']['n_homes'] if distr_learning(method) in ['d', 'Cd'] else 1
         best_theta[method] = initialise_dict(range(n_homes), type_obj='empty_dict')
         for home in range(n_homes):
             best_theta[method][home] = np.zeros((rl['possible_states'],))
@@ -163,8 +163,8 @@ def plot_q_values(repeat, index_to_val, prm):
     if rl['type_learning'] != 'q_learning':
         return
     # plot all values in one figure if there is only one state
-    if rl['state_space'] == [None] and prm['ntw']['n'] < 4:
-        for home in range(prm['ntw']['n']):
+    if rl['state_space'] == [None] and prm['syst']['n_homes'] < 4:
+        for home in range(prm['syst']['n_homes']):
             # plot heat map of value of each action for different methods
             # 2D array of best theta values
             M = np.zeros((len(eval_entries_plot_indiv), rl['n_action']))
@@ -269,7 +269,7 @@ def plot_final_explorations(repeat, record, prm):
         return
 
     for method in rl["q_entries"]:
-        n_homes = prm['ntw']['n'] if reward_type(method) == '1' else 1
+        n_homes = prm['syst']['n_homes'] if reward_type(method) == '1' else 1
         for home in range(n_homes):
             rl["action_state_space_0"][repeat][home], rl["state_space_0"][repeat][home] =\
                 [initialise_dict(rl["q_entries"]) for _ in range(2)]
