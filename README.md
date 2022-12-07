@@ -57,7 +57,9 @@ The source code for **MARL_local_electricity** is currently hosted on GitHub at:
 The data pre-processing for the home energy data generation **HEDGE** can be found at: https://github.com/floracharbo/HEDGE.
 
 ## Usage
-1. Create virtual environment: 
+1. Obtain input data for **HEDGE**, as intructed on the README in https://github.com/floracharbo/HEDGE.
+
+2. Create virtual environment: 
 ```sh
 conda create -n "my_venv" python==3.9.13
 ```

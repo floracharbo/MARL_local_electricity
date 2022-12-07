@@ -64,7 +64,7 @@ def initialise_objects(
     prm = input_params(prm, settings)
     if not Path("outputs").exists():
         os.mkdir("outputs")
-    prm['paths']["opt_res"] = Path("outputs") / f"opt_res_v{prm['syst']['data_version']}"
+    prm['paths']["opt_res"] = Path("outputs") / "opt_res"
     for folder in ["results", "seeds"]:
         prm['paths'][folder] = Path("outputs") / folder
     for folder in ["opt_res", "results", "seeds"]:
@@ -235,13 +235,9 @@ def _update_paths(paths, prm, no_run):
     paths["record_folder"] = paths["folder_run"] / "record"
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
     paths["input_folder"] = Path(paths["input_folder"])
-    paths["open_inputs"] \
-        = paths["input_folder"] \
-        / f"{paths['open_inputs_folder']}_v{prm['syst']['data_version']}"
+    paths["open_inputs"] = paths["input_folder"] / paths['open_inputs_folder']
     paths['hedge_inputs'] \
-        = paths["input_folder"] \
-        / f"{paths['hedge_inputs_folder']}_v{prm['syst']['data_version']}" \
-        / f"n{prm['syst']['H']}"
+        = paths["input_folder"] / paths['hedge_inputs_folder'] / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
     paths['test_data'] = paths['open_inputs'] / 'testing_data'
@@ -567,8 +563,7 @@ def _seed_save_paths(prm):
         f"_ntwn{ntw['n']}_nP{ntw['nP']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"{heat['file']}"
-    paths["seeds_file"] \
-        = f"outputs/seeds/seeds{paths['opt_res_file']}_v{prm['syst']['data_version']}"
+    paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
 
     for file in ["opt_res_file", "seeds_file"]:
         if rl["deterministic"] == 2:
