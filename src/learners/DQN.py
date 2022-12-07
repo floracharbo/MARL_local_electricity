@@ -61,7 +61,7 @@ class ActionStateModel:
         self.model = self._create_model()
         self.eps = rl['DQN']['epsilon0'] if rl['DQN']['epsilon_decay'] \
             else rl['DQN']['eps']
-        self.eps_decay = rl['epsilon_decay_param'][t]
+        self.eps_decay = rl['DQN']['epsilon_decay_param'][t]
         self.T = self.rl['T0'][t] if self.rl['DQN']['T_decay'] \
             else self.rl['DQN']['T'][t]
         self.t = 0
@@ -117,6 +117,18 @@ class ActionStateModel:
                  * self.rl['DQN']['decay_alpha'] ** self.t)
         self.t += 1
         K.set_value(self.model.optimizer.learning_rate, lr)
+
+    def _create_model(self):
+        model = tf.keras.Sequential([
+            InputLayer((self.state_dim,)),
+            Dense(32, activation='relu'),
+            Dense(16, activation='relu'),
+            Dense(self.action_dim)
+        ])
+        model.compile(loss='mse', optimizer=Adam(self.rl['DQN']['alpha']))
+
+        return model
+
 
 
 class Agent_DQN:
@@ -176,12 +188,3 @@ class Agent_DQN:
         if self.buffer.size() >= self.rl['DQN']['batch_size']:
             self.replay()
 
-    def _create_model(self):
-        model = tf.keras.Sequential([
-            InputLayer((self.state_dim,)),
-            Dense(32, activation='relu'),
-            Dense(16, activation='relu'),
-            Dense(self.action_dim)
-        ])
-        model.compile(loss='mse', optimizer=Adam(self.rl['DQN']['alpha']))
-        return model

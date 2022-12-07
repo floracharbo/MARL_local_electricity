@@ -44,7 +44,7 @@ class Runner():
     def __init__(self, env, prm, record):
         """Initialise Runner input data and objects."""
         self.prm = prm
-        self.n = prm['ntw']['n']  # number of households / agents
+        self.n_homes = prm['ntw']['n']  # number of households / agents
         self.rl = prm['RL']  # learning parameters
         self.env = env
         self.record = record
@@ -181,19 +181,19 @@ class Runner():
         if self.rl['distr_learning'] == 'decentralised':
             if method in self.learner:
                 # the learner as already been intialised; simply reset
-                for home in range(self.n):
+                for home in range(self.n_homes):
                     self.learner[method][home].reset()
             else:
                 if self.rl['type_learning'] == 'DDPG':
                     self.learner[method] = [Learner_DDPG(
-                        self.rl, method + f'_{home}') for home in range(self.n)]
+                        self.rl, method + f'_{home}') for home in range(self.n_homes)]
                 elif self.rl['type_learning'] == 'DDQN':
                     self.learner[method] = [Agent_DDQN(
-                        self.env, self.rl, method) for _ in range(self.n)]
+                        self.env, self.rl, method) for _ in range(self.n_homes)]
                 else:
                     self.learner[method] = [Agent_DQN(
                         self.rl, method + f'_{home}', method, self.prm['syst']['N'])
-                        for home in range(self.n)]
+                        for home in range(self.n_homes)]
         else:
             if method in self.learner:
                 # the learner as already been intialised;
@@ -318,7 +318,6 @@ class Runner():
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods):
-
         list_train_stepvals = initialise_dict(
             self.rl["exploration_methods"], type_obj='empty_dict')
 
@@ -340,7 +339,6 @@ class Runner():
         return list_train_stepvals
 
     def _DDQN_epsilon_update(self):
-
         for method in self.rl['type_Qs']:
             if self.rl['distr_learning'] == 'centralised':
                 self.learner[method].epsilon_update()
@@ -365,7 +363,7 @@ class Runner():
                     self.learner[method].ActionStateModel.T * \
                     self.rl['T_decay_param']
             elif self.rl['distr_learning'] == 'decentralised':
-                for home in range(self.n):
+                for home in range(self.n_homes):
                     self.learner[method][home].ActionStateModel.T = \
                         self.learner[method][home].ActionStateModel.T * \
                         self.rl['T_decay_param']
@@ -489,7 +487,7 @@ class Runner():
         elif self.rl['type_learning'] == 'DQN':
             for method in self.rl['type_Qs']:
                 if self.rl['distr_learning'] == 'decentralised':
-                    for home in range(self.n):
+                    for home in range(self.n_homes):
                         self.learner[method][home].target_update()
                 else:
                     self.learner[method].target_update()
@@ -528,8 +526,7 @@ def run(run_mode, settings, no_runs=None):
 
             settings_i = get_settings_i(settings, i)
             # initialise learning parameters, system parameters and recording
-            prm, record = initialise_objects(
-                prm, settings=settings_i)
+            prm, record = initialise_objects(prm, settings=settings_i)
 
             description_run = 'current code '
             for e in ['type_learning', 'n_repeats', 'n_epochs',

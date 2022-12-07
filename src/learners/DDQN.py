@@ -17,7 +17,7 @@ class Agent_DDQN():
         # (e.g. for all agents, for all time steps...)
         # action_dim is how many different possible actions
         # to consider in the Q table overall
-        self.action_dim = rl['n_actions'] ** rl['dim_actions']
+        self.action_dim = rl['n_discrete_actions'] ** rl['dim_actions']
         self.gamma = rl['DDQN']['gamma']  # 0.90
         for e in ['epsilon0', 'buffer_capacity', 'batch_size']:
             self.__dict__[e] = rl['DDQN'][e]

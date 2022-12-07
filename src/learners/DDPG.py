@@ -120,10 +120,10 @@ class Buffer:
     def __init__(self, DDPG):
         self.rl = DDPG.rl
         self.sample_action = DDPG.sample_action
-        self.reset()
-        self.t = 0
         for e in ['buffer_capacity', 'critic_lr', 'decay_alpha', 'min_alpha']:
             self.__dict__[e] = self.rl['DDPG'][e]
+        self.reset()
+        self.t = 0
 
     def reset(self):
         self.buffer_counter = 0
@@ -225,6 +225,7 @@ class Buffer:
         reward_batch = tf.convert_to_tensor(self.reward_buffer[batch_indices])
         next_state_batch = tf.convert_to_tensor(
             self.next_state_buffer[batch_indices])
+        tf.config.set_soft_device_placement(True)
         self.update(target_actor, target_critic, actor_model,
                     critic_model, actor_optimizer, critic_optimizer,
                     state_batch, action_batch, reward_batch, next_state_batch)
