@@ -27,7 +27,7 @@ from src.utilities.userdeftools import distr_learning, get_prm_save
 def _max_min_q(q_table, n_states, minq, maxq, prm):
     """Compare min/max q values with saved ones. Update if necessary."""
     for type_q in q_table.keys():
-        n_homes = prm["ntw"]["n"] if distr_learning(type_q) == "d" else 1
+        n_homes = prm["syst"]["n_homes"] if distr_learning(type_q) == "d" else 1
         for agent in range(n_homes):
             for state in range(n_states):
                 if min(q_table[type_q][agent][state]) < minq:

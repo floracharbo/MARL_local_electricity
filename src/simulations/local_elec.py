@@ -51,7 +51,7 @@ class LocalElecEnv():
         self.rl = prm['RL']
         self.labels_day_trans = prm['syst']['labels_day_trans']
 
-        self.n_homes = prm['ntw']['n']
+        self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
 
         # initialise parameters
@@ -63,7 +63,7 @@ class LocalElecEnv():
         self.i0_costs = 0
         self.car = Battery(prm)
         self.hedge = HEDGE(
-            n_homes=prm['ntw']['n'],
+            n_homes=prm['syst']['n_homes'],
             factors0=prm['syst']['f0'],
             clusters0=prm['syst']['clus0'],
             prm=prm
@@ -93,9 +93,9 @@ class LocalElecEnv():
             prm["loads"]["max_delay"] * self.n_int_per_hr
         )
 
-        if prm['ntw']['nP'] > 0:
+        if prm['syst']['n_homesP'] > 0:
             self.passive_hedge = HEDGE(
-                n_homes=prm['ntw']['nP'],
+                n_homes=prm['syst']['n_homesP'],
                 factors0=prm['syst']['f0'],
                 clusters0=prm['syst']['clus0'],
                 prm=prm,
@@ -171,7 +171,7 @@ class LocalElecEnv():
             self.__dict__[e + '_p'] = e + self.passive_ext
         self.coeff_T = self.prm['heat']['T_coeff' + self.passive_ext]
         self.coeff_Tair = self.prm['heat']['T_air_coeff' + self.passive_ext]
-        self.n_homes = self.prm['ntw']['n' + self.passive_ext]
+        self.n_homes = self.prm['syst']['n_homes' + self.passive_ext]
         self.homes = range(self.n_homes)
         for e in ['cap_p', 'store0_p', 'mincharge_p', 'n_homes']:
             self.action_translator.__dict__[e] = self.__dict__[e]
@@ -372,14 +372,14 @@ class LocalElecEnv():
             netp0, discharge_tot0, charge0 = passive_vars
         elif self.cap_p == 'capP':
             netp0, discharge_tot0, charge0 = [
-                [0 for _ in range(self.prm['ntw']['nP'])] for _ in range(3)
+                [0 for _ in range(self.prm['syst']['n_homesP'])] for _ in range(3)
             ]
         else:
             seconds_per_interval = 3600 * 24 / self.prm['syst']['H']
             hour = int((self.date - self.date0).seconds / seconds_per_interval)
             netp0, discharge_tot0, charge0 = [
                 [self.prm['loads'][e][home][hour]
-                 for home in range(self.prm['ntw']['nP'])]
+                 for home in range(self.prm['syst']['n_homesP'])]
                 for e in ['netp0', 'discharge_tot0', 'charge0']]
         time_step = self.time if time_step is None else time_step
         if discharge_tot is None:
@@ -411,7 +411,7 @@ class LocalElecEnv():
         else:
             pc = 0
 
-        if self.prm['ntw']['charge_type'] == 0:
+        if self.prm['grd']['charge_type'] == 0:
             sum_netp = sum(self.netp_to_exports(netp))
             sum_netp0 = sum(self.netp_to_exports(netp0))
 
@@ -420,11 +420,11 @@ class LocalElecEnv():
             # sum_netp0 = sum([abs(netp0[home]) if netp0[home] < 0
             #                  else 0 for home in range(len(netp0))])
             netpvar = sum_netp + sum_netp0
-            dc = self.prm['ntw']['C'] * netpvar
+            dc = self.prm['grd']['export_C'] * netpvar
         else:
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
-            dc = self.prm['ntw']['C'] * netpvar
+            dc = self.prm['grd']['export_C'] * netpvar
         gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2) + pc
         gc_a = [wholesalet * netp[home] for home in self.homes]
         sc = self.prm['car']['C'] \
@@ -605,7 +605,7 @@ class LocalElecEnv():
 
     def _next_factors(self, passive_ext=None, transition_type=None, rands=None, homes=[]):
         """Compute self-correlated random scaling factors for data profiles."""
-        homes = range(self.prm['ntw']['n' + passive_ext]) if len(homes) == 0 else homes
+        homes = range(self.prm['syst']['n_homes' + passive_ext]) if len(homes) == 0 else homes
         if passive_ext is None:
             passive_ext = '' if self.car_p == 'car' else 'P'
         transition_type = transition_type if transition_type is not None \

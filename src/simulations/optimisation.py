@@ -25,7 +25,7 @@ class Optimiser():
     def __init__(self, prm):
         """Initialise solver object for doing optimisations."""
         self.N = prm["syst"]["N"]
-        self.n_homes = prm["ntw"]["n"]
+        self.n_homes = prm["syst"]["n_homes"]
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
@@ -43,15 +43,15 @@ class Optimiser():
             while deltamax > 0.01 and its < 10:
                 its += 1
                 eta_old = copy.deepcopy(prm['car']['etach'])
-                print(f"prm['ntw']['loads'][0][0][0] = "
-                      f"{prm['ntw']['loads'][0][0][0]}")
+                print(f"prm['grd']['loads'][0][0][0] = "
+                      f"{prm['grd']['loads'][0][0][0]}")
                 res = self._problem(prm)
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
-                if prm['ntw']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
+                if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
                     print('fixed loads smaller than fixed onsumption home=0 time=0')
                 if abs(np.sum(res['totcons']) - np.sum(res['E_heat'])
-                       - np.sum(prm['ntw']['loads'])) > 1e-3:
+                       - np.sum(prm['grd']['loads'])) > 1e-3:
                     print(f"tot load cons "
                           f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
                           f"not equal to loads {np.sum(prm['loads'])}")
@@ -161,7 +161,7 @@ class Optimiser():
         p.add_list_of_constraints(
             [grid[time]
              - np.sum(self.loads['netp0'][b0][time]
-                      for b0 in range(self.ntw['nP']))
+                      for b0 in range(self.syst['n_homesP']))
              - pic.sum([netp[home, time] for home in range(self.n_homes)])
              == 0 for time in range(self.N)])
         p.add_list_of_constraints(
@@ -183,7 +183,7 @@ class Optimiser():
         # prosumer energy balance
         p.add_constraint(netp - charge / self.car['eta_ch']
                          + discharge_other
-                         + self.ntw['gen'][:, 0: self.N]
+                         + self.grd['gen'][:, 0: self.N]
                          - totcons == 0)
 
         # costs constraints
@@ -207,7 +207,7 @@ class Optimiser():
                                          vtype='continuous')
         store = p.add_variable('store', (self.n_homes, self.N), vtype='continuous')
 
-        store_end = self.car['SoC0'] * self.ntw['Bcap'][:, self.N - 1]
+        store_end = self.car['SoC0'] * self.grd['Bcap'][:, self.N - 1]
         car = self.car
 
         # battery energy balance
@@ -242,12 +242,12 @@ class Optimiser():
 
         # initialise storage
         p.add_list_of_constraints(
-            [store[home, 0] == car['SoC0'] * self.ntw['Bcap'][home, 0]
+            [store[home, 0] == car['SoC0'] * self.grd['Bcap'][home, 0]
              for home in range(self.n_homes)])
 
         p.add_list_of_constraints(
             [store[:, time + 1] >= car['SoCmin']
-             * self.ntw['Bcap'][:, time] * car['batch_avail_car'][:, time]
+             * self.grd['Bcap'][:, time] * car['batch_avail_car'][:, time]
              for time in range(self.N - 1)])
 
         # if EV not avail at a given time step,
@@ -265,7 +265,7 @@ class Optimiser():
             discharge_other
             <= car['batch_avail_car'][:, 0: self.N] * self.syst['M']
         )
-        p.add_constraint(store <= self.ntw['Bcap'])
+        p.add_constraint(store <= self.grd['Bcap'])
         p.add_constraint(car['c_max'] >= charge)
         p.add_constraint(car['d_max'] >= discharge_tot)
         p.add_constraint(store >= 0)
@@ -277,50 +277,51 @@ class Optimiser():
 
     def _distribution_costs(self, p, dc, netp):
         """Distribution costs."""
-        ntw = self.ntw
-        if ntw['charge_type'] == 0:
+        grd, syst = self.grd, self.syst
+        if grd['charge_type'] == 0:
             netp_abs = p.add_variable('netp_abs', (self.n_homes, self.N),
                                       vtype='continuous')
             netp0_abs = np.sum(
                 [[abs(self.loads['netp0'][b0][time])
                   if self.loads['netp0'][b0][time] < 0
                   else 0
-                  for b0 in range(ntw['nP'])] for time in range(self.N)])
+                  for b0 in range(syst['n_homesP'])] for time in range(self.N)])
             p.add_constraint(netp_abs >= - netp)
             p.add_constraint(netp_abs >= 0)
             # distribution costs
-            p.add_constraint(dc == ntw['C'] * (pic.sum(netp_abs) + netp0_abs))
+            p.add_constraint(dc == grd['export_C'] * (pic.sum(netp_abs) + netp0_abs))
         else:
             netp2 = p.add_variable('netp2', (self.n_homes, self.N),
                                    vtype='continuous')
             sum_netp2 = np.sum([[self.loads['netp0'][b0][time] ** 2
-                                 for b0 in range(ntw['nP'])]
+                                 for b0 in range(syst['n_homesP'])]
                                 for time in range(self.N)])
             for home in range(self.n_homes):
                 p.add_list_of_constraints(
                     [netp2[home, time] >= netp[home, time] * netp[home, time]
                      for time in range(self.N)])
-            p.add_constraint(dc == ntw['C'] * (pic.sum(netp2) + sum_netp2))
+            p.add_constraint(dc == grd['export_C'] * (pic.sum(netp2) + sum_netp2))
 
         return p
 
     def _update_prm(self, prm):
         """Update parameters with new values"""
         if isinstance(prm, (list, tuple)):
-            self.syst, self.loads, self.ntw, self.car, self.grd, self.heat \
+            self.syst, self.loads, self.car, self.grd, self.heat \
                 = prm
         else:
-            self.syst, self.loads, self.ntw, self.car, self.grd, self.heat \
+            self.syst, self.loads, self.car, self.grd, self.heat \
                 = [prm[e]
-                   for e in ['syst', 'loads', 'ntw', 'car', 'grd', 'heat']]
+                   for e in ['syst', 'loads', 'car', 'grd', 'heat']]
 
     def _plot_y(self, prm, y, time):
-        for home in range(prm['ntw']['n']):
+        for home in range(prm['syst']['n_homes']):
             yb = np.reshape(y[home, :], (prm['syst']['N']))
             plt.plot(time, yb, label=f'agent {home}')
 
     def _plot_inputs(self, prm, time):
         """Plot inputs"""
+        n_homes = prm['syst']['n_homes']
         # inputs
         fin = {}
         lin = {}
@@ -329,7 +330,7 @@ class Optimiser():
         # PV
         fin[cin] = plt.figure()
         lin[cin] = 'PVgen'
-        self._plot_y(prm, prm['ntw']['gen'], time)
+        self._plot_y(prm, prm['grd']['gen'], time)
         plt.title('PV generation')
         plt.xlabel('Time [h]')
         plt.ylabel('[kWh]')
@@ -349,9 +350,9 @@ class Optimiser():
         cin += 1
         fin[cin] = plt.figure()
         lin[cin] = 'demand'
-        for home in range(prm['ntw']['n']):
+        for home in range(n_homes):
             labelb = 'agent ' + str(home)
-            yb = np.sum(prm['ntw']['loads'], axis=0)[home]
+            yb = np.sum(prm['grd']['loads'], axis=0)[home]
             plt.plot(time, yb, label=labelb)
         plt.title('Demand')
         plt.xlabel('Time [h]')
@@ -361,11 +362,11 @@ class Optimiser():
 
         # EV availability
         cin += 1
-        fin[cin], axs = plt.subplots(prm['ntw']['n'], 1)
+        fin[cin], axs = plt.subplots(n_homes, 1)
         lin[cin] = 'batch_avail_car'
-        for home in range(prm['ntw']['n']):
+        for home in range(n_homes):
             labelb = 'agent ' + str(home)
-            axb = axs[home] if prm['ntw']['n'] > 1 else axs
+            axb = axs[home] if n_homes > 1 else axs
 
             for time in range(prm['syst']['N']):
                 if prm['car']['batch_avail_car'][home, time] == 0:
@@ -382,7 +383,7 @@ class Optimiser():
         self._plot_y(prm, prm['car']['batch_loads_car'], time)
         plt.xlabel('Time [h]')
         plt.ylabel('EV consumption [kWh]')
-        if prm['ntw']['n'] > 1:
+        if n_homes > 1:
             plt.legend()
         plt.tight_layout()
 
@@ -531,9 +532,9 @@ class Optimiser():
                     # time = tD
                     p.add_constraint(
                         pic.sum([constl[time, load_type][home, tC]
-                                 * self.ntw['flex'][time, load_type, home, tC]
+                                 * self.grd['flex'][time, load_type, home, tC]
                                  for tC in range(self.N)])
-                        == self.ntw['loads'][load_type, home, time])
+                        == self.grd['loads'][load_type, home, time])
                     # time = tC
                     p.add_constraint(
                         pic.sum([constl[tD, load_type][home, time]

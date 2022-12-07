@@ -44,7 +44,7 @@ class Runner():
     def __init__(self, env, prm, record):
         """Initialise Runner input data and objects."""
         self.prm = prm
-        self.n_homes = prm['ntw']['n']  # number of households / agents
+        self.n_homes = prm['syst']['n_homes']  # number of households / agents
         self.rl = prm['RL']  # learning parameters
         self.env = env
         self.record = record
@@ -192,7 +192,7 @@ class Runner():
                         self.env, self.rl, method) for _ in range(self.n_homes)]
                 else:
                     self.learner[method] = [Agent_DQN(
-                        self.rl, method + f'_{home}', method, self.prm['syst']['N'])
+                        self.rl, method + f'_{home}', method, self.N)
                         for home in range(self.n_homes)]
         else:
             if method in self.learner:
@@ -204,7 +204,7 @@ class Runner():
                     self.learner[method] = Learner_DDPG(self.rl, method)
                 elif self.rl['type_learning'] == 'DQN':
                     self.learner[method] = Agent_DQN(
-                        self.rl, method, method, self.prm['syst']['N'])
+                        self.rl, method, method, self.N)
                 elif self.rl['type_learning'] == 'DDQN':
                     self.learner[method] = Agent_DDQN(self.env, self.rl, method)
 

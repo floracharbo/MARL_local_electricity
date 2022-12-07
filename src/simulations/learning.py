@@ -21,8 +21,8 @@ class LearningManager():
         """Initialise Learner object."""
         self.env = env
         self.rl = prm["RL"]
-        self.n_homes = prm["ntw"]["n"]
-        self.homes = range(prm["ntw"]["n"])
+        self.n_homes = prm["syst"]["n_homes"]
+        self.homes = range(prm["syst"]["n_homes"])
         self.learner = learner
         self.N = prm["syst"]["N"]
         self.episode_batch = episode_batch

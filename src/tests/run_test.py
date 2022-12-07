@@ -184,12 +184,10 @@ def test_all(mocker):
             'n_epochs': 5,
             'n_repeats': 2,
         },
-
-        'ntw': {
-            'n': 3
-        },
         'syst': {
-            'test_on_run': True
+            'test_on_run': True,
+            'n_homes': 3
+
         },
         'grd': {
             'max_grid_in': 5,

@@ -27,3 +27,5 @@ f_std_share: 1
 clust_dist_share: 1
 day_types: ['wd', 'we']  # week day types - wd: weekday day and we: weekend day
 test_on_run: False
+n_homes: 5 # number of buses considered
+n_homesP: 0 # additional number of passive buses
