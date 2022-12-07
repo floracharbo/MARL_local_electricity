@@ -111,7 +111,7 @@ class Battery:
     def set_passive_active(self, passive: bool, prm: dict):
         self.passive_ext = 'P' if passive else ''
         # number of agents / households
-        self.n_homes = prm['syst']['n_homes' + self.passive_ext]
+        self.n_homes = prm['ntw']['n' + self.passive_ext]
         for info in ['own_car', 'store0', 'cap', 'min_charge']:
             self.__dict__[info] = prm['car'][info + self.passive_ext]
 
@@ -641,21 +641,21 @@ class Battery:
         if print_error:
             print(error_message)
 
-    def check_feasible_bat(self, prm, passive_ext):
+    def check_feasible_bat(self, prm, ntw, passive_ext, car, syst):
         """Check charging constraints for proposed data batch."""
-        feasible = np.ones(prm['syst']['n_homes' + passive_ext], dtype=bool)
-        for home in range(prm['syst']['n_homes' + passive_ext]):
-            if prm['car']['d_max'] < np.max(prm['car']['batch_loads_car'][home]):
+        feasible = np.ones(ntw['n' + passive_ext], dtype=bool)
+        for home in range(ntw['n' + passive_ext]):
+            if car['d_max'] < np.max(car['batch_loads_car'][home]):
                 feasible[home] = False
                 print("car['d_max'] < np.max(car['batch_loads_car'][home])")
-                for time in range(len(prm['car']['batch_loads_car'][home])):
-                    if prm['car']['batch_loads_car'][home, time] > prm['car']['d_max']:
-                        prm['car']['batch_loads_car'][home, time] = prm['car']['d_max']
+                for time in range(len(car['batch_loads_car'][home])):
+                    if car['batch_loads_car'][home, time] > car['d_max']:
+                        car['batch_loads_car'][home, time] = car['d_max']
 
         time = 0
 
         self.reset(prm)
-        while all(feasible) and time < self.N:
+        while all(feasible) and time < syst['N']:
             date = self.date0 + datetime.timedelta(hours=time * self.dt)
             bool_penalty = self.min_max_charge_t(
                 time, date, print_error=False,

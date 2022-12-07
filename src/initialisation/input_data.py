@@ -27,7 +27,7 @@ def _command_line_parameters(settings_i):
         elif key == '-l':
             settings_i['RL']['type_learning'] = val
         elif key == '-n':
-            settings_i['syst']['n_homes'] = int(val)
+            settings_i['ntw']['n'] = int(val)
         elif key[2:].split('_')[0] == 'facmac':
             key_ = key[2 + len('facmac') + 1:]
             settings_i['RL']['facmac'][key_] = val
@@ -62,7 +62,7 @@ def _store_initial_parameters(prm):
 
 def _load_parameters(prm, settings):
     if "paths" in prm:
-        for info in ["save", "syst", "grd", "loads", "heat", "car", "gen", "RL"]:
+        for info in ["save", "syst", "grd", "ntw", "loads", "heat", "car", "gen", "RL"]:
             if info == "heat" \
                     and settings is not None \
                     and "heat" in settings \

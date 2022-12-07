@@ -4,10 +4,9 @@ grd: ['V',
   'max_grid_in',
   'max_grid_out',
   'penalty_coefficient_in',
-  'penalty_coefficient_out',
-  'Bcap',
-  'charge_type'
+  'penalty_coefficient_out'
   ]
+ntw: ['n', 'Bcap', 'charge_type']
 syst: ['solver',
   'D',
   'date0',
@@ -21,9 +20,7 @@ syst: ['solver',
   'p_clus',
   'p_trans',
   'n_clus',
-  'time_end',
-  'n_homes',
-  'n_homesP'
+  'time_end'
 ]
 loads: ['flextype', 'share_flex', 'max_delay']
 RL: []
@@ -40,5 +37,4 @@ car: ['dep',
   'eff',
   'c_max',
   'd_max',
-  'eta_ch'
-]
+  'eta_ch']

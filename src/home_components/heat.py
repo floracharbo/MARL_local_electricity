@@ -401,7 +401,7 @@ class Heat:
 
     def _update_passive_active_vars(self, prm):
         # number of agents / households
-        self.n_homes = prm["syst"]["n_homes" + self.passive_ext]
+        self.n_homes = prm["ntw"]["n" + self.passive_ext]
 
         # current building mass temperatures
         self.T = np.ones(self.n_homes) * prm["heat"]["T0"]

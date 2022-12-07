@@ -88,7 +88,7 @@ def check_model_changes_facmac(prm):
             for no in nos:
                 path = prm["paths"]["record_folder"] / f"models_{method}_{no}"
                 agents.append(th.load(path / "agent.th"))
-                if prm['syst']['n_homes'] > 1:
+                if prm['ntw']['n'] > 1:
                     mixers.append(th.load(path / "mixer.th"))
 
             # fc1_bias = "fc1.module.bias" if prm['RL']['data_parallel'] else "fc1.bias"
@@ -100,7 +100,7 @@ def check_model_changes_facmac(prm):
                     prm["RL"]["nn_learned"] = False
                     print(f"agents_learned {agents_learned} {weight}")
 
-            check_mixer = prm['syst']['n_homes'] > 1 and prm["RL"]["mixer"] == "qmix"
+            check_mixer = prm['ntw']['n'] > 1 and prm["RL"]["mixer"] == "qmix"
             if check_mixer:
                 for weight in mixers[0].keys():
                     mixer_learned[method] = not th.all(mixers[0][weight] == mixers[-1][weight])

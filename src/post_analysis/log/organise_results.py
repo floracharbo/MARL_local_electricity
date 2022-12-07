@@ -58,7 +58,7 @@ def get_list_all_fields(results_path):
         'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit',
         'tot_learn_cycles', 'start_end_eval', 'n_all_epochs', 'T_decay_param',
         'statecomb_str', 'init_len_seeds', 'opt_res_file', 'seeds_file', 'plot_type',
-        'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all_homes',
+        'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all',
         'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt'
     ]
@@ -688,7 +688,7 @@ if __name__ == "__main__":
             len_start_remove = len(splits[0]) + 1
             new_columns[i] = new_columns[i][len_start_remove:]
     log.columns = new_columns + keys_methods
-    log['share_active'] = log.apply(lambda x: x.n_homes / (x.n_homes + x.n_homesP), axis=1)
+    log['share_active'] = log.apply(lambda x: x.n / (x.n + x.nP), axis=1)
     new_columns.append('share_active')
     log = compute_best_score_per_run(keys_methods, log)
 

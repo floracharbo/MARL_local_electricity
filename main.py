@@ -32,7 +32,7 @@ settings = {
 
         # # flexibility
         'state_space': [['grdC']],
-        'type_learning': 'facmac',
+        'type_learning': 'DDQN',
         'evaluation_methods': [['env_r_c', 'opt']],
         'n_repeats': 3,
         'lr': 1e-3,
@@ -50,11 +50,14 @@ settings = {
         # 'learner': 'facmac_learner_discrete',
         # 'n_start_opt_explo': 5,
         'nn_type': 'lstm',
-        # 'target_update_mode': 'hard',  # 'soft' or 'hard'
+        'target_update_mode': 'hard',   # 'soft' or 'hard'
         'DDPG': {'rdn_eps_greedy_indiv': True, 'eps': 0.5}
     },
-    'grd': {
+    'ntw': {
         'n': 10,
+        # 'nP': 10,
+    },
+    'grd': {
         'manage_agg_power': False
     },
     'syst': {'H': 24}

@@ -43,7 +43,7 @@ class Action_translator:
                   'high_action', 'type_env', 'server', 'no_flex_action']:
             self.__dict__[e] = prm['RL'][e]
         self.bat_dep = prm['car']['dep']
-        self.export_C = prm['grd']['export_C']
+        self.ntw_C = prm['ntw']['C']
 
     def optimisation_to_rl_env_action(self, h, date, netp, loads, home_vars, res):
         """
@@ -433,7 +433,7 @@ class Action_translator:
         all_dps = [x * self.k[0]['dp'][0][0] + self.k[0]['dp'][0][1]
                    for x in self.action_intervals[0]]
         export = [abs(dp) if dp < 0 else 0 for dp in all_dps]
-        costs = [loss * 0.1 + self.bat_dep * d + e * self.export_C
+        costs = [loss * 0.1 + self.bat_dep * d + e * self.ntw_C
                  for loss, d, e in zip(ys['Losses'], discharge, export)]
         ax2.plot(self.action_intervals[0], costs,
                  color=self.colours[len(entries_plot)],

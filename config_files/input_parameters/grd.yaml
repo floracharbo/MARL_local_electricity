@@ -1,8 +1,3 @@
-# local network
-#ntw = {'C'          : 0.0517090557715045,
-#ntw = {'C'          : 0.029542462146148776,     # GBP/kWh distribution costs
-export_C: 0.01 # GBP/kWh distribution costs for exports
-charge_type: 0  # 0 linear, 1 quadratic on quantity imported/exported
 V: 415 # V nominal voltage from Mortsyn 2019 multiclass
 R: 0.084 # Ohm average resistance between the prosumers and main grid from Mortsyn 2019 multiclass
 manage_agg_power: False # Add constraints and penalty on max aggregated imports and exports

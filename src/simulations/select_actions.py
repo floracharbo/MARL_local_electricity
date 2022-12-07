@@ -21,11 +21,11 @@ class ActionSelector:
         """Initialise ActionSelector instance."""
         self.prm = prm
         self.learner = learner
-        self.n_agents = prm["syst"]["n_homes"]
+        self.n_agents = prm["ntw"]["n"]
         self.N = prm['syst']['N']
         self.rl = prm["RL"]
         self.env = env
-        self.homes = range(prm["syst"]["n_homes"])
+        self.homes = range(prm["ntw"]["n"])
         self.episode_batch = episode_batch
 
     def _format_tf_prev_state(

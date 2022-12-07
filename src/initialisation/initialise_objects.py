@@ -198,7 +198,7 @@ def _facmac_initialise(prm):
         corresponding to prm["RL"]; with updated parameters
     """
     rl = prm["RL"]
-    rl["n_homes"] = prm["syst"]["n_homes"]
+    rl["n_homes"] = prm["ntw"]["n"]
 
     rl["obs_shape"] = len(rl["state_space"])
     if rl['trajectory']:
@@ -292,35 +292,35 @@ def _update_bat_prm(prm):
     car:
         correpsonding to prm["car"]; with updated parameters
     """
-    car, syst, paths = [prm[key] for key in ["car", "syst", "paths"]]
+    car, ntw, paths = [prm[key] for key in ["car", "ntw", "paths"]]
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
     if "own_car" in car:
         car["cap"] = car["cap"] if isinstance(car["cap"], list) \
-            else [car["cap"] for _ in range(syst["n_homes"])]
+            else [car["cap"] for _ in range(ntw["n"])]
         for passive_ext in ["", "P"]:
-            car["own_car" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
+            car["own_car" + passive_ext] = [1 for _ in range(ntw["n" + passive_ext])] \
                 if car["own_car" + passive_ext] == 1 else car["own_car" + passive_ext]
         car["cap"] = [c if o == 1 else 0
                       for c, o in zip(car["cap"], car["own_car"])]
 
     if isinstance(car["cap"], (int, float)):
-        car["cap"] = [car["cap"] for _ in range(syst["n_homes"])]
+        car["cap"] = [car["cap"] for _ in range(ntw["n"])]
 
     car = _load_bat_factors_parameters(paths, car)
 
     # battery characteristics
     car["min_charge"] = [car["cap"][home] * max(car["SoCmin"], car["baseld"])
-                         for home in range(syst["n_homes"])]
-    car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
+                         for home in range(ntw["n"])]
+    car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(ntw["n"])]
     if "capP" not in car:
-        car["capP"] = [car["cap"][0] for _ in range(syst["n_homesP"])]
-    car["store0P"] = [car["SoC0"] * car["capP"][home] for home in range(syst["n_homesP"])]
+        car["capP"] = [car["cap"][0] for _ in range(ntw["nP"])]
+    car["store0P"] = [car["SoC0"] * car["capP"][home] for home in range(ntw["nP"])]
     car["min_chargeP"] = [
         car["capP"][home] * max(car["SoCmin"], car["baseld"])
-        for home in range(syst["n_homesP"])
+        for home in range(ntw["nP"])
     ]
     car["phi0"] = np.arctan(car["c_max"])
 
@@ -482,7 +482,7 @@ def _update_rl_prm(prm, initialise_all):
     rl:
         correpsonding to prm["RL"]; with updated parameters
     """
-    rl, syst, heat = [prm[key] for key in ["RL", "syst", "heat"]]
+    rl, syst, ntw, heat = [prm[key] for key in ["RL", "syst", "ntw", "heat"]]
     rl = _format_rl_parameters(rl)
     rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
@@ -495,7 +495,8 @@ def _update_rl_prm(prm, initialise_all):
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
     prm["RL"]["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
-    rl["start_end_eval"] = int(rl["share_epochs_start_end_eval"] * rl["n_epochs"])
+    rl["start_end_eval"] = int(rl["share_epochs_start_end_eval"]
+                               * rl["n_epochs"])
     rl["n_all_epochs"] = rl["n_epochs"] + rl["n_end_test"]
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
@@ -503,7 +504,7 @@ def _update_rl_prm(prm, initialise_all):
     for passive_ext in ["P", ""]:
         rl["default_action" + passive_ext] = [
             [rl["default_action"] for _ in range(rl["dim_actions"])]
-            for _ in range(syst["n_homes" + passive_ext])
+            for _ in range(ntw["n" + passive_ext])
         ]
 
     _exploration_parameters(rl)
@@ -554,11 +555,12 @@ def _seed_save_paths(prm):
     rl, paths with updated entries
 
     """
-    rl, heat, syst, paths, grd = [prm[key] for key in ["RL", "heat", "syst", "paths", "grd"]]
+    rl, heat, syst, ntw, paths = \
+        [prm[key] for key in ["RL", "heat", "syst", "ntw", "paths"]]
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_n{syst['n_homes']}_nP{syst['n_homesP']}"
+        f"_ntwn{ntw['n']}_nP{ntw['nP']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"{heat['file']}"
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
@@ -572,12 +574,12 @@ def _seed_save_paths(prm):
         if file == "opt_res_file" and prm["syst"]["change_start"]:
             paths["opt_res_file"] += "_changestart"
 
-        if grd['manage_agg_power']:
+        if prm['grd']['manage_agg_power']:
             paths[file] += _naming_file_extension(
-                limit_imp=grd['max_grid_in'],
-                limit_exp=grd['max_grid_out'],
-                penalty_imp=grd['penalty_coefficient_in'],
-                penalty_exp=grd['penalty_coefficient_out']
+                limit_imp=prm['grd']['max_grid_in'],
+                limit_exp=prm['grd']['max_grid_out'],
+                penalty_imp=prm['grd']['penalty_coefficient_in'],
+                penalty_exp=prm['grd']['penalty_coefficient_out']
             )
 
         # eff does not matter for seeds, but only for res
@@ -595,6 +597,7 @@ def _seed_save_paths(prm):
         rl["init_len_seeds"][passive_str] = len(rl["seeds"][passive_str])
 
     return rl, paths
+
 
 def _update_grd_prm(prm):
     """
@@ -645,16 +648,16 @@ def _time_info(prm):
     # syst['current_date0_dtm'] = syst['date0_dtm']
 
 
-def _homes_info(loads, syst, gen, heat):
-    syst["n_all_homes"] = syst["n_homes"] + syst["n_homesP"]
+def _homes_info(loads, ntw, gen, heat):
+    ntw["n_all"] = ntw["n"] + ntw["nP"]
     for passive_ext in ["", "P"]:
-        gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
+        gen["own_PV" + passive_ext] = [1 for _ in range(ntw["n" + passive_ext])] \
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
-        heat["own_heat" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
+        heat["own_heat" + passive_ext] = [1 for _ in range(ntw["n" + passive_ext])] \
             if heat["own_heat" + passive_ext] == 1 else heat["own_heat" + passive_ext]
         for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
             if ownership in loads:
-                loads[ownership] = np.ones(syst["n_homes" + passive_ext]) * loads[ownership] \
+                loads[ownership] = np.ones(ntw["n" + passive_ext]) * loads[ownership] \
                     if isinstance(loads[ownership], int) else loads[ownership]
 
 
@@ -678,16 +681,17 @@ def initialise_prm(prm, no_run, initialise_all=True):
     outputs:
     prm:
     """
-    [paths, syst, loads, gen, save, heat] = [
-        prm[key] if key in prm else None
-        for key in ["paths", "syst", "loads", "gen", "save", "heat"]
+    prm_entries = [
+        "paths", "syst", "car", "ntw", "loads", "gen", "save", "heat"
     ]
+    [paths, syst, car, ntw, loads, gen, save, heat] = \
+        [prm[key] if key in prm else None for key in prm_entries]
 
     _make_type_eval_list(prm["RL"])
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
     _time_info(prm)
-    _homes_info(loads, syst, gen, heat)
+    _homes_info(loads, ntw, gen, heat)
 
     # update paths and parameters from inputs
     if paths is not None and initialise_all:
@@ -697,7 +701,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
         for passive_ext in ['', 'P']:
             loads["share_flexs" + passive_ext] = [
                 0 if not loads["own_flex" + passive_ext][home] else loads["share_flex"]
-                for home in range(syst["n_homes" + passive_ext])
+                for home in range(ntw["n" + passive_ext])
             ]
 
     # car avail, type, factors
@@ -711,7 +715,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     # calculate heating coefficients for recursive expression
     # based on input data
     if initialise_all and heat is not None:
-        prm["heat"] = get_heat_coeffs(heat, syst, paths)
+        prm["heat"] = get_heat_coeffs(heat, ntw, syst, paths)
 
     save, prm = generate_colours(save, prm)
 
