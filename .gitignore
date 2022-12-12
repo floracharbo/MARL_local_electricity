@@ -1,0 +1,17 @@
+*.pyc
+*.png
+*.ipynb
+*.th
+*.pdf
+src/post_analysis/plot_time_performance_layers.py
+results/
+*.icloud
+potentially_useless
+input_data/hedge_inputs*
+outputs/*
+.gitignore.swp
+*.DS_Store
+src/post_analysis/plot_time_performance_layers.py
+out_rl_*
+debug/*
+input_data/open_data/European_LV_CSV/*

@@ -1,0 +1,26 @@
+name: env_linux
+channels:
+  - conda-forge
+  - defaults
+  - picos
+  - mosek
+dependencies:
+  - python==3.9.13
+  - numpy=1.23.3
+  - ca-certificates
+  - openssl
+  - pytorch=1.12.1
+  - gym=0.21.0
+  - matplotlib=3.6.0
+  - pandas=1.4.2
+  - certifi
+  - yaml=0.2.5
+  - pyaml=21.10.1
+  - scipy=1.9.1
+  - seaborn=0.11.2
+  - tqdm=4.64.1
+  - python-blosc=1.10.6
+  - picos=2.4.11
+  - tensorflow=2.8.1
+  - mosek=10.0.23
+prefix: /home/julie/mambaforge/envs/my_env

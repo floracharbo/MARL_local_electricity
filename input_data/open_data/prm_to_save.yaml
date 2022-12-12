@@ -1,0 +1,44 @@
+grd: ['V',
+  'R',
+  'loss',
+  'max_grid_in',
+  'max_grid_out',
+  'penalty_coefficient_in',
+  'penalty_coefficient_out',
+  'Bcap',
+  'charge_type'
+  ]
+syst: ['solver',
+  'D',
+  'date0',
+  'co2tax',
+  'change_start',
+  'f0',
+  'clus0',
+  'n_loads_clus',
+  'gamma_prms',
+  'mean_residual',
+  'p_clus',
+  'p_trans',
+  'n_clus',
+  'time_end',
+  'n_homes',
+  'n_homesP'
+]
+loads: ['flextype', 'share_flex', 'max_delay']
+RL: []
+paths: []
+save: []
+heat: []
+car: ['dep',
+  'SoCmin',
+  'SoC0',
+  'cap',
+  'baseld',
+  'efftype',
+  'C',
+  'eff',
+  'c_max',
+  'd_max',
+  'eta_ch'
+]
