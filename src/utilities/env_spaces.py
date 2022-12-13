@@ -55,16 +55,16 @@ def granularity_to_multipliers(granularity):
 def compute_max_car_cons_gen_values(env, state_space):
     """Get the maximum possible values for car consumption, household consumption and generation."""
     max_car_cons, max_normcons, max_normgen, max_bat_dem_agg = [-1 for _ in range(4)]
-    day_types = env.prm["syst"]["day_types"]
+    weekday_types = env.prm["syst"]["weekday_types"]
 
     if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
         max_car_cons = np.max(
-            [[env.prof["car"]["cons"][dt][c] for dt in day_types] for c in range(env.n_clus["car"])]
+            [[env.prof["car"]["cons"][dt][c] for dt in weekday_types] for c in range(env.n_clus["car"])]
         )
     if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
         max_normcons = np.max(
             [
-                [np.max(env.prof["loads"][dt][c]) for dt in day_types]
+                [np.max(env.prof["loads"][dt][c]) for dt in weekday_types]
                 for c in range(env.n_clus["loads"])
             ]
         )
@@ -74,7 +74,7 @@ def compute_max_car_cons_gen_values(env, state_space):
     if any(descriptor == "bat_dem_agg" for descriptor in state_space):
         max_bat_dem_agg = np.max(
             [
-                [sum(env.hedge.profs["car"]["cons"][dt][c]) for dt in day_types]
+                [sum(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
                 for c in range(env.n_clus["car"])
             ]
         )
