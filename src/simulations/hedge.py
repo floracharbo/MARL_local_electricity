@@ -387,7 +387,7 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            while np.max(day["loads_car"][i_home]) > self.cap[home] and it < 100:
+            while np.max(day["loads_car"][i_home]) > self.car['cap'][home] and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:
@@ -688,7 +688,7 @@ class HEDGE:
             t: int,
             avail_ev_: list
     ) -> bool:
-        if trip_load > self.cap + 1e-2:
+        if trip_load > self.car['cap'] + 1e-2:
             # load during trip larger than whole
             feasible = False
         elif (
@@ -728,7 +728,7 @@ class HEDGE:
                             t: int,
                             ) -> bool:
         feasible = True
-        if min_charge_t > self.cap + 1e-2:
+        if min_charge_t > self.car['cap'] + 1e-2:
             feasible = False  # min_charge_t larger than total cap
         if min_charge_t > self.car["store0"] \
                 - sum(day["loads_car"][home][0: t]) \

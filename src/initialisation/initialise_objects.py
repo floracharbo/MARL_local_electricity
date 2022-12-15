@@ -646,7 +646,6 @@ def _time_info(prm):
 
 
 def _homes_info(loads, syst, gen, heat):
-    syst["n_all_homes"] = syst["n_homes"] + syst["n_homesP"]
     for passive_ext in ["", "P"]:
         gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]

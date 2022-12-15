@@ -33,7 +33,24 @@ def list_obs_to_str(list_obs):
 
 
 def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
+    ntw_to_grd = ['charge_type', 'manage_agg_power', 'Bcap', 'loads', 'flex', 'gen']
+    replace_ntw = {
+        'C': ['grd', 'export_C', None],
+        'n': ['syst', 'n_homes', None],
+        'nP': ['syst', 'n_homesP', None],
+        'n_all': ['syst', 'n_all_homes', None],
+    }
+    if subkey == 'n_homes' and key != 'syst':
+        return columns0
+
     if subkey not in ignore:
+        if key == 'ntw':
+            if subkey in ntw_to_grd:
+                key = 'grd'
+            elif subkey in replace_ntw:
+                key, subkey, subsubkey = replace_ntw[subkey]
+            else:
+                print(f"{(key, subkey)} not in replace_ntw")
         if subkey == 'n_start_opt':
             print(f"run {result_no} n_start_opt should be n_start_opt_explo")
         elif (
@@ -53,15 +70,16 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
 
 
 def get_list_all_fields(results_path):
-
     ignore = [
         'use_cuda', 'dim_states', 'dim_actions', 'dim_actions_1', 'episode_limit',
         'tot_learn_cycles', 'start_end_eval', 'n_all_epochs', 'T_decay_param',
         'statecomb_str', 'init_len_seeds', 'opt_res_file', 'seeds_file', 'plot_type',
         'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all_homes',
-        'n_homes', 'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
-        'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt'
+        'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
+        'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
+        'env_info', 'clust_dist_share', 'f_std_share', 'n_all_homes'
     ]
+
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
@@ -75,6 +93,8 @@ def get_list_all_fields(results_path):
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
 
     columns0 = ["run", "date"] + sorted(columns0)
+    if 'RL-batch_size' in columns0:
+        columns0.pop(columns0.index('RL-batch_size'))
 
     return columns0, result_nos
 
@@ -199,6 +219,12 @@ def get_key_subkeys_column(column):
 
 def get_prm_data_for_a_result_no(results_path, result_no, columns0):
     path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
+    previous_ntw = {
+        'export_C': 'C',
+        'n_homes': 'n',
+        'n_homesP': 'nP',
+        'n_all_homes': 'n_all',
+    }
     if path_prm.is_file():
         prm = np.load(path_prm, allow_pickle=True).item()
         if result_no == 802:
@@ -207,32 +233,61 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
         row = [result_no, date_str]
         for column in columns0[2:]:
             key, subkey, subsubkey = get_key_subkeys_column(column)
-            str_state_space = list_obs_to_str(prm['RL']['state_space'])
-            if subkey == 'grdC_n' and 'grdC_t' in str_state_space:
-                indices = [
-                    i for i in range(len(str_state_space) - 6)
-                    if str_state_space[i: i + 6] == 'grdC_t'
-                ]
-                if len(indices) > 0:
-                    max_t = max([int(str_state_space[i + 6:].split('_')[0]) for i in indices])
-                    prm[key][subkey] = max_t
-            if key is None:
-                row.append(None)
-                print(f"column {column} does not correspond to a prm key")
-            elif subsubkey is None:
-                if subkey == 'state_space' and subkey in prm[key]:
-                    row.append(list_obs_to_str(prm[key][subkey]))
-                else:
-                    row.append(prm[key][subkey] if subkey in prm[key] else None)
+            if subkey == 'gamma':
+                subsubkey = 'gamma'
+                subkey = prm['RL']['type_learning']
+            key_, subkey_ = key, subkey
+            if subkey not in prm[key] and 'ntw' in prm:
+                if subkey in prm['ntw']:
+                    key_ = 'ntw'
+                    subkey_ = subkey
+                elif subkey in previous_ntw:
+                    key_ = 'ntw'
+                    subkey_ = previous_ntw[subkey]
+            if key == "RL" and subkey == 'n_homes':
+                key_ = None
 
+            str_state_space = list_obs_to_str(prm['RL']['state_space'])
+
+            if subkey_ == 'grdC_n':
+                if 'grdC_t' in str_state_space:
+                    indices = [
+                        i for i in range(len(str_state_space) - 6)
+                        if str_state_space[i: i + 6] == 'grdC_t'
+                    ]
+                    if len(indices) > 0:
+                        max_t = max([int(str_state_space[i + 6:].split('_')[0]) for i in indices])
+                        prm[key_][subkey_] = max_t + 1
+                elif 'grdC' in str_state_space:
+                    prm[key_][subkey_] = 1
+            elif subkey_ == 'grdC_n' and subkey_ not in prm[key_]:
+                prm[key_][subkey_] = 0
+            if subkey_ == 'beta_to_alpha' and not prm['RL'][prm['RL']['type_learning']]['hysteretic']:
+                prm[key_][subkey_] = 1
+            if key_ is None:
+                row.append(None)
+                if column != 'RL-n_homes':
+                    print(f"column {column} does not correspond to a prm key")
+            elif subsubkey is None:
+                if subkey_ == 'state_space' and subkey_ in prm[key_]:
+                    row.append(list_obs_to_str(prm[key_][subkey_]))
+                else:
+                    row.append(prm[key_][subkey_] if subkey_ in prm[key_] else None)
             else:
-                row.append(
-                    prm[key][subkey][subsubkey]
-                    if subkey in prm[key] and subsubkey in prm[key][subkey]
-                    else None
-                )
+                if subsubkey == 'gamma' and subsubkey not in prm[key_][subkey_]:
+                    if subkey != prm['RL']['type_learning']:
+                        val = None
+                    else:
+                        val = prm[key_][subsubkey]
+                else:
+                    val = prm[key_][subkey_][subsubkey] \
+                        if subkey_ in prm[key_] and subsubkey in prm[key_][subkey_] \
+                        else None
+                row.append(val)
     else:
         row = None
+
+    assert row is None or len(columns0) == len(row), f"len(columns0) {len(columns0)} != len(row) {len(row)}"
 
     return row
 
@@ -265,14 +320,12 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 def remove_columns_that_never_change_and_tidy(log, columns0):
     new_columns = []
     for column in columns0:
-        try:
-            unique_value = len(log[column][log[column].notnull()].unique()) == 1
-            if not column == "RL-state_space" and unique_value:
-                log.drop([column], axis=1, inplace=True)
-            else:
-                new_columns.append(column)
-        except Exception as ex:
-            print(f"column {column} ex {ex}")
+        unique_value = len(log[column][log[column].notnull()].unique()) == 1
+        if not column == "RL-state_space" and unique_value:
+            log.drop([column], axis=1, inplace=True)
+        else:
+            new_columns.append(column)
+
 
     # check there are no duplicates
     if len(new_columns) != len(set(new_columns)):
@@ -304,7 +357,7 @@ def check_that_only_grdCn_changes_in_state_space(
 ):
     index_state_space = other_columns.index('state_space')
     only_col_of_interest_changes_without_state_space = all(
-        current_col == row_col
+        current_col == row_col or (np.isnan(current_col) and np.isnan(row_col))
         for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
         if i != index_state_space
     )
@@ -320,10 +373,12 @@ def check_that_only_grdCn_changes_in_state_space(
         if state_space_current_setup == state_space_row_setup:
             only_col_of_interest_changes = True
         else:
-            start_n, end_d = min([grdC_n_current_setup, grdC_n_row_setup]), max(
-                [grdC_n_current_setup, grdC_n_row_setup])
+            start_n = min([grdC_n_current_setup, grdC_n_row_setup])
+            end_d = max([grdC_n_current_setup, grdC_n_row_setup])
             expected_diff_str = ''
-            for i in range(start_n, end_d):
+            if start_n % 1 > 0:
+                print(f"log.loc[{initial_setup_row}] = {log.loc[initial_setup_row]}")
+            for i in range(int(start_n), int(end_d)):
                 expected_diff_str += f'grdC_t{i}_'
             actual_diff_str_len = abs(len(state_space_current_setup) - len(state_space_row_setup))
             only_col_of_interest_changes = actual_diff_str_len == len(expected_diff_str)
@@ -384,7 +439,6 @@ def compare_all_runs_for_column_of_interest(
         best_values = []
         env_values = []
         time_values = []
-
     while len(rows_considered) < len(log):
         initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
         rows_considered.append(initial_setup_row)
@@ -405,6 +459,10 @@ def compare_all_runs_for_column_of_interest(
                 column_of_interest[0: 6] == 'facmac'
                 and log['type_learning'].loc[row] != 'facmac'
             )
+            relevant_supervised_loss = not (
+                column_of_interest[0: 16] == 'supervised_loss_weight'
+                and not log['supervised_loss'].loc[row]
+            )
 
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
@@ -420,7 +478,7 @@ def compare_all_runs_for_column_of_interest(
                     for current_col, row_col in zip(current_setup, row_setup)
                 )
 
-            if new_row and only_col_of_interest_changes and relevant_cnn and relevant_facmac:
+            if new_row and only_col_of_interest_changes and relevant_cnn and relevant_facmac and relevant_supervised_loss:
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])
                 best_score.append(log['best_score'].loc[row])
@@ -595,6 +653,7 @@ def plot_sensitivity_analyses(new_columns, log):
         if column not in ['nn_learned', 'time_end']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
+        column_of_interest = 'facmac-hysteretic'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
@@ -676,9 +735,7 @@ if __name__ == "__main__":
                 newly_added_runs.append(row[0])
             else:
                 shutil.rmtree(results_path / f"run{result_no}")
-
     new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
-
     log = add_default_values(log, previous_defaults=previous_defaults)
 
     # remove key from column name
@@ -690,6 +747,7 @@ if __name__ == "__main__":
     log.columns = new_columns + keys_methods
     log['share_active'] = log.apply(lambda x: x.n_homes / (x.n_homes + x.n_homesP), axis=1)
     new_columns.append('share_active')
+
     log = compute_best_score_per_run(keys_methods, log)
 
     log.to_csv(log_path)
