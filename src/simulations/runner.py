@@ -314,7 +314,7 @@ class Runner():
                     if episode_sample.device != self.rl['device']:
                         episode_sample.to(self.rl['device'])
                     self.learner[method].train(
-                        episode_sample,
+                        episode_sample, self.explorer.t_env
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods):
@@ -395,7 +395,7 @@ class Runner():
             types_needed = candidate_types
         if opt_stage:
             types_needed = [method for method in types_needed if len(method.split("_")) < 5]
-        if self.rl['supervised_loss'] and 'opt' not in types_needed:
+        if self.rl['supervised_loss'] and 'opt' not in types_needed and epoch < self.rl['n_epochs_supervised_loss']:
             types_needed.append('opt')
 
         return types_needed
@@ -426,8 +426,7 @@ class Runner():
                 i0_costs, new_env)
 
         # exploration - obtain experience
-        exploration_methods = self._check_if_opt_env_needed(
-            epoch, evaluation=evaluation)
+        exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=evaluation)
         steps_vals, self.episode_batch = self.explorer.get_steps(
             exploration_methods, repeat, epoch, i_explore,
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)

@@ -157,7 +157,7 @@ class LocalElecEnv():
             self._load_next_day(passive=passive)
 
         self.car.add_batch(self.batch)
-        self.batch = self.car.compute_bat_dem_agg(self.batch)
+        self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
         self._loads_test()
 
         return self.save_file, self.batch
@@ -203,7 +203,7 @@ class LocalElecEnv():
             self._load_next_day(homes=homes, passive=passive)
             date_load += timedelta(days=1)
         self.car.add_batch(self.batch)
-        self.batch = self.car.compute_bat_dem_agg(self.batch)
+        self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
         np.save(self.res_path / f"batch{file_id}", self.batch)
 
     def update_flex(
@@ -983,7 +983,7 @@ class LocalElecEnv():
             self._load_next_day(passive=passive)
             date_load += timedelta(days=1)
         if not passive:
-            self.batch = self.car.compute_bat_dem_agg(self.batch)
+            self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
 
         for e in ['batch', 'i0_costs']:
             file_id = f"{e}{self._file_id()}"

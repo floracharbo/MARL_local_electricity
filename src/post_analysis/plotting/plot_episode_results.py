@@ -53,8 +53,7 @@ def _plot_all_agents_mean_res(
         prm, lw_mean, all_cum_rewards, labels,
         rows, columns, all_vals, list_repeat, linestyles
 ):
-    means = initialise_dict(["T_air", "cum_rewards"] + entries,
-                            "empty_dict")
+    means = {entry: {} for entry in ["T_air", "cum_rewards"] + entries}
     for method in all_methods_to_plot:
         axs[1, 1].step(range(prm['syst']['N']), np.mean(all_T_air[method], axis=0),
                        where="post", label=method,
@@ -270,8 +269,8 @@ def _plot_all_agents_res(
     # Cumulative rewards
     # Battery level
     fig, axs = plt.subplots(4, 2, figsize=(13, 13))
-    all_cum_rewards = initialise_dict(all_methods_to_plot)
-    all_T_air = initialise_dict(all_methods_to_plot)
+    all_cum_rewards = {method: [] for method in all_methods_to_plot}
+    all_T_air = {method: [] for method in all_methods_to_plot}
     rows = [1, 2, 0, 2]
     columns = [0, 0, 1, 1]
     entries = ["action", "totcons", "tot_E_heat", "store"]
@@ -280,7 +279,7 @@ def _plot_all_agents_res(
     )
     for e in entries:
         for method in all_methods_to_plot:
-            all_vals[e][method] = initialise_dict(range(prm["RL"]["n_repeats"]))
+            all_vals[e][method] = {repeat: [] for repeat in range(range(prm["RL"]["n_repeats"]))}
 
     axs, all_T_air = _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, title_ylabel_dict,

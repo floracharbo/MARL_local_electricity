@@ -42,7 +42,8 @@ class LearningManager():
         step: int,
         evaluation: bool,
         traj_reward: list,
-        step_vals
+        step_vals: dict,
+        epoch: int
     ) -> list:
         """Learn from experience tuple."""
         if self.rl['type_learning'] == 'facmac':
@@ -51,11 +52,17 @@ class LearningManager():
                 "reward": [(reward,)],
                 "terminated": [(done,)],
             }
-            if self.rl['supervised_loss'] and 'opt' in step_vals:
-                if self.rl['trajectory']:
+            do_supervised_loss = self.rl['supervised_loss'] and 'opt' in step_vals and epoch < self.rl['n_epochs_supervised_loss']
+            if self.rl['trajectory']:
+                if do_supervised_loss:
                     post_transition_data["optimal_actions"] = step_vals['opt']['action']
                 else:
+                    post_transition_data["optimal_actions"] = np.ones(np.shape(step_vals['env_r_c']['action'])) * -1
+            else:
+                if do_supervised_loss:
                     post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
+                else:
+                    post_transition_data["optimal_actions"] = np.ones(np.shape(step_vals['baseline']['action'][step])) * -1
             self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
@@ -91,8 +98,11 @@ class LearningManager():
             "reward": [(traj_reward,)],
             "terminated": [True],
         }
-        if self.rl['supervised_loss'] and 'opt' in step_vals:
+        if self.rl['supervised_loss'] and 'opt' in step_vals and epoch < self.rl['n_epochs_supervised_loss']:
             post_transition_data["optimal_actions"] = step_vals['opt']['action']
+        else:
+            post_transition_data["optimal_actions"] = np.ones(np.shape(step_vals['opt']['action'])) * -1
+
         for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
             self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)
             self.episode_batch[evaluation_method].update(post_transition_data, ts=0)
@@ -194,7 +204,8 @@ class LearningManager():
                               traj_reward: list,
                               method: str,
                               evaluation: bool,
-                              step_vals
+                              step_vals,
+                              epoch
                               ):
         """Learn from trajectory."""
         for home in self.homes:
@@ -210,7 +221,7 @@ class LearningManager():
                 self.learning(
                     states[0: self.N],
                     np.zeros((self.N, self.n_homes, self.rl['dim_actions'])),
-                    actions, traj_reward, True, method, 0, evaluation, traj_reward, step_vals
+                    actions, traj_reward, True, method, 0, evaluation, traj_reward, step_vals, epoch
                 )
 
             elif self.rl["distr_learning"] == "decentralised":

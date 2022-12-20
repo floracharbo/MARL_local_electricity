@@ -77,7 +77,7 @@ def get_list_all_fields(results_path):
         'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all_homes',
         'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
-        'env_info', 'clust_dist_share', 'f_std_share', 'n_all_homes'
+        'env_info', 'clust_dist_share', 'f_std_share', 'n_all_homes', 'no_flex_action_to_target'
     ]
 
     result_files = os.listdir(results_path)
@@ -262,8 +262,18 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                     prm[key_][subkey_] = 1
             elif subkey_ == 'grdC_n' and subkey_ not in prm[key_]:
                 prm[key_][subkey_] = 0
-            if subkey_ == 'beta_to_alpha' and not prm['RL'][prm['RL']['type_learning']]['hysteretic']:
+            elif subkey_ == 'beta_to_alpha' and not prm['RL'][prm['RL']['type_learning']]['hysteretic']:
                 prm[key_][subkey_] = 1
+            elif subkey_ == 'n_epochs_supervised_loss':
+                if 'supervised_loss' not in prm['RL'] or not prm['RL']['supervised_loss']:
+                    prm[key_][subkey_] = 0
+                elif 'supervised_loss' in prm['RL'] and prm['RL']['supervised_loss'] and 'n_epochs_supervised_loss' not in prm['RL']:
+                    prm[key_][subkey_] = prm["RL"]['n_epochs']
+            elif subkey_ == 'no_flex_action' and "no_flex_action_to_target" in prm["RL"]:
+                if prm["RL"]["no_flex_action_to_target"]:
+                    prm[key_][subkey_] = "target"
+                else:
+                    prm[key_][subkey_] = "one"
             if key_ is None:
                 row.append(None)
                 if column != 'RL-n_homes':
@@ -357,10 +367,14 @@ def check_that_only_grdCn_changes_in_state_space(
 ):
     index_state_space = other_columns.index('state_space')
     only_col_of_interest_changes_without_state_space = all(
-        current_col == row_col or (np.isnan(current_col) and np.isnan(row_col))
+        current_col == row_col or (
+                not isinstance(current_col, str) and np.isnan(current_col)
+                and not isinstance(row_col, str) and np.isnan(row_col))
         for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
         if i != index_state_space
     )
+
+
     if only_col_of_interest_changes_without_state_space:
         grdC_n_current_setup, state_space_current_setup = [
             log[column].loc[initial_setup_row]
@@ -370,8 +384,14 @@ def check_that_only_grdCn_changes_in_state_space(
             log[column].loc[row]
             for column in ['grdC_n', 'state_space']
         ]
+        if grdC_n_current_setup > 0 and 'grdC' not in state_space_current_setup:
+            grdC_n_current_setup = 0
+        if grdC_n_row_setup > 0 and 'grdC' not in state_space_row_setup:
+            grdC_n_row_setup = 0
         if state_space_current_setup == state_space_row_setup:
             only_col_of_interest_changes = True
+        elif grdC_n_current_setup == 0 and grdC_n_row_setup == 0:
+            only_col_of_interest_changes = False
         else:
             start_n = min([grdC_n_current_setup, grdC_n_row_setup])
             end_d = max([grdC_n_current_setup, grdC_n_row_setup])
@@ -558,7 +578,7 @@ def adapt_figure_for_state_space(state_space_vals, axs):
         axs[1].plot(all_x_labels, all_env_vals[i], label=i + 1)
         axs[2].plot(all_x_labels, all_time_vals[i], label=i + 1)
 
-    return axs
+    return fig, axs
 
 
 def add_table_legend(setups, fig, varied_columns, column_of_interest, other_columns, axs):
@@ -653,7 +673,6 @@ def plot_sensitivity_analyses(new_columns, log):
         if column not in ['nn_learned', 'time_end']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        column_of_interest = 'facmac-hysteretic'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
@@ -666,15 +685,16 @@ def plot_sensitivity_analyses(new_columns, log):
 
         if plotted_something:
             if column_of_interest == 'state_space':
-                axs = adapt_figure_for_state_space(state_space_vals, axs)
+                fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
 
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
 
             if column_of_interest == 'state_space':
+                axs[0].axes.xaxis.set_ticklabels([])
+                axs[1].axes.xaxis.set_ticklabels([])
+
                 plt.xticks(rotation=90)
-                axs[0].set_xticks([])
-                axs[1].set_xticks([])
             elif column_of_interest == 'rnn_hidden_dim':
                 axs[0].set_xscale('log')
                 axs[1].set_xscale('log')
@@ -698,7 +718,6 @@ def plot_sensitivity_analyses(new_columns, log):
             )
             axs[2].set_ylabel("time [s]")
             axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
-
             fig.savefig(f"outputs/results_analysis/{column_of_interest}_sensitivity")
             plt.close('all')
         elif column_of_interest == 'grdC_n':
@@ -733,8 +752,6 @@ if __name__ == "__main__":
             if row is not None:
                 log.loc[len(log.index)] = row
                 newly_added_runs.append(row[0])
-            else:
-                shutil.rmtree(results_path / f"run{result_no}")
     new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
     log = add_default_values(log, previous_defaults=previous_defaults)
 

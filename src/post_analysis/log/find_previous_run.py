@@ -16,10 +16,10 @@ candidates_left = True
 settings = {
     'heat': {'file': 'heat2'},
     'RL': {
-        'type_learning': 'q_learning',
+        'type_learning': 'facmac',
         # 'aggregate_actions': False,
         # 'state_space': [['avail_car_step', 'grdC', 'store_bool_flex']],
-        'n_epochs': 200,
+        # 'n_epochs': 200,
         # 'n_repeats': 3,
         # 'rnn_hidden_dim': [500],
         # 'evaluation_methods': [['env_r_c', 'opt']] * 1,
@@ -85,14 +85,13 @@ def find_previous_run_with_same_settings(settings, log_path):
                         break
 
     if candidates_left:
-        print(f"run(s) {log['run']}")
-        print(log)
+        print(f"run(s) {log['run'].tolist()}")
 
     return log
 
 
 log = find_previous_run_with_same_settings(settings, log_path)
 if len(log) > 1:
-    print(f"best run: {log.loc[log['best_score'] == max(log['best_score'])]}")
+    print(f"best run: {log['run'].loc[log['best_score'] == max(log['best_score'])].tolist()}")
     print(f"best run with env-based exploration: "
-          f"{log.loc[log['best_score_env'] == max(log['best_score_env'])]}")
+          f"{log['run'].loc[log['best_score_env'] == max(log['best_score_env'])].tolist()}")

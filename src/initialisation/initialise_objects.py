@@ -87,6 +87,10 @@ def initialise_objects(
 
     if prm['RL']['supervised_loss'] and prm['RL']['supervised_loss_weight'] == 0:
         prm['RL']['supervised_loss_weight'] = 1
+    if prm['RL']['supervised_loss'] and prm['RL']['n_epochs_supervised_loss'] == 0:
+        prm['RL']['n_epochs_supervised_loss'] = prm['RL']['n_epochs']
+    if not prm['RL']['supervised_loss'] and prm['RL']['n_epochs_supervised_loss'] > 0:
+        prm['RL']['n_epochs_supervised_loss'] = 0
 
     return prm, record
 
@@ -595,6 +599,7 @@ def _seed_save_paths(prm):
         rl["init_len_seeds"][passive_str] = len(rl["seeds"][passive_str])
 
     return rl, paths
+
 
 def _update_grd_prm(prm):
     """

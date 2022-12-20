@@ -169,7 +169,9 @@ class TabularQLearner:
             if type(td_error) in [list, np.ndarray]:
                 print(f'td_error {td_error}')
             add_supervised_loss = True \
-                if data_source(q_table_name, epoch) == 'opt' and self.rl['supervised_loss'] \
+                if data_source(q_table_name, epoch) == 'opt' \
+                   and self.rl['supervised_loss'] \
+                   and epoch < self.rl['n_epochs_supervised_loss'] \
                 else False
             if add_supervised_loss:
                 n_possible_actions = len(qs_state)

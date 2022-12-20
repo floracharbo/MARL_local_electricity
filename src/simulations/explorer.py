@@ -310,7 +310,7 @@ class Explorer():
                     for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
                         traj_reward = self.learning_manager.learning(
                             current_state, state, action, reward, done,
-                            eval_method, step, evaluation, traj_reward, step_vals
+                            eval_method, step, evaluation, traj_reward, step_vals, epoch
                         )
                 else:
                     traj_reward += reward
@@ -424,7 +424,7 @@ class Explorer():
                         and method != "baseline":
                     for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
                         self.learning_manager.trajectory_deep_learn(
-                            states, actions, traj_reward, eval_method, evaluation, step_vals
+                            states, actions, traj_reward, eval_method, evaluation, step_vals, epoch
                         )
 
             if not sequence_feasible:  # if data is not feasible, make new data

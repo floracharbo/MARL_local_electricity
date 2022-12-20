@@ -19,7 +19,7 @@ class Battery:
         Reset object for new episode.
     update_step:
         Update current object variables for new step.
-    compute_bat_dem_agg:
+    compute_battery_demand_aggregated_at_start_of_trip:
         Compute bat_dem_agg, i.e. having all demand at start of trip.
     add_batch:
         Once batch data computed, update in battery data batch.
@@ -115,11 +115,10 @@ class Battery:
         for info in ['own_car', 'store0', 'cap', 'min_charge']:
             self.__dict__[info] = prm['car'][info + self.passive_ext]
 
-    def compute_bat_dem_agg(
+    def compute_battery_demand_aggregated_at_start_of_trip(
             self,
             batch: dict
     ) -> dict:
-        """Compute bat_dem_agg, i.e. having all demand at start of trip."""
         for home in range(self.n_homes):
             batch[home]['bat_dem_agg'] = np.zeros(len(batch[home]['avail_car']))
             if self.own_car[home]:
@@ -264,7 +263,6 @@ class Battery:
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time
             n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
-            n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
 
             if len(trips) == 0:
                 n_avail_until_end -= 1
@@ -277,6 +275,7 @@ class Battery:
                 loads_T, deltaT = trips[- (it + 1)][0:2]
                 if it == len(trips) - 1:
                     deltaT -= 1
+                    Creq[home] += max(0, self.min_charge[home] - self.c_max)
                 # this is the required charge at the current step
                 # if this is the most recent trip, or right after
                 # the previous trip

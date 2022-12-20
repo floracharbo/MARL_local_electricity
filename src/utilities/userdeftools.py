@@ -22,7 +22,7 @@ def _empty(data):
             or data == ' ' \
             or data == [] \
             or data is None \
-            or np.isnan(data):
+            or not isinstance(data, str) and np.isnan(data):
         return True
     else:
         return False

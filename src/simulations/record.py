@@ -47,7 +47,7 @@ class Record():
             self.__dict__[e] = rl[e]
 
         for e in ["gamma", "epsilon_decay"]:
-            self.__dict__[e] = rl[rl["type_learning"]]
+            self.__dict__[e] = rl[rl["type_learning"]][e] if e in rl[rl['type_learning']] else None
         self.n_homes = prm["syst"]["n_homes"]
         # save q tables at each step in record
         # depending on the dimension of the q tables
