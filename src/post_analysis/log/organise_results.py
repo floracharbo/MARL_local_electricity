@@ -61,7 +61,7 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
         elif isinstance(subval, dict):
             for subsubkey, subsubval in subval.items():
                 new_col = f"{key}-{subkey}-{subsubkey}" not in columns0
-                ignore_col = subsubkey in ignore
+                ignore_col = subsubkey in ignore or f"{subkey}-{subsubkey}" in ignore
                 short_type = is_short_type(subsubval)
                 if short_type and new_col and not ignore_col:
                     columns0.append(f"{key}-{subkey}-{subsubkey}")
@@ -77,7 +77,8 @@ def get_list_all_fields(results_path):
         'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all_homes',
         'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
-        'env_info', 'clust_dist_share', 'f_std_share', 'n_all_homes', 'no_flex_action_to_target'
+        'env_info', 'clust_dist_share', 'f_std_share', 'n_all_homes',
+        'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all_homes'
     ]
 
     result_files = os.listdir(results_path)
@@ -419,7 +420,10 @@ def only_columns_relevant_learning_type_comparison(
         'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha'
     ]
     only_col_of_interest_changes = all(
-        current_col == row_col
+        current_col == row_col or (
+                not isinstance(current_col, str) and np.isnan(current_col)
+                and not isinstance(row_col, str) and np.isnan(row_col)
+        )
         for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
         if other_columns[i] not in columns_irrelevant_for_q_learning_facmac_comparison
     )
@@ -468,7 +472,6 @@ def compare_all_runs_for_column_of_interest(
         best_env_score = [log['best_score_env'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
         for row in range(len(log)):
-            # if row not in rows_considered and all(col in log.loc[row])
             row_setup = log[other_columns].loc[row].values
             new_row = row not in rows_considered
             relevant_cnn = not (
@@ -494,7 +497,9 @@ def compare_all_runs_for_column_of_interest(
                 )
             else:
                 only_col_of_interest_changes = all(
-                    current_col == row_col
+                    current_col == row_col or (
+                    not isinstance(current_col, str) and np.isnan(current_col)
+                    and not isinstance(row_col, str) and np.isnan(row_col))
                     for current_col, row_col in zip(current_setup, row_setup)
                 )
 
