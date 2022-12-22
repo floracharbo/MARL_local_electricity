@@ -3,13 +3,14 @@
 
 import copy
 
+import numpy as np
 import torch as th
 from torch.optim import Adam, RMSprop
-import numpy as np
 
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
-from src.learners.facmac.modules.critics.facmac_critic_discrete import FACMACDiscreteCritic
+from src.learners.facmac.modules.critics.facmac_critic_discrete import \
+    FACMACDiscreteCritic
 from src.learners.facmac.modules.mixers.qmix import QMixer
 from src.learners.facmac.modules.mixers.qmix_ablations import (
     QMixerNonmonotonic, VDNState)

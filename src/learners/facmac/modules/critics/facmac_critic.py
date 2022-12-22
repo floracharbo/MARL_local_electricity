@@ -2,9 +2,9 @@
 # https://github.com/oxwhirl/facmac
 
 
-import torch.nn.functional as F
 import torch as th
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class FACMACCritic(nn.Module):

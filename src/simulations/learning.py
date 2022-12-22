@@ -52,17 +52,24 @@ class LearningManager():
                 "reward": [(reward,)],
                 "terminated": [(done,)],
             }
-            do_supervised_loss = self.rl['supervised_loss'] and 'opt' in step_vals and epoch < self.rl['n_epochs_supervised_loss']
+
+            self.should_collect_optimal_action_for_supervised_loss(step_vals, epoch)
             if self.rl['trajectory']:
-                if do_supervised_loss:
+                if self.should_collect_optimal_action_for_supervised_loss(step_vals, epoch):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action']
                 else:
-                    post_transition_data["optimal_actions"] = np.ones(np.shape(step_vals['env_r_c']['action'])) * -1
+                    post_transition_data["optimal_actions"] = np.full(
+                        np.shape(step_vals['env_r_c']['action']),
+                        -1
+                    )
             else:
-                if do_supervised_loss:
+                if self.should_collect_optimal_action_for_supervised_loss(step_vals, epoch):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
                 else:
-                    post_transition_data["optimal_actions"] = np.ones(np.shape(step_vals['baseline']['action'][step])) * -1
+                    post_transition_data["optimal_actions"] = np.full(
+                        np.shape(step_vals['baseline']['action'][step]),
+                        -1
+                    )
             self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
@@ -79,6 +86,13 @@ class LearningManager():
                 )
 
         return traj_reward
+
+    def should_collect_optimal_action_for_supervised_loss(self, step_vals, epoch):
+        return (
+            self.rl['supervised_loss']
+            and 'opt' in step_vals
+            and epoch < self.rl['n_epochs_supervised_loss']
+        )
 
     def _learn_trajectory_opt_facmac(self, step_vals, epoch):
         states, actions = [
@@ -98,10 +112,13 @@ class LearningManager():
             "reward": [(traj_reward,)],
             "terminated": [True],
         }
-        if self.rl['supervised_loss'] and 'opt' in step_vals and epoch < self.rl['n_epochs_supervised_loss']:
+        if self.should_collect_optimal_action_for_supervised_loss(step_vals, epoch):
             post_transition_data["optimal_actions"] = step_vals['opt']['action']
         else:
-            post_transition_data["optimal_actions"] = np.ones(np.shape(step_vals['opt']['action'])) * -1
+            post_transition_data["optimal_actions"] = np.full(
+                np.shape(step_vals['opt']['action']),
+                -1
+            )
 
         for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
             self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)

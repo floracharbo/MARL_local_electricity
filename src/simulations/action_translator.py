@@ -13,6 +13,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import gridspec
 
+
 class Action_translator:
     """
     Manage computations of the RL flexibilitiy action variable.

@@ -16,7 +16,7 @@ import torch as th
 import yaml
 
 
-def _empty(data):
+def _is_empty(data):
     """Check if data is empty."""
     if data == '' \
             or data == ' ' \
@@ -47,15 +47,15 @@ def comb(dims):
 def str_to_float(listarr):
     """Convert string to float."""
     if isinstance(listarr, str):
-        obj = float(listarr) if not _empty(listarr) else []
+        obj = float(listarr) if not _is_empty(listarr) else []
     elif isinstance(listarr, pd.core.series.Series):
-        obj = [float(s) if not _empty(s) else [] for s in listarr]
+        obj = [float(s) if not _is_empty(s) else [] for s in listarr]
     elif isinstance(listarr, np.float64):
         obj = float(listarr)
     elif isinstance(listarr[0], list):
-        obj = [float(s[0]) if not _empty(s) else [] for s in listarr]
+        obj = [float(s[0]) if not _is_empty(s) else [] for s in listarr]
     else:
-        obj = [float(s) if not _empty(s) else [] for s in listarr]
+        obj = [float(s) if not _is_empty(s) else [] for s in listarr]
 
     return obj
 
@@ -63,15 +63,15 @@ def str_to_float(listarr):
 def str_to_int(listarr):
     """Convert strings to integers."""
     if isinstance(listarr, str):
-        obj = int(listarr) if not _empty(listarr) else []
+        obj = int(listarr) if not _is_empty(listarr) else []
     elif isinstance(listarr, pd.core.series.Series):
-        obj = [int(s) if not _empty(s) else [] for s in listarr]
+        obj = [int(s) if not _is_empty(s) else [] for s in listarr]
     elif isinstance(listarr, np.float64):
         obj = int(listarr)
     elif isinstance(listarr[0], list):
-        obj = [int(s[0]) if not _empty(s) else [] for s in listarr]
+        obj = [int(s[0]) if not _is_empty(s) else [] for s in listarr]
     else:
-        obj = [int(s) if not _empty(s) else [] for s in listarr]
+        obj = [int(s) if not _is_empty(s) else [] for s in listarr]
 
     return obj
 
