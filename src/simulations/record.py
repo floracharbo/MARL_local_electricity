@@ -212,9 +212,10 @@ class Record():
                          if e not in ["q_tables", "counter"]]\
             if not self.save_qtables \
             else self.repeat_entries
-        stateind_labels = self.stateind_entries + \
-            ["q_tables", "counter"] if not self.save_qtables \
-            else self.stateind_entries
+        stateind_labels = self.stateind_entries
+        if prm['RL']['type_learning'] == 'q_learning' and not self.save_qtables:
+            stateind_labels += ["q_tables", "counter"]
+
         for label in repeat_labels:
             for repeat in range(prm["RL"]["n_repeats"]):
                 self._loading_file(label, repeat)
