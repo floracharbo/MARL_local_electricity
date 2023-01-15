@@ -537,6 +537,16 @@ class Explorer():
 
         return passive_vars
 
+    def _check_res_T_air(self, res, time_step):
+        for home in self.homes:
+            T_air = res["T_air"][home][time_step]
+            if T_air < self.env.heat.T_LB[home][time_step] - 1e-1 \
+                    or T_air > self.env.heat.T_UB[home][time_step] + 1e-1:
+                print(f"home {home} time_step {time_step} "
+                      f"res['T_air'][home][time_step] {T_air} "
+                      f"T_LB[home] {self.env.heat.T_LB[home][time_step]} "
+                      f"T_UB[home] {self.env.heat.T_UB[home][time_step]}")
+
     def _get_diff_rewards(
             self, evaluation, time_step, action, date,
             loads, res, feasible, reward, indiv_rewards
@@ -547,6 +557,7 @@ class Explorer():
             for q in self.prm["RL"]["type_Qs"]
         )
         if obtain_diff_reward and not evaluation:
+            self._check_res_T_air(res, time_step)
             rewards_baseline, feasible_getting_baseline = \
                 self._get_artificial_baseline_reward_opt(
                     time_step, action, date, loads, res, evaluation
@@ -974,6 +985,16 @@ class Explorer():
 
         return flex_load, l_fixed, loads_step
 
+    def _get_combs_actions(self, actions):
+        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
+        for home in self.homes:
+            actions_baseline_a = np.array(actions)
+            actions_baseline_a[home] = 1
+            combs_actions[home] = actions_baseline_a
+        combs_actions[-1] = 1
+
+        return combs_actions
+
     def _get_artificial_baseline_reward_opt(
             self,
             time_step: int,
@@ -994,21 +1015,9 @@ class Explorer():
         gens = prm["grd"]["gen"][:, time_step]
         self.env.heat.T = res["T"][:, time_step]
         self.env.car.store = res["store"][:, time_step]
-        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
-        for home in self.homes:
-            actions_baseline_a = np.array(actions)
-            actions_baseline_a[home] = 1
-            combs_actions[home] = actions_baseline_a
-        combs_actions[-1] = 1
+        combs_actions = self._get_combs_actions(actions)
         feasible = True
-        for home in self.homes:
-            T_air = res["T_air"][home][time_step]
-            if T_air < self.env.heat.T_LB[home][time_step] - 1e-1 \
-                    or T_air > self.env.heat.T_UB[home][time_step] + 1e-1:
-                print(f"home {home} time_step {time_step} "
-                      f"res['T_air'][home][time_step] {T_air} "
-                      f"T_LB[home] {self.env.heat.T_LB[home][time_step]} "
-                      f"T_UB[home] {self.env.heat.T_UB[home][time_step]}")
+
         for comb_actions in combs_actions:
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
@@ -1020,7 +1029,8 @@ class Explorer():
             reward_baseline_a, _ = env.get_reward(
                 home_vars["netp"], self.env.car.discharge_tot, self.env.car.charge,
                 time_step=time_step, passive_vars=passive_vars,
-                evaluation=evaluation)
+                evaluation=evaluation
+            )
 
             if not constraint_ok:
                 feasible = False
@@ -1031,8 +1041,7 @@ class Explorer():
             rewards_baseline.append(reward_baseline_a)
 
             # revert back store
-            self.env.car.store = [res["store"][home][time_step]
-                                  for home in self.homes]
+            self.env.car.store = [res["store"][home][time_step] for home in self.homes]
 
         return rewards_baseline, feasible
 

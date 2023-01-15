@@ -122,10 +122,10 @@ class FACMACDiscreteLearner(Learner):
             self.n_agents, self.rl["facmac"]["gamma"], self.rl["td_lambda"])
         mask = mask[:, :-1]
 
-        masked_td_error, loss = self.compute_grad_loss(q_taken, targets, mask)
-
-        critic_grad_norm = th.nn.utils.clip_grad_norm_(
-            self.critic_params, self.rl["grad_norm_clip"])
+        self.compute_grad_loss(q_taken, targets, mask)
+        th.nn.utils.clip_grad_norm_(
+            self.critic_params, self.rl["grad_norm_clip"]
+        )
         self.critic_optimiser.step()
         self.critic_training_steps += 1
 
@@ -167,7 +167,6 @@ class FACMACDiscreteLearner(Learner):
             )
         else:
             raise Exception(f"unknown target update mode {self.rl['target_update_tau']}")
-
 
     def _compute_critic_chosen_actions_qvals(self, batch, t_env):
         mac_out = []

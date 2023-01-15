@@ -33,7 +33,8 @@ def initialise_objects(
         prm: dict,
         settings: dict = None,
         no_run: int = None,
-        initialise_record: bool = True
+        initialise_record: bool = True,
+        run_mode: int = 1
 ) -> Tuple[dict, Optional[object], dict]:
     """
     Set up parameters dictionary, load data, initialise recording object.
@@ -62,6 +63,7 @@ def initialise_objects(
     # general input paths and system parameters are in inputs
     # where
     prm = input_params(prm, settings)
+    prm['syst']['run_mode'] = run_mode
     if not Path("outputs").exists():
         os.mkdir("outputs")
     prm['paths']["opt_res"] = Path("outputs") / "opt_res"
@@ -104,6 +106,9 @@ def _make_action_space(rl):
     if rl["discretize_actions"]:
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
+        print(f"rl['low_action'] = {rl['low_action']}")
+        print(f"np.shape(rl['low_action']) = {np.shape(rl['low_action'])}")
+        print(f"rl['dim_actions'] = {rl['dim_actions']}")
         action_space = spaces.Box(
             low=np.array(rl["low_action"], dtype=np.float32),
             high=np.array(rl["high_action"], dtype=np.float32),
@@ -429,8 +434,11 @@ def _dims_states_actions(rl, syst):
         rl["dim_actions"] *= rl["n_homes"]
         rl["trajectory"] = False
     if rl["trajectory"]:
-        for key in ["dim_states", "dim_actions", "low_action", "high_action"]:
+        for key in ["dim_states", "dim_actions"]:
             rl[key] *= syst["N"]
+        if syst['run_mode'] == 1:
+            for key in ["low_action", "high_action"]:
+                rl[key] *= syst["N"]
 
 
 def _remove_states_incompatible_with_trajectory(rl):

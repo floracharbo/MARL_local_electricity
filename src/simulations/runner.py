@@ -35,7 +35,8 @@ from src.simulations.explorer import Explorer
 from src.simulations.local_elec import LocalElecEnv
 from src.utilities.userdeftools import (data_source, initialise_dict,
                                         methods_learning_from_exploration,
-                                        reward_type, set_seeds_rdn)
+                                        reward_type, set_seeds_rdn,
+                                        should_optimise_for_supervised_loss)
 
 
 class Runner():
@@ -395,7 +396,7 @@ class Runner():
             types_needed = candidate_types
         if opt_stage:
             types_needed = [method for method in types_needed if len(method.split("_")) < 5]
-        if self.rl['supervised_loss'] and 'opt' not in types_needed and epoch < self.rl['n_epochs_supervised_loss']:
+        if should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' not in types_needed:
             types_needed.append('opt')
 
         return types_needed
@@ -558,7 +559,7 @@ def run(run_mode, settings, no_runs=None):
         for no_run in no_runs:
             rl, prm = load_existing_prm(prm, no_run)
 
-            prm, record = initialise_objects(prm, no_run=no_run)
+            prm, record = initialise_objects(prm, no_run=no_run, run_mode=run_mode)
             # make user defined environment
             env = LocalElecEnv(prm)
             record.init_env(env)  # record progress as we train

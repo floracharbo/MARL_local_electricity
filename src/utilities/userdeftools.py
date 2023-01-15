@@ -248,3 +248,10 @@ def get_prm_save(prm):
     prm_save = get_prm_save_RL(prm_save, prm)
 
     return prm_save
+
+
+def should_optimise_for_supervised_loss(epoch, rl):
+    return (
+        rl['supervised_loss']
+        and epoch < rl['n_epochs_supervised_loss']
+    )

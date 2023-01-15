@@ -198,13 +198,13 @@ def barplot_indiv_savings(record, prm):
         barWidth = 1 / (len(labels) + 1)
         rs = []
         rs.append(np.arange(len(prm['RL']['evaluation_methods']) - 1))
-        for home in range(len(labels) - 1):
+        for home, _ in enumerate(labels[:- 1]):
             rs.append([x + barWidth for x in rs[home]])
 
         fig = plt.figure()
-        for home in range(len(labels)):
+        for home, label in enumerate(labels):
             plt.bar(rs[home], savings_a[home], width=barWidth,
-                    label=labels[home], yerr=std_savings[home])
+                    label=label, yerr=std_savings[home])
         plt.xlabel('savings per agent')
         plt.xticks([r + barWidth
                     for r in range(len(prm['RL']['evaluation_methods']))],

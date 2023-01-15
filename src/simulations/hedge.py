@@ -51,8 +51,18 @@ class HEDGE:
         # load input data
         self._load_input_data(prm, other_prm, factors0, clusters0)
 
+    def _replace_other_prm(self, prm, other_prm):
+        prm = prm.copy()
+        if other_prm is not None:
+            for key, val in other_prm.items():
+                for subkey, subval in val.items():
+                    prm[key][subkey] = val
+
+        return prm
+
     def _load_input_data(self, prm, other_prm, factors0, clusters0):
-        prm = self._load_inputs(prm, other_prm)
+        prm = self._load_inputs(prm)
+        prm = self._replace_other_prm(prm, other_prm)
         self._init_factors(factors0)
         self._init_clusters(clusters0)
         self.profs = self._load_profiles(prm)
@@ -170,7 +180,7 @@ class HEDGE:
                 )
             ]
 
-    def _load_inputs(self, prm, other_prm):
+    def _load_inputs(self, prm):
         # load inputs
         if prm is None:
             with open("inputs/parameters.yaml", "rb") as file:
@@ -220,12 +230,6 @@ class HEDGE:
                 min_cdf + prm["syst"]["clust_dist_share"] * (max_cdf - min_cdf)
                 for min_cdf, max_cdf in zip(self.min_cdfs["gen"], self.max_cdfs["gen"])
             ]
-
-        prm = prm.copy()
-        if other_prm is not None:
-            for key, val in other_prm.items():
-                for subkey, subval in val.items():
-                    prm[key][subkey] = val
 
         return prm
 

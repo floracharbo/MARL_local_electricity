@@ -59,7 +59,10 @@ def compute_max_car_cons_gen_values(env, state_space):
 
     if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
         max_car_cons = np.max(
-            [[env.prof["car"]["cons"][dt][c] for dt in weekday_types] for c in range(env.n_clus["car"])]
+            [
+                [env.prof["car"]["cons"][dt][c] for dt in weekday_types]
+                for c in range(env.n_clus["car"])
+            ]
         )
     if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
         max_normcons = np.max(
@@ -291,18 +294,18 @@ class EnvSpaces():
     def index_to_val(self, index, typev="state"):
         """From state/action discretised index, get value."""
         val = []
-        for s in range(len(index)):
-            if self.discrete[typev][s] == 1:
-                val.append(index[s])
+        for i, index_i in enumerate(index):
+            if self.discrete[typev][i] == 1:
+                val.append(index_i)
             else:
-                brackets_s = self.brackets[typev][s] + [self.maxval[typev][s]]
-                if typev == "action" and index[s] == 0:
+                brackets_s = self.brackets[typev][i] + [self.maxval[typev][i]]
+                if typev == "action" and index_i == 0:
                     val.append(0)
-                elif typev == "action" and index[s] == self.n_discrete_actions - 1:
+                elif typev == "action" and index_i == self.n_discrete_actions - 1:
                     val.append(1)
                 else:
-                    val.append((brackets_s[int(index[s])]
-                                + brackets_s[int(index[s] + 1)]) / 2)
+                    val.append((brackets_s[int(index_i)]
+                                + brackets_s[int(index_i + 1)]) / 2)
 
         return val
 
