@@ -15,8 +15,7 @@ def _plot_last_epochs_actions(
         list_repeat, means, e, method, prm, all_vals, ax, xs, lw_mean, linestyles
 ):
     means[e][method] = []
-
-    for action in range(prm["RL"]["dim_actions"]):
+    for action in range(prm["RL"]["dim_actions_1"]):
         all_vals_e_t_step_mean = np.zeros(prm["syst"]["N"])
         for step in range(prm["syst"]["N"]):
             all_vals_e_t_step = np.array(
@@ -231,7 +230,7 @@ def _plot_all_agents_all_repeats_res(
                 if r == 2:
                     axs[r, c].set_xlabel("Time [h]")
 
-    return axs, all_T_air
+    return axs, all_T_air, all_vals
 
 
 def _get_bands_car_availability(availabilities_car, home, N):
@@ -279,9 +278,9 @@ def _plot_all_agents_res(
     )
     for e in entries:
         for method in all_methods_to_plot:
-            all_vals[e][method] = {repeat: [] for repeat in range(range(prm["RL"]["n_repeats"]))}
+            all_vals[e][method] = {repeat: [] for repeat in range(prm["RL"]["n_repeats"])}
 
-    axs, all_T_air = _plot_all_agents_all_repeats_res(
+    axs, all_T_air, all_vals = _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, title_ylabel_dict,
         axs, colours_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
@@ -319,7 +318,7 @@ def _get_repeat_data(repeat, all_methods_to_plot, folder_run):
 
 
 def _plot_indiv_agent_res_action(prm, ys, xs, lw_indiv, linestyles, method, ax):
-    for action in range(prm["RL"]["dim_actions"]):
+    for action in range(prm["RL"]["dim_actions_1"]):
         ys_ = [0] + [
             ys[step][action]
             for step in range(prm["syst"]["N"])
