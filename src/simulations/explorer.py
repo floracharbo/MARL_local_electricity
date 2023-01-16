@@ -40,13 +40,16 @@ class Explorer():
         self.rl = self.prm["RL"]
         if self.rl["type_env"] == "discrete":
             self.rl["n_total_discrete_states"] = env.spaces.n["state"]
-        for e in ["n_homes", "discrete", "descriptors", "multipliers",
-                  "global_multipliers", "granularity", "brackets"]:
-            self.__dict__[e] = env.spaces.__dict__[e]
+        for info in [
+            "n_homes", "discrete", "descriptors", "multipliers",
+            "global_multipliers", "granularity", "brackets"
+        ]:
+            setattr(self, info, getattr(env.spaces, info))
+
         self.last_epoch = record.last_epoch
         self.res_path = prm["paths"]["opt_res"]
-        for e in ["D", "solver", "N"]:
-            self.__dict__[e] = prm["syst"][e]
+        for info in ["D", "solver", "N"]:
+            setattr(self, info, prm["syst"][info])
         self.episode_batch = {}
 
         self.data = DataManager(env, prm, self)

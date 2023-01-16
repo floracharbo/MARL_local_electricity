@@ -36,8 +36,8 @@ class TabularQLearner:
             [initialise_dict(rl['type_Qs'], 'empty_dict')
              for _ in range(2)]
         self.repeat = 0
-        for e in ['hysteretic', 'alpha']:
-            self.__dict__[e] = self.rl['q_learning'][e]
+        for info in ['hysteretic', 'alpha']:
+            setattr(self, info, self.rl['q_learning'][info])
 
     def set0(self):
         """ for each repeat, reinitialise q_tables and counters """

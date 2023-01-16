@@ -37,9 +37,11 @@ class Action_translator:
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
         self.z_orders = [1, 3, 2, 0, 4]
         self.H = prm['syst']['H']
-        for e in ['aggregate_actions', 'dim_actions_1', 'low_action',
-                  'high_action', 'type_env', 'server', 'no_flex_action']:
-            self.__dict__[e] = prm['RL'][e]
+        for info in [
+            'aggregate_actions', 'dim_actions_1', 'low_action',
+            'high_action', 'type_env', 'server', 'no_flex_action'
+        ]:
+            setattr(self, info, prm['RL'][info])
         self.bat_dep = prm['car']['dep']
         self.export_C = prm['grd']['export_C']
 

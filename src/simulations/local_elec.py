@@ -56,7 +56,7 @@ class LocalElecEnv():
 
         # initialise parameters
         for info in ['N', 'n_int_per_hr', 'dt']:
-            self.__dict__[info] = prm['syst'][info]
+            setattr(self, info, prm['syst'][info])
 
         self.server = self.rl['server']
         self.action_translator = Action_translator(prm, self)
@@ -74,7 +74,7 @@ class LocalElecEnv():
         for data in [
             "competitive", "n_grdC_level", "offset_reward", "delta_reward"
         ]:
-            self.__dict__[data] = self.rl[data]
+            setattr(self, data, self.rl[data])
         self.share_flexs = prm['loads']['share_flexs']
         self.opt_res_file = self.prm['paths']['opt_res_file']
         self.res_path = prm['paths']['opt_res']
@@ -165,17 +165,20 @@ class LocalElecEnv():
     def set_passive_active(self, passive: bool = False):
         """Update environment properties for passive or active case."""
         self.passive_ext = 'P' if passive else ''
-        for e in ['cap', 'T_LB', 'T_UB', 'T_req', 'store0',
-                  'mincharge', 'car', 'loads', 'gen']:
+        for info in [
+            'cap', 'T_LB', 'T_UB', 'T_req', 'store0',
+            'mincharge', 'car', 'loads', 'gen'
+        ]:
             # set variables for passive or active case
-            self.__dict__[e + '_p'] = e + self.passive_ext
+            setattr(self, f"{info}_p", info + self.passive_ext)
         self.coeff_T = self.prm['heat']['T_coeff' + self.passive_ext]
         self.coeff_Tair = self.prm['heat']['T_air_coeff' + self.passive_ext]
         self.n_homes = self.prm['syst']['n_homes' + self.passive_ext]
         self.homes = range(self.n_homes)
         for e in ['cap_p', 'store0_p', 'mincharge_p', 'n_homes']:
-            self.action_translator.__dict__[e] = self.__dict__[e]
-            self.spaces.__dict__[e] = self.__dict__[e]
+            setattr(self.action_translator, e, getattr(self, e))
+            setattr(self.spaces, e, getattr(self, e))
+
         self.T_air = [self.prm['heat']['T_req' + self.passive_ext][home][0]
                       for home in self.homes]
         self.car.set_passive_active(passive, self.prm)
@@ -700,11 +703,16 @@ class LocalElecEnv():
             assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
         else:
-            for e in ['batch', 'i0_costs']:
-                if (self.res_path / f"{e}{self._file_id()}").is_file():
-                    self.__dict__[e] = np.load(
-                        self.res_path / f"{e}{self._file_id()}",
-                        allow_pickle=True).item()
+            for info in ['batch', 'i0_costs']:
+                if (self.res_path / f"{info}{self._file_id()}").is_file():
+                    setattr(
+                        self,
+                        info,
+                        np.load(
+                            self.res_path / f"{info}{self._file_id()}",
+                            allow_pickle=True
+                        ).item()
+                    )
             self.update_i0_costs()
             self._correct_len_batch()
             self.dloaded += self.prm['syst']['D']

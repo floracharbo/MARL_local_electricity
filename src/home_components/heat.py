@@ -177,9 +177,12 @@ class Heat:
         time_step:
             index current time step
         """
-        for e in ["T_LB", "T_UB"]:
-            self.__dict__[e + "_t"] = [self.__dict__[e][home][time_step]
-                                       for home in range(self.n_homes)]
+        for T in ["T_LB", "T_UB"]:
+            setattr(
+                self,
+                f"{T}_t",
+                [self.__dict__[T][home][time_step] for home in range(self.n_homes)]
+            )
 
     def E_heat_min_max(self, time_step):
         """

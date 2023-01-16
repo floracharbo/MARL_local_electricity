@@ -151,7 +151,7 @@ def patch_load_input_data(self, prm, other_prm, factors0, clusters0):
     for info in ['f_min', 'f_max', 'n_clus']:
         file_path = test_data_path / f"{info}.pickle"
         with open(file_path, "rb") as file:
-            self.__dict__[info] = pickle.load(file)
+            setattr(self, info, pickle.load(file))
     prm['n_clus'] = self.n_clus
     self.clusters = {
         'loads': np.zeros(self.n_homes),

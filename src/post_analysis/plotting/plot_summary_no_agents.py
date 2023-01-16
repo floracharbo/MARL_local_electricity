@@ -20,7 +20,7 @@ from src.utilities.userdeftools import (data_source, distr_learning,
                                         initialise_dict, reward_type)
 
 
-def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):
+def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag, run_mode=1):
     if os.path.exists(PATH + f'run{run}/inputData/prm.npy'):
         prm = np.load(
             PATH + f'run{run}/inputData/prm.npy',

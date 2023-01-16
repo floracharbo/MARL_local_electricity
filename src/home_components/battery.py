@@ -55,12 +55,12 @@ class Battery:
         self.set_passive_active(passive, prm)
 
         for info in ['M', 'N', 'dt']:
-            self.__dict__[info] = prm['syst'][info]
+            setattr(self, info, prm['syst'][info])
 
         for info in [
             'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin',
         ]:
-            self.__dict__[info] = prm['car'][info]
+            setattr(self, info, prm['car'][info])
 
         # date of end of episode - updated from update_date() is env
         self.date_end = None
@@ -113,7 +113,7 @@ class Battery:
         # number of agents / households
         self.n_homes = prm['syst']['n_homes' + self.passive_ext]
         for info in ['own_car', 'store0', 'cap', 'min_charge']:
-            self.__dict__[info] = prm['car'][info + self.passive_ext]
+            setattr(self, info, prm['car'][info + self.passive_ext])
 
     def compute_battery_demand_aggregated_at_start_of_trip(
             self,
@@ -401,7 +401,7 @@ class Battery:
         for info in [
             'store', 'charge', 'discharge', 'loss_ch', 'loss_dis', 'store_out_tot', 'discharge_tot'
         ]:
-            self.__dict__[info] = [None for home in range(self.n_homes)]
+            setattr(self, info, [None for _ in range(self.n_homes)])
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
@@ -535,9 +535,11 @@ class Battery:
 
     def _current_batch_step(self):
         for info in self.batch_entries:
-            self.__dict__[info] = [
-                self.batch[info][home][self.time_step] for home in range(self.n_homes)
-            ]
+            setattr(
+                self,
+                info,
+                [self.batch[info][home][self.time_step] for home in range(self.n_homes)]
+            )
 
     def _last_step(self, date):
         return date == self.date_end - datetime.timedelta(hours=self.dt)

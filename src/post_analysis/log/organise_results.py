@@ -176,8 +176,6 @@ def add_default_values(log, previous_defaults):
                     log = fill_in_log_value_with_run_data(
                         log, row, column, run_no, prm_default, previous_defaults
                     )
-                    if not all(isinstance(x, float) or x is None for x in log['syst-time_end'].values):
-                        print("error")
 
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -314,7 +312,6 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                 row.append(val)
     else:
         row = None
-
 
     assert row is None or len(columns0) == len(row), \
         f"len(columns0) {len(columns0)} != len(row) {len(row)}"

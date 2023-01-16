@@ -101,11 +101,11 @@ class EnvSpaces():
         self._get_space_info(env)
         prm = env.prm
         self._init_factors_profiles_parameters(prm)
-        for e in [
+        for info in [
             "dim_actions", "aggregate_actions", "type_env",
             "n_discrete_actions", "evaluation_methods", "flexibility_states",
         ]:
-            self.__dict__[e] = prm["RL"][e]
+            setattr(self, info, prm["RL"][info])
         self.normalise_states_bool = prm["RL"]["normalise_states"]
         self.i0_costs = env.i0_costs
         self.state_funcs = {

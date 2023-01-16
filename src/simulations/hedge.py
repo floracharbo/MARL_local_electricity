@@ -193,17 +193,17 @@ class HEDGE:
         for property_ in ["f_min", "f_max", "f_mean"]:
             path = factors_path / f"{property_}.pickle"
             with open(path, "rb") as file:
-                self.__dict__[property_] = pickle.load(file)
+                setattr(self, property_, pickle.load(file))
 
         for property_ in ["mean_residual", "residual_distribution_prms"]:
             with open(factors_path / f"{property_}.pickle", "rb") as file:
-                self.__dict__[property_] = pickle.load(file)
+                setattr(self, property_, pickle.load(file))
 
         clusters_path = prm["paths"]["hedge_inputs"] / "clusters"
         for property_ in ["p_clus", "p_trans", "min_cdfs", "max_cdfs"]:
             path = clusters_path / f"{property_}.pickle"
             with open(str(path), "rb") as file:
-                self.__dict__[property_] = pickle.load(file)
+                setattr(self, property_, pickle.load(file))
 
         with open(clusters_path / "n_clus.pickle", "rb") as file:
             prm["n_clus"] = pickle.load(file)
@@ -219,7 +219,7 @@ class HEDGE:
             for property_ in ["p_pos", "p_zero2pos", "fs_brackets", "mid_fs_brackets"]:
                 path = factors_path / f"car_{property_}.pickle"
                 with open(path, "rb") as file:
-                    self.__dict__[property_] = pickle.load(file)
+                    setattr(self, property_, pickle.load(file))
 
         # PV generation-specific inputs
         if "gen" in self.data_types:

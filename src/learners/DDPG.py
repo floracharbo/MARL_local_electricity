@@ -120,8 +120,8 @@ class Buffer:
     def __init__(self, DDPG):
         self.rl = DDPG.rl
         self.sample_action = DDPG.sample_action
-        for e in ['buffer_capacity', 'critic_lr', 'decay_alpha', 'min_alpha']:
-            self.__dict__[e] = self.rl['DDPG'][e]
+        for info in ['buffer_capacity', 'critic_lr', 'decay_alpha', 'min_alpha']:
+            setattr(self, info, self.rl['DDPG'][info])
         self.reset()
         self.t = 0
 
