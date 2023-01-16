@@ -810,7 +810,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
 
     evaluation_methods_list = _add_n_start_opt_explo(rl, evaluation_methods_list)
 
-    rl["evaluation_methods"] = evaluation_methods_list
+    rl["evaluation_methods"] = list(set(evaluation_methods_list))
     _filter_type_learning_competitive(rl)
 
     rl["exploration_methods"] = [
