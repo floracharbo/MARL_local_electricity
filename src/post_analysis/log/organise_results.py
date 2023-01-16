@@ -75,10 +75,9 @@ def get_list_all_fields(results_path):
         'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all_homes',
         'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
-        'env_info', 'clust_dist_share', 'f_std_share', 'n_all_homes',
-        'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all_homes'
+        'env_info', 'clust_dist_share', 'f_std_share',
+        'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all'
     ]
-
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
