@@ -309,15 +309,6 @@ class Explorer():
                 sequence_feasible = False
                 reward = self._apply_reward_penalty(evaluation, reward)
             else:
-                if not self.rl['trajectory']:
-                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
-                        traj_reward = self.learning_manager.learning(
-                            current_state, state, action, reward, done,
-                            eval_method, step, evaluation, traj_reward, step_vals, epoch
-                        )
-                else:
-                    traj_reward += reward
-
                 diff_rewards = self._compute_diff_rewards(
                     method, evaluation, reward, rewards_baseline, break_down_rewards
                 )
@@ -335,10 +326,22 @@ class Explorer():
 
                 # if instant feedback,
                 # learn right away at the end of the step
+                if not evaluation and not self.rl['trajectory']:
+                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
+                        self.learning_manager.learning(
+                            current_state, state, action, reward, done,
+                            eval_method, step, step_vals, epoch
+                        )
                 self.learning_manager.q_learning_instant_feedback(
                     evaluation, method, step_vals, step
                 )
 
+                if self.rl['trajectory']:
+                    if type(reward) in [float, int, np.float64]:
+                        traj_reward += reward
+                    else:
+                        for home in self.homes:
+                            traj_reward[home] += reward[home]
                 step += 1
 
         return step_vals, traj_reward, sequence_feasible

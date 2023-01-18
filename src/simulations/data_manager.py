@@ -47,6 +47,7 @@ class DataManager():
         self.deterministic_created = False
 
         self.seeds = prm['RL']['seeds']
+        self.force_optimisation = prm['syst']['force_optimisation']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
@@ -185,7 +186,7 @@ class DataManager():
             )
             feasibility_checked = False
 
-        if all(data_feasibles) and opt_needed and new_data_needed:
+        if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
             try:
                 res = self.optimiser.solve(self.prm)
             except Exception as ex:  # if infeasible, make new data

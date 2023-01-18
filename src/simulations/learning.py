@@ -41,8 +41,6 @@ class LearningManager():
         done: bool,
         method: str,
         step: int,
-        evaluation: bool,
-        traj_reward: list,
         step_vals: dict,
         epoch: int
     ) -> list:
@@ -74,19 +72,16 @@ class LearningManager():
             self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
-                and not evaluation \
                 and method != 'baseline' \
                 and not done:
             if type(reward) in [float, int, np.float64]:
-                traj_reward = self._learning_total_rewards(
-                    traj_reward, reward, current_state, action, state, method
+                self._learning_total_rewards(
+                    reward, current_state, action, state, method
                 )
             else:
-                traj_reward = self._learning_difference_rewards(
-                    traj_reward, reward, current_state, action, state, method
+                self._learning_difference_rewards(
+                    reward, current_state, action, state, method
                 )
-
-        return traj_reward
 
     def should_optimise_for_supervised_loss(self, epoch, step_vals=None):
         return should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' in step_vals
@@ -223,21 +218,26 @@ class LearningManager():
                               ):
         """Learn from trajectory."""
         for home in self.homes:
-            states_a = [states[time_step][home]
-                        for time_step in range(self.N)]
-            next_states_a = [states[time_step][home]
-                             for time_step in range(1, self.N + 1)]
+            states_a = [states[time_step][home] for time_step in range(self.N)]
+            next_states_a = [
+                states[time_step][home] for time_step in range(1, self.N + 1)
+            ]
             traj_reward_a = traj_reward[home] \
                 if len(method.split('_')) > 1 and reward_type(method) == 'd' \
                 and not evaluation \
                 else traj_reward
-            if self.rl['type_learning'] == 'facmac':
+            if self.rl['type_learning'] == 'facmac' and not evaluation:
                 self.learning(
                     states[0: self.N],
-                    np.zeros((self.N, self.n_homes, self.rl['dim_actions'])),
-                    actions, traj_reward, True, method, 0, evaluation, traj_reward, step_vals, epoch
+                    states[1: self.N + 1],
+                    actions,
+                    traj_reward,
+                    True,
+                    method,
+                    0,
+                    step_vals,
+                    epoch
                 )
-
             elif self.rl["distr_learning"] == "decentralised":
                 self.learner[method][home].learn(
                     states_a, actions[home], traj_reward_a, next_states_a)
@@ -255,33 +255,24 @@ class LearningManager():
                 self.learner.learn(method, step_vals[method], step)
 
     def _learning_difference_rewards(
-            self, traj_reward, reward, current_state, action, state, method
+            self, reward, current_state, action, state, method
     ):
         # this is difference rewards and/or competitive -
         # no joint action as we would not use diff rewards
         # with joint action
         for home in self.homes:
-            if self.rl['trajectory']:
-                traj_reward[home] += reward[home]
+            if self.rl["distr_learning"] == "decentralised":
+                self.learner[method][home].learn(
+                    current_state[home], action[home],
+                    reward[home], state[home])
             else:
-                if self.rl["distr_learning"] == "decentralised":
-                    self.learner[method][home].learn(
-                        current_state[home], action[home],
-                        reward[home], state[home])
-                else:
-                    self.learner[method].learn(
-                        current_state[home], action[home],
-                        reward[home], state[home])
-
-        return traj_reward
+                self.learner[method].learn(
+                    current_state[home], action[home],
+                    reward[home], state[home])
 
     def _learning_total_rewards(
-            self, traj_reward, reward, current_state, action, state, method
+            self, reward, current_state, action, state, method
     ):
-        if self.rl['trajectory']:
-            traj_reward += reward
-            return traj_reward
-
         if self.rl['type_learning'] in ['DQN', 'DDQN']:
             ind_current_state, ind_action, ind_state = \
                 [self.env.spaces.get_space_indexes(
@@ -310,8 +301,6 @@ class LearningManager():
                 self.learner[method].learn(
                     current_state_[0], action_,
                     reward, state_[0])
-
-        return traj_reward
 
     def _learn_DQN(self,
                    home: int,
