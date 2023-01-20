@@ -574,7 +574,7 @@ def _seed_save_paths(prm):
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"{heat['file']}"
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
-
+    syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     for file in ["opt_res_file", "seeds_file"]:
         if rl["deterministic"] == 2:
             paths[file] += "_noisy"

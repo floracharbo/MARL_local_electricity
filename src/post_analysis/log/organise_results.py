@@ -211,6 +211,8 @@ def get_key_subkeys_column(column):
     elif len(split) == 4:
         key, subkey = split[0: 2]
         subsubkey = split[2] + '-' + split[3]
+    if key == 'bat':
+        key = 'car'
 
     return key, subkey, subsubkey
 
@@ -692,6 +694,7 @@ def plot_sensitivity_analyses(new_columns, log):
         if column not in ['nn_learned', 'time_end']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
+        column_of_interest = 'n_homes'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
