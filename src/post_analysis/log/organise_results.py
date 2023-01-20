@@ -211,6 +211,8 @@ def get_key_subkeys_column(column):
     elif len(split) == 4:
         key, subkey = split[0: 2]
         subsubkey = split[2] + '-' + split[3]
+    if key == 'bat':
+        key = 'car'
 
     return key, subkey, subsubkey
 
