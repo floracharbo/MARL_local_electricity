@@ -816,6 +816,9 @@ def _make_type_eval_list(rl, large_q_bool=False):
     rl["exploration_methods"] = [
         t for t in rl["evaluation_methods"] if not (t[0:3] == "opt" and len(t) > 3)
     ]
+    if sum(t[0:3] == 'opt' and len(t) > 3 for t in rl["evaluation_methods"]) > 0:
+        rl["exploration_methods"] += ["opt"]
+
     rl["eval_action_choice"] = [
         t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
     ]
