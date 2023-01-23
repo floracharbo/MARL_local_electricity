@@ -14,7 +14,31 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = True
+ANNOTATE_RUN_NOS = False
+
+
+def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted):
+    new_values_of_interest_sorted = {}
+    for k in ['all', 'env']:
+        i_not_nans = [i for i, y in enumerate(best_scores_sorted[k]['ave']) if not np.isnan(y)]
+        for key in best_scores_sorted[k]:
+            best_scores_sorted[k][key] = [best_scores_sorted[k][key][i] for i in i_not_nans]
+        new_values_of_interest_sorted[k] = [values_of_interest_sorted[i] for i in i_not_nans]
+
+    return new_values_of_interest_sorted, best_scores_sorted
+
+
+def fix_force_optimisations(log):
+    """If there are no optimisations, this is equivalent to if we had forced optimisations."""
+    ave_opt_cols = [col for col in log.columns if col[0: len('ave_opt')] == 'ave_opt']
+    for i in range(len(log)):
+        if (
+            all(log[col].loc[i] is None for col in ave_opt_cols)
+            and not log['syst-force_optimisation'].loc[i]
+        ):
+            log.loc[i, 'syst-force_optimisation'] = True
+
+    return log
 
 
 def is_short_type(val):
@@ -41,6 +65,8 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
         'n_all': ['syst', 'n_all_homes', None],
     }
     if subkey == 'n_homes' and key != 'syst':
+        return columns0
+    if key == 'syst' and subkey == 'server':
         return columns0
 
     if subkey not in ignore:
@@ -285,6 +311,9 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
 
     if path_prm.is_file():
         prm = np.load(path_prm, allow_pickle=True).item()
+        if 'type_learning' not in prm['RL']:
+            os.remove(path_prm)
+            return None
         if result_no == 802:
             prm['RL']['nn_learned'] = False
         date_str = datetime.fromtimestamp(os.stat(path_prm).st_birthtime).strftime("%d/%m/%Y")
@@ -311,6 +340,8 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                     val = prm[key][subkey][subsubkey] \
                         if subkey in prm[key] and subsubkey in prm[key][subkey] \
                         else None
+                if subkey == 'start_steps':
+                    assert isinstance(val, int), f"start_steps is not an int: {val}"
                 row.append(val)
     else:
         row = None
@@ -335,18 +366,19 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
                 ]
                 if len(potential_replacement) == 1:
                     method_ = potential_replacement[0]
-            row.append(
-                metrics['end_test_bl']['ave'][method_]
-                if method_ in metrics['end_test_bl']['ave']
-                else None
-            )
+            for value in ['ave', 'p25', 'p75']:
+                row.append(
+                    metrics['end_test_bl'][value][method_]
+                    if method_ in metrics['end_test_bl'][value]
+                    else None
+                )
     else:
         row = None
 
     return row
 
 
-def remove_columns_that_never_change_and_tidy(log, columns0):
+def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_methods):
     new_columns = []
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
@@ -363,19 +395,49 @@ def remove_columns_that_never_change_and_tidy(log, columns0):
             if len(indices) > 1:
                 print(f"{new_column} times {len(indices)}")
 
-    log.columns = new_columns + keys_methods
+    log.columns = new_columns + columns_results_methods
 
     return new_columns, log
 
 
 def compute_best_score_per_run(keys_methods, log):
     keys_methods_not_opt = [method for method in keys_methods if method != 'opt']
-    keys_methods_env = [method for method in keys_methods_not_opt if method[0: 3] == 'env']
-    keys_methods_opt = [method for method in keys_methods_not_opt if method[0: 3] == 'opt']
+    ave_cols_non_opt = [f"ave_{method}" for method in keys_methods_not_opt]
+    ave_cols_methods_env = [
+        f"ave_{method}" for method in keys_methods_not_opt if method[0: 3] == 'env'
+    ]
+    ave_cols_methods_opt = [
+        f"ave_{method}" for method in keys_methods_not_opt if method[0: 3] == 'opt'
+    ]
+    initial_columns = log.columns
 
-    log['best_score'] = log[keys_methods_not_opt].max(axis=1)
-    log['best_score_opt'] = log[keys_methods_opt].max(axis=1)
-    log['best_score_env'] = log[keys_methods_env].max(axis=1)
+    for score, cols_methods in zip(
+        ['best_score_all', 'best_score_opt', 'best_score_env'],
+        [ave_cols_non_opt, ave_cols_methods_opt, ave_cols_methods_env]
+    ):
+        log[score] = log[cols_methods].max(axis=1)
+        log[f'method_{score}'] = log[list(initial_columns) + [score]].apply(
+            lambda row: row[row == row[score]].index, axis=1
+        )
+        log[f"p25_{score}"] = log.apply(
+            lambda row: row[f"p25_{row[f'method_{score}'][0][4:]}"]
+            if len(row[f'method_{score}']) > 0 else None,
+            axis=1
+        )
+        log[f"p75_{score}"] = log.apply(
+            lambda row: row[f"p75_{row[f'method_{score}'][0][4:]}"]
+            if len(row[f'method_{score}']) > 0 else None,
+            axis=1
+        )
+        log = log.drop(columns=[f'method_{score}'])
+
+    # methods_best_score = log.columns[log[ave_cols_non_opt].argmax(axis=1)]
+    # col_best_score_env = log[ave_cols_methods_env].argmax(axis=1)
+    # col_best_score_opt = log[ave_cols_methods_opt].argmax(axis=1)
+
+    # log['best_score'] = log[col_best_score].max(axis=1)
+    # log['best_score_opt'] = log[keys_methods_opt].max(axis=1)
+    # log['best_score_env'] = log[keys_methods_env].max(axis=1)
 
     return log
 
@@ -484,11 +546,15 @@ def compare_all_runs_for_column_of_interest(
         rows_considered.append(initial_setup_row)
         current_setup = log[other_columns].loc[initial_setup_row].values
         values_of_interest = [log[column_of_interest].loc[initial_setup_row]]
-        best_score = [log['best_score'].loc[initial_setup_row]]
-        best_env_score = [log['best_score_env'].loc[initial_setup_row]]
+        best_scores = {k: {} for k in ['all', 'env']}
+        for k in ['all', 'env']:
+            best_scores[k]['ave'] = [log[f'best_score_{k}'].loc[initial_setup_row]]
+            for p in [25, 75]:
+                best_scores[k][f'p{p}'] = [log[f'p{p}_best_score_{k}'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
         for row in range(len(log)):
-            row_setup = log[other_columns].loc[row].values
+            # row_setup = log[other_columns].loc[row].values
+            row_setup = [log[other_column].loc[row] for other_column in other_columns]
             new_row = row not in rows_considered
             relevant_cnn = not (
                 column_of_interest[0:3] == 'cnn'
@@ -502,7 +568,6 @@ def compare_all_runs_for_column_of_interest(
                 column_of_interest[0: 16] == 'supervised_loss_weight'
                 and not log['supervised_loss'].loc[row]
             )
-
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
                     other_columns, current_setup, row_setup, initial_setup_row, row
@@ -519,12 +584,22 @@ def compare_all_runs_for_column_of_interest(
                     )
                     for current_col, row_col in zip(current_setup, row_setup)
                 )
-            relevant_data = relevant_cnn and relevant_facmac and relevant_supervised_loss
+            n_homes_on_laptop_only = not (
+                column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
+            )
+            relevant_data = \
+                relevant_cnn \
+                and relevant_facmac \
+                and relevant_supervised_loss \
+                and n_homes_on_laptop_only
             if new_row and only_col_of_interest_changes and relevant_data:
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])
-                best_score.append(log['best_score'].loc[row])
-                best_env_score.append(log['best_score_env'].loc[row])
+                for k in ['all', 'env']:
+                    best_scores[k]['ave'].append(log[f'best_score_{k}'].loc[row])
+                    for p in [25, 75]:
+                        best_scores[k][f'p{p}'].append(log[f'p{p}_best_score_{k}'].loc[row])
+
                 time_best_score.append(log['time_end'].loc[row])
 
         if len(values_of_interest) > 1:
@@ -539,25 +614,44 @@ def compare_all_runs_for_column_of_interest(
                 setups.append(current_setup)
                 i_sorted = np.argsort(values_of_interest)
                 values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
-                best_score_sorted = [best_score[i] for i in i_sorted]
-                best_env_score_sorted = [best_env_score[i] for i in i_sorted]
+                best_scores_sorted = {k: {} for k in ['all', 'env']}
+                for k in ['all', 'env']:
+                    best_scores_sorted[k]['ave'] = [best_scores[k]['ave'][i] for i in i_sorted]
+                    for p in [25, 75]:
+                        best_scores_sorted[k][f'p{p}'] = [
+                            best_scores[k][f'p{p}'][i] for i in i_sorted
+                        ]
                 time_best_score_sorted = [time_best_score[i] for i in i_sorted]
                 runs_sorted = [runs[i] for i in i_sorted]
-                axs[0].plot(values_of_interest_sorted, best_score_sorted, label=len(setups))
-                axs[1].plot(values_of_interest_sorted, best_env_score_sorted, label=len(setups))
+                ls = '--' if log.loc[rows_considered[-1], 'server'] else '-'
+                values_of_interest_sorted_k, best_scores_sorted = remove_nans_best_scores_sorted(
+                    values_of_interest_sorted, best_scores_sorted
+                )
+                for ax_i, k in enumerate(['all', 'env']):
+                    axs[ax_i].plot(
+                        values_of_interest_sorted_k[k],
+                        best_scores_sorted[k]['ave'],
+                        label=len(setups), linestyle=ls
+                    )
+                    axs[ax_i].fill_between(
+                        values_of_interest_sorted_k[k],
+                        best_scores_sorted[k]['p25'],
+                        best_scores_sorted[k]['p75'],
+                        alpha=0.2
+                    )
                 axs[2].plot(
                     values_of_interest_sorted, time_best_score_sorted,
-                    label=len(setups)
+                    label=len(setups),
+                    linestyle=ls
                 )
                 axs = annotate_run_nos(
-                    axs, values_of_interest_sorted, best_score_sorted,
-                    best_env_score_sorted, runs_sorted
+                    axs, values_of_interest_sorted, best_scores_sorted['all']['ave'],
+                    best_scores_sorted['env']['ave'], runs_sorted
                 )
-
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
-                    best_values.append(best_score_sorted)
-                    env_values.append(best_env_score_sorted)
+                    best_values.append(best_scores_sorted['all']['ave'])
+                    env_values.append(best_scores_sorted['env']['ave'])
                     time_values.append(time_best_score_sorted)
                 plotted_something = True
 
@@ -762,9 +856,13 @@ if __name__ == "__main__":
 
     # get the names of all the evaluations methods
     keys_methods = get_names_evaluation_methods(results_path, result_nos)
+    columns_results_methods = []
+    for method in keys_methods:
+        for value in ['ave', 'p25', 'p75']:
+            columns_results_methods.append(f"{value}_{method}")
 
     log_path = results_analysis_path / "log_runs.csv"
-    log = pd.DataFrame(columns=columns0 + keys_methods)
+    log = pd.DataFrame(columns=columns0 + columns_results_methods)
 
     newly_added_runs = []
     for result_no in result_nos:
@@ -774,16 +872,18 @@ if __name__ == "__main__":
             if row is not None:
                 log.loc[len(log.index)] = row
                 newly_added_runs.append(row[0])
-    new_columns, log = remove_columns_that_never_change_and_tidy(log, columns0)
+    new_columns, log = remove_columns_that_never_change_and_tidy(
+        log, columns0, columns_results_methods
+    )
     log = add_default_values(log, previous_defaults=previous_defaults)
-
+    log = fix_force_optimisations(log)
     # remove key from column name
     for i in range(len(new_columns)):
         splits = new_columns[i].split('-')
         if len(splits) > 1:
             len_start_remove = len(splits[0]) + 1
             new_columns[i] = new_columns[i][len_start_remove:]
-    log.columns = new_columns + keys_methods
+    log.columns = new_columns + columns_results_methods
     log['share_active'] = log.apply(lambda x: x.n_homes / (x.n_homes + x.n_homesP), axis=1)
     new_columns.append('share_active')
 

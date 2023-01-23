@@ -772,7 +772,7 @@ def _add_n_start_opt_explo(rl, evaluation_methods_list):
 
 def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = ["baseline"]
-    if rl["evaluation_methods"] is not None and len(rl['evaluation_methods']) > 1:
+    if rl["evaluation_methods"] is not None:
         input_evaluation_methods = rl["evaluation_methods"] \
             if isinstance(rl["evaluation_methods"], list) \
             else [rl["evaluation_methods"]]

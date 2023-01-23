@@ -18,9 +18,10 @@ settings = {
     'RL': {
         'aggregate_actions': False,
         'cnn_kernel_size': 2,
-        'n_epochs': 20,
+        'n_epochs': 200,
         'normalise_states': True,
         'obs_agent_id': True,
+        'trajectory': False,
         # current experiment
         # grdC_level, hour, car_tau, store0, grdC
         # # avail_car_step, loads_clus_step, loads_fact_step
@@ -31,9 +32,9 @@ settings = {
         # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
 
         # # flexibility
-        'state_space': [['flexibility', 'grdC_n4']] * 1,
+        'state_space': [['flexibility', 'grdC_n2']],
         'type_learning': ['facmac'],
-        'evaluation_methods': [['env_r_c', 'opt']] * 1,
+        'evaluation_methods': [['env_r_c']],
         'n_repeats': 3,
         'lr': 1e-3,
         'facmac': {'critic_lr': 5e-4, 'batch_size': 5},
@@ -45,7 +46,7 @@ settings = {
         'n_cnn_layers': 1,
         'rnn_hidden_dim': 5e2,
         # 'supervised_loss_weight': [10],
-        'supervised_loss': True,
+        'supervised_loss': False,
         # 'learner': 'facmac_learner_discrete',
         # 'n_start_opt_explo': 5,
         # 'nn_type': 'lstm',
@@ -53,10 +54,13 @@ settings = {
 
     },
     'grd': {
-        'n': 10,
         'manage_agg_power': False
     },
-    'syst': {'H': 24},
+    'syst': {
+        'H': 24,
+        'n_homes': 10, # number of homes [1, 3, 5, 10, 30],
+        'force_optimisation': False,
+    },
 }
 
 # obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation

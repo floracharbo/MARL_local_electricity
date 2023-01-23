@@ -32,7 +32,9 @@ def _print_savings(metrics, prm):
                 values.append(A * prm['syst']['H'] * 365 / 12)
                 values.append(A / (- metrics['end'][p]['baseline']) * 100)
                 if 'opt' in metrics['end'][p]:
-                    values.append(A / (metrics['end'][p]['opt'] - metrics['end'][p]['baseline']) * 100)
+                    values.append(
+                        A / (metrics['end'][p]['opt'] - metrics['end'][p]['baseline']) * 100
+                    )
                 print(f"{e}, {p}")
                 for value, label in zip(values, labels):
                     print(f"{label}: {value}")

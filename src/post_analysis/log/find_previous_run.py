@@ -92,6 +92,7 @@ def find_previous_run_with_same_settings(settings, log_path):
 
 log = find_previous_run_with_same_settings(settings, log_path)
 if len(log) > 1:
-    print(f"best run: {log['run'].loc[log['best_score'] == max(log['best_score'])].tolist()}")
+    best_run = log['run'].loc[log['best_score_all'] == max(log['best_score_all'])].tolist()
+    print(f"best run: {best_run}")
     print(f"best run with env-based exploration: "
           f"{log['run'].loc[log['best_score_env'] == max(log['best_score_env'])].tolist()}")
