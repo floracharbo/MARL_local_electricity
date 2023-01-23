@@ -28,7 +28,7 @@ def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted
     return new_values_of_interest_sorted, best_scores_sorted
 
 
-def fix_force_optimisations(log):
+def fix_learning_specific_values(log):
     """If there are no optimisations, this is equivalent to if we had forced optimisations."""
     ave_opt_cols = [col for col in log.columns if col[0: len('ave_opt')] == 'ave_opt']
     for i in range(len(log)):
@@ -443,15 +443,18 @@ def compute_best_score_per_run(keys_methods, log):
 
 
 def check_that_only_grdCn_changes_in_state_space(
-        other_columns, current_setup, row_setup, initial_setup_row, row
+        other_columns, current_setup, row_setup, initial_setup_row, row, indexes_columns_ignore_q_learning
 ):
     index_state_space = other_columns.index('state_space')
+    indexes_ignore = [index_state_space]
+    if current_setup[other_columns.index('type_learning')] == 'q_learning':
+        indexes_ignore += indexes_columns_ignore_q_learning
     only_col_of_interest_changes_without_state_space = all(
         current_col == row_col or (
             not isinstance(current_col, str) and np.isnan(current_col)
             and not isinstance(row_col, str) and np.isnan(row_col))
         for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
-        if i != index_state_space
+        if i not in indexes_ignore
     )
 
     if only_col_of_interest_changes_without_state_space:
@@ -529,9 +532,33 @@ def annotate_run_nos(
     return axs
 
 
+def get_relevant_columns_for_type_learning(other_columns, log, i_row):
+    if log['type_learning'].loc[i_row] == 'q_learning':
+        columns_irrelevant_to_comparisons = [
+            'obs_agent_id', 'DDPG-rdn_eps_greedy_indiv', 'act_noise', 'agent_facmac',
+            'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size', 'facmac-beta_to_alpha',
+            'facmac-critic_lr', 'facmac-hysteretic', 'learner', 'mixer', 'n_hidden_layers', 'n_hidden_layers_critic',
+            'nn_type', 'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
+        ]
+    else:
+        columns_irrelevant_to_comparisons = []
+    other_relevant_columns = [col for col in other_columns if col not in columns_irrelevant_to_comparisons]
+
+    return other_relevant_columns
+
+
 def compare_all_runs_for_column_of_interest(
     column_of_interest, other_columns, axs, log
 ):
+    columns_irrelevant_to_q_learning = [
+        'obs_agent_id', 'DDPG-rdn_eps_greedy_indiv', 'act_noise', 'agent_facmac',
+        'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size', 'facmac-beta_to_alpha',
+        'facmac-critic_lr', 'facmac-hysteretic', 'learner', 'mixer', 'n_hidden_layers', 'n_hidden_layers_critic',
+        'nn_type', 'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
+    ]
+    indexes_columns_ignore_q_learning = [
+        other_columns.index(col) for col in columns_irrelevant_to_q_learning
+    ]
     rows_considered = []
     setup_no = 0
     plotted_something = False
@@ -553,8 +580,7 @@ def compare_all_runs_for_column_of_interest(
                 best_scores[k][f'p{p}'] = [log[f'p{p}_best_score_{k}'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
         for row in range(len(log)):
-            # row_setup = log[other_columns].loc[row].values
-            row_setup = [log[other_column].loc[row] for other_column in other_columns]
+            row_setup = [log[col].loc[row] for col in other_columns]
             new_row = row not in rows_considered
             relevant_cnn = not (
                 column_of_interest[0:3] == 'cnn'
@@ -568,30 +594,42 @@ def compare_all_runs_for_column_of_interest(
                 column_of_interest[0: 16] == 'supervised_loss_weight'
                 and not log['supervised_loss'].loc[row]
             )
+
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
-                    other_columns, current_setup, row_setup, initial_setup_row, row
+                    other_columns, current_setup, row_setup, initial_setup_row, row, indexes_columns_ignore_q_learning
                 )
             elif column_of_interest == 'type_learning':
                 only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
                     other_columns, current_setup, row_setup
                 )
             else:
+                indexes_ignore = \
+                    indexes_columns_ignore_q_learning \
+                    if current_setup[other_columns.index('type_learning')] == 'q_learning' \
+                    else []
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
                         not isinstance(current_col, str) and np.isnan(current_col)
                         and not isinstance(row_col, str) and np.isnan(row_col)
                     )
-                    for current_col, row_col in zip(current_setup, row_setup)
+                    for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
+                    if i_col not in indexes_ignore
                 )
             n_homes_on_laptop_only = not (
                 column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
+            )
+            n_homes_facmac_traj_only = not (
+                column_of_interest == 'n_homes'
+                and current_setup[other_columns.index('type_learning')] == 'facmac'
+                and not current_setup[other_columns.index('trajectory')]
             )
             relevant_data = \
                 relevant_cnn \
                 and relevant_facmac \
                 and relevant_supervised_loss \
-                and n_homes_on_laptop_only
+                and n_homes_on_laptop_only \
+                and n_homes_facmac_traj_only
             if new_row and only_col_of_interest_changes and relevant_data:
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])
@@ -628,10 +666,14 @@ def compare_all_runs_for_column_of_interest(
                     values_of_interest_sorted, best_scores_sorted
                 )
                 for ax_i, k in enumerate(['all', 'env']):
+                    label = \
+                        current_setup[other_columns.index('type_learning')] \
+                        if column_of_interest == 'n_homes' \
+                        else len(setups)
                     axs[ax_i].plot(
                         values_of_interest_sorted_k[k],
                         best_scores_sorted[k]['ave'],
-                        label=len(setups), linestyle=ls
+                        label=label, linestyle=ls
                     )
                     axs[ax_i].fill_between(
                         values_of_interest_sorted_k[k],
@@ -639,11 +681,16 @@ def compare_all_runs_for_column_of_interest(
                         best_scores_sorted[k]['p75'],
                         alpha=0.2
                     )
+                    if column_of_interest == 'n_epochs':
+                        axs[ax_i].set_yscale('log')
+
                 axs[2].plot(
                     values_of_interest_sorted, time_best_score_sorted,
-                    label=len(setups),
+                    label=label,
                     linestyle=ls
                 )
+                # axs[2].set_yscale('log')
+
                 axs = annotate_run_nos(
                     axs, values_of_interest_sorted, best_scores_sorted['all']['ave'],
                     best_scores_sorted['env']['ave'], runs_sorted
@@ -700,7 +747,7 @@ def add_table_legend(setups, fig, varied_columns, column_of_interest, other_colu
     height_row0 = 0.1
     height_intra_row = 0.11
     if len(setups) > 1:
-        col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns]
+        col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns if col != 'n']
         setups_nos = np.array(list(range(len(setups)))) + 1
         column_names = [''] + list(setups_nos)
         values = [
@@ -708,7 +755,7 @@ def add_table_legend(setups, fig, varied_columns, column_of_interest, other_colu
                 '\n'.join(wrap(str(setup[other_columns.index(column)]), 8))
                 for setup in setups
             ]
-            for column in varied_columns
+            for column in varied_columns if column != 'n'
         ]
         table_body = np.concatenate(
             [np.reshape(col0, (len(col0), 1)), np.reshape(values, (np.shape(values)))],
@@ -830,7 +877,7 @@ def plot_sensitivity_analyses(new_columns, log):
 
             axs[0].set_ylabel("best score [£/home/h]")
             axs[1].set_ylabel(
-                '\n'.join(wrap("best score with env-based exploration [£/home/h]", 30))
+                '\n'.join(wrap("best score with without optimisation-based exploration [£/home/h]", 30))
             )
             axs[2].set_ylabel("time [s]")
             axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
@@ -876,7 +923,7 @@ if __name__ == "__main__":
         log, columns0, columns_results_methods
     )
     log = add_default_values(log, previous_defaults=previous_defaults)
-    log = fix_force_optimisations(log)
+    log = fix_learning_specific_values(log)
     # remove key from column name
     for i in range(len(new_columns)):
         splits = new_columns[i].split('-')
