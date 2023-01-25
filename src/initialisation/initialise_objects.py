@@ -248,6 +248,7 @@ def _update_paths(paths, prm, no_run):
     paths['hedge_inputs'] \
         = paths["input_folder"] / paths['hedge_inputs_folder'] / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
+    paths["network_data"] = paths['open_inputs'] / paths['ieee_network_data']
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
     paths['test_data'] = paths['open_inputs'] / 'testing_data'
 
@@ -544,13 +545,14 @@ def _update_rl_prm(prm, initialise_all):
     return rl
 
 
-def _naming_file_extension(limit_imp, limit_exp, penalty_imp, penalty_exp):
-    file_extension = f"_manage_agg_power_grid_limit{limit_imp}"
-    if limit_imp != limit_exp:
-        file_extension += f"_{limit_exp}"
-    file_extension += f"_pc_coeff{penalty_imp}"
-    if penalty_imp != penalty_exp:
-        file_extension += f"_{penalty_exp}"
+def _naming_file_extension_network_parameters(management, limit_1, limit_2, penalty_1, penalty_2):
+    """ Adds the mange_voltage and manage_agg_power settings to optimization results in opt_res """
+    file_extension = f"_{management}_limit{limit_1}"
+    if limit_1 != limit_2:
+        file_extension += f"_{limit_2}"
+    file_extension += f"_penalty_coeff{penalty_1}"
+    if penalty_1 != penalty_2:
+        file_extension += f"_{penalty_2}"
     return file_extension
 
 
@@ -566,30 +568,43 @@ def _seed_save_paths(prm):
     rl, paths with updated entries
 
     """
-    rl, heat, syst, paths, grd = [prm[key] for key in ["RL", "heat", "syst", "paths", "grd"]]
+    rl, heat, syst, grd, paths, car = \
+        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car"]]
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_n{syst['n_homes']}_nP{syst['n_homesP']}"
+        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}"
     if "file" in heat and heat["file"] != "heat.yaml":
-        paths["opt_res_file"] += f"{heat['file']}"
+        paths["opt_res_file"] += f"_{heat['file']}"
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
+    if rl["deterministic"] == 2:
+        for file in ["opt_res_file", "seeds_file"]:
+            paths[file] += "_noisy"
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
+
     for file in ["opt_res_file", "seeds_file"]:
         if rl["deterministic"] == 2:
             paths[file] += "_noisy"
         paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
                        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
-
         if file == "opt_res_file" and prm["syst"]["change_start"]:
             paths["opt_res_file"] += "_changestart"
-
+        if grd['manage_voltage']:
+            paths[file] += _naming_file_extension_network_parameters(
+                management='manage_voltage',
+                limit_1=prm['grd']['v_mag_over'],
+                limit_2=prm['grd']['v_mag_under'],
+                penalty_1=prm['grd']['penalty_overvoltage'],
+                penalty_2=prm['grd']['penalty_undervoltage']
+            )
+            paths[file] += f"subset_losses{prm['grd']['subset_line_losses_modelled']}"
         if grd['manage_agg_power']:
-            paths[file] += _naming_file_extension(
-                limit_imp=grd['max_grid_in'],
-                limit_exp=grd['max_grid_out'],
-                penalty_imp=grd['penalty_coefficient_in'],
-                penalty_exp=grd['penalty_coefficient_out']
+            paths[file] += _naming_file_extension_network_parameters(
+                management='manage_agg_power',
+                limit_1=prm['grd']['max_grid_import'],
+                limit_2=prm['grd']['max_grid_export'],
+                penalty_1=prm['grd']['penalty_import'],
+                penalty_2=prm['grd']['penalty_export']
             )
 
         # eff does not matter for seeds, but only for res
@@ -696,6 +711,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     ]
 
     _make_type_eval_list(prm["RL"])
+
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
     _time_info(prm)

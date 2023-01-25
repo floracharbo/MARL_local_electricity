@@ -63,6 +63,7 @@ class DataManager():
 
     def format_grd(self, batch, passive_ext):
         """Format network parameters in preparation for optimisation."""
+        # Willingness to delay (WTD)
         grd, loads, syst, car = [
             self.prm[data_file] for data_file in ['grd', 'loads', 'syst', 'car']
         ]
@@ -77,7 +78,7 @@ class DataManager():
                     potential_delay[load_type][time] = max(
                         min(loads['flex'][load_type], syst['N'] - 1 - time), 0)
 
-        # make grd matrices
+        # make ntw matrices
         grd['Bcap'] = np.zeros((syst['n_homes' + passive_ext], syst['N']))
         grd['loads'] = np.zeros((loads['n_types'], syst['n_homes' + passive_ext], syst['N']))
         grd['flex'] = np.zeros(
@@ -98,7 +99,21 @@ class DataManager():
                         if time <= time_cons <= time + int(potential_delay[load_type][time]):
                             grd['flex'][time, load_type, home, time_cons] = 1
 
-        return grd
+        # optimisation of power flow
+        if grd['manage_voltage']:
+            grd['flex_buses'] = self.env.network.flex_buses
+            grd['non_flex_buses'] = self.env.network.non_flex_buses
+            grd['incidence_matrix'] = self.env.network.incidence_matrix
+            grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
+            grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
+            grd['line_resistance'] = self.env.network.line_resistance * \
+                grd['base_power'] / grd['base_voltage'] ** 2
+            grd['line_reactance'] = self.env.network.line_reactance * \
+                grd['base_power'] / grd['base_voltage'] ** 2
+            grd['bus_connection_matrix'] = self.env.network.bus_connection_matrix
+            grd['n_buses'] = len(self.env.network.net.bus)
+            grd['n_lines'] = len(self.env.network.net.line)
+            grd['net'] = self.env.network.net
 
     def _passive_find_feasible_data(self):
         passive = True

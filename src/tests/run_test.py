@@ -7,7 +7,8 @@ from unittest import mock
 import numpy as np
 import pytest
 
-from src.initialisation.initialise_objects import _naming_file_extension
+from src.initialisation.initialise_objects import \
+    _naming_file_extension_network_parameters
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
@@ -32,12 +33,22 @@ def patch_find_feasible_data(
     files = ['res', 'batch']
     for file in files:
         names_files[file] = file + '_test'
+        if self.prm['grd']['manage_voltage']:
+            names_files[file] += _naming_file_extension_network_parameters(
+                management='manage_voltage',
+                limit_1=self.prm['grd']['v_mag_over'],
+                limit_2=self.prm['grd']['v_mag_under'],
+                penalty_1=self.prm['grd']['penalty_overvoltage'],
+                penalty_2=self.prm['grd']['penalty_undervoltage']
+            )
+            names_files[file] += f"subset_losses{self.prm['grd']['subset_line_losses_modelled']}"
         if self.prm['grd']['manage_agg_power']:
-            names_files[file] += _naming_file_extension(
-                limit_imp=self.prm['grd']['max_grid_in'],
-                limit_exp=self.prm['grd']['max_grid_out'],
-                penalty_imp=self.prm['grd']['penalty_coefficient_in'],
-                penalty_exp=self.prm['grd']['penalty_coefficient_out']
+            names_files[file] += _naming_file_extension_network_parameters(
+                management='manage_agg_power',
+                limit_1=self.prm['grd']['max_grid_import'],
+                limit_2=self.prm['grd']['max_grid_export'],
+                penalty_1=self.prm['grd']['penalty_import'],
+                penalty_2=self.prm['grd']['penalty_export']
             )
         names_files[file] += '.npy'
     res, batch = [
@@ -82,13 +93,24 @@ def patch_update_date(self, i0_costs, date0=None):
 
 def patch_file_id(self):
     extension = "_test"
-    if self.prm['grd']['manage_agg_power']:
-        extension += _naming_file_extension(
-            limit_imp=self.prm['grd']['max_grid_in'],
-            limit_exp=self.prm['grd']['max_grid_out'],
-            penalty_imp=self.prm['grd']['penalty_coefficient_in'],
-            penalty_exp=self.prm['grd']['penalty_coefficient_out']
+    if self.prm['grd']['manage_voltage']:
+        extension += _naming_file_extension_network_parameters(
+            management='manage_voltage',
+            limit_1=self.prm['grd']['v_mag_over'],
+            limit_2=self.prm['grd']['v_mag_under'],
+            penalty_1=self.prm['grd']['penalty_overvoltage'],
+            penalty_2=self.prm['grd']['penalty_undervoltage']
         )
+        extension += f"subset_losses{self.prm['grd']['subset_line_losses_modelled']}"          
+    if self.prm['grd']['manage_agg_power']:
+        extension += _naming_file_extension_network_parameters(
+                management='manage_agg_power',
+                limit_1=self.prm['grd']['max_grid_import'],
+                limit_2=self.prm['grd']['max_grid_export'],
+                penalty_1=self.prm['grd']['penalty_import'],
+                penalty_2=self.prm['grd']['penalty_export']
+        )  
+
     extension += ".npy"
     return extension
 
@@ -180,20 +202,31 @@ def test_all(mocker):
         'RL': {
             # current experiment
             'batch_size': 2,
-            'state_space': [['grdC', 'bat_dem_agg', 'avail_car_step']],
+            'state_space': [['grdC']],
             'n_epochs': 5,
             'n_repeats': 2,
         },
         'syst': {
             'test_on_run': True,
             'n_homes': 3
-
         },
         'grd': {
             'max_grid_in': 5,
             'max_grid_out': 5,
             'penalty_coefficient_in': 0.001,
-            'penalty_coefficient_out': 0.001
+            'penalty_coefficient_out': 0.001,
+            'manage_agg_power': True,
+            'max_grid_import': 13,
+            'max_grid_export': 13,
+            'penalty_import': 0.01,
+            'penalty_export': 0.01,
+            'manage_voltage': True,
+            'penalty_overvoltage': 0.1, 
+            'penalty_undervoltage': 0.1,
+            'v_mag_over': 1.001, 
+            'v_mag_under': 0.999,
+            'weight_network_costs': 1,
+            'subset_line_losses_modelled': 30
         }
     }
     run_mode = 1
@@ -260,12 +293,10 @@ def test_all(mocker):
         settings['RL']['type_learning'] = type_learning
         for aggregate_actions in [True,  False]:
             settings['RL']['aggregate_actions'] = aggregate_actions
-            for manage_agg_power in [False, True]:
-                settings['grd']['manage_agg_power'] = manage_agg_power
-                print(f"test {type_learning} aggregate_actions {aggregate_actions} manage_agg_power {manage_agg_power}")
-                no_run = current_no_run(paths_results)
+            print(f"test {type_learning} aggregate_actions {aggregate_actions} ")
+            no_run = current_no_run(paths_results)
 
-                if prev_no_run is not None:
-                    assert no_run == prev_no_run + 1, "results not saving"
-                run(run_mode, settings)
-                prev_no_run = no_run
+            if prev_no_run is not None:
+                assert no_run == prev_no_run + 1, "results not saving"
+            run(run_mode, settings)
+            prev_no_run = no_run

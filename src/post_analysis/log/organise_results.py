@@ -443,7 +443,8 @@ def compute_best_score_per_run(keys_methods, log):
 
 
 def check_that_only_grdCn_changes_in_state_space(
-        other_columns, current_setup, row_setup, initial_setup_row, row, indexes_columns_ignore_q_learning
+        other_columns, current_setup, row_setup, initial_setup_row,
+        row, indexes_columns_ignore_q_learning
 ):
     index_state_space = other_columns.index('state_space')
     indexes_ignore = [index_state_space]
@@ -536,13 +537,17 @@ def get_relevant_columns_for_type_learning(other_columns, log, i_row):
     if log['type_learning'].loc[i_row] == 'q_learning':
         columns_irrelevant_to_comparisons = [
             'obs_agent_id', 'DDPG-rdn_eps_greedy_indiv', 'act_noise', 'agent_facmac',
-            'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size', 'facmac-beta_to_alpha',
-            'facmac-critic_lr', 'facmac-hysteretic', 'learner', 'mixer', 'n_hidden_layers', 'n_hidden_layers_critic',
-            'nn_type', 'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
+            'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size',
+            'facmac-beta_to_alpha', 'facmac-critic_lr', 'facmac-hysteretic', 'learner',
+            'mixer', 'n_hidden_layers', 'n_hidden_layers_critic', 'nn_type',
+            'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
         ]
     else:
         columns_irrelevant_to_comparisons = []
-    other_relevant_columns = [col for col in other_columns if col not in columns_irrelevant_to_comparisons]
+
+    other_relevant_columns = [
+        col for col in other_columns if col not in columns_irrelevant_to_comparisons
+    ]
 
     return other_relevant_columns
 
@@ -552,9 +557,10 @@ def compare_all_runs_for_column_of_interest(
 ):
     columns_irrelevant_to_q_learning = [
         'obs_agent_id', 'DDPG-rdn_eps_greedy_indiv', 'act_noise', 'agent_facmac',
-        'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size', 'facmac-beta_to_alpha',
-        'facmac-critic_lr', 'facmac-hysteretic', 'learner', 'mixer', 'n_hidden_layers', 'n_hidden_layers_critic',
-        'nn_type', 'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
+        'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size',
+        'facmac-beta_to_alpha', 'facmac-critic_lr', 'facmac-hysteretic', 'learner',
+        'mixer', 'n_hidden_layers', 'n_hidden_layers_critic', 'nn_type',
+        'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
     ]
     indexes_columns_ignore_q_learning = [
         other_columns.index(col) for col in columns_irrelevant_to_q_learning
@@ -597,7 +603,8 @@ def compare_all_runs_for_column_of_interest(
 
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
-                    other_columns, current_setup, row_setup, initial_setup_row, row, indexes_columns_ignore_q_learning
+                    other_columns, current_setup, row_setup, initial_setup_row,
+                    row, indexes_columns_ignore_q_learning
                 )
             elif column_of_interest == 'type_learning':
                 only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
@@ -877,7 +884,9 @@ def plot_sensitivity_analyses(new_columns, log):
 
             axs[0].set_ylabel("best score [£/home/h]")
             axs[1].set_ylabel(
-                '\n'.join(wrap("best score with without optimisation-based exploration [£/home/h]", 30))
+                '\n'.join(
+                    wrap("best score with without optimisation-based exploration [£/home/h]", 30)
+                )
             )
             axs[2].set_ylabel("time [s]")
             axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))

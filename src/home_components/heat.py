@@ -384,21 +384,7 @@ class Heat:
         K = self.T_air_coeff[homes, 0:3]
         M = np.transpose(np.array([np.ones(na), T_start, np.ones(na) * T_out_t]))
         p_heat = np.divide(T_air_target - np.sum(np.multiply(K, M), axis=1), self.T_air_coeff[:, 4])
-
-        # heating power
-        # p_heat0 = [(T_air_target[home]
-        #            - (self.T_air_coeff[home][0]
-        #               + self.T_air_coeff[home][1] * T_start[home]
-        #               + self.T_air_coeff[home][2] * T_out_t))
-        #           / self.T_air_coeff[home][4] for home in range(na)]
-        # + self.T_air_coeff[home][3] * phi_solt
-
-        # conversion of power to energy based on duration of time interval
-        # E_heat0 = [p_heat0[home] * 1e-3 * 24 / self.H for home in range(na)]
-        # E_heat0 = np.array([0 if e < 0 else e for e in E_heat0])
-
         E_heat = np.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0)
-        # assert all(e == e0 for e, e0 in zip(E_heat, E_heat0))
 
         return E_heat
 

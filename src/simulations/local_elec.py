@@ -20,6 +20,7 @@ from six import integer_types
 
 from src.home_components.battery import Battery
 from src.home_components.heat import Heat
+from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
@@ -50,9 +51,11 @@ class LocalElecEnv():
         self.prm = prm
         self.rl = prm['RL']
         self.labels_day_trans = prm['syst']['labels_day_trans']
-
         self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
+
+        if self.prm['grd']['manage_voltage']:
+            self.network = Network(prm)
 
         # initialise parameters
         for info in ['N', 'n_int_per_hr', 'dt']:
@@ -310,9 +313,24 @@ class LocalElecEnv():
             return [None, None, None, None, None, constraint_ok, None]
 
         else:
+            if self.prm['grd']['manage_voltage']:
+                [
+                    overvoltage_bus, undervoltage_bus, loaded_buses,
+                    sgen_buses, hourly_line_losses, _
+                ] = self.network.pf_simulation(home_vars['netp'])
+
+            else:
+                overvoltage_bus = []
+                undervoltage_bus = []
+                loaded_buses = []
+                sgen_buses = []
+                hourly_line_losses = 0
             reward, break_down_rewards = self.get_reward(
-                home_vars['netp'], evaluation=evaluation)
-            self.netps = home_vars['netp']
+                netp=home_vars['netp'],
+                hourly_line_losses=hourly_line_losses,
+                overvoltage_bus=overvoltage_bus,
+                undervoltage_bus=undervoltage_bus,
+            )
 
             # ----- update environment variables and state
             new_batch_flex = self.update_flex(loads['flex_cons'])
@@ -349,7 +367,10 @@ class LocalElecEnv():
                      self.heat.tot_E.copy(), self.heat.T.copy(),
                      self.heat.T_air.copy(), self.prm['grd']['C'][self.time].copy(),
                      self.wholesale[self.time].copy(),
-                     self.cintensity[self.time].copy()]
+                     self.cintensity[self.time].copy(),
+                     overvoltage_bus, undervoltage_bus,
+                     np.array(overvoltage_bus.index), np.array(undervoltage_bus.index),
+                     loaded_buses, sgen_buses, hourly_line_losses]
                 return [next_state, self.done, reward, break_down_rewards,
                         home_vars['bool_flex'], constraint_ok, record_output]
             elif netp_storeout:
@@ -368,7 +389,9 @@ class LocalElecEnv():
             charge: list = None,
             passive_vars: list = None,
             time_step: int = None,
-            evaluation: bool = False
+            overvoltage_bus: list = None,
+            undervoltage_bus: list = None,
+            hourly_line_losses: int = 0,
     ) -> Tuple[list, list]:
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
@@ -392,61 +415,87 @@ class LocalElecEnv():
             self.prm['grd']['C'][time_step], self.wholesale[time_step], self.cintensity[time_step]
         ]
 
-        # negative netp is selling, positive buying
-        grid = sum(netp) + sum(netp0)
+        # negative netp is selling, positive buying, losses in kWh
+        grid = sum(netp) + sum(netp0) + hourly_line_losses
         # import and export limits
         grid_in = np.where(np.array(grid) >= 0, grid, 0)
         grid_out = np.where(np.array(grid) < 0, grid, 0)
 
         if self.prm['grd']['manage_agg_power']:
-            pci = np.where(
+            import_costs = np.where(
                 grid_in
-                >= self.prm['grd']['max_grid_in'],
-                self.prm['grd']['penalty_coefficient_in']
-                * (grid_in - self.prm['grd']['max_grid_in']), 0)
-            pco = np.where(
+                >= self.prm['grd']['max_grid_import'],
+                self.prm['grd']['penalty_import']
+                * (grid_in - self.prm['grd']['max_grid_import']), 0)
+            export_costs = np.where(
                 abs(grid_out)
-                >= self.prm['grd']['max_grid_out'],
-                self.prm['grd']['penalty_coefficient_out']
-                * (abs(grid_out) - self.prm['grd']['max_grid_out']), 0)
+                >= self.prm['grd']['max_grid_export'],
+                self.prm['grd']['penalty_export']
+                * (abs(grid_out) - self.prm['grd']['max_grid_export']), 0)
 
-            pc = pci + pco
+            import_export_costs = import_costs + export_costs
         else:
-            pc = 0
+            import_export_costs = 0
+
+        # Voltage costs
+        voltage_costs = 0
+        if overvoltage_bus is not None:
+            voltage_costs += self.prm['grd']['penalty_overvoltage'] * sum(
+                overvoltage ** 2 - self.prm['grd']['v_mag_over'] ** 2
+                for overvoltage in overvoltage_bus
+            )
+        if undervoltage_bus is not None:
+            voltage_costs += self.prm['grd']['penalty_undervoltage'] * sum(
+                self.prm['grd']['v_mag_under'] ** 2 - undervoltage ** 2
+                for undervoltage in undervoltage_bus
+            )
 
         if self.prm['grd']['charge_type'] == 0:
             sum_netp = sum(self.netp_to_exports(netp))
             sum_netp0 = sum(self.netp_to_exports(netp0))
-
-            # sum_netp = sum([abs(netp[home]) if netp[home] < 0
-            #                else 0 for home in self.homes])
-            # sum_netp0 = sum([abs(netp0[home]) if netp0[home] < 0
-            #                  else 0 for home in range(len(netp0))])
             netpvar = sum_netp + sum_netp0
-            dc = self.prm['grd']['export_C'] * netpvar
+            distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
         else:
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
-            dc = self.prm['grd']['export_C'] * netpvar
-        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2) + pc
-        gc_a = [wholesalet * netp[home] for home in self.homes]
-        sc = self.prm['car']['C'] \
+            distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
+        grid_energy_costs = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
+        cost_distribution_network_losses = grdCt * hourly_line_losses
+        indiv_grid_energy_costs = [wholesalet * netp[home] for home in self.homes]
+        battery_degradation_costs = self.prm['car']['C'] \
             * (sum(discharge_tot[home] + charge[home]
                    for home in self.homes)
                 + sum(discharge_tot0[home] + charge0[home]
                       for home in range(len(discharge_tot0))))
-        sc_a = [self.prm['car']['C'] * (discharge_tot[home] + charge[home])
-                for home in self.homes]
-        c_a = [g + s for g, s in zip(gc_a, sc_a)]
-        reward = - (gc + sc + dc)
-        costs_wholesale = wholesalet * grid
-        costs_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
+        indiv_battery_degradation_costs = [
+            self.prm['car']['C'] * (discharge_tot[home] + charge[home]) for home in self.homes
+        ]
+        indiv_grid_battery_costs = [
+            g + s for g, s in zip(indiv_grid_energy_costs, indiv_battery_degradation_costs)
+        ]
+        network_costs = import_export_costs + voltage_costs
+        reward = - (
+            battery_degradation_costs + distribution_network_export_costs + grid_energy_costs
+            + self.prm['grd']['weight_network_costs'] * network_costs
+        )
+        costs_wholesale = wholesalet * (sum(netp) + sum(netp0))
+        costs_upstream_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
+        total_costs = -reward
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
-        break_down_rewards = [gc, sc, dc, pc, costs_wholesale, costs_losses,
-                              emissions, emissions_from_grid,
-                              emissions_from_loss, gc_a, sc_a, c_a]
+        break_down_rewards = [
+            grid_energy_costs, battery_degradation_costs, distribution_network_export_costs,
+            import_export_costs, voltage_costs, hourly_line_losses,
+            cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
+            emissions_from_grid, emissions_from_loss, total_costs, indiv_grid_energy_costs,
+            indiv_battery_degradation_costs, indiv_grid_battery_costs
+        ]
+
+        assert len(break_down_rewards) == len(self.prm['syst']['break_down_rewards_entries']), \
+            f"len(break_down_rewards) {len(break_down_rewards)} " \
+            f"== len(self.prm['syst']['break_down_rewards_entries']) " \
+            f"{len(self.prm['syst']['break_down_rewards_entries'])}"
 
         if self.offset_reward:
             reward -= self.delta_reward
@@ -967,15 +1016,18 @@ class LocalElecEnv():
             if self.spaces.descriptors['state'][i] == 'grdC_level'
         ]
         if len(i_grdC_level) > 0:
-            self.normalised_grdC = [
-                (gc - min(self.prm['grd']['C'][0: self.N]))
-                / (max(self.prm['grd']['C'][0: self.N]) - min(self.prm['grd']['C'][0: self.N]))
-                for gc in self.prm['grd']['C'][0: self.N + 1]
-            ]
-            if not (self.spaces.type_env == "continuous"):
+            self.normalised_grdC = \
+                [(grid_energy_costs - min(self.prm['grd']['C'][0: self.N]))
+                 / (max(self.prm['grd']['C'][0: self.N])
+                    - min(self.prm['grd']['C'][0: self.N]))
+                 for grid_energy_costs in self.prm['grd']['C'][0: self.N + 1]]
+
+            if not self.spaces.type_env == "continuous":
                 self.spaces.brackets['state'][i_grdC_level[0]] = [
-                    [np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
-                     for i in range(self.n_grdC_level)] + [1]
+                    [
+                        np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
+                        for i in range(self.n_grdC_level)
+                    ] + [1]
                     for _ in self.homes
                 ]
         if 'heat' in self.__dict__:

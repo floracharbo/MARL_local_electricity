@@ -1,10 +1,10 @@
 grd: ['V',
   'R',
   'loss',
-  'max_grid_in',
-  'max_grid_out',
-  'penalty_coefficient_in',
-  'penalty_coefficient_out',
+  'max_grid_import',
+  'max_grid_export',
+  'penalty_import',
+  'penalty_export',
   'Bcap',
   'charge_type'
   ]

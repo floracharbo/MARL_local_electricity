@@ -11,7 +11,8 @@ last_entries: [
   'netp','store_outs','action','reward', 'break_down_rewards', 'store', # values i want to store from last epoch so that i can plot
   'ldflex', 'ldfixed','totcons','tot_cons_loads',
   'tot_E_heat','T', 'T_air', 'grdC','wholesale',
-  'cintensity'
+  'cintensity', 'overvoltage_bus_value', 'undervoltage_bus_value', 'overvoltage_bus_index', 'undervoltage_bus_index',
+  'loaded_buses', 'sgen_buses'
 ]
 repeat_entries: [
   'train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',

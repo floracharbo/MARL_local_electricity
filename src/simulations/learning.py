@@ -164,7 +164,7 @@ class LearningManager():
                                   current_state: list,
                                   actions: list,
                                   reward: float,
-                                  indiv_rewards: List[float],
+                                  indiv_grid_battery_costs: List[float],
                                   state: list,
                                   reward_diffs: list
                                   ):
@@ -179,7 +179,7 @@ class LearningManager():
             else:
                 for home in self.homes:
                     if reward_type(method) == 'r' and self.rl['competitive']:
-                        reward = indiv_rewards[home]
+                        reward = indiv_grid_battery_costs[home]
                     elif reward_type(method) == 'd':
                         reward = reward_diffs[home]
                     if self.rl['type_learning'] in ['DQN', 'DDQN']:

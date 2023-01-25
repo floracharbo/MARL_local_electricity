@@ -23,4 +23,5 @@ dependencies:
   - picos=2.4.11
   - tensorflow=2.8.1
   - mosek=10.0.23
+  - pandapower=2.8.0
 prefix: /home/julie/mambaforge/envs/my_env

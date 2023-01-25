@@ -255,3 +255,18 @@ def should_optimise_for_supervised_loss(epoch, rl):
         rl['supervised_loss']
         and epoch < rl['n_epochs_supervised_loss']
     )
+
+
+def rename_runs(results_path, i0):
+    folders = os.listdir(results_path)
+    initial_numbers = sorted([int(folder[3:]) for folder in folders if folder[0: 3] == "run"])[:-1]
+    for i, initial_number in enumerate(initial_numbers):
+        if initial_number != i0 + i:
+            os.rename(results_path / f"run{initial_number}", results_path / f"run{i0 + i}")
+            print(f"rename run{initial_number} -> run{i0 + i}")
+
+    runs = list(range(730, 764))
+    for i in range(len(runs)):
+        run = runs[- (i + 1)]
+        os.rename(results_path / f"run{run}", results_path / f"run{run + 1}")
+        print(f"rename run{run} -> {run + 1}")

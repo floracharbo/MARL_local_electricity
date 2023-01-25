@@ -86,9 +86,96 @@ def heatmap_savings_per_method(prm):
 
 
 def barplot_breakdown_savings(record, prm, plot_type='savings'):
+    """ Creates barplot of monthly average cost or savings distribution """
+    labels = [
+        record.break_down_rewards_entries[prm['syst']['break_down_rewards_entries'].index(label)]
+        for label in [
+            'grid_energy_costs', 'battery_degradation_costs', 'distribution_network_export_costs',
+            'import_export_costs', 'voltage_costs', 'total_costs'
+        ]
+    ]
+    bars = [[] for _ in range(len(labels))]
+    shares_reduc = {}
+    tots = {}
+    for method in prm['RL']['evaluation_methods']:
+        if method != 'baseline':
+            shares_reduc[method] = []
+            for i, label in enumerate(labels):
+                record_obj = record.__dict__[label]
+                mult = prm['syst']['co2tax'] if label == 'emissions' else 1
+                if plot_type == 'savings':
+                    bars[i].append(
+                        np.mean([[(record_obj[repeat]['baseline'][epoch]
+                                - record_obj[repeat][method][epoch])
+                                * mult / (prm['syst']['n_homes'] + prm['syst']['n_homesP'])
+                                * 24 * 365 / 12
+                                for epoch in range(prm['RL']['start_end_eval'],
+                                                   len(record_obj[repeat][method]))]
+                                for repeat in range(prm['RL']['n_repeats'])]))
+                else:
+                    bars[i].append(
+                        np.mean([[(record_obj[repeat][method][epoch])
+                                * 24 * 365 / 12
+                                * mult / (prm['syst']['n_homes'] + prm['syst']['n_homesP'])
+                                for epoch in range(prm['RL']['start_end_eval'],
+                                                   len(record_obj[repeat][method]))]
+                                for repeat in range(prm['RL']['n_repeats'])]))
+            tots[method] = sum(
+                bars[i][-1] for i, label in enumerate(labels)
+                if label in ['distribution_network_export_costs', 'battery_degradation_costs',
+                             'grid_energy_costs', 'import_export_costs', 'voltage_costs']
+            )
+            shares_reduc[method].append(
+                [bars[i][-1] / tots[method] if tots[method] > 0 else None
+                    for i in range(len(labels))]
+            )
+    new_labels = [
+        'Grid costs', 'Storage costs', 'Distribution Costs', 'Import/Export Penalty',
+        'Voltage Penalty', 'Total Costs'
+    ]
+
+    bars.append(list(tots.values()))
+    barWidth = 1 / (len(new_labels) + 1)
+    rs = []
+    rs.append(np.arange(len(prm['RL']['evaluation_methods'])- 1))
+    for ir in range(len(new_labels)):
+        rs.append([x + barWidth for x in rs[ir]])
+    plt.figure(figsize=(16, 8))
+    for ir in range(len(new_labels)):
+        plt.bar(rs[ir], bars[ir], width=barWidth, label=new_labels[ir])
+    plt.xlabel('Evaluation Method')
+    plt.ylabel('Costs [£/month/home]')
+    method_list = []
+    for method in prm['RL']['evaluation_methods']:
+        if method != 'baseline':
+            method_list.append(method)
+    plt.xticks(
+        [r + barWidth for r in range(len(bars[0]))],
+        method_list,
+        rotation=45
+    )
+    plt.legend()
+    plt.tight_layout()
+    if plot_type == 'savings':
+        plt.title('savings relative to baseline costs / emissions')
+    else:
+        plt.title('Monthly average of costs distribution per household')
+    plt.savefig(
+        f"{prm['paths']['fig_folder']}/mean_{plot_type}_bar_plots.png", bbox_inches='tight')
+    plt.close('all')
+
+
+def barplot_grid_energy_costs(record, prm, plot_type='savings'):
+    """ Creates a barplot of monthly average energy costs distribution """
     # all break down rewards except for the last three ones
     # which are individual values
-    labels = record.break_down_rewards_entries[:-3]
+    plt.rcParams['font.size'] = '16'
+    labels = [
+        'grid_energy_costs',
+        'cost_distribution_network_losses',
+        'costs_wholesale',
+        'costs_upstream_losses',
+    ]
     bars = [[] for _ in range(len(labels))]
     shares_reduc = {}
     tots = {}
@@ -114,7 +201,12 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                              for repeat in range(prm['RL']['n_repeats'])]))
         tots[method] = sum(
             bars[i][-1] for i, label in enumerate(labels)
-            if label in ['dc', 'sc', 'gc', 'pc']
+            if label in [
+                'distribution_network_export_costs',
+                'battery_degradation_costs',
+                'grid_energy_costs',
+                'voltage_costs'
+            ]
         )
         shares_reduc[method].append(
             [bars[i][-1] / tots[method] if tots[method] > 0 else None
@@ -122,37 +214,42 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
         )
 
     barWidth = 1 / (len(labels) + 1)
+    new_labels = ['Grid costs', 'Costs of distribution network losses',
+                  'Wholesale costs', 'Costs of upstream losses']
     rs = []
     rs.append(np.arange(len(prm['RL']['evaluation_methods'])))
-    for ir in range(len(labels) - 1):
+    for ir in range(len(new_labels) - 1):
         rs.append([x + barWidth for x in rs[ir]])
-    plt.figure()
-    for ir in range(len(labels)):
-        plt.bar(rs[ir], bars[ir], width=barWidth, label=labels[ir])
-    plt.xlabel('evaluation')
-    plt.xticks([r + barWidth
-                for r in range(len(bars[0]))], prm['RL']['evaluation_methods'],
-               rotation='vertical')
+    plt.figure(figsize=(10, 8))
+    for ir in range(len(new_labels)):
+        plt.bar(rs[ir], bars[ir], width=barWidth, label=new_labels[ir])
+    plt.xlabel('Evaluation Method')
+    plt.ylabel('Costs [£/month/home]')
+    plt.xticks(
+        [r + barWidth for r in range(len(bars[0]))],
+        prm['RL']['evaluation_methods'],
+        rotation=45
+    )
     plt.legend()
     plt.tight_layout()
     if plot_type == 'savings':
         plt.title('savings relative to baseline costs / emissions')
     else:
-        plt.title('mean costs distribution')
+        plt.title('Monthly average of grid energy costs distribution per household')
     plt.savefig(
-        f"{prm['paths']['fig_folder']}/mean_{plot_type}_bar_plots.png", bbox_inches='tight')
+        f"{prm['paths']['fig_folder']}/mean_grid_{plot_type}_bar_plots.png", bbox_inches='tight')
     plt.close('all')
 
 
 def barplot_indiv_savings(record, prm):
     # plot the invidivual savings
-    if len(np.shape(record.indiv_sc[0]['baseline'][0])) == 0:
+    if len(np.shape(record.indiv_grid_battery_costs[0]['baseline'][0])) == 0:
         indiv_savings = True \
-            if not np.isnan(record.indiv_sc[0]['baseline'][0]) \
+            if not np.isnan(record.indiv_grid_battery_costs[0]['baseline'][0]) \
             else False
     else:
         indiv_savings = True \
-            if not np.isnan(record.indiv_sc[0]['baseline'][0][0]) \
+            if not np.isnan(record.indiv_grid_battery_costs[0]['baseline'][0][0]) \
             else False
     if indiv_savings:
         eval_not_baseline = [
@@ -165,28 +262,33 @@ def barplot_indiv_savings(record, prm):
         ]
         for home in range(prm['syst']['n_homes']):
             for method in eval_not_baseline:
-                savings_sc_a, savings_gc_a = [
+                savings_battery_degradation_costs_a, savings_grid_energy_costs_a = [
                     np.mean([[(reward[repeat]['baseline'][epoch][home]
                                - reward[repeat][method][epoch])
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  prm['RL']['n_epochs'])]
                              for repeat in range(prm['RL']['n_repeats'])])
-                    for reward in [record.__dict__['indiv_sc'],
-                                   record.__dict__['indiv_gc']]]
+                    for reward in [record.__dict__['indiv_grid_battery_costs'],
+                                   record.__dict__['indiv_grid_energy_costs']]]
                 share_sc[home].append(
-                    savings_sc_a / (savings_sc_a + savings_gc_a))
-                savings_a_all = \
-                    [[(record.__dict__['indiv_c'][repeat]['baseline'][epoch][home]
-                       - record.__dict__['indiv_c'][repeat][method][epoch])
-                      for epoch in range(prm['RL']['start_end_eval'],
-                                         prm['RL']['n_epochs'])]
-                     for repeat in range(prm['RL']['n_repeats'])]
+                    savings_battery_degradation_costs_a
+                    / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
+                )
+                savings_a_all = [
+                    [
+                        (
+                            record.__dict__['indiv_grid_battery_costs'][repeat]['baseline'][epoch][home]
+                            - record.__dict__['indiv_grid_battery_costs'][repeat][method][epoch]
+                        )
+                        for epoch in range(prm['RL']['start_end_eval'], prm['RL']['n_epochs'])
+                    ]
+                    for repeat in range(prm['RL']['n_repeats'])
+                ]
                 savings_a[home].append(np.mean(savings_a_all))
                 std_savings[home].append(np.std(savings_a_all))
         for it in range(len(eval_not_baseline)):
             if eval_not_baseline[it] == 'opt_d_d':
-                savings_opt_d_d = [savings_a[home][it]
-                                   for home in range(prm['syst']['n_homes'])]
+                savings_opt_d_d = [savings_a[home][it] for home in range(prm['syst']['n_homes'])]
                 print(f"savings per agent opt_d_d: {savings_opt_d_d}")
                 print(f"mean {np.mean(savings_opt_d_d)}, "
                       f"std {np.std(savings_opt_d_d)}, "

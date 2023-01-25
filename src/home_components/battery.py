@@ -460,6 +460,11 @@ class Battery:
              * self.avail_car[home] for home in range(self.n_homes)]
         )
 
+        assert all(add <= potential + 1e-3 for add, potential in zip(s_add_0, potential_charge)
+                   if potential > 0), f"s_add_0 {s_add_0} > potential_charge {potential_charge}"
+        assert all(remove <= avail + 1e-3 for remove, avail in zip(s_remove_0, s_avail_dis)
+                   if avail > 0), f"s_remove_0 {s_remove_0} > s_avail_dis {s_avail_dis}"
+
         return s_avail_dis, s_add_0, s_remove_0, potential_charge
 
     def k_losses(self, home, k, action_prev, action_next):

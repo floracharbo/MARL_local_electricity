@@ -57,8 +57,7 @@ class Record():
         # save q tables at each step in record
         # depending on the dimension of the q tables
         self.save_qtables = True \
-            if (rl["state_space"] is None
-                or len(rl["state_space"]) <= 2)\
+            if (rl["state_space"] is None or len(rl["state_space"]) <= 2) \
             and rl["n_epochs"] <= 1e3 \
             else False
         self.n_epoch = rl["n_epochs"]
@@ -106,8 +105,7 @@ class Record():
 
         for field in ["q_tables", "counter"]:
             if self.save_qtables:
-                self.__dict__[field][repeat] = initialise_dict(
-                    range(rl["n_epochs"]))
+                self.__dict__[field][repeat] = initialise_dict(range(rl["n_epochs"]))
             else:
                 self.__dict__[field][repeat] = {}
 
@@ -158,23 +156,24 @@ class Record():
         if list_train_stepvals is not None:
             for method in rl["exploration_methods"]:
                 self.train_rewards[self.repeat][method].append(
-                    list_train_stepvals[method]["reward"])
+                    list_train_stepvals[method]["reward"]
+                )
                 self.train_actions[self.repeat][method].append(
-                    list_train_stepvals[method]["action"])
+                    list_train_stepvals[method]["action"]
+                )
                 self.train_states[self.repeat][method].append(
-                    list_train_stepvals[method]["state"])
+                    list_train_stepvals[method]["state"]
+                )
         for method in rl["evaluation_methods"]:
             self._append_eval(eval_steps, method, epoch, end_test)
 
         if rl["type_learning"] == "q_learning" and not end_test:
             if self.save_qtables:
                 for e in ["q_tables", "counter"]:
-                    self.__dict__[e][self.repeat][epoch] = copy.deepcopy(
-                        learner.__dict__[e])
+                    self.__dict__[e][self.repeat][epoch] = copy.deepcopy(learner.__dict__[e])
             elif epoch == self.n_epoch - 1:
                 for e in ["q_tables", "counter"]:
-                    self.__dict__[e][self.repeat] = copy.deepcopy(
-                        learner.__dict__[e])
+                    self.__dict__[e][self.repeat] = copy.deepcopy(learner.__dict__[e])
 
         self._update_eps(rl, learner, epoch, end_test)
 
@@ -198,7 +197,7 @@ class Record():
         """
         labels = self.repeat_entries if end_of == "repeat" \
             else self.stateind_entries
-        if not self.save_qtables and self.repeat < self.n_repeats - 1:
+        if not self.save_qtables:
             labels = [label for label in labels if label not in ["q_tables", "counter"]] \
                 if end_of == "repeat" \
                 else labels + ["q_tables", "counter"]
@@ -215,8 +214,7 @@ class Record():
 
     def load(self, prm: dict):
         """List files to load for record object & call loading_file method."""
-        repeat_labels = [e for e in self.repeat_entries
-                         if e not in ["q_tables", "counter"]]\
+        repeat_labels = [e for e in self.repeat_entries if e not in ["q_tables", "counter"]] \
             if not self.save_qtables \
             else self.repeat_entries
         stateind_labels = self.stateind_entries

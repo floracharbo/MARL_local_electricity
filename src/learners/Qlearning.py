@@ -290,20 +290,20 @@ class TabularQLearner:
                     if epoch >= self.rl['q_learning']['end_decay']:
                         self.eps[method] = 0
 
-    def _get_reward_home(self, diff_rewards, indiv_rewards, reward, q, home):
+    def _get_reward_home(self, diff_rewards, indiv_grid_battery_costs, reward, q, home):
         if reward_type(q) == 'd':
             reward_a = diff_rewards[home]
         elif self.rl['competitive']:
-            reward_a = indiv_rewards[home]
+            reward_a = indiv_grid_battery_costs[home]
         else:
             reward_a = reward
 
         return reward_a
 
     def update_q_step(self, q, step, step_vals, epoch):
-        reward, diff_rewards, indiv_rewards = [
+        reward, diff_rewards, indiv_grid_battery_costs = [
             step_vals[key][step]
-            for key in ["reward", "diff_rewards", "indiv_rewards"]
+            for key in ["reward", "diff_rewards", "indiv_grid_battery_costs"]
         ]
 
         [ind_global_s, ind_global_ac, indiv_s, indiv_ac, ind_next_global_s, next_indiv_s, done] = [
@@ -361,7 +361,7 @@ class TabularQLearner:
                     if indiv_ac[home] is not None:
                         i_table = 0 if distr_learning(q) == 'c' else home
                         reward_home = self._get_reward_home(
-                            diff_rewards, indiv_rewards, reward, q, home
+                            diff_rewards, indiv_grid_battery_costs, reward, q, home
                         )
                         self.update_q(
                             reward_home, done, ind_indiv_s[home], ind_indiv_ac[home],

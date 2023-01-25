@@ -657,11 +657,11 @@ class HEDGE:
                         trip_loads: List[float],
                         dt_to_trips: List[int],
                         t_end_trip: int,
-                        avail_ev: List[bool]
+                        avail_car: List[bool]
                         ) -> float:
         # obtain required charge before each trip, starting with end
         n_avail_until_end = sum(
-            avail_ev[t] for t in range(t_end_trip, self.n_steps)
+            avail_car[t] for t in range(t_end_trip, self.n_steps)
         )
         # this is the required charge for the current step
         # if there is no trip
@@ -690,14 +690,14 @@ class HEDGE:
             trip_load: float,
             dt_to_trip: int,
             t: int,
-            avail_ev_: list
+            avail_car_: list
     ) -> bool:
         if trip_load > self.car['cap'] + 1e-2:
             # load during trip larger than whole
             feasible = False
         elif (
                 dt_to_trip > 0
-                and sum(avail_ev_[0: t]) == 0
+                and sum(avail_car_[0: t]) == 0
                 and trip_load / dt_to_trip > self.store0 + self.car["c_max"]
         ):
             feasible = False
