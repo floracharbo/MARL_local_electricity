@@ -94,8 +94,7 @@ class Runner():
 
                     # append record
                     for e in ['seed', 'n_not_feas', 'not_feas_vars']:
-                        self.record.__dict__[e][repeat].append(
-                            train_steps_vals[-1][e])
+                        self.record.__dict__[e][repeat].append(train_steps_vals[-1][e])
 
                     model_save_time = self._save_nn_model(model_save_time)
 

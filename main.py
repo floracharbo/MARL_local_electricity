@@ -16,46 +16,38 @@ from src.simulations.runner import run
 settings = {
     'heat': {'file': 'heat2'},
     'RL': {
+        'type_learning': 'facmac',
+        'evaluation_methods': [['env_r_c', 'opt_r_c']],
         'aggregate_actions': False,
         'cnn_kernel_size': 2,
-        'n_epochs': 20,
         'normalise_states': True,
-        'obs_agent_id': False,
-        # current experiment
-        # grdC_level, hour, car_tau, store0, grdC
-        # # avail_car_step, loads_clus_step, loads_fact_step
-        # # gen_fact_step, bat_fact_step, loads_cons_step, gen_prod_step
-        # # bat_cons_step, dT, dT_next, bat_cons_prev
-        # # bat_dem_agg, gen_fact_prev, bat_fact_prev, loads_cons_prev
-        # # gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
-        # # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
-
-        # # flexibility
-        'state_space': [['grdC']],
-        'type_learning': 'facmac',
-        'evaluation_methods': [['env_r_c', 'opt']],
-        'n_repeats': 3,
-        'lr': 1e-3,
-        'facmac': {'critic_lr': 5e-4, 'batch_size': 5},
-        'ou_stop_episode': 1e3,  # for cqmix controller - training  oise goes to zero after this episode
-        'start_steps': 100,  # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
-        'hyper_initialization_nonzeros': 0.1,
-        'n_hidden_layers': 2,   # number of hidden layers
-        'n_hidden_layers_critic': 1,  # number of hidden layers for the critic
-        # 'trajectory': True,
-        'n_cnn_layers': 1,
-        'rnn_hidden_dim': 5e2,
-        # 'supervised_loss_weight': [10],
-        # 'supervised_loss': True,
-        # 'learner': 'facmac_learner_discrete',
-        # 'n_start_opt_explo': 5,
-        'nn_type': 'lstm',
-        # 'target_update_mode': 'hard',  # 'soft' or 'hard'
-        'DDPG': {'rdn_eps_greedy_indiv': True, 'eps': 0.5}
+        'obs_agent_id': True,
+        'trajectory': False,
+        'rnn_hidden_dim': 1e2,
+        'state_space': [['flexibility', 'grdC_n2']],
+        'n_epochs': 5,
+        'n_repeats': 2,
+        'facmac': {
+            'critic_lr': 1e-4,
+        },
     },
     'grd': {
-        'n': 10,
-        'manage_agg_power': False
+        'manage_agg_power': False,
+        'max_grid_import': 13,
+        'max_grid_export': 13,
+        'penalty_import': 0.01,
+        'penalty_export': 0.01,
+        'manage_voltage': False,
+        'penalty_overvoltage': 0.1,
+        'penalty_undervoltage': 0.1,
+        'v_mag_over': 1.001,
+        'v_mag_under': 0.999,
+        'weight_network_costs': 1,
+        'subset_line_losses_modelled': 30
+    },
+
+    'car': {
+        'c_max': 4
     },
     'syst': {'H': 24}
 }

@@ -249,12 +249,13 @@ class Battery:
         last_step = self._last_step(date)
         # regular initial minimum charge
         min_charge_t_0 = np.where(last_step, self.store0, self.min_charge) * avail_car
+
         # min_charge if need to charge up ahead of last step
-        Creq = []
+        charge_required = []
         for home in range(self.n_homes):
             if not avail_car[home]:
                 # if EV not currently in garage
-                Creq.append(0)
+                charge_required.append(0)
                 continue
 
             # obtain all future trips
@@ -264,13 +265,16 @@ class Battery:
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time
             n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
-            n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
 
             if len(trips) == 0:
                 n_avail_until_end -= 1
 
-            Creq.append(
-                max(0, self.store0[home] - self.c_max * n_avail_until_end)
+            charge_for_final_step = self.store0[home] - self.c_max * n_avail_until_end
+            charge_for_reaching_min_charge_next = \
+                self.min_charge[home] * self.batch['avail_car'][home][final_i_endtrip + 1] \
+                - self.c_max
+            charge_required.append(
+                max(charge_for_final_step, charge_for_reaching_min_charge_next, 0)
             )
 
             for it in range(len(trips)):
@@ -280,9 +284,12 @@ class Battery:
                 # this is the required charge at the current step
                 # if this is the most recent trip, or right after
                 # the previous trip
-                Creq[home] = max(0, Creq[home] + loads_T - deltaT * self.c_max)
+                charge_required[home] = max(
+                    0,
+                    charge_required[home] + loads_T - deltaT * self.c_max
+                )
 
-        min_charge_t = np.maximum(min_charge_t_0, Creq)
+        min_charge_t = np.maximum(min_charge_t_0, charge_required)
         self._check_min_charge_t_feasible(
             min_charge_t, time, date, bool_penalty, print_error, simulation
         )
@@ -432,22 +439,24 @@ class Battery:
             ) * self.avail_car[home] for home in range(self.n_homes)]
         )
 
-        # how much i need to add to store
+        # how much is to be added to store
         s_add_0 = np.array(
-            [max(self.min_charge_t[home] - self.start_store[home], 0)
-             * self.avail_car[home] for home in range(self.n_homes)]
+            [
+                max(self.min_charge_t[home] - self.start_store[home], 0) * self.avail_car[home]
+                for home in range(self.n_homes)
+            ]
         )
-        i_too_large = np.where(s_add_0 > self.c_max + 1e-3)[0]
-        if len(i_too_large) > 0:
+        home_too_large = np.where(s_add_0 > self.c_max + 1e-3)[0]
+        if len(home_too_large) > 0:
             if self.time_step == self.N:
-                for i in i_too_large:
-                    s_add_0[i] = self.c_max
-        assert self.time_step == self.N or len(i_too_large) == 0, \
-            f"s_add_0: {s_add_0[i_too_large[0]]} > self.c_max {self.c_max} " \
-            f"self.min_charge_t[i_too_large[0]] {self.min_charge_t[i_too_large[0]]} " \
-            f"self.start_store[i_too_large[0]] {self.start_store[i_too_large[0]]} " \
+                for home in home_too_large:
+                    s_add_0[home] = self.c_max
+        assert self.time_step == self.N or len(home_too_large) == 0, \
+            f"s_add_0: {s_add_0[home_too_large[0]]} > self.c_max {self.c_max} " \
+            f"self.min_charge_t[i_too_large[0]] {self.min_charge_t[home_too_large[0]]} " \
+            f"self.start_store[i_too_large[0]] {self.start_store[home_too_large[0]]} " \
             f"self.time_step {self.time_step} " \
-            f"self.store[i_too_large[0]] {self.store[i_too_large[0]]} "
+            f"self.store[i_too_large[0]] {self.store[home_too_large[0]]} "
 
         # how much i need to remove from store
         s_remove_0 = np.array(
@@ -624,8 +633,8 @@ class Battery:
                 error_message = \
                     f"date {date} time {time} " \
                     f"min_charge_t[{home}] {min_charge_t[home]} " \
-                    f"> self.store[{home}] {self.store[home]} " \
-                    f"+ self.c_max {self.c_max}"
+                    f"> self.store[{home}] {self.store[home]} "
+
                 self._print_error(error_message, print_error)
 
             elif not simulation \

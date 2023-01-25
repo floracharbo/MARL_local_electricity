@@ -1,8 +1,8 @@
 import pickle
+import shutil
 from datetime import timedelta
 from pathlib import Path
 from unittest import mock
-import shutil
 
 import numpy as np
 import pytest
