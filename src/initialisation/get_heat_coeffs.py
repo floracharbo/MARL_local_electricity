@@ -222,6 +222,8 @@ def get_heat_coeffs(heat, syst, paths):
     t_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
     for passive_ext in ["", "P"]:
         for label, value in zip(['T_coeff', 'T_air_coeff'], [t_coeff_0, t_air_coeff_0]):
-            heat[label + passive_ext] = np.repeat(value, repeats=syst["n_homes" + passive_ext], axis=0)
+            heat[label + passive_ext] = np.repeat(
+                value, repeats=syst["n_homes" + passive_ext], axis=0
+            )
 
     return heat

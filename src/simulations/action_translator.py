@@ -636,21 +636,10 @@ class Action_translator:
             max_discharge_a, min_discharge_a = [
                 self.max_discharge[home], self.min_discharge[home]
             ]
-            if not (
-                    min_charge_a - 1e-3 <= res['charge'][home, time_step]
-                    <= max_charge_a + 1e-3
-            ):
-                print()
             assert min_charge_a - 1e-3 <= res['charge'][home, time_step] \
                    <= max_charge_a + 1e-3, \
                    f"res charge {res['charge'][home, time_step]} " \
                    f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-            if not (
-                    max_discharge_a - 1e-3
-                    <= - res['discharge_other'][home, time_step] / self.car.eta_dis
-                    <= min_discharge_a + 1e-3
-            ):
-                print()
             assert max_discharge_a - 1e-3 \
                    <= - res['discharge_other'][home, time_step] / self.car.eta_dis \
                    <= min_discharge_a + 1e-3, \
