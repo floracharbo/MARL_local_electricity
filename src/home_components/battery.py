@@ -625,7 +625,10 @@ class Battery:
                     f"date {date} time {time} " \
                     f"min_charge_t[{home}] {min_charge_t[home]} " \
                     f"> self.store[{home}] {self.store[home]} " \
-                    f"+ self.c_max {self.c_max}"
+                    f"+ self.c_max {self.c_max} " \
+                    f"self.avail_car[{home}] = {self.avail_car} " \
+                    f"self.batch['avail_car'][home][time - 1] {self.batch['avail_car'][home][time - 1]}"
+
                 self._print_error(error_message, print_error)
 
             elif not simulation \
