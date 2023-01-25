@@ -137,7 +137,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
     bars.append(list(tots.values()))
     barWidth = 1 / (len(new_labels) + 1)
     rs = []
-    rs.append(np.arange(len(prm['RL']['evaluation_methods'])- 1))
+    rs.append(np.arange(len(prm['RL']['evaluation_methods']) - 1))
     for ir in range(len(new_labels)):
         rs.append([x + barWidth for x in rs[ir]])
     plt.figure(figsize=(16, 8))
@@ -274,11 +274,12 @@ def barplot_indiv_savings(record, prm):
                     savings_battery_degradation_costs_a
                     / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
                 )
+                indiv_grid_battery_costs = record.__dict__['indiv_grid_battery_costs']
                 savings_a_all = [
                     [
                         (
-                            record.__dict__['indiv_grid_battery_costs'][repeat]['baseline'][epoch][home]
-                            - record.__dict__['indiv_grid_battery_costs'][repeat][method][epoch]
+                            indiv_grid_battery_costs[repeat]['baseline'][epoch][home]
+                            - indiv_grid_battery_costs[repeat][method][epoch]
                         )
                         for epoch in range(prm['RL']['start_end_eval'], prm['RL']['n_epochs'])
                     ]

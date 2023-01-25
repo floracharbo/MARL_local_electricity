@@ -320,9 +320,6 @@ class Explorer():
                 global_ind = self._compute_global_ind_state_action(
                     current_state, state, action, done, method
                 )
-                indiv_grid_battery_costs = - np.array(self._get_break_down_reward(
-                    break_down_rewards, 'indiv_grid_battery_costs'
-                ))
                 step_vals_ = [
                     current_state, global_ind["state"], action, global_ind["action"], reward,
                     diff_rewards, state, global_ind["next_state"], done,
@@ -682,7 +679,8 @@ class Explorer():
         ]
         assert self.env.i0_costs in potential_i0s
 
-        res_import_export_costs = res['import_costs'][time_step][0] + res['export_costs'][time_step][0]
+        res_import_export_costs = res['import_costs'][time_step][0] \
+            + res['export_costs'][time_step][0]
         if self.prm['grd']['manage_voltage']:
             res_voltage_costs = sum(res['overvoltage_costs'][:, time_step]) \
                 + sum(res['undervoltage_costs'][:, time_step])
@@ -690,14 +688,14 @@ class Explorer():
             res_voltage_costs = 0
         # check reward from environment and res variables match
         res_grid_energy_costs = prm["grd"]["C"][time_step] * (
-                res["grid"][time_step][0]
-                + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)
-                * res["grid2"][time_step][0]
+            res["grid"][time_step][0]
+            + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)
+            * res["grid2"][time_step][0]
         )
         res_battery_degradation_costs = prm["car"]["C"] * sum(
-                res["discharge_tot"][home][time_step]
-                + res["charge"][home][time_step]
-                for home in self.homes
+            res["discharge_tot"][home][time_step]
+            + res["charge"][home][time_step]
+            for home in self.homes
         )
         res_distribution_network_export_costs = prm["grd"]["export_C"] * sum(
             res["netp_abs"][home][time_step] for home in self.homes
@@ -727,7 +725,8 @@ class Explorer():
                         sub_delta = sub_cost_env - sub_cost_res
                         print(
                             f"{label} costs do not match: env {sub_cost_env} vs res {sub_cost_res} "
-                            f"(subdelta {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
+                            f"(subdelta {sub_delta} is "
+                            f"{sub_delta/tot_delta * 100} % of total delta)"
                         )
 
             assert abs(reward - res_reward_t) < 5e-3, \
