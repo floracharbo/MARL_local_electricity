@@ -22,7 +22,7 @@ def _update_lower_upper_bounds(min_val, max_val, lower_bound, upper_bound, paths
 def plot_results_all_repeats(
         prm, record, moving_average=True, diff_to_opt=False
 ):
-    fig = plt.figure(figsize=(4.600606418100001, 4.2))
+    fig = plt.figure(figsize=(4.6, 4.2))
     min_val, max_val = 100, - 100
     plt.rcParams['font.size'] = '10'
     lower_bound, upper_bound = [
