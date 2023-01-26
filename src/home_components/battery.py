@@ -280,7 +280,7 @@ class Battery:
                 loads_T, deltaT = trips[- (it + 1)][0:2]
                 if it == len(trips) - 1:
                     deltaT -= 1
-                    Creq[home] += max(0, self.min_charge[home] - self.c_max)
+                    charge_required[home] += max(0, self.min_charge[home] - self.c_max)
                 # this is the required charge at the current step
                 # if this is the most recent trip, or right after
                 # the previous trip
