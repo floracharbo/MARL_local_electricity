@@ -831,10 +831,12 @@ def _make_type_eval_list(rl, large_q_bool=False):
     _filter_type_learning_competitive(rl)
 
     rl["exploration_methods"] = [
-        t for t in rl["evaluation_methods"] if not (t[0:3] == "opt" and len(t) > 3)
+        method for method in rl["evaluation_methods"]
+        if not (method[0:3] == "opt" and len(method) > 3)
     ]
-    if sum(t[0:3] == 'opt' and len(t) > 3 for t in rl["evaluation_methods"]) > 0:
-        rl["exploration_methods"] += ["opt"]
+
+    if sum(method[0: 3] == 'opt' and len(method) > 3 for method in rl["evaluation_methods"]) > 0:
+        rl["exploration_methods"] += ['opt']
 
     rl["eval_action_choice"] = [
         t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]

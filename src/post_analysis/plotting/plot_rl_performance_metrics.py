@@ -237,9 +237,12 @@ def _plot_compare_all_signs(
             if len(entry.split('_')) > 1 else entry
         xs[label] = i
         colours_plot_end[label] = prm['save']['colourse'][entry]
-    baseline, opt = [metrics[m_][ave][e]
-                     if e in metrics[m_][ave] else None
-                     for e in ['baseline', 'opt']]
+
+    baseline, opt = [
+        metrics[m_][ave][e]
+        if e in metrics[m_][ave] else None
+        for e in ['baseline', 'opt']
+    ]
     for e in eval_entries_notCd:
         label = data_source(e) + '_' + reward_type(e) \
             if len(e.split('_')) > 1 else e
