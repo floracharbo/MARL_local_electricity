@@ -3,12 +3,14 @@
 
 import copy
 
+import numpy as np
 import torch as th
 from torch.optim import Adam, RMSprop
 
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
-from src.learners.facmac.modules.critics.facmac import FACMACDiscreteCritic
+from src.learners.facmac.modules.critics.facmac_critic_discrete import \
+    FACMACDiscreteCritic
 from src.learners.facmac.modules.mixers.qmix import QMixer
 from src.learners.facmac.modules.mixers.qmix_ablations import (
     QMixerNonmonotonic, VDNState)
@@ -17,17 +19,16 @@ from src.learners.facmac.utils.rl_utils import build_td_lambda_targets
 
 
 class FACMACDiscreteLearner(Learner):
-    def __init__(self, mac, scheme, logger, rl):
+    def __init__(self, mac, scheme, rl, N):
         self.__name__ = 'FACMACDiscreteLearner'
         super().__init__(mac, rl, scheme)
         self.rl = rl
-        self.logger = logger
 
         self.mac = mac
         self.target_mac = copy.deepcopy(self.mac)
         self.agent_params = list(mac.parameters())
 
-        self.critic = FACMACDiscreteCritic(scheme, rl)
+        self.critic = FACMACDiscreteCritic(scheme, rl, N)
         self.target_critic = copy.deepcopy(self.critic)
         self.critic_params = list(self.critic.parameters())
         self.mixer = None
@@ -63,12 +64,11 @@ class FACMACDiscreteLearner(Learner):
                 alpha=rl["optim_alpha"], eps=rl["optim_eps"])
         elif rl["optimizer"] == "adam":
             self.critic_optimiser = Adam(
-                params=self.critic_params, lr=rl["critic_lr"],
+                params=self.critic_params, lr=rl["facmac"]["critic_lr"],
                 eps=rl["optimizer_epsilon"])
         else:
             raise Exception(f"unknown optimizer {rl['optimizer']}")
 
-        self.log_stats_t = -rl["learner_log_interval"] - 1
         self.last_target_update_episode = 0
         self.critic_training_steps = 0
 
@@ -90,9 +90,10 @@ class FACMACDiscreteLearner(Learner):
 
         return q_taken
 
-    def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
+    def train(self, batch: EpisodeBatch, t_env: int):
         # Get the relevant quantities
-        actions = batch["actions_onehot"][:, :]
+        actions = batch.data.transition_data['actions']
+        actions = th.tensor(np.around(np.array(actions) * self.rl['n_discrete_actions']))
         terminated = batch["terminated"].float()
         mask = batch["filled"].float()
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
@@ -118,13 +119,13 @@ class FACMACDiscreteLearner(Learner):
 
         targets = build_td_lambda_targets(
             batch["reward"], terminated, mask, target_vals,
-            self.n_agents, self.rl["gamma"], self.rl["td_lambda"])
+            self.n_agents, self.rl["facmac"]["gamma"], self.rl["td_lambda"])
         mask = mask[:, :-1]
 
-        masked_td_error, loss = self.compute_grad_loss(q_taken, targets, mask)
-
-        critic_grad_norm = th.nn.utils.clip_grad_norm_(
-            self.critic_params, self.rl["grad_norm_clip"])
+        self.compute_grad_loss(q_taken, targets, mask)
+        th.nn.utils.clip_grad_norm_(
+            self.critic_params, self.rl["grad_norm_clip"]
+        )
         self.critic_optimiser.step()
         self.critic_training_steps += 1
 
@@ -166,27 +167,6 @@ class FACMACDiscreteLearner(Learner):
             )
         else:
             raise Exception(f"unknown target update mode {self.rl['target_update_tau']}")
-
-        self._log_learning(
-            t_env, loss, critic_grad_norm, mask, masked_td_error, targets
-        )
-
-    def _log_learning(
-            self, t_env, loss, critic_grad_norm, mask, masked_td_error, targets
-    ):
-        if t_env - self.log_stats_t >= self.rl["learner_log_interval"]:
-            self.logger.log_stat("critic_loss", loss.item(), t_env)
-            self.logger.log_stat("critic_grad_norm", critic_grad_norm, t_env)
-            mask_elems = mask.sum().item()
-            self.logger.log_stat(
-                "td_error_abs",
-                masked_td_error.abs().sum().item() / mask_elems,
-                t_env)
-            self.logger.log_stat("target_mean",
-                                 (targets * mask).sum().item()
-                                 / (mask_elems * self.n_agents),
-                                 t_env)
-            self.log_stats_t = t_env
 
     def _compute_critic_chosen_actions_qvals(self, batch, t_env):
         mac_out = []

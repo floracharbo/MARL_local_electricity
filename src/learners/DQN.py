@@ -130,7 +130,6 @@ class ActionStateModel:
         return model
 
 
-
 class Agent_DQN:
     def __init__(self, rl, name, t, n_steps):
         self.rl = rl
@@ -181,10 +180,8 @@ class Agent_DQN:
             if self.buffer.size() >= self.rl['DQN']['batch_size']:
                 self.replay()
             self.target_update()
-            print('EP{} EpisodeReward={}'.format(ep, total_reward))
 
     def learn(self, current_state, action, reward, state, done=False):
         self.buffer.put(current_state, action, reward, state, done)
         if self.buffer.size() >= self.rl['DQN']['batch_size']:
             self.replay()
-

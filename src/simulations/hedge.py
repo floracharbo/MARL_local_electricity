@@ -37,25 +37,32 @@ class HEDGE:
     def __init__(
         self,
         n_homes: int,
-        factors0: dict = None,
-        clusters0: dict = None,
-        prm: dict = None,
-        passive: bool = False,
+        factors0: Optional[dict] = None,
+        clusters0: Optional[dict] = None,
+        prm: Optional[dict] = None,
+        other_prm: Optional[dict] = None
     ):
         """Initialise HEDGE object and initial properties."""
         # update object properties
-        self.passive_ext = 'P' if passive else ''
         self.labels_day = ["wd", "we"]
         self.n_homes = n_homes
         self.homes = range(self.n_homes)
 
         # load input data
-        self._load_input_data(prm, factors0, clusters0)
+        self._load_input_data(prm, other_prm, factors0, clusters0)
 
-        self.save_day_path = Path(prm["paths"]["record_folder"])
+    def _replace_other_prm(self, prm, other_prm):
+        prm = prm.copy()
+        if other_prm is not None:
+            for key, val in other_prm.items():
+                for subkey, subval in val.items():
+                    prm[key][subkey] = val
 
-    def _load_input_data(self, prm, factors0, clusters0):
+        return prm
+
+    def _load_input_data(self, prm, other_prm, factors0, clusters0):
         prm = self._load_inputs(prm)
+        prm = self._replace_other_prm(prm, other_prm)
         self._init_factors(factors0)
         self._init_clusters(clusters0)
         self.profs = self._load_profiles(prm)
@@ -153,8 +160,8 @@ class HEDGE:
     def _import_dem(self, prm):
         # possible types of transition between week day types (week/weekend)
         day_trans = []
-        for prev_day in prm["syst"]["day_types"]:
-            for next_day in prm["syst"]["day_types"]:
+        for prev_day in prm["syst"]["weekday_types"]:
+            for next_day in prm["syst"]["weekday_types"]:
                 day_trans.append(f"{prev_day}2{next_day}")
 
         for transition in day_trans:
@@ -164,7 +171,7 @@ class HEDGE:
                 = list(self.residual_distribution_prms["loads"][transition])
             self.residual_distribution_prms["loads"][transition][1] *= prm["syst"]["f_std_share"]
         self.select_cdfs["loads"] = {}
-        for day_type in prm["syst"]["day_types"]:
+        for day_type in prm["syst"]["weekday_types"]:
             self.select_cdfs["loads"][day_type] = [
                 min_cdf + prm["syst"]["clust_dist_share"] * (max_cdf - min_cdf)
                 for min_cdf, max_cdf in zip(
@@ -179,24 +186,24 @@ class HEDGE:
             with open("inputs/parameters.yaml", "rb") as file:
                 prm = yaml.safe_load(file)
 
-        prm = self._init_params(prm)
+        self._init_params(prm)
 
         # general inputs with all data types
         factors_path = prm["paths"]["hedge_inputs"] / "factors"
         for property_ in ["f_min", "f_max", "f_mean"]:
             path = factors_path / f"{property_}.pickle"
             with open(path, "rb") as file:
-                self.__dict__[property_] = pickle.load(file)
+                setattr(self, property_, pickle.load(file))
 
         for property_ in ["mean_residual", "residual_distribution_prms"]:
             with open(factors_path / f"{property_}.pickle", "rb") as file:
-                self.__dict__[property_] = pickle.load(file)
+                setattr(self, property_, pickle.load(file))
 
         clusters_path = prm["paths"]["hedge_inputs"] / "clusters"
         for property_ in ["p_clus", "p_trans", "min_cdfs", "max_cdfs"]:
             path = clusters_path / f"{property_}.pickle"
             with open(str(path), "rb") as file:
-                self.__dict__[property_] = pickle.load(file)
+                setattr(self, property_, pickle.load(file))
 
         with open(clusters_path / "n_clus.pickle", "rb") as file:
             prm["n_clus"] = pickle.load(file)
@@ -212,7 +219,7 @@ class HEDGE:
             for property_ in ["p_pos", "p_zero2pos", "fs_brackets", "mid_fs_brackets"]:
                 path = factors_path / f"car_{property_}.pickle"
                 with open(path, "rb") as file:
-                    self.__dict__[property_] = pickle.load(file)
+                    setattr(self, property_, pickle.load(file))
 
         # PV generation-specific inputs
         if "gen" in self.data_types:
@@ -384,8 +391,7 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            cap = self.car["cap" + self.passive_ext]
-            while np.max(day["loads_car"][i_home]) > cap[home] and it < 100:
+            while np.max(day["loads_car"][i_home]) > self.car['cap'][home] and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:
@@ -505,7 +511,7 @@ class HEDGE:
         return profiles
 
     def _load_dem_profiles(self, profiles, prm):
-        profiles["loads"] = initialise_dict(prm["syst"]["day_types"])
+        profiles["loads"] = initialise_dict(prm["syst"]["weekday_types"])
 
         self.n_prof["loads"] = {}
         clusters = [
@@ -516,7 +522,7 @@ class HEDGE:
         n_dem_clus = max(clusters) + 1
 
         path = prm["paths"]["hedge_inputs"] / "profiles" / "norm_loads"
-        for day_type in prm["syst"]["day_types"]:
+        for day_type in prm["syst"]["weekday_types"]:
             profiles["loads"][day_type] = [
                 np.load(path / f"c{cluster}_{day_type}.npy", mmap_mode="r")
                 for cluster in range(n_dem_clus)
@@ -651,11 +657,11 @@ class HEDGE:
                         trip_loads: List[float],
                         dt_to_trips: List[int],
                         t_end_trip: int,
-                        avail_ev: List[bool]
+                        avail_car: List[bool]
                         ) -> float:
         # obtain required charge before each trip, starting with end
         n_avail_until_end = sum(
-            avail_ev[t] for t in range(t_end_trip, self.n_steps)
+            avail_car[t] for t in range(t_end_trip, self.n_steps)
         )
         # this is the required charge for the current step
         # if there is no trip
@@ -684,14 +690,14 @@ class HEDGE:
             trip_load: float,
             dt_to_trip: int,
             t: int,
-            avail_ev_: list
+            avail_car_: list
     ) -> bool:
-        if trip_load > self.car["cap"] + 1e-2:
+        if trip_load > self.car['cap'] + 1e-2:
             # load during trip larger than whole
             feasible = False
         elif (
                 dt_to_trip > 0
-                and sum(avail_ev_[0: t]) == 0
+                and sum(avail_car_[0: t]) == 0
                 and trip_load / dt_to_trip > self.store0 + self.car["c_max"]
         ):
             feasible = False
@@ -726,7 +732,7 @@ class HEDGE:
                             t: int,
                             ) -> bool:
         feasible = True
-        if min_charge_t > self.car["cap"] + 1e-2:
+        if min_charge_t > self.car['cap'] + 1e-2:
             feasible = False  # min_charge_t larger than total cap
         if min_charge_t > self.car["store0"] \
                 - sum(day["loads_car"][home][0: t]) \
@@ -853,10 +859,8 @@ class HEDGE:
         self.behaviour_types = [
             data_type for data_type in self.data_types if data_type != "gen"
         ]
-
         self.car = prm["car"]
-        self.store0 = self.car["SoC0"] * np.array(self.car["cap" + self.passive_ext])
+        self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
         # update date and time information
         self.date = datetime(*prm["syst"]["date0"])
-
-        return prm
+        self.save_day_path = Path(prm["paths"]["record_folder"])

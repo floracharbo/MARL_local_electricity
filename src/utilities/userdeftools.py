@@ -16,13 +16,13 @@ import torch as th
 import yaml
 
 
-def _empty(data):
+def _is_empty(data):
     """Check if data is empty."""
     if data == '' \
             or data == ' ' \
             or data == [] \
             or data is None \
-            or np.isnan(data):
+            or not isinstance(data, str) and np.isnan(data):
         return True
     else:
         return False
@@ -47,15 +47,15 @@ def comb(dims):
 def str_to_float(listarr):
     """Convert string to float."""
     if isinstance(listarr, str):
-        obj = float(listarr) if not _empty(listarr) else []
+        obj = float(listarr) if not _is_empty(listarr) else []
     elif isinstance(listarr, pd.core.series.Series):
-        obj = [float(s) if not _empty(s) else [] for s in listarr]
+        obj = [float(s) if not _is_empty(s) else [] for s in listarr]
     elif isinstance(listarr, np.float64):
         obj = float(listarr)
     elif isinstance(listarr[0], list):
-        obj = [float(s[0]) if not _empty(s) else [] for s in listarr]
+        obj = [float(s[0]) if not _is_empty(s) else [] for s in listarr]
     else:
-        obj = [float(s) if not _empty(s) else [] for s in listarr]
+        obj = [float(s) if not _is_empty(s) else [] for s in listarr]
 
     return obj
 
@@ -63,15 +63,15 @@ def str_to_float(listarr):
 def str_to_int(listarr):
     """Convert strings to integers."""
     if isinstance(listarr, str):
-        obj = int(listarr) if not _empty(listarr) else []
+        obj = int(listarr) if not _is_empty(listarr) else []
     elif isinstance(listarr, pd.core.series.Series):
-        obj = [int(s) if not _empty(s) else [] for s in listarr]
+        obj = [int(s) if not _is_empty(s) else [] for s in listarr]
     elif isinstance(listarr, np.float64):
         obj = int(listarr)
     elif isinstance(listarr[0], list):
-        obj = [int(s[0]) if not _empty(s) else [] for s in listarr]
+        obj = [int(s[0]) if not _is_empty(s) else [] for s in listarr]
     else:
-        obj = [int(s) if not _empty(s) else [] for s in listarr]
+        obj = [int(s) if not _is_empty(s) else [] for s in listarr]
 
     return obj
 
@@ -248,3 +248,25 @@ def get_prm_save(prm):
     prm_save = get_prm_save_RL(prm_save, prm)
 
     return prm_save
+
+
+def should_optimise_for_supervised_loss(epoch, rl):
+    return (
+        rl['supervised_loss']
+        and epoch < rl['n_epochs_supervised_loss']
+    )
+
+
+def rename_runs(results_path, i0):
+    folders = os.listdir(results_path)
+    initial_numbers = sorted([int(folder[3:]) for folder in folders if folder[0: 3] == "run"])[:-1]
+    for i, initial_number in enumerate(initial_numbers):
+        if initial_number != i0 + i:
+            os.rename(results_path / f"run{initial_number}", results_path / f"run{i0 + i}")
+            print(f"rename run{initial_number} -> run{i0 + i}")
+
+    runs = list(range(730, 764))
+    for i in range(len(runs)):
+        run = runs[- (i + 1)]
+        os.rename(results_path / f"run{run}", results_path / f"run{run + 1}")
+        print(f"rename run{run} -> {run + 1}")

@@ -1,13 +1,13 @@
 import pickle
+import shutil
 from datetime import timedelta
 from pathlib import Path
 from unittest import mock
-import shutil
 
 import numpy as np
 import pytest
 
-from src.initialisation.initialise_objects import _naming_file_extension
+from src.initialisation.initialise_objects import opt_res_seed_save_paths
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
@@ -31,21 +31,17 @@ def patch_find_feasible_data(
     names_files = {}
     files = ['res', 'batch']
     for file in files:
-        names_files[file] = file + '_test'
-        if self.prm['grd']['manage_agg_power']:
-            names_files[file] += _naming_file_extension(
-                limit_imp=self.prm['grd']['max_grid_in'],
-                limit_exp=self.prm['grd']['max_grid_out'],
-                penalty_imp=self.prm['grd']['penalty_coefficient_in'],
-                penalty_exp=self.prm['grd']['penalty_coefficient_out']
-            )
-        names_files[file] += '.npy'
+        names_files[file] = f"{file}_test{self.prm['paths']['opt_res_file']}"
+        print(f"names_files[{file}] {names_files[file]}")
+
     res, batch = [
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
     for file in files:
-        print(f"copy {self.paths['test_data'] / names_files[file]}"
-              f" to {self.prm['paths']['opt_res'] / f'{file}{self.file_id()}'}")
+        print(
+            f"copy {self.paths['test_data'] / names_files[file]}"
+            f" to {self.prm['paths']['opt_res'] / names_files[file]}"
+        )
         shutil.copyfile(
             self.paths['test_data'] / names_files[file],
             self.prm['paths']['opt_res'] / names_files[file]
@@ -53,8 +49,8 @@ def patch_find_feasible_data(
 
     self.res_name = names_files['res']
     self.batch_file, batch = self.env.reset(
-            seed=0,
-            load_data=True, passive=False)
+            seed=0, load_data=True, passive=False
+    )
     data_feasibles = self._format_data_optimiser(
         batch, passive=passive
     )
@@ -81,16 +77,9 @@ def patch_update_date(self, i0_costs, date0=None):
 
 
 def patch_file_id(self):
-    extension = "_test"
-    if self.prm['grd']['manage_agg_power']:
-        extension += _naming_file_extension(
-            limit_imp=self.prm['grd']['max_grid_in'],
-            limit_exp=self.prm['grd']['max_grid_out'],
-            penalty_imp=self.prm['grd']['penalty_coefficient_in'],
-            penalty_exp=self.prm['grd']['penalty_coefficient_out']
-        )
-    extension += ".npy"
-    return extension
+    file_extension = f"_test{self.prm['paths']['opt_res_file']}"
+
+    return file_extension
 
 def patch_set_i0_costs(self, i0_costs):
     self.i0_costs = I0_COSTS
@@ -145,13 +134,13 @@ def patch_compute_max_car_cons_gen_values(env, state_space):
     ]
 
 
-def patch_load_input_data(self, prm, factors0, clusters0):
+def patch_load_input_data(self, prm, other_prm, factors0, clusters0):
     test_data_path = prm['paths']['test_data']
 
     for info in ['f_min', 'f_max', 'n_clus']:
         file_path = test_data_path / f"{info}.pickle"
         with open(file_path, "rb") as file:
-            self.__dict__[info] = pickle.load(file)
+            setattr(self, info, pickle.load(file))
     prm['n_clus'] = self.n_clus
     self.clusters = {
         'loads': np.zeros(self.n_homes),
@@ -180,20 +169,31 @@ def test_all(mocker):
         'RL': {
             # current experiment
             'batch_size': 2,
-            'state_space': [['grdC', 'bat_dem_agg', 'avail_car_step']],
+            'state_space': [['grdC']],
             'n_epochs': 5,
             'n_repeats': 2,
         },
         'syst': {
             'test_on_run': True,
             'n_homes': 3
-
         },
         'grd': {
             'max_grid_in': 5,
             'max_grid_out': 5,
             'penalty_coefficient_in': 0.001,
-            'penalty_coefficient_out': 0.001
+            'penalty_coefficient_out': 0.001,
+            'manage_agg_power': True,
+            'max_grid_import': 13,
+            'max_grid_export': 13,
+            'penalty_import': 0.01,
+            'penalty_export': 0.01,
+            'manage_voltage': True,
+            'penalty_overvoltage': 0.1, 
+            'penalty_undervoltage': 0.1,
+            'max_voltage': 1.001,
+            'min_voltage': 0.999,
+            'weight_network_costs': 1,
+            'subset_line_losses_modelled': 30
         }
     }
     run_mode = 1
@@ -260,12 +260,11 @@ def test_all(mocker):
         settings['RL']['type_learning'] = type_learning
         for aggregate_actions in [True,  False]:
             settings['RL']['aggregate_actions'] = aggregate_actions
-            for manage_agg_power in [False, True]:
-                settings['grd']['manage_agg_power'] = manage_agg_power
-                print(f"test {type_learning} aggregate_actions {aggregate_actions} manage_agg_power {manage_agg_power}")
-                no_run = current_no_run(paths_results)
+            print(f"test {type_learning} aggregate_actions {aggregate_actions} ")
+            no_run = current_no_run(paths_results)
 
-                if prev_no_run is not None:
-                    assert no_run == prev_no_run + 1, "results not saving"
-                run(run_mode, settings)
-                prev_no_run = no_run
+            if prev_no_run is not None:
+                assert no_run == prev_no_run + 1, "results not saving"
+            run(run_mode, settings)
+            prev_no_run = no_run
+

@@ -20,6 +20,7 @@ from six import integer_types
 
 from src.home_components.battery import Battery
 from src.home_components.heat import Heat
+from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
@@ -50,13 +51,15 @@ class LocalElecEnv():
         self.prm = prm
         self.rl = prm['RL']
         self.labels_day_trans = prm['syst']['labels_day_trans']
-
         self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
 
+        if self.prm['grd']['manage_voltage']:
+            self.network = Network(prm)
+
         # initialise parameters
         for info in ['N', 'n_int_per_hr', 'dt']:
-            self.__dict__[info] = prm['syst'][info]
+            setattr(self, info, prm['syst'][info])
 
         self.server = self.rl['server']
         self.action_translator = Action_translator(prm, self)
@@ -74,7 +77,7 @@ class LocalElecEnv():
         for data in [
             "competitive", "n_grdC_level", "offset_reward", "delta_reward"
         ]:
-            self.__dict__[data] = self.rl[data]
+            setattr(self, data, self.rl[data])
         self.share_flexs = prm['loads']['share_flexs']
         self.opt_res_file = self.prm['paths']['opt_res_file']
         self.res_path = prm['paths']['opt_res']
@@ -99,7 +102,7 @@ class LocalElecEnv():
                 factors0=prm['syst']['f0'],
                 clusters0=prm['syst']['clus0'],
                 prm=prm,
-                passive=True,
+                other_prm={'car': {'cap': prm['car']['capP']}}
             )
 
     def reset(
@@ -157,7 +160,7 @@ class LocalElecEnv():
             self._load_next_day(passive=passive)
 
         self.car.add_batch(self.batch)
-        self.batch = self.car.compute_bat_dem_agg(self.batch)
+        self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
         self._loads_test()
 
         return self.save_file, self.batch
@@ -165,17 +168,20 @@ class LocalElecEnv():
     def set_passive_active(self, passive: bool = False):
         """Update environment properties for passive or active case."""
         self.passive_ext = 'P' if passive else ''
-        for e in ['cap', 'T_LB', 'T_UB', 'T_req', 'store0',
-                  'mincharge', 'car', 'loads', 'gen']:
+        for info in [
+            'cap', 'T_LB', 'T_UB', 'T_req', 'store0',
+            'mincharge', 'car', 'loads', 'gen'
+        ]:
             # set variables for passive or active case
-            self.__dict__[e + '_p'] = e + self.passive_ext
+            setattr(self, f"{info}_p", info + self.passive_ext)
         self.coeff_T = self.prm['heat']['T_coeff' + self.passive_ext]
         self.coeff_Tair = self.prm['heat']['T_air_coeff' + self.passive_ext]
         self.n_homes = self.prm['syst']['n_homes' + self.passive_ext]
         self.homes = range(self.n_homes)
         for e in ['cap_p', 'store0_p', 'mincharge_p', 'n_homes']:
-            self.action_translator.__dict__[e] = self.__dict__[e]
-            self.spaces.__dict__[e] = self.__dict__[e]
+            setattr(self.action_translator, e, getattr(self, e))
+            setattr(self.spaces, e, getattr(self, e))
+
         self.T_air = [self.prm['heat']['T_req' + self.passive_ext][home][0]
                       for home in self.homes]
         self.car.set_passive_active(passive, self.prm)
@@ -203,7 +209,7 @@ class LocalElecEnv():
             self._load_next_day(homes=homes, passive=passive)
             date_load += timedelta(days=1)
         self.car.add_batch(self.batch)
-        self.batch = self.car.compute_bat_dem_agg(self.batch)
+        self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
         np.save(self.res_path / f"batch{file_id}", self.batch)
 
     def update_flex(
@@ -299,17 +305,20 @@ class LocalElecEnv():
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, constraint_ok = self.policy_to_rewardvar(
-            action, E_req_only=E_req_only
-        )
+        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
+            self.policy_to_rewardvar(
+                action, E_req_only=E_req_only
+            )
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
 
         else:
             reward, break_down_rewards = self.get_reward(
-                home_vars['netp'], evaluation=evaluation)
-            self.netps = home_vars['netp']
+                netp=home_vars['netp'],
+                hourly_line_losses=hourly_line_losses,
+                voltage_squared=voltage_squared
+            )
 
             # ----- update environment variables and state
             new_batch_flex = self.update_flex(loads['flex_cons'])
@@ -339,14 +348,25 @@ class LocalElecEnv():
             if record:
                 loads_flex = np.zeros(self.n_homes) if self.date == self.date_end \
                     else [sum(batch_flex[home][h][1:]) for home in homes]
-                record_output = \
-                    [home_vars['netp'], self.car.discharge, action, reward,
-                     break_down_rewards, self.car.store, loads_flex, loads_fixed,
-                     home_vars['tot_cons'].copy(), loads['tot_cons_loads'].copy(),
-                     self.heat.tot_E.copy(), self.heat.T.copy(),
-                     self.heat.T_air.copy(), self.prm['grd']['C'][self.time].copy(),
-                     self.wholesale[self.time].copy(),
-                     self.cintensity[self.time].copy()]
+                record_output = [
+                    home_vars['netp'],
+                    self.car.discharge,
+                    self.car.store,
+                    home_vars['tot_cons'].copy(),
+                    self.heat.tot_E.copy(),
+                    self.heat.T.copy(),
+                    self.heat.T_air.copy(),
+                    voltage_squared,
+                    hourly_line_losses,
+                    action, reward, loads_flex, loads_fixed, loads['tot_cons_loads'].copy(),
+                    self.prm['grd']['C'][self.time].copy(),
+                    self.wholesale[self.time].copy(),
+                    self.cintensity[self.time].copy(),
+                    break_down_rewards,
+                    self.network.loaded_buses, self.network.sgen_buses
+
+                ]
+
                 return [next_state, self.done, reward, break_down_rewards,
                         home_vars['bool_flex'], constraint_ok, record_output]
             elif netp_storeout:
@@ -365,7 +385,8 @@ class LocalElecEnv():
             charge: list = None,
             passive_vars: list = None,
             time_step: int = None,
-            evaluation: bool = False
+            voltage_squared: list = None,
+            hourly_line_losses: int = 0,
     ) -> Tuple[list, list]:
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
@@ -389,61 +410,63 @@ class LocalElecEnv():
             self.prm['grd']['C'][time_step], self.wholesale[time_step], self.cintensity[time_step]
         ]
 
-        # negative netp is selling, positive buying
-        grid = sum(netp) + sum(netp0)
+        # negative netp is selling, positive buying, losses in kWh
+        grid = sum(netp) + sum(netp0) + hourly_line_losses
         # import and export limits
-        grid_in = np.where(np.array(grid) >= 0, grid, 0)
-        grid_out = np.where(np.array(grid) < 0, grid, 0)
+        import_export_costs = self.network.compute_import_export_costs(grid)
 
-        if self.prm['grd']['manage_agg_power']:
-            pci = np.where(
-                grid_in
-                >= self.prm['grd']['max_grid_in'],
-                self.prm['grd']['penalty_coefficient_in']
-                * (grid_in - self.prm['grd']['max_grid_in']), 0)
-            pco = np.where(
-                abs(grid_out)
-                >= self.prm['grd']['max_grid_out'],
-                self.prm['grd']['penalty_coefficient_out']
-                * (abs(grid_out) - self.prm['grd']['max_grid_out']), 0)
-
-            pc = pci + pco
-        else:
-            pc = 0
+        # Voltage costs
+        if voltage_squared is not None:
+            voltage_costs = self.network.compute_voltage_costs(voltage_squared)
 
         if self.prm['grd']['charge_type'] == 0:
             sum_netp = sum(self.netp_to_exports(netp))
             sum_netp0 = sum(self.netp_to_exports(netp0))
-
-            # sum_netp = sum([abs(netp[home]) if netp[home] < 0
-            #                else 0 for home in self.homes])
-            # sum_netp0 = sum([abs(netp0[home]) if netp0[home] < 0
-            #                  else 0 for home in range(len(netp0))])
             netpvar = sum_netp + sum_netp0
-            dc = self.prm['grd']['export_C'] * netpvar
+            distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
         else:
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
-            dc = self.prm['grd']['export_C'] * netpvar
-        gc = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2) + pc
-        gc_a = [wholesalet * netp[home] for home in self.homes]
-        sc = self.prm['car']['C'] \
+            distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
+        grid_energy_costs = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
+        cost_distribution_network_losses = grdCt * hourly_line_losses
+        indiv_grid_energy_costs = [wholesalet * netp[home] for home in self.homes]
+        battery_degradation_costs = self.prm['car']['C'] \
             * (sum(discharge_tot[home] + charge[home]
                    for home in self.homes)
                 + sum(discharge_tot0[home] + charge0[home]
                       for home in range(len(discharge_tot0))))
-        sc_a = [self.prm['car']['C'] * (discharge_tot[home] + charge[home])
-                for home in self.homes]
-        c_a = [g + s for g, s in zip(gc_a, sc_a)]
-        reward = - (gc + sc + dc)
-        costs_wholesale = wholesalet * grid
-        costs_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
+        indiv_battery_degradation_costs = [
+            self.prm['car']['C'] * (discharge_tot[home] + charge[home]) for home in self.homes
+        ]
+        indiv_grid_battery_costs = [
+            g + s for g, s in zip(indiv_grid_energy_costs, indiv_battery_degradation_costs)
+        ]
+        network_costs = self.prm['grd']['weight_network_costs'] * (
+            import_export_costs + voltage_costs
+        )
+        reward = - (
+            battery_degradation_costs + distribution_network_export_costs + grid_energy_costs
+            + network_costs
+        )
+        costs_wholesale = wholesalet * (sum(netp) + sum(netp0))
+        costs_upstream_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
+        total_costs = -reward
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
-        break_down_rewards = [gc, sc, dc, pc, costs_wholesale, costs_losses,
-                              emissions, emissions_from_grid,
-                              emissions_from_loss, gc_a, sc_a, c_a]
+        break_down_rewards = [
+            grid_energy_costs, battery_degradation_costs, distribution_network_export_costs,
+            import_export_costs, voltage_costs, hourly_line_losses,
+            cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
+            emissions_from_grid, emissions_from_loss, total_costs, indiv_grid_energy_costs,
+            indiv_battery_degradation_costs, indiv_grid_battery_costs
+        ]
+
+        assert len(break_down_rewards) == len(self.prm['syst']['break_down_rewards_entries']), \
+            f"len(break_down_rewards) {len(break_down_rewards)} " \
+            f"== len(self.prm['syst']['break_down_rewards_entries']) " \
+            f"{len(self.prm['syst']['break_down_rewards_entries'])}"
 
         if self.offset_reward:
             reward -= self.delta_reward
@@ -524,10 +547,17 @@ class LocalElecEnv():
         self._check_constraints(
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
+        if self.prm['grd']['manage_voltage']:
+            hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
+            voltage_squared = np.square(voltage)
+        else:
+            voltage_squared = None
+            hourly_line_losses = 0
+
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
-        return home_vars, loads, constraint_ok
+        return home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok
 
     def get_state_vals(
             self,
@@ -697,14 +727,17 @@ class LocalElecEnv():
             self._loads_to_flex(homes)
             self.dloaded += 1
 
-            assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
-
         else:
-            for e in ['batch', 'i0_costs']:
-                if (self.res_path / f"{e}{self._file_id()}").is_file():
-                    self.__dict__[e] = np.load(
-                        self.res_path / f"{e}{self._file_id()}",
-                        allow_pickle=True).item()
+            for info in ['batch', 'i0_costs']:
+                if (self.res_path / f"{info}{self._file_id()}").is_file():
+                    setattr(
+                        self,
+                        info,
+                        np.load(
+                            self.res_path / f"{info}{self._file_id()}",
+                            allow_pickle=True
+                        ).item()
+                    )
             self.update_i0_costs()
             self._correct_len_batch()
             self.dloaded += self.prm['syst']['D']
@@ -959,15 +992,18 @@ class LocalElecEnv():
             if self.spaces.descriptors['state'][i] == 'grdC_level'
         ]
         if len(i_grdC_level) > 0:
-            self.normalised_grdC = [
-                (gc - min(self.prm['grd']['C'][0: self.N]))
-                / (max(self.prm['grd']['C'][0: self.N]) - min(self.prm['grd']['C'][0: self.N]))
-                for gc in self.prm['grd']['C'][0: self.N + 1]
-            ]
-            if not (self.spaces.type_env == "continuous"):
+            self.normalised_grdC = \
+                [(grid_energy_costs - min(self.prm['grd']['C'][0: self.N]))
+                 / (max(self.prm['grd']['C'][0: self.N])
+                    - min(self.prm['grd']['C'][0: self.N]))
+                 for grid_energy_costs in self.prm['grd']['C'][0: self.N + 1]]
+
+            if not self.spaces.type_env == "continuous":
                 self.spaces.brackets['state'][i_grdC_level[0]] = [
-                    [np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
-                     for i in range(self.n_grdC_level)] + [1]
+                    [
+                        np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
+                        for i in range(self.n_grdC_level)
+                    ] + [1]
                     for _ in self.homes
                 ]
         if 'heat' in self.__dict__:
@@ -983,7 +1019,7 @@ class LocalElecEnv():
             self._load_next_day(passive=passive)
             date_load += timedelta(days=1)
         if not passive:
-            self.batch = self.car.compute_bat_dem_agg(self.batch)
+            self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
 
         for e in ['batch', 'i0_costs']:
             file_id = f"{e}{self._file_id()}"

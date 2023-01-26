@@ -19,10 +19,10 @@ class Agent_DDQN():
         # to consider in the Q table overall
         self.action_dim = rl['n_discrete_actions'] ** rl['dim_actions']
         self.gamma = rl['DDQN']['gamma']  # 0.90
-        for e in ['epsilon0', 'buffer_capacity', 'batch_size']:
-            self.__dict__[e] = rl['DDQN'][e]
-        for e in ['epsilon_end', 'epsilon_decay_param']:
-            self.__dict__[e] = rl['DDQN'][e][t]
+        for info in ['epsilon0', 'buffer_capacity', 'batch_size']:
+            setattr(self, info, rl['DDQN'][info])
+        for info in ['epsilon_end', 'epsilon_decay_param']:
+            setattr(self, info, rl['DDQN'][info][t])
         TARGET_UPDATE_CYCLE = 1  # 100
 
         self.opt = tf.keras.optimizers.Adam(0.01)

@@ -35,7 +35,8 @@ from src.simulations.explorer import Explorer
 from src.simulations.local_elec import LocalElecEnv
 from src.utilities.userdeftools import (data_source, initialise_dict,
                                         methods_learning_from_exploration,
-                                        reward_type, set_seeds_rdn)
+                                        reward_type, set_seeds_rdn,
+                                        should_optimise_for_supervised_loss)
 
 
 class Runner():
@@ -314,7 +315,7 @@ class Runner():
                     if episode_sample.device != self.rl['device']:
                         episode_sample.to(self.rl['device'])
                     self.learner[method].train(
-                        episode_sample,
+                        episode_sample, self.explorer.t_env
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods):
@@ -395,7 +396,7 @@ class Runner():
             types_needed = candidate_types
         if opt_stage:
             types_needed = [method for method in types_needed if len(method.split("_")) < 5]
-        if self.rl['supervised_loss'] and 'opt' not in types_needed:
+        if should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' not in types_needed:
             types_needed.append('opt')
 
         return types_needed
@@ -426,8 +427,7 @@ class Runner():
                 i0_costs, new_env)
 
         # exploration - obtain experience
-        exploration_methods = self._check_if_opt_env_needed(
-            epoch, evaluation=evaluation)
+        exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=evaluation)
         steps_vals, self.episode_batch = self.explorer.get_steps(
             exploration_methods, repeat, epoch, i_explore,
             new_episode_batch=self.new_episode_batch, evaluation=evaluation)
@@ -511,6 +511,13 @@ def get_number_runs(settings):
 def run(run_mode, settings, no_runs=None):
     prm = input_paths()
 
+    if settings['grd']["subset_line_losses_modelled"] > 50:
+        print(
+            'Warning: More than 50 lines will be modelled with losses,'
+            'the optimization process might take a lot of time '
+            'and is best solved using a powerful computer.'
+        )
+
     if run_mode == 1:
         # obtain the number of runs from the longest settings entry
         n_runs = get_number_runs(settings)
@@ -559,7 +566,7 @@ def run(run_mode, settings, no_runs=None):
         for no_run in no_runs:
             rl, prm = load_existing_prm(prm, no_run)
 
-            prm, record = initialise_objects(prm, no_run=no_run)
+            prm, record = initialise_objects(prm, no_run=no_run, run_mode=run_mode)
             # make user defined environment
             env = LocalElecEnv(prm)
             record.init_env(env)  # record progress as we train

@@ -27,7 +27,7 @@ class Learner():
             self.init_mixer(rl)
 
         for info in ['hysteretic', 'beta_to_alpha']:
-            self.__dict__[info] = rl['facmac'][info]
+            setattr(self, info, rl['facmac'][info])
 
     def init_mixer(self, rl):
         if rl['mixer'] is not None \

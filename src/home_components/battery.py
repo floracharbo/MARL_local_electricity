@@ -19,7 +19,7 @@ class Battery:
         Reset object for new episode.
     update_step:
         Update current object variables for new step.
-    compute_bat_dem_agg:
+    compute_battery_demand_aggregated_at_start_of_trip:
         Compute bat_dem_agg, i.e. having all demand at start of trip.
     add_batch:
         Once batch data computed, update in battery data batch.
@@ -55,12 +55,12 @@ class Battery:
         self.set_passive_active(passive, prm)
 
         for info in ['M', 'N', 'dt']:
-            self.__dict__[info] = prm['syst'][info]
+            setattr(self, info, prm['syst'][info])
 
         for info in [
             'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin',
         ]:
-            self.__dict__[info] = prm['car'][info]
+            setattr(self, info, prm['car'][info])
 
         # date of end of episode - updated from update_date() is env
         self.date_end = None
@@ -113,13 +113,12 @@ class Battery:
         # number of agents / households
         self.n_homes = prm['syst']['n_homes' + self.passive_ext]
         for info in ['own_car', 'store0', 'cap', 'min_charge']:
-            self.__dict__[info] = prm['car'][info + self.passive_ext]
+            setattr(self, info, prm['car'][info + self.passive_ext])
 
-    def compute_bat_dem_agg(
+    def compute_battery_demand_aggregated_at_start_of_trip(
             self,
             batch: dict
     ) -> dict:
-        """Compute bat_dem_agg, i.e. having all demand at start of trip."""
         for home in range(self.n_homes):
             batch[home]['bat_dem_agg'] = np.zeros(len(batch[home]['avail_car']))
             if self.own_car[home]:
@@ -264,7 +263,6 @@ class Battery:
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time
             n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
-            n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
 
             if len(trips) == 0:
                 n_avail_until_end -= 1
@@ -277,6 +275,7 @@ class Battery:
                 loads_T, deltaT = trips[- (it + 1)][0:2]
                 if it == len(trips) - 1:
                     deltaT -= 1
+                    Creq[home] += max(0, self.min_charge[home] - self.c_max)
                 # this is the required charge at the current step
                 # if this is the most recent trip, or right after
                 # the previous trip
@@ -402,7 +401,7 @@ class Battery:
         for info in [
             'store', 'charge', 'discharge', 'loss_ch', 'loss_dis', 'store_out_tot', 'discharge_tot'
         ]:
-            self.__dict__[info] = [None for home in range(self.n_homes)]
+            setattr(self, info, [None for _ in range(self.n_homes)])
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
@@ -460,6 +459,11 @@ class Battery:
             [min(self.c_max, self.max_charge_t[home] - self.start_store[home])
              * self.avail_car[home] for home in range(self.n_homes)]
         )
+
+        assert all(add <= potential + 1e-3 for add, potential in zip(s_add_0, potential_charge)
+                   if potential > 0), f"s_add_0 {s_add_0} > potential_charge {potential_charge}"
+        assert all(remove <= avail + 1e-3 for remove, avail in zip(s_remove_0, s_avail_dis)
+                   if avail > 0), f"s_remove_0 {s_remove_0} > s_avail_dis {s_avail_dis}"
 
         return s_avail_dis, s_add_0, s_remove_0, potential_charge
 
@@ -536,9 +540,11 @@ class Battery:
 
     def _current_batch_step(self):
         for info in self.batch_entries:
-            self.__dict__[info] = [
-                self.batch[info][home][self.time_step] for home in range(self.n_homes)
-            ]
+            setattr(
+                self,
+                info,
+                [self.batch[info][home][self.time_step] for home in range(self.n_homes)]
+            )
 
     def _last_step(self, date):
         return date == self.date_end - datetime.timedelta(hours=self.dt)

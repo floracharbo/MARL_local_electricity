@@ -12,8 +12,12 @@ labels_day_trans: ['wd2wd', 'wd2we', 'we2wd', 'we2we'] # label for going from we
 change_start: True # change start date for each exploration (within one month) so that grid costs change
 J_per_kWh: 3.6e+6 # J/kWh = 3600 * 1000
 break_down_rewards_entries: [
-  'gc', 'sc', 'dc', 'pc', 'costs_wholesale', 'costs_losses', 'emissions', 'emissions_from_grid',
-  'emissions_from_loss','indiv_gc','indiv_sc','indiv_c'
+  'grid_energy_costs', 'battery_degradation_costs', 'distribution_network_export_costs',
+  'import_export_costs', 'voltage_costs', 'hourly_line_losses',
+  'cost_distribution_network_losses', 'costs_wholesale',
+  'costs_upstream_losses', 'emissions', 'emissions_from_grid',
+  'emissions_from_loss', 'total_costs','indiv_grid_energy_costs',
+  'indiv_battery_degradation_costs','indiv_grid_battery_costs'
 ]
 share_centroid: 1 # what share of profiles to include in each cluster ordered from closest to furthest from centroid of each cluster
 f0: {'loads' : 9, 'gen' : 8, 'car' : 8} # demand / generation factor initialisation for RL data generation https://www.ukpower.co.uk/home_energy/average-household-gas-and-electricity-usage / https://www.choice.com.au/home-improvement/energy-saving/solar/articles/how-much-solar-do-i-need / https://www.statista.com/statistics/513456/annual-mileage-of-motorists-in-the-united-kingdom-uk/
@@ -25,7 +29,8 @@ data_types: ['loads', 'car', 'gen']
 year: 2021
 f_std_share: 1
 clust_dist_share: 1
-day_types: ['wd', 'we']  # week day types - wd: weekday day and we: weekend day
+weekday_types: ['wd', 'we']  # week day types - wd: weekday day and we: weekend day
 test_on_run: False
 n_homes: 5 # number of buses considered
 n_homesP: 0 # additional number of passive buses
+force_optimisation: False # force optimisation to be run even if it is not necessary (for timing purposes)

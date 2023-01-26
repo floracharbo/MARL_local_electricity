@@ -33,7 +33,8 @@ def initialise_objects(
         prm: dict,
         settings: dict = None,
         no_run: int = None,
-        initialise_record: bool = True
+        initialise_record: bool = True,
+        run_mode: int = 1
 ) -> Tuple[dict, Optional[object], dict]:
     """
     Set up parameters dictionary, load data, initialise recording object.
@@ -62,6 +63,7 @@ def initialise_objects(
     # general input paths and system parameters are in inputs
     # where
     prm = input_params(prm, settings)
+    prm['syst']['run_mode'] = run_mode
     if not Path("outputs").exists():
         os.mkdir("outputs")
     prm['paths']["opt_res"] = Path("outputs") / "opt_res"
@@ -87,6 +89,10 @@ def initialise_objects(
 
     if prm['RL']['supervised_loss'] and prm['RL']['supervised_loss_weight'] == 0:
         prm['RL']['supervised_loss_weight'] = 1
+    if prm['RL']['supervised_loss'] and prm['RL']['n_epochs_supervised_loss'] == 0:
+        prm['RL']['n_epochs_supervised_loss'] = prm['RL']['n_epochs']
+    if not prm['RL']['supervised_loss'] and prm['RL']['n_epochs_supervised_loss'] > 0:
+        prm['RL']['n_epochs_supervised_loss'] = 0
 
     return prm, record
 
@@ -100,6 +106,9 @@ def _make_action_space(rl):
     if rl["discretize_actions"]:
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
+        print(f"rl['low_action'] = {rl['low_action']}")
+        print(f"np.shape(rl['low_action']) = {np.shape(rl['low_action'])}")
+        print(f"rl['dim_actions'] = {rl['dim_actions']}")
         action_space = spaces.Box(
             low=np.array(rl["low_action"], dtype=np.float32),
             high=np.array(rl["high_action"], dtype=np.float32),
@@ -239,6 +248,7 @@ def _update_paths(paths, prm, no_run):
     paths['hedge_inputs'] \
         = paths["input_folder"] / paths['hedge_inputs_folder'] / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
+    paths["network_data"] = paths['open_inputs'] / paths['ieee_network_data']
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
     paths['test_data'] = paths['open_inputs'] / 'testing_data'
 
@@ -425,8 +435,11 @@ def _dims_states_actions(rl, syst):
         rl["dim_actions"] *= rl["n_homes"]
         rl["trajectory"] = False
     if rl["trajectory"]:
-        for key in ["dim_states", "dim_actions", "low_action", "high_action"]:
+        for key in ["dim_states", "dim_actions"]:
             rl[key] *= syst["N"]
+        if syst['run_mode'] == 1:
+            for key in ["low_action", "high_action"]:
+                rl[key] *= syst["N"]
 
 
 def _remove_states_incompatible_with_trajectory(rl):
@@ -532,17 +545,32 @@ def _update_rl_prm(prm, initialise_all):
     return rl
 
 
-def _naming_file_extension(limit_imp, limit_exp, penalty_imp, penalty_exp):
-    file_extension = f"_manage_agg_power_grid_limit{limit_imp}"
-    if limit_imp != limit_exp:
-        file_extension += f"_{limit_exp}"
-    file_extension += f"_pc_coeff{penalty_imp}"
-    if penalty_imp != penalty_exp:
-        file_extension += f"_{penalty_exp}"
+def _naming_file_extension_network_parameters(grd):
+    """ Adds the mange_voltage and manage_agg_power settings to optimization results in opt_res """
+    upper_quantities = ['max_voltage', 'max_grid_import']
+    lower_quantities = ['min_voltage', 'max_grid_export']
+    penalties_upper = ['overvoltage', 'import']
+    penalties_lower = ['undervoltage', 'export']
+    managements = ['manage_voltage', 'manage_agg_power']
+    file_extension = ''
+    for lower_quantity, upper_quantity, penalty_upper, penalty_lower, management in zip(
+            lower_quantities, upper_quantities, penalties_upper, penalties_lower, managements
+    ):
+        if grd[management]:
+            file_extension += f"_{management}_limit" + str(grd[upper_quantity])
+            if grd[upper_quantity] != grd[lower_quantity]:
+                file_extension += f"_{grd[lower_quantity]}"
+            file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
+            if grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']:
+                file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
+
+            if management == 'manage_voltage':
+                file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
+
     return file_extension
 
 
-def _seed_save_paths(prm):
+def opt_res_seed_save_paths(prm):
     """
     Get strings and seeds which will be used to identify runs.
 
@@ -554,32 +582,28 @@ def _seed_save_paths(prm):
     rl, paths with updated entries
 
     """
-    rl, heat, syst, paths, grd = [prm[key] for key in ["RL", "heat", "syst", "paths", "grd"]]
+    rl, heat, syst, grd, paths, car = \
+        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car"]]
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_n{syst['n_homes']}_nP{syst['n_homesP']}"
+        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}"
     if "file" in heat and heat["file"] != "heat.yaml":
-        paths["opt_res_file"] += f"{heat['file']}"
+        paths["opt_res_file"] += f"_{heat['file']}"
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
+    if rl["deterministic"] == 2:
+        for file in ["opt_res_file", "seeds_file"]:
+            paths[file] += "_noisy"
+    syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
 
     for file in ["opt_res_file", "seeds_file"]:
         if rl["deterministic"] == 2:
             paths[file] += "_noisy"
         paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
                        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
-
         if file == "opt_res_file" and prm["syst"]["change_start"]:
             paths["opt_res_file"] += "_changestart"
-
-        if grd['manage_agg_power']:
-            paths[file] += _naming_file_extension(
-                limit_imp=grd['max_grid_in'],
-                limit_exp=grd['max_grid_out'],
-                penalty_imp=grd['penalty_coefficient_in'],
-                penalty_exp=grd['penalty_coefficient_out']
-            )
-
+        paths[file] += _naming_file_extension_network_parameters(grd)
         # eff does not matter for seeds, but only for res
         if file == "opt_res_file" and prm["car"]["efftype"] == 1:
             paths["opt_res_file"] += "_eff1"
@@ -595,6 +619,7 @@ def _seed_save_paths(prm):
         rl["init_len_seeds"][passive_str] = len(rl["seeds"][passive_str])
 
     return rl, paths
+
 
 def _update_grd_prm(prm):
     """
@@ -632,6 +657,10 @@ def _update_grd_prm(prm):
     ]
     grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
 
+    if grd['compare_pandapower_optimisation'] and not grd['manage_voltage']:
+        # comparison between optimisation and pandapower is only relevant if simulating voltage.
+        grd['compare_pandapower_optimisation'] = False
+
 
 def _time_info(prm):
     syst = prm["syst"]
@@ -646,7 +675,6 @@ def _time_info(prm):
 
 
 def _homes_info(loads, syst, gen, heat):
-    syst["n_all_homes"] = syst["n_homes"] + syst["n_homesP"]
     for passive_ext in ["", "P"]:
         gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
@@ -684,6 +712,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     ]
 
     _make_type_eval_list(prm["RL"])
+
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
     _time_info(prm)
@@ -703,7 +732,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     # car avail, type, factors
     prm['car'] = _update_bat_prm(prm)
     prm['RL'] = _update_rl_prm(prm, initialise_all)
-    prm['RL'], prm['paths'] = _seed_save_paths(prm)
+    prm['RL'], prm['paths'] = opt_res_seed_save_paths(prm)
 
     if prm['RL']["type_learning"] == "facmac":
         prm = _facmac_initialise(prm)
@@ -760,7 +789,7 @@ def _add_n_start_opt_explo(rl, evaluation_methods_list):
 
 def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = ["baseline"]
-    if rl["evaluation_methods"] is not None and len(rl['evaluation_methods']) > 1:
+    if rl["evaluation_methods"] is not None:
         input_evaluation_methods = rl["evaluation_methods"] \
             if isinstance(rl["evaluation_methods"], list) \
             else [rl["evaluation_methods"]]
@@ -798,12 +827,15 @@ def _make_type_eval_list(rl, large_q_bool=False):
 
     evaluation_methods_list = _add_n_start_opt_explo(rl, evaluation_methods_list)
 
-    rl["evaluation_methods"] = evaluation_methods_list
+    rl["evaluation_methods"] = list(dict.fromkeys(evaluation_methods_list))
     _filter_type_learning_competitive(rl)
 
     rl["exploration_methods"] = [
         t for t in rl["evaluation_methods"] if not (t[0:3] == "opt" and len(t) > 3)
     ]
+    if sum(t[0:3] == 'opt' and len(t) > 3 for t in rl["evaluation_methods"]) > 0:
+        rl["exploration_methods"] += ["opt"]
+
     rl["eval_action_choice"] = [
         t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
     ]

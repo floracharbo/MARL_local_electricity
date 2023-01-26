@@ -65,11 +65,6 @@ def _eval_entries_plot_colours(prm):
         evaluation_method for evaluation_method in evaluation_methods
         if len(evaluation_method.split('_')) > 1 and distr_learning(evaluation_method) == 'c'
     ]
-    other_eval_entries = [
-        evaluation_method
-        for evaluation_method in evaluation_methods
-        if len(evaluation_method.split("_")) == 1
-    ]
 
     prm["save"]["eval_entries_plot_indiv"] = [
         evaluation_method for evaluation_method in prm["save"]["eval_entries_plot"]
@@ -78,7 +73,6 @@ def _eval_entries_plot_colours(prm):
     ]
     prm["save"]["base_entries"] = eval_entries_distr if len(eval_entries_distr) > 0 \
         else eval_entries_centr
-    prm["save"]["base_entries"] += other_eval_entries
 
     red = (234 / 255, 53 / 255, 37 / 255)
     for method in ['env_r_d', 'env_r_c']:

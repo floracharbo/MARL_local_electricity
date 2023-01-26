@@ -36,8 +36,8 @@ class TabularQLearner:
             [initialise_dict(rl['type_Qs'], 'empty_dict')
              for _ in range(2)]
         self.repeat = 0
-        for e in ['hysteretic', 'alpha']:
-            self.__dict__[e] = self.rl['q_learning'][e]
+        for info in ['hysteretic', 'alpha']:
+            setattr(self, info, self.rl['q_learning'][info])
 
     def set0(self):
         """ for each repeat, reinitialise q_tables and counters """
@@ -169,7 +169,9 @@ class TabularQLearner:
             if type(td_error) in [list, np.ndarray]:
                 print(f'td_error {td_error}')
             add_supervised_loss = True \
-                if data_source(q_table_name, epoch) == 'opt' and self.rl['supervised_loss'] \
+                if data_source(q_table_name, epoch) == 'opt' \
+                and self.rl['supervised_loss'] \
+                and epoch < self.rl['n_epochs_supervised_loss'] \
                 else False
             if add_supervised_loss:
                 n_possible_actions = len(qs_state)
@@ -288,20 +290,20 @@ class TabularQLearner:
                     if epoch >= self.rl['q_learning']['end_decay']:
                         self.eps[method] = 0
 
-    def _get_reward_home(self, diff_rewards, indiv_rewards, reward, q, home):
+    def _get_reward_home(self, diff_rewards, indiv_grid_battery_costs, reward, q, home):
         if reward_type(q) == 'd':
             reward_a = diff_rewards[home]
         elif self.rl['competitive']:
-            reward_a = indiv_rewards[home]
+            reward_a = indiv_grid_battery_costs[home]
         else:
             reward_a = reward
 
         return reward_a
 
     def update_q_step(self, q, step, step_vals, epoch):
-        reward, diff_rewards, indiv_rewards = [
+        reward, diff_rewards, indiv_grid_battery_costs = [
             step_vals[key][step]
-            for key in ["reward", "diff_rewards", "indiv_rewards"]
+            for key in ["reward", "diff_rewards", "indiv_grid_battery_costs"]
         ]
 
         [ind_global_s, ind_global_ac, indiv_s, indiv_ac, ind_next_global_s, next_indiv_s, done] = [
@@ -359,7 +361,7 @@ class TabularQLearner:
                     if indiv_ac[home] is not None:
                         i_table = 0 if distr_learning(q) == 'c' else home
                         reward_home = self._get_reward_home(
-                            diff_rewards, indiv_rewards, reward, q, home
+                            diff_rewards, indiv_grid_battery_costs, reward, q, home
                         )
                         self.update_q(
                             reward_home, done, ind_indiv_s[home], ind_indiv_ac[home],
