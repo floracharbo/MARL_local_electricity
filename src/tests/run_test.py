@@ -7,8 +7,7 @@ from unittest import mock
 import numpy as np
 import pytest
 
-from src.initialisation.initialise_objects import \
-    _naming_file_extension_network_parameters
+from src.initialisation.initialise_objects import opt_res_seed_save_paths
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
@@ -32,31 +31,17 @@ def patch_find_feasible_data(
     names_files = {}
     files = ['res', 'batch']
     for file in files:
-        names_files[file] = file + '_test'
-        if self.prm['grd']['manage_voltage']:
-            names_files[file] += _naming_file_extension_network_parameters(
-                management='manage_voltage',
-                limit_1=self.prm['grd']['v_mag_over'],
-                limit_2=self.prm['grd']['v_mag_under'],
-                penalty_1=self.prm['grd']['penalty_overvoltage'],
-                penalty_2=self.prm['grd']['penalty_undervoltage']
-            )
-            names_files[file] += f"subset_losses{self.prm['grd']['subset_line_losses_modelled']}"
-        if self.prm['grd']['manage_agg_power']:
-            names_files[file] += _naming_file_extension_network_parameters(
-                management='manage_agg_power',
-                limit_1=self.prm['grd']['max_grid_import'],
-                limit_2=self.prm['grd']['max_grid_export'],
-                penalty_1=self.prm['grd']['penalty_import'],
-                penalty_2=self.prm['grd']['penalty_export']
-            )
-        names_files[file] += '.npy'
+        names_files[file] = f"{file}_test{self.prm['paths']['opt_res_file']}"
+        print(f"names_files[{file}] {names_files[file]}")
+
     res, batch = [
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
     for file in files:
-        print(f"copy {self.paths['test_data'] / names_files[file]}"
-              f" to {self.prm['paths']['opt_res'] / f'{file}{self.file_id()}'}")
+        print(
+            f"copy {self.paths['test_data'] / names_files[file]}"
+            f" to {self.prm['paths']['opt_res'] / names_files[file]}"
+        )
         shutil.copyfile(
             self.paths['test_data'] / names_files[file],
             self.prm['paths']['opt_res'] / names_files[file]
@@ -64,8 +49,8 @@ def patch_find_feasible_data(
 
     self.res_name = names_files['res']
     self.batch_file, batch = self.env.reset(
-            seed=0,
-            load_data=True, passive=False)
+            seed=0, load_data=True, passive=False
+    )
     data_feasibles = self._format_data_optimiser(
         batch, passive=passive
     )
@@ -92,27 +77,9 @@ def patch_update_date(self, i0_costs, date0=None):
 
 
 def patch_file_id(self):
-    extension = "_test"
-    if self.prm['grd']['manage_voltage']:
-        extension += _naming_file_extension_network_parameters(
-            management='manage_voltage',
-            limit_1=self.prm['grd']['v_mag_over'],
-            limit_2=self.prm['grd']['v_mag_under'],
-            penalty_1=self.prm['grd']['penalty_overvoltage'],
-            penalty_2=self.prm['grd']['penalty_undervoltage']
-        )
-        extension += f"subset_losses{self.prm['grd']['subset_line_losses_modelled']}"          
-    if self.prm['grd']['manage_agg_power']:
-        extension += _naming_file_extension_network_parameters(
-                management='manage_agg_power',
-                limit_1=self.prm['grd']['max_grid_import'],
-                limit_2=self.prm['grd']['max_grid_export'],
-                penalty_1=self.prm['grd']['penalty_import'],
-                penalty_2=self.prm['grd']['penalty_export']
-        )  
+    file_extension = f"_test{self.prm['paths']['opt_res_file']}"
 
-    extension += ".npy"
-    return extension
+    return file_extension
 
 def patch_set_i0_costs(self, i0_costs):
     self.i0_costs = I0_COSTS
@@ -223,8 +190,8 @@ def test_all(mocker):
             'manage_voltage': True,
             'penalty_overvoltage': 0.1, 
             'penalty_undervoltage': 0.1,
-            'v_mag_over': 1.001, 
-            'v_mag_under': 0.999,
+            'max_voltage': 1.001,
+            'min_voltage': 0.999,
             'weight_network_costs': 1,
             'subset_line_losses_modelled': 30
         }
@@ -300,3 +267,4 @@ def test_all(mocker):
                 assert no_run == prev_no_run + 1, "results not saving"
             run(run_mode, settings)
             prev_no_run = no_run
+

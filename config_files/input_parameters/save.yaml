@@ -8,12 +8,17 @@ save_run: True
 learner_log_interval: 2000 # Log training stats every {} timesteps
 plot_indiv_repeats_rewards: False
 last_entries: [
-  'netp','store_outs','action','reward', 'break_down_rewards', 'store', # values i want to store from last epoch so that i can plot
-  'ldflex', 'ldfixed','totcons','tot_cons_loads',
-  'tot_E_heat','T', 'T_air', 'grdC','wholesale',
-  'cintensity', 'overvoltage_bus_value', 'undervoltage_bus_value', 'overvoltage_bus_index', 'undervoltage_bus_index',
+  'netp', 'store_outs', 'store',
+  'totcons', 'tot_E_heat', 'T', 'T_air',
+  'voltage_squared', 'hourly_line_losses',
+  'action','reward',
+  'ldflex', 'ldfixed','tot_cons_loads',
+  'grdC','wholesale',
+  'cintensity',
+  'break_down_rewards',  # values i want to store from last epoch so that i can plot
   'loaded_buses', 'sgen_buses'
 ]
+
 repeat_entries: [
   'train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',
    'stability', 'last', 'seed', 'eps', 'ind_seed_deterministic',

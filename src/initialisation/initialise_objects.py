@@ -545,18 +545,32 @@ def _update_rl_prm(prm, initialise_all):
     return rl
 
 
-def _naming_file_extension_network_parameters(management, limit_1, limit_2, penalty_1, penalty_2):
+def _naming_file_extension_network_parameters(grd):
     """ Adds the mange_voltage and manage_agg_power settings to optimization results in opt_res """
-    file_extension = f"_{management}_limit{limit_1}"
-    if limit_1 != limit_2:
-        file_extension += f"_{limit_2}"
-    file_extension += f"_penalty_coeff{penalty_1}"
-    if penalty_1 != penalty_2:
-        file_extension += f"_{penalty_2}"
+    upper_quantities = ['max_voltage', 'max_grid_import']
+    lower_quantities = ['min_voltage', 'max_grid_export']
+    penalties_upper = ['overvoltage', 'import']
+    penalties_lower = ['undervoltage', 'export']
+    managements = ['manage_voltage', 'manage_agg_power']
+    file_extension = ''
+    for lower_quantity, upper_quantity, penalty_upper, penalty_lower, management in zip(
+            lower_quantities, upper_quantities, penalties_upper, penalties_lower, managements
+    ):
+        if grd[management]:
+            file_extension += f"_{management}_limit" + str(grd[upper_quantity])
+            if grd[upper_quantity] != grd[lower_quantity]:
+                file_extension += f"_{grd[lower_quantity]}"
+            file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
+            if grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']:
+                file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
+
+            if management == 'manage_voltage':
+                file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
+
     return file_extension
 
 
-def _seed_save_paths(prm):
+def opt_res_seed_save_paths(prm):
     """
     Get strings and seeds which will be used to identify runs.
 
@@ -589,24 +603,7 @@ def _seed_save_paths(prm):
                        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
         if file == "opt_res_file" and prm["syst"]["change_start"]:
             paths["opt_res_file"] += "_changestart"
-        if grd['manage_voltage']:
-            paths[file] += _naming_file_extension_network_parameters(
-                management='manage_voltage',
-                limit_1=prm['grd']['v_mag_over'],
-                limit_2=prm['grd']['v_mag_under'],
-                penalty_1=prm['grd']['penalty_overvoltage'],
-                penalty_2=prm['grd']['penalty_undervoltage']
-            )
-            paths[file] += f"subset_losses{prm['grd']['subset_line_losses_modelled']}"
-        if grd['manage_agg_power']:
-            paths[file] += _naming_file_extension_network_parameters(
-                management='manage_agg_power',
-                limit_1=prm['grd']['max_grid_import'],
-                limit_2=prm['grd']['max_grid_export'],
-                penalty_1=prm['grd']['penalty_import'],
-                penalty_2=prm['grd']['penalty_export']
-            )
-
+        paths[file] += _naming_file_extension_network_parameters(grd)
         # eff does not matter for seeds, but only for res
         if file == "opt_res_file" and prm["car"]["efftype"] == 1:
             paths["opt_res_file"] += "_eff1"
@@ -659,6 +656,10 @@ def _update_grd_prm(prm):
         for price, carbon in zip(wholesale, grd["cintensity_all"])
     ]
     grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
+
+    if grd['compare_pandapower_optimisation'] and not grd['manage_voltage']:
+        # comparison between optimisation and pandapower is only relevant if simulating voltage.
+        grd['compare_pandapower_optimisation'] = False
 
 
 def _time_info(prm):
@@ -731,7 +732,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
     # car avail, type, factors
     prm['car'] = _update_bat_prm(prm)
     prm['RL'] = _update_rl_prm(prm, initialise_all)
-    prm['RL'], prm['paths'] = _seed_save_paths(prm)
+    prm['RL'], prm['paths'] = opt_res_seed_save_paths(prm)
 
     if prm['RL']["type_learning"] == "facmac":
         prm = _facmac_initialise(prm)

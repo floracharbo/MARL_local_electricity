@@ -305,31 +305,19 @@ class LocalElecEnv():
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, constraint_ok = self.policy_to_rewardvar(
-            action, E_req_only=E_req_only
-        )
+        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
+            self.policy_to_rewardvar(
+                action, E_req_only=E_req_only
+            )
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
 
         else:
-            if self.prm['grd']['manage_voltage']:
-                [
-                    overvoltage_bus, undervoltage_bus, loaded_buses,
-                    sgen_buses, hourly_line_losses, _
-                ] = self.network.pf_simulation(home_vars['netp'])
-
-            else:
-                overvoltage_bus = []
-                undervoltage_bus = []
-                loaded_buses = []
-                sgen_buses = []
-                hourly_line_losses = 0
             reward, break_down_rewards = self.get_reward(
                 netp=home_vars['netp'],
                 hourly_line_losses=hourly_line_losses,
-                overvoltage_bus=overvoltage_bus,
-                undervoltage_bus=undervoltage_bus,
+                voltage_squared=voltage_squared
             )
 
             # ----- update environment variables and state
@@ -360,17 +348,25 @@ class LocalElecEnv():
             if record:
                 loads_flex = np.zeros(self.n_homes) if self.date == self.date_end \
                     else [sum(batch_flex[home][h][1:]) for home in homes]
-                record_output = \
-                    [home_vars['netp'], self.car.discharge, action, reward,
-                     break_down_rewards, self.car.store, loads_flex, loads_fixed,
-                     home_vars['tot_cons'].copy(), loads['tot_cons_loads'].copy(),
-                     self.heat.tot_E.copy(), self.heat.T.copy(),
-                     self.heat.T_air.copy(), self.prm['grd']['C'][self.time].copy(),
-                     self.wholesale[self.time].copy(),
-                     self.cintensity[self.time].copy(),
-                     overvoltage_bus, undervoltage_bus,
-                     np.array(overvoltage_bus.index), np.array(undervoltage_bus.index),
-                     loaded_buses, sgen_buses, hourly_line_losses]
+                record_output = [
+                    home_vars['netp'],
+                    self.car.discharge,
+                    self.car.store,
+                    home_vars['tot_cons'].copy(),
+                    self.heat.tot_E.copy(),
+                    self.heat.T.copy(),
+                    self.heat.T_air.copy(),
+                    voltage_squared,
+                    hourly_line_losses,
+                    action, reward, loads_flex, loads_fixed, loads['tot_cons_loads'].copy(),
+                    self.prm['grd']['C'][self.time].copy(),
+                    self.wholesale[self.time].copy(),
+                    self.cintensity[self.time].copy(),
+                    break_down_rewards,
+                    self.network.loaded_buses, self.network.sgen_buses
+
+                ]
+
                 return [next_state, self.done, reward, break_down_rewards,
                         home_vars['bool_flex'], constraint_ok, record_output]
             elif netp_storeout:
@@ -389,8 +385,7 @@ class LocalElecEnv():
             charge: list = None,
             passive_vars: list = None,
             time_step: int = None,
-            overvoltage_bus: list = None,
-            undervoltage_bus: list = None,
+            voltage_squared: list = None,
             hourly_line_losses: int = 0,
     ) -> Tuple[list, list]:
         """Compute reward from netp and battery charge at time step."""
@@ -418,37 +413,11 @@ class LocalElecEnv():
         # negative netp is selling, positive buying, losses in kWh
         grid = sum(netp) + sum(netp0) + hourly_line_losses
         # import and export limits
-        grid_in = np.where(np.array(grid) >= 0, grid, 0)
-        grid_out = np.where(np.array(grid) < 0, grid, 0)
-
-        if self.prm['grd']['manage_agg_power']:
-            import_costs = np.where(
-                grid_in
-                >= self.prm['grd']['max_grid_import'],
-                self.prm['grd']['penalty_import']
-                * (grid_in - self.prm['grd']['max_grid_import']), 0)
-            export_costs = np.where(
-                abs(grid_out)
-                >= self.prm['grd']['max_grid_export'],
-                self.prm['grd']['penalty_export']
-                * (abs(grid_out) - self.prm['grd']['max_grid_export']), 0)
-
-            import_export_costs = import_costs + export_costs
-        else:
-            import_export_costs = 0
+        import_export_costs = self.network.compute_import_export_costs(grid)
 
         # Voltage costs
-        voltage_costs = 0
-        if overvoltage_bus is not None:
-            voltage_costs += self.prm['grd']['penalty_overvoltage'] * sum(
-                overvoltage ** 2 - self.prm['grd']['v_mag_over'] ** 2
-                for overvoltage in overvoltage_bus
-            )
-        if undervoltage_bus is not None:
-            voltage_costs += self.prm['grd']['penalty_undervoltage'] * sum(
-                self.prm['grd']['v_mag_under'] ** 2 - undervoltage ** 2
-                for undervoltage in undervoltage_bus
-            )
+        if voltage_squared is not None:
+            voltage_costs = self.network.compute_voltage_costs(voltage_squared)
 
         if self.prm['grd']['charge_type'] == 0:
             sum_netp = sum(self.netp_to_exports(netp))
@@ -473,10 +442,12 @@ class LocalElecEnv():
         indiv_grid_battery_costs = [
             g + s for g, s in zip(indiv_grid_energy_costs, indiv_battery_degradation_costs)
         ]
-        network_costs = import_export_costs + voltage_costs
+        network_costs = self.prm['grd']['weight_network_costs'] * (
+            import_export_costs + voltage_costs
+        )
         reward = - (
             battery_degradation_costs + distribution_network_export_costs + grid_energy_costs
-            + self.prm['grd']['weight_network_costs'] * network_costs
+            + network_costs
         )
         costs_wholesale = wholesalet * (sum(netp) + sum(netp0))
         costs_upstream_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
@@ -576,10 +547,17 @@ class LocalElecEnv():
         self._check_constraints(
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
+        if self.prm['grd']['manage_voltage']:
+            hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
+            voltage_squared = np.square(voltage)
+        else:
+            voltage_squared = None
+            hourly_line_losses = 0
+
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
-        return home_vars, loads, constraint_ok
+        return home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok
 
     def get_state_vals(
             self,
@@ -748,8 +726,6 @@ class LocalElecEnv():
                     self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
             self._loads_to_flex(homes)
             self.dloaded += 1
-
-            assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
 
         else:
             for info in ['batch', 'i0_costs']:

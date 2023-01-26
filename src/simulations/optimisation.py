@@ -30,15 +30,53 @@ class Optimiser():
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
 
+    def res_post_processing(self, res):
+        for key, val in res.items():
+            if len(np.shape(val)) == 2 and np.shape(val)[1] == 1:
+                res[key] = res[key][:, 0]
+
+        if self.grd['manage_agg_power']:
+            res['hourly_import_export_costs'] = \
+                res['hourly_import_costs'] + res['hourly_export_costs']
+        else:
+            res['hourly_import_costs'] = np.zeros(self.N)
+            res['hourly_export_costs'] = np.zeros(self.N)
+            res['hourly_import_export_costs'] = np.zeros(self.N)
+
+        if self.grd['manage_voltage']:
+            res['voltage'] = np.sqrt(res['voltage_squared'])
+            res['hourly_voltage_costs'] = np.sum(
+                res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
+            )
+            res['hourly_line_losses'] = res['hourly_line_losses_pu'] * self.grd['base_power'] / 1000
+        else:
+            res['voltage_costs'] = 0
+            res['hourly_voltage_costs'] = np.zeros(self.N)
+
+        res['hourly_grid_energy_costs'] = self.grd['C'][0: self.N] * (
+            res["grid"] + self.grd["loss"] * res["grid2"]
+        )
+        res['hourly_battery_degradation_costs'] = \
+            self.car["C"] * np.sum(res["discharge_tot"] + res["charge"], axis=0)
+        res['hourly_distribution_network_export_costs'] = \
+            self.grd["export_C"] * np.sum(res["netp_abs"], axis=0)
+        res['hourly_total_costs'] = \
+            (res['hourly_import_export_costs'] + res['hourly_voltage_costs']) \
+            * self.grd["weight_network_costs"] \
+            + res['hourly_grid_energy_costs'] \
+            + res['hourly_battery_degradation_costs'] \
+            + res['hourly_distribution_network_export_costs']
+
+        for key, val in res.items():
+            if key[0: len('hourly')] == 'hourly':
+                assert len(val) == self.N, f"np.shape(res[{key}]) = {np.shape(val)}"
+
+        return res
+
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
         res = self._problem()
-        if not self.grd['manage_agg_power']:
-            res['import_costs'] = np.zeros((self.N, 1))
-            res['export_costs'] = np.zeros((self.N, 1))
-        if not self.grd['manage_voltage']:
-            res['voltage_costs'] = 0
 
         if prm['car']['efftype'] == 1:
             init_eta = prm['car']['etach']
@@ -67,11 +105,13 @@ class Optimiser():
             prm['car']['etach'] = init_eta
             prm['car']['eff'] = 1
 
+        res = self.res_post_processing(res)
+
         return res
 
     def _power_flow_equations(self, p, netp, grid, hourly_line_losses_pu):
         # loads on network from agents
-        voltage_costs = p.add_variable('voltage_costs', 1)  # total voltage violation costs
+        voltage_costs = p.add_variable('voltage_costs', 1)  # daily voltage violation costs
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         netq = p.add_variable('netq', (self.n_homes, self.N), vtype='continuous')
         qi = p.add_variable('qi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
@@ -79,8 +119,8 @@ class Optimiser():
         pij = p.add_variable('pij', (self.grd['n_lines'], self.N), vtype='continuous')
         qij = p.add_variable('qij', (self.grd['n_lines'], self.N), vtype='continuous')
         lij = p.add_variable('lij', (self.grd['n_lines'], self.N), vtype='continuous')
-        v_mag_square = p.add_variable(
-            'v_mag_square', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
+        voltage_squared = p.add_variable(
+            'voltage_squared', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
         v_line = p.add_variable('v_line', (self.grd['n_lines'], self.N), vtype='continuous')
         q_ext_grid = p.add_variable('q_ext_grid', self.N, vtype='continuous')
@@ -142,12 +182,12 @@ class Optimiser():
         )
 
         # bus voltage
-        p.add_list_of_constraints([v_mag_square[0, t] == 1.0 for t in range(self.N)])
+        p.add_list_of_constraints([voltage_squared[0, t] == 1.0 for t in range(self.N)])
 
         p.add_list_of_constraints(
             [
-                v_mag_square[1:, t] == self.grd['bus_connection_matrix'][1:, :]
-                * v_mag_square[:, t]
+                voltage_squared[1:, t] == self.grd['bus_connection_matrix'][1:, :]
+                * voltage_squared[:, t]
                 + 2 * (
                     np.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
@@ -170,7 +210,7 @@ class Optimiser():
         # auxiliary constraint
         p.add_list_of_constraints(
             [
-                v_line[:, t] == self.grd['out_incidence_matrix'].T * v_mag_square[:, t]
+                v_line[:, t] == self.grd['out_incidence_matrix'].T * voltage_squared[:, t]
                 for t in range(self.N)
             ]
         )
@@ -208,12 +248,12 @@ class Optimiser():
         p.add_constraint(overvoltage_costs >= 0)
         p.add_constraint(
             overvoltage_costs
-            >= self.grd['penalty_overvoltage'] * (v_mag_square - self.grd['v_mag_over'] ** 2)
+            >= self.grd['penalty_overvoltage'] * (voltage_squared - self.grd['max_voltage'] ** 2)
         )
         p.add_constraint(undervoltage_costs >= 0)
         p.add_constraint(
             undervoltage_costs
-            >= self.grd['penalty_undervoltage'] * (self.grd['v_mag_under'] ** 2 - v_mag_square)
+            >= self.grd['penalty_undervoltage'] * (self.grd['min_voltage'] ** 2 - voltage_squared)
         )
 
         # sum over all buses
@@ -253,7 +293,7 @@ class Optimiser():
         # grid costs
         p.add_constraint(
             grid_energy_costs
-            == (self.grd['C'][0: self.N] | (grid + self.grd['R'] / (self.grd['V'] ** 2) * grid2))
+            == (self.grd['C'][0: self.N] | (grid + self.grd['loss'] * grid2))
         )
 
         if self.grd['manage_voltage']:
@@ -519,7 +559,10 @@ class Optimiser():
         network_costs = p.add_variable('network_costs', 1)
         total_costs = p.add_variable('total_costs', 1, vtype='continuous')
 
-        p.add_constraint(network_costs == import_export_costs + voltage_costs)
+        p.add_constraint(
+            network_costs
+            == self.grd['weight_network_costs'] * (import_export_costs + voltage_costs)
+        )
         p, distribution_network_export_costs = self._distribution_costs(p, netp)
 
         p.add_constraint(
@@ -527,7 +570,7 @@ class Optimiser():
             == grid_energy_costs
             + battery_degradation_costs
             + distribution_network_export_costs
-            + self.grd['weight_network_costs'] * network_costs
+            + network_costs
         )
 
         p.set_objective('min', total_costs)
@@ -538,8 +581,8 @@ class Optimiser():
         # penalty for import and export violations
         import_export_costs = p.add_variable('import_export_costs', 1)  # total import export costs
         if self.grd['manage_agg_power']:
-            import_costs = p.add_variable('import_costs', self.N, vtype='continuous')
-            export_costs = p.add_variable('export_costs', self.N, vtype='continuous')
+            hourly_import_costs = p.add_variable('hourly_import_costs', self.N, vtype='continuous')
+            hourly_export_costs = p.add_variable('hourly_export_costs', self.N, vtype='continuous')
             grid_in = p.add_variable('grid_in', self.N, vtype='continuous')  # hourly grid import
             grid_out = p.add_variable('grid_out', self.N, vtype='continuous')  # hourly grid export
             # import and export definition
@@ -549,18 +592,18 @@ class Optimiser():
 
             p.add_list_of_constraints([grid_in[t] >= 0 for t in range(self.N)])
             p.add_list_of_constraints([grid_out[t] >= 0 for t in range(self.N)])
-            p.add_constraint(import_costs >= 0)
+            p.add_constraint(hourly_import_costs >= 0)
             p.add_constraint(
-                import_costs
+                hourly_import_costs
                 >= self.grd['penalty_import'] * (grid_in - self.grd['max_grid_import'])
             )
-            p.add_constraint(export_costs >= 0)
+            p.add_constraint(hourly_export_costs >= 0)
             p.add_constraint(
-                export_costs
+                hourly_export_costs
                 >= self.grd['penalty_export'] * (grid_out - self.grd['max_grid_export'])
             )
             p.add_constraint(
-                import_export_costs == pic.sum(import_costs) + pic.sum(export_costs)
+                import_export_costs == pic.sum(hourly_import_costs) + pic.sum(hourly_export_costs)
             )
         else:
             p.add_constraint(import_export_costs == 0)

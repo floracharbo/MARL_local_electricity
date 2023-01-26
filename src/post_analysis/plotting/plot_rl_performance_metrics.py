@@ -232,12 +232,11 @@ def _plot_compare_all_signs(
     fig2 = plt.figure(figsize=(3.25, 7 * 0.75))
     ax = plt.gca()
     xs, colours_plot_end = {}, {}
-    for i in range(len(prm["save"]["base_entries"])):
-        splits = prm["save"]["base_entries"][i].split('_')
-        label = f"{splits[0]}_{splits[1]}" if len(splits) > 1 \
-            else prm["save"]["base_entries"][i]
+    for i, entry in enumerate(eval_entries_notCd):
+        label = data_source(entry) + '_' + reward_type(entry) \
+            if len(entry.split('_')) > 1 else entry
         xs[label] = i
-        colours_plot_end[label] = colours_barplot_baseentries[i]
+        colours_plot_end[label] = prm['save']['colourse'][entry]
     baseline, opt = [metrics[m_][ave][e]
                      if e in metrics[m_][ave] else None
                      for e in ['baseline', 'opt']]

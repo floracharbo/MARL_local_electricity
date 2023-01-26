@@ -676,8 +676,6 @@ class EnvSpaces():
                 if isinstance(descriptor_info['max'].values.item(), list) \
                 else descriptor_info['max'].values.item()
             min_val = descriptor_info['min'].values.item()
-            if (val - min_val) / (max_home - min_val) > 1:
-                print()
             normalised_val = (val - min_val) / (max_home - min_val)
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0

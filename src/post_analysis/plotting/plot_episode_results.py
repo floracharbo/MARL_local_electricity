@@ -684,13 +684,16 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
         for t in [t for t in methods_to_plot if t not in ['opt']]:
-            over_index = np.array(last['overvoltage_bus_index'][t][23])
-            over_value = np.array(last['overvoltage_bus_value'][t][23])
-            under_index = np.array(last['undervoltage_bus_index'][t][23])
-            under_value = np.array(last['undervoltage_bus_value'][t][23])
-            if (len(under_value) + len(over_value)) > 150:
+            overvoltage_bus_index, undervoltage_bus_index = \
+                get_index_over_under_voltage_last_time_step(last, t, prm)
+            overvoltage_value = \
+                last['voltage_squared'][t][prm['syst']['N'] - 1][overvoltage_bus_index]
+            undervoltage_value = \
+                last['voltage_squared'][t][prm['syst']['N'] - 1][undervoltage_bus_index]
+            n_voltage_violations = len(overvoltage_bus_index) + len(undervoltage_bus_index)
+            if n_voltage_violations > 150:
                 fig_length = 22
-            elif (len(under_value) + len(over_value)) < 10:
+            elif n_voltage_violations < 10:
                 fig_length = 6
             else:
                 fig_length = 10
@@ -698,30 +701,30 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             fig, ax1 = plt.subplots(figsize=(fig_length, 6))
             # ax2 = ax1.twinx()
 
-            if len(under_value) > 0:
-                ax1.bar(under_index - 0.2, under_value, width=0.4,
+            if len(undervoltage_value) > 0:
+                ax1.bar(undervoltage_bus_index - 0.2, undervoltage_value, width=0.4,
                         label='undervoltage', color='navy')
                 # ax2.bar(under_index+0.2, prm['grd']['penalty_undervoltage'] \
-                #    * (prm['grd']['v_mag_under']**2 - np.square(under_value)),
+                #    * (prm['grd']['min_voltage']**2 - np.square(under_value)),
                 #    width=0.4, color ='dodgerblue', label = 'under penalty')
-                first_bus_under = under_index[0]
-                lower_lim = min(under_value) - 0.002
+                first_bus_under = undervoltage_bus_index[0]
+                lower_lim = min(undervoltage_value) - 0.002
             else:
                 first_bus_under = 1000
                 lower_lim = 0.998
-            if len(over_index) > 0:
-                ax1.bar(over_index - 0.2, over_value, width=0.4,
+            if len(overvoltage_bus_index) > 0:
+                ax1.bar(overvoltage_bus_index - 0.2, overvoltage_value, width=0.4,
                         label='overvoltage', color='maroon')
                 # ax2.bar(over_index + 0.2, np.array(prm['grd']['penalty_overvoltage'] \
-                #    * (np.square(over_value) - prm['grd']['v_mag_over']**2)),
+                #    * (np.square(over_value) - prm['grd']['max_voltage']**2)),
                 #    width=0.4, label = 'over penalty', color ='coral')
-                first_bus_over = over_index[0]
-                upper_lim = max(over_value) + 0.002
+                first_bus_over = overvoltage_bus_index[0]
+                upper_lim = max(overvoltage_value) + 0.002
             else:
                 first_bus_over = 1000
                 upper_lim = 1.002
 
-            if (len(under_value) + len(over_value)) > 150:
+            if n_voltage_violations > 150:
                 ax1.set_xlim(min(first_bus_under, first_bus_over),
                              150 + min(first_bus_under, first_bus_over))
                 title = f'Over-, undervoltage and corresponding penalty for hour 24, \
@@ -729,8 +732,8 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             else:
                 title = f'Over-, undervoltage and corresponding penalty for hour 24, \
                     repeat{repeat}_{t}'
-            ax1.axhline(y=prm['grd']['v_mag_over'], color='k')
-            ax1.axhline(y=prm['grd']['v_mag_under'], color='k')
+            ax1.axhline(y=prm['grd']['max_voltage'], color='k')
+            ax1.axhline(y=prm['grd']['min_voltage'], color='k')
             ax1.set_ylabel('Voltage magnitude [p.u.]')
             ax1.set_xlabel('Bus number')
             # ax2.set_ylabel('penalty')
@@ -739,6 +742,17 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             # ax2.legend(loc='center left', bbox_to_anchor=(0.6, 0.83))
             plt.tight_layout()
             title_and_save(title, fig, prm)
+
+
+def get_index_over_under_voltage_last_time_step(last, t, prm):
+    overvoltage_bus_index = np.where(
+        last['voltage_squared'][t][prm["syst"]["N"] - 1] > prm['grd']['max_voltage'] ** 2
+    )[0]
+    undervoltage_bus_index = np.where(
+        last['voltage_squared'][t][prm["syst"]["N"] - 1] < prm['grd']['min_voltage'] ** 2
+    )[0]
+
+    return overvoltage_bus_index, undervoltage_bus_index
 
 
 def map_over_undervoltage(
@@ -772,14 +786,17 @@ def map_over_undervoltage(
                                                  patch_type="poly3", size=1.4, color="g", zorder=11)
 
                 # Plot over and under voltages
+                overvoltage_bus_index, undervoltage_bus_index = \
+                    get_index_over_under_voltage_last_time_step(last, t, prm)
+
                 over = plot.create_bus_collection(
                     net,
-                    last['overvoltage_bus_index'][t][prm["syst"]["N"] - 1],
+                    overvoltage_bus_index,
                     size=0.6, color="coral", zorder=10
                 )
                 under = plot.create_bus_collection(
                     net,
-                    last['undervoltage_bus_index'][t][prm["syst"]["N"] - 1],
+                    undervoltage_bus_index,
                     size=0.6, color="dodgerblue", zorder=10
                 )
                 # Draw all the collected plots

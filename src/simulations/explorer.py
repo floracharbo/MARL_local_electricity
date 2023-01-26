@@ -15,9 +15,7 @@ from datetime import timedelta
 from typing import Tuple
 
 import numpy as np
-import pandas as pd
 
-from src.network_modelling.network import Network
 from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
 from src.simulations.select_actions import ActionSelector
@@ -636,7 +634,7 @@ class Explorer():
         return step_vals
 
     def _tests_individual_step_rl_matches_res(
-            self, res, time_step, batch, reward, break_down_rewards
+            self, res, time_step, batch, reward, break_down_rewards,
     ):
         prm = self.prm
         assert isinstance(batch[0], dict), f"type(batch[0]) {type(batch)}"
@@ -665,11 +663,11 @@ class Explorer():
             f"{np.sum(loads[:, 0: prm['syst']['N']])}"
 
         gc_i = prm["grd"]["C"][time_step] * (
-            res['grid'][time_step][0] + prm["grd"]['loss'] * res['grid2'][time_step][0]
+            res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
         )
         gc_per_start_i = [
             prm["grd"]["Call"][i + time_step] * (
-                res['grid'][time_step][0] + prm["grd"]['loss'] * res['grid2'][time_step][0]
+                res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
             )
             for i in range(len(prm['grd']['Call']) - self.N)
         ]
@@ -679,130 +677,35 @@ class Explorer():
         ]
         assert self.env.i0_costs in potential_i0s
 
-        res_import_export_costs = res['import_costs'][time_step][0] \
-            + res['export_costs'][time_step][0]
-        if self.prm['grd']['manage_voltage']:
-            res_voltage_costs = sum(res['overvoltage_costs'][:, time_step]) \
-                + sum(res['undervoltage_costs'][:, time_step])
-        else:
-            res_voltage_costs = 0
         # check reward from environment and res variables match
-        res_grid_energy_costs = prm["grd"]["C"][time_step] * (
-            res["grid"][time_step][0]
-            + prm["grd"]["R"] / (prm["grd"]["V"] ** 2)
-            * res["grid2"][time_step][0]
-        )
-        res_battery_degradation_costs = prm["car"]["C"] * sum(
-            res["discharge_tot"][home][time_step]
-            + res["charge"][home][time_step]
-            for home in self.homes
-        )
-        res_distribution_network_export_costs = prm["grd"]["export_C"] * sum(
-            res["netp_abs"][home][time_step] for home in self.homes
-        )
-        res_reward_t = - (
-            (res_import_export_costs + res_voltage_costs) * prm["grd"]["weight_network_costs"]
-            + res_grid_energy_costs
-            + res_battery_degradation_costs
-            + res_distribution_network_export_costs
-        )
-
         if not prm["RL"]["competitive"]:
-            if abs(reward - res_reward_t) > 5e-3:
-                tot_delta = reward - res_reward_t
-                print(f"reward {reward} != res_reward_t {res_reward_t} (delta {tot_delta})")
-                sub_costs_env = break_down_rewards[0: 5]
-                sub_costs_res = [
-                    res_grid_energy_costs,
-                    res_battery_degradation_costs,
-                    res_distribution_network_export_costs,
-                    res_import_export_costs,
-                    res_voltage_costs
+            if abs(reward + res['hourly_total_costs'][time_step]) > 5e-3:
+                tot_delta = reward + res['hourly_total_costs'][time_step]
+                print(
+                    f"reward {reward} != "
+                    f"res reward {- res['hourly_total_costs'][time_step]} "
+                    f"(delta {tot_delta})"
+                )
+                labels = [
+                    'grid_energy_costs',
+                    'battery_degradation_costs',
+                    'distribution_network_export_costs',
+                    'import_export_costs',
+                    'voltage_costs'
                 ]
-                labels = self.prm['syst']['break_down_rewards_entries'][0: 5]
-                for sub_cost_env, sub_cost_res, label in zip(sub_costs_env, sub_costs_res, labels):
+                for label in labels:
+                    sub_cost_env = break_down_rewards[
+                        self.prm['syst']['break_down_rewards_entries'].index(label)
+                    ]
+                    sub_cost_res = res[f'hourly_{label}'][time_step]
                     if abs(sub_cost_env - sub_cost_res) > 1e-3:
                         sub_delta = sub_cost_env - sub_cost_res
                         print(
                             f"{label} costs do not match: env {sub_cost_env} vs res {sub_cost_res} "
-                            f"(subdelta {sub_delta} is "
-                            f"{sub_delta/tot_delta * 100} % of total delta)"
+                            f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
                         )
-
-            assert abs(reward - res_reward_t) < 5e-3, \
-                f"reward {reward} != res_reward_t " \
-                f"from res variables {res_reward_t}"
-
-    def _test_network_comparison_optimizer_pandapower(
-            self, res, time_step
-    ):
-        """Compares hourly results from network modelling in optimizer and pandapower"""
-        prm = self.prm
-        self.network = Network(prm)
-        # Results from optimization
-        netp = res["netp"][:, time_step]
-        daily_opti_costs = \
-            res["grid_energy_costs"] \
-            + res["battery_degradation_costs"] \
-            + res["distribution_network_export_costs"] \
-            + res["network_costs"]
-        hourly_voltage_costs_opti = \
-            sum(res["overvoltage_costs"][:, time_step]) \
-            + sum(res["undervoltage_costs"][:, time_step])
-        hourly_line_losses_opti = res['hourly_line_losses_pu'][time_step][0] \
-            * self.prm['grd']['base_power'] / 1000
-        v_mag_opti = np.sqrt(res['v_mag_square'][:, time_step])
-        # Results from pandapower
-        [
-            overvoltage_bus_pp, undervoltage_bus_pp, _, _, hourly_line_losses_pp, v_mag_pp
-        ] = self.network.pf_simulation(netp)
-        pp_simulate_imperfect_opti = False
-
-        # Voltage test
-        max_diff_voltage = max(abs(v_mag_opti - v_mag_pp[1:]) / v_mag_opti)
-        max_diff_bus_number = pd.DataFrame(abs(v_mag_opti - v_mag_pp[1:]) / v_mag_opti).idxmax()
-        if max_diff_voltage > 0.1:
-            print(
-                f"The max diff of voltage between the optimizer and pandapower for hour {time_step}"
-                f"is {max_diff_voltage*100}% at bus {max_diff_bus_number[0]}"
-                f"The network will be simulated with pandapower to correct the voltages"
-            )
-            pp_simulate_imperfect_opti = True
-
-        # Line losses test
-        if abs(hourly_line_losses_opti - hourly_line_losses_pp) > 1e-2:
-            print(
-                f"The difference in hourly line losses "
-                f"between pandapower and optimizer for hour {time_step}"
-                f"is {abs(hourly_line_losses_opti - hourly_line_losses_pp)}. "
-                f"To increase accuracy, the user could increase the subset_line_losses_modelled "
-                f"(currently: {self.prm['grd']['subset_line_losses_modelled']} lines"
-            )
-
-        # Impact of voltage costs on total costs
-        hourly_voltage_costs_pp = 0
-        if overvoltage_bus_pp is not None:
-            hourly_voltage_costs_pp += self.prm['grd']['penalty_overvoltage'] * sum(
-                overvoltage ** 2 - self.prm['grd']['v_mag_over'] ** 2
-                for overvoltage in overvoltage_bus_pp
-            )
-        if undervoltage_bus_pp is not None:
-            hourly_voltage_costs_pp += self.prm['grd']['penalty_undervoltage'] * sum(
-                self.prm['grd']['v_mag_under'] ** 2 - undervoltage ** 2
-                for undervoltage in undervoltage_bus_pp
-            )
-
-        if abs(hourly_voltage_costs_opti - hourly_voltage_costs_pp) / daily_opti_costs > 1e-4:
-            print(
-                f"Warning: The difference in voltage costs between "
-                f"the optimization and pandapower for hour {time_step} "
-                f"is {abs(hourly_voltage_costs_opti-hourly_voltage_costs_pp) / daily_opti_costs}"
-                f"of the total daily costs. "
-                f"The network will be simulated with pandapower to correct the voltages."
-            )
-            pp_simulate_imperfect_opti = True
-
-        return pp_simulate_imperfect_opti, overvoltage_bus_pp, undervoltage_bus_pp
+            assert abs(reward + res['hourly_total_costs'][time_step]) < 5e-3, \
+                f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
             self, evaluation, exploration_method, time_step, step_vals, epoch
@@ -861,16 +764,11 @@ class Explorer():
                 )
 
     def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
-        prm = self.prm
-        sum_res_rewards = (- (res["grid_energy_costs"] + res["battery_degradation_costs"]
-                              + res["distribution_network_export_costs"]
-                              + (res["import_export_costs"] + res["voltage_costs"])
-                              * prm["grd"]["weight_network_costs"]))
         if not (self.prm["RL"]["competitive"] and not evaluation):
-            assert abs(sum_rl_rewards - sum_res_rewards) < 1e-3, \
+            assert abs(sum_rl_rewards + res['total_costs']) < 1e-3, \
                 "tot rewards don't match: " \
                 f"sum_RL_rewards = {sum_rl_rewards}, " \
-                f"sum costs opt = {sum_res_rewards}"
+                f"sum costs opt = {res['total_costs']}"
 
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
@@ -878,7 +776,7 @@ class Explorer():
         sum_gc_i = res['pc'] + np.sum(
             [
                 C[time_step_]
-                * (res['grid'][time_step_][0] + loss * res['grid2'][time_step_][0])
+                * (res['grid'][time_step_] + loss * res['grid2'][time_step_])
                 for time_step_ in range(self.N)
             ]
         )
@@ -889,8 +787,8 @@ class Explorer():
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
             [self.prm["grd"]["C"][time_step_] * (
-                res['grid'][time_step_][0]
-                + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
+                res['grid'][time_step_]
+                + self.prm["grd"]['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
         )
         if not (abs(sum_gc_0 - res['grid_energy_costs']) < 1e-3):
@@ -929,40 +827,21 @@ class Explorer():
                 time_step, batchflex_opt, batch_avail_car, res
             )
 
-            # translate dp into action value
+            # translate individual imports/exports into action value
             step_vals_i["bool_flex"], step_vals_i["action"], error = \
                 env.action_translator.optimisation_to_rl_env_action(
                     time_step, date, res["netp"][:, time_step],
-                    loads, home_vars, res)
+                    loads, home_vars, res
+            )
 
             step_vals_i = self.env.spaces.get_ind_global_state_action(step_vals_i)
             feasible = not any(error)
 
-            # comparison optimization and pandapower
-            if (
-                self.prm["grd"]['compare_pandapower_optimisation']
-                and self.prm["grd"]['manage_voltage']
-            ):
-                pp_simulate_imperfect_opti, overvoltage_bus_pp, undervoltage_bus_pp \
-                    = self._test_network_comparison_optimizer_pandapower(res, time_step)
-            else:
-                pp_simulate_imperfect_opti = False
-
-            # determine rewards
-            if self.prm['grd']['manage_voltage']:
-                if pp_simulate_imperfect_opti:
-                    overvoltage_bus = overvoltage_bus_pp
-                    undervoltage_bus = undervoltage_bus_pp
-                else:
-                    overvoltage_bus, undervoltage_bus \
-                        = self.env.network.compute_over_under_voltage_bus(
-                            np.sqrt(res['v_mag_square'][:, time_step])
-                        )
-                hourly_line_losses = res['hourly_line_losses_pu'][time_step][0] \
-                    * self.prm['grd']['base_power'] / 1000
-
-            else:
-                overvoltage_bus, undervoltage_bus, hourly_line_losses = None, None, 0
+            if self.prm["grd"]['compare_pandapower_optimisation']:
+                res, hourly_line_losses_pp, hourly_voltage_costs_pp \
+                    = self.env.network.test_network_comparison_optimiser_pandapower(
+                        res, time_step, self.prm['grd']['C'][time_step]
+                    )
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
@@ -970,12 +849,9 @@ class Explorer():
                 charge=res["charge"][:, time_step],
                 time_step=time_step,
                 passive_vars=self._get_passive_vars(time_step),
-                hourly_line_losses=hourly_line_losses,
-                overvoltage_bus=overvoltage_bus,
-                undervoltage_bus=undervoltage_bus
-
+                hourly_line_losses=res['hourly_line_losses'][time_step],
+                voltage_squared=res['voltage_squared'][:, time_step],
             )
-
             step_vals_i["indiv_grid_battery_costs"] = - np.array(
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
@@ -1049,23 +925,35 @@ class Explorer():
             ldfixed = [sum(batchflex_opt[home][time_step][:])
                        for home in self.homes]
         else:
-            ldfixed = [batchflex_opt[home][time_step][0]
-                       for home in self.homes]
-        tot_cons_loads = \
-            [res["totcons"][home][time_step] - res["E_heat"][home][time_step]
-             for home in self.homes]
-        wholesalet, cintensityt = \
-            [self.prm["grd"][e][self.env.i0_costs + time_step]
-             for e in ["wholesale_all", "cintensity_all"]]
+            ldfixed = [batchflex_opt[home][time_step][0] for home in self.homes]
+        tot_cons_loads = [
+            res["totcons"][home][time_step] - res["E_heat"][home][time_step]
+            for home in self.homes
+        ]
+        wholesalet, cintensityt = [
+            self.prm["grd"][e][self.env.i0_costs + time_step]
+            for e in ["wholesale_all", "cintensity_all"]
+        ]
+        if self.prm["grd"]['compare_pandapower_optimisation']:
+            loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
+        else:
+            loaded_buses, sgen_buses = None, None
 
-        record_output = \
-            [res["netp"][:, time_step], res["discharge_other"][:, time_step],
-             step_vals_i["action"], step_vals_i["reward"], break_down_rewards,
-             res["store"][:, time_step], ldflex, ldfixed,
-             res["totcons"][:, time_step], tot_cons_loads,
-             res["E_heat"][:, time_step], res["T"][:, time_step],
-             res["T_air"][:, time_step], self.prm["grd"]["C"][time_step],
-             wholesalet, cintensityt]
+        record_output = []
+        for entry in [
+            'netp', 'discharge_other', 'store', 'totcons', 'E_heat',
+            'T', 'T_air', 'voltage_squared'
+        ]:
+            record_output.append(res[entry][:, time_step])
+        record_output.append(res['hourly_line_losses'][time_step])
+        record_output += [
+            step_vals_i["action"], step_vals_i["reward"],
+            ldflex, ldfixed, tot_cons_loads,
+            self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
+            break_down_rewards,
+            loaded_buses, sgen_buses
+        ]
+        # last 2 items are 'loaded_buses', 'sgen_buses'
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
 
@@ -1148,19 +1036,18 @@ class Explorer():
         for comb_actions in combs_actions:
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
-            home_vars, loads, constraint_ok = env.policy_to_rewardvar(
-                None, other_input=input_take_action)
+            home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
+                env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self._get_passive_vars(time_step)
-            hourly_line_losses = res["hourly_line_losses_pu"][time_step][0] \
-                * self.prm['grd']['base_power'] / 1000
             reward_baseline_a, _ = env.get_reward(
                 netp=home_vars["netp"],
                 discharge_tot=self.env.car.discharge_tot,
                 charge=self.env.car.charge,
                 time_step=time_step,
                 passive_vars=passive_vars,
-                hourly_line_losses=hourly_line_losses
+                hourly_line_losses=hourly_line_losses,
+                voltage_squared=voltage_squared
             )
 
             if not constraint_ok:
