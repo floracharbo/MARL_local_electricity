@@ -7,7 +7,6 @@ from unittest import mock
 import numpy as np
 import pytest
 
-from src.initialisation.initialise_objects import opt_res_seed_save_paths
 from src.simulations.runner import run
 from src.utilities.userdeftools import current_no_run, set_seeds_rdn
 
@@ -32,7 +31,6 @@ def patch_find_feasible_data(
     files = ['res', 'batch']
     for file in files:
         names_files[file] = f"{file}_test{self.prm['paths']['opt_res_file']}"
-        print(f"names_files[{file}] {names_files[file]}")
 
     res, batch = [
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files

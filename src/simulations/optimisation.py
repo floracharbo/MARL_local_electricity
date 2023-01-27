@@ -50,10 +50,10 @@ class Optimiser():
             )
             res['hourly_line_losses'] = res['hourly_line_losses_pu'] * self.grd['base_power'] / 1000
         else:
-            res["voltage_squared"] = np.zeros([1, self.N])
-            res['hourly_line_losses'] = np.zeros(self.N)
+            res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
             res['hourly_voltage_costs'] = np.zeros(self.N)
+            res['hourly_line_losses'] = np.zeros(self.N)
 
         res['hourly_grid_energy_costs'] = self.grd['C'][0: self.N] * (
             res["grid"] + self.grd["loss"] * res["grid2"]
@@ -555,11 +555,12 @@ class Optimiser():
         return p, E_heat
 
     def _set_objective(
-            self, p, netp, grid_energy_costs, battery_degradation_costs,
-            import_export_costs, voltage_costs
+            self, p, netp, grid, grid_energy_costs, battery_degradation_costs, voltage_costs
     ):
         network_costs = p.add_variable('network_costs', 1)
         total_costs = p.add_variable('total_costs', 1, vtype='continuous')
+
+        p, import_export_costs = self._import_export_costs(p, grid)
 
         p.add_constraint(
             network_costs
@@ -579,7 +580,7 @@ class Optimiser():
 
         return p
 
-    def _compute_import_export_costs(self, p, grid):
+    def _import_export_costs(self, p, grid):
         # penalty for import and export violations
         import_export_costs = p.add_variable('import_export_costs', 1)  # total import export costs
         if self.grd['manage_agg_power']:
@@ -621,7 +622,6 @@ class Optimiser():
         p, E_heat = self._temperature_constraints(p)
         p, totcons = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(p)
-        p, import_export_costs = self._compute_import_export_costs(p, grid)
         # prosumer energy balance, active power
         p.add_constraint(
             netp - charge / self.car['eta_ch']
@@ -631,8 +631,7 @@ class Optimiser():
         )
         # costs constraints
         p = self._set_objective(
-            p, netp, grid_energy_costs, battery_degradation_costs,
-            import_export_costs, voltage_costs
+            p, netp, grid, grid_energy_costs, battery_degradation_costs, voltage_costs
         )
         # solve
         p.solve(verbose=0, solver=self.syst['solver'])

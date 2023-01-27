@@ -953,7 +953,6 @@ class Explorer():
             break_down_rewards,
             loaded_buses, sgen_buses
         ]
-        # last 2 items are 'loaded_buses', 'sgen_buses'
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
 
