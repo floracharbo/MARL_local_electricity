@@ -643,9 +643,9 @@ class Optimiser():
         # save results
         res = self._save_results(p.variables)
         if self.grd['computational_burden_analysis']:
-            time_to_solve_opti = end-start
+            time_to_solve_opti = end - start
             number_opti_constraints = len(p.constraints)
-            self._save_computational_burden(time_to_solve_opti, number_opti_constraints)
+            self._save_computational_burden_opti(time_to_solve_opti, number_opti_constraints)
 
         return res
 
@@ -847,7 +847,7 @@ class Optimiser():
 
         return res
 
-    def _save_computational_burden(
+    def _save_computational_burden_opti(
         self, time_to_solve_opti, number_opti_constraints):
         """Save computational burden results to file."""
         if os.path.exists(f"{self.paths['record_folder']}/computational_res.npz"):
@@ -859,10 +859,8 @@ class Optimiser():
             np.savez_compressed(f"{self.paths['record_folder']}/computational_res.npz",
                 opti_timer=opti_timer, n_constraints=n_constraints)
         else:
-            opti_timer = np.array([1, 2, 3])
-            n_constraints = np.array([4, 5, 6])
             np.savez_compressed(f"{self.paths['record_folder']}/computational_res.npz",
-                opti_timer=opti_timer, n_constraints=n_constraints)
+                opti_timer=time_to_solve_opti, n_constraints=number_opti_constraints)
 
     def plot_results(self, res, prm, folder=None):
         """Plot the optimisation results for homes."""

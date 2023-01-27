@@ -17,6 +17,7 @@ from gym import spaces
 from gym.utils import seeding
 from scipy.stats import norm
 from six import integer_types
+import time
 
 from src.home_components.battery import Battery
 from src.home_components.heat import Heat
@@ -554,8 +555,13 @@ class LocalElecEnv():
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
         if self.prm['grd']['manage_voltage']:
+            start = time.time()
             hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
+            end = time.time()
             voltage_squared = np.square(voltage)
+            if self.prm['grd']['computational_burden_analysis']:
+                time_to_solve_pp = end - start
+
         else:
             voltage_squared = None
             hourly_line_losses = 0
