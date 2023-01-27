@@ -25,7 +25,8 @@ settings = {
     },
     'syst': {
         'test_on_run': True,
-        'n_homes': 3
+        'n_homes': 3,
+        'n_homesP': 0
     },
     'grd': {
         'max_grid_in': 5,
@@ -37,7 +38,7 @@ settings = {
         'max_grid_export': 13,
         'penalty_import': 0.01,
         'penalty_export': 0.01,
-        'manage_voltage': False,
+        'manage_voltage': True,
         'penalty_overvoltage': 0.1,
         'penalty_undervoltage': 0.1,
         'max_voltage': 1.001,
