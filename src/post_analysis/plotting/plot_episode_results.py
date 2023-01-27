@@ -693,8 +693,6 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             n_voltage_violations = len(overvoltage_bus_index) + len(undervoltage_bus_index)
             if n_voltage_violations > 150:
                 fig_length = 22
-            elif n_voltage_violations < 10:
-                fig_length = 6
             else:
                 fig_length = 10
 
