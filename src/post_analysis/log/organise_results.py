@@ -17,6 +17,14 @@ from tqdm import tqdm
 ANNOTATE_RUN_NOS = False
 
 
+def rename_runs(results_path):
+    folders = os.listdir(results_path)
+    initial_numbers = sorted([int(folder[3:]) for folder in folders if folder[0: 3] == "run"])
+    for i, initial_number in enumerate(initial_numbers):
+        if initial_number != i + 1:
+            os.rename(results_path / f"run{initial_number}", results_path / f"run{i + 1}")
+
+
 def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted):
     new_values_of_interest_sorted = {}
     for k in ['all', 'env']:
@@ -101,7 +109,7 @@ def get_list_all_fields(results_path):
         'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all_homes',
         'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
-        'env_info', 'clust_dist_share', 'f_std_share',
+        'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all'
     ]
     result_files = os.listdir(results_path)
@@ -302,6 +310,8 @@ def data_specific_modifications(prm, key, subkey, subsubkey):
         prm = get_n_epochs_supervised_loss(prm, key, subkey)
     elif subkey == 'no_flex_action' and "no_flex_action_to_target" in prm["RL"]:
         prm[key][subkey] = "target" if prm["RL"]["no_flex_action_to_target"] else "one"
+    elif subkey == 'supervised_loss_weight' and not prm['RL']['supervised_loss']:
+        prm['RL']['supervised_loss_weight'] = 0
 
     return prm, key, subkey, subsubkey
 
@@ -563,7 +573,7 @@ def compare_all_runs_for_column_of_interest(
         'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
     ]
     indexes_columns_ignore_q_learning = [
-        other_columns.index(col) for col in columns_irrelevant_to_q_learning
+        other_columns.index(col) for col in columns_irrelevant_to_q_learning if col in other_columns
     ]
     rows_considered = []
     setup_no = 0
@@ -611,10 +621,13 @@ def compare_all_runs_for_column_of_interest(
                     other_columns, current_setup, row_setup
                 )
             else:
-                indexes_ignore = \
-                    indexes_columns_ignore_q_learning \
-                    if current_setup[other_columns.index('type_learning')] == 'q_learning' \
-                    else []
+                if column_of_interest == 'supervised_loss_weight':
+                    indexes_ignore = [other_columns.index('supervised_loss')]
+                elif current_setup[other_columns.index('type_learning')] == 'q_learning':
+                    indexes_ignore = indexes_columns_ignore_q_learning
+                else:
+                    indexes_ignore = []
+
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
                         not isinstance(current_col, str) and np.isnan(current_col)
@@ -842,7 +855,7 @@ def plot_sensitivity_analyses(new_columns, log):
         if column not in ['nn_learned', 'time_end']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        column_of_interest = 'n_homes'
+        column_of_interest = 'supervised_loss_weight'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
@@ -895,6 +908,15 @@ def plot_sensitivity_analyses(new_columns, log):
         elif column_of_interest == 'grdC_n':
             print("column_of_interest grdC_n and did not plot anything")
 
+def remove_key_from_columns_names(new_columns):
+    # remove key from column name
+    for i in range(len(new_columns)):
+        splits = new_columns[i].split('-')
+        if len(splits) > 1:
+            len_start_remove = len(splits[0]) + 1
+            new_columns[i] = new_columns[i][len_start_remove:]
+
+    return new_columns
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")
@@ -903,7 +925,16 @@ if __name__ == "__main__":
         'n_hidden_layers': [813, 1],
         'aggregate_actions': [813, True],
         'supervised_loss': [813, True],
+        'normalise_states': [2126, False],
+        'lr': [2126, 1e-5],
+        'facmac-critic_lr': [2126, 1e-5],
+        'ou_stop_episode': [2126, 100],
+        'start_steps': [2126, 0],
+        'hyper_initialization_nonzeros': [2126, 0],
+        'rnn_hidden_dim': [2126, 1.e+2],
+        'DDPG-rdn_eps_greedy_indiv': [2126, False],
     }
+    # rename_runs(results_path)
 
     if not results_analysis_path.exists():
         os.mkdir(results_analysis_path)
@@ -933,12 +964,8 @@ if __name__ == "__main__":
     )
     log = add_default_values(log, previous_defaults=previous_defaults)
     log = fix_learning_specific_values(log)
-    # remove key from column name
-    for i in range(len(new_columns)):
-        splits = new_columns[i].split('-')
-        if len(splits) > 1:
-            len_start_remove = len(splits[0]) + 1
-            new_columns[i] = new_columns[i][len_start_remove:]
+    new_columns = remove_key_from_columns_names(new_columns)
+
     log.columns = new_columns + columns_results_methods
     log['share_active'] = log.apply(lambda x: x.n_homes / (x.n_homes + x.n_homesP), axis=1)
     new_columns.append('share_active')
