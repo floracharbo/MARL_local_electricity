@@ -850,13 +850,14 @@ class Optimiser():
     def _save_computational_burden(
         self, time_to_solve_opti, number_opti_constraints):
         """Save computational burden results to file."""
-
         if os.path.exists(f"{self.paths['record_folder']}/computational_res.npz"):
             computational_res = np.load(f"{self.paths['record_folder']}/computational_res.npz")
-            computational_res['opti_timer'] = np.append(
+            opti_timer = np.append(
                 computational_res['opti_timer'], time_to_solve_opti)
-            computational_res['n_constraints'] = np.append(
+            n_constraints = np.append(
                 computational_res['n_constraints'], number_opti_constraints)
+            np.savez_compressed(f"{self.paths['record_folder']}/computational_res.npz",
+                opti_timer=opti_timer, n_constraints=n_constraints)
         else:
             opti_timer = np.array([1, 2, 3])
             n_constraints = np.array([4, 5, 6])
