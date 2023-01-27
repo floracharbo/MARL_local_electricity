@@ -348,6 +348,10 @@ class LocalElecEnv():
             if record:
                 loads_flex = np.zeros(self.n_homes) if self.date == self.date_end \
                     else [sum(batch_flex[home][h][1:]) for home in homes]
+                loaded_buses = self.network.loaded_buses if self.prm['grd']['manage_voltage'] \
+                    else None
+                sgen_buses = self.network.sgen_buses if self.prm['grd']['manage_voltage'] \
+                    else None
                 record_output = [
                     home_vars['netp'],
                     self.car.discharge,
@@ -363,7 +367,7 @@ class LocalElecEnv():
                     self.wholesale[self.time].copy(),
                     self.cintensity[self.time].copy(),
                     break_down_rewards,
-                    self.network.loaded_buses, self.network.sgen_buses
+                    loaded_buses, sgen_buses
 
                 ]
 
