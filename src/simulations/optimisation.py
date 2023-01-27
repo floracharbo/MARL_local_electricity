@@ -15,6 +15,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
+import time
+import pandas as pd
 
 from src.utilities.userdeftools import comb
 
@@ -632,10 +634,16 @@ class Optimiser():
             p, netp, grid, grid_energy_costs, battery_degradation_costs, voltage_costs
         )
         # solve
+        start = time.time()
         p.solve(verbose=0, solver=self.syst['solver'])
+        end = time.time()
 
         # save results
         res = self._save_results(p.variables)
+        if self.grd['computational_burden_analysis']:
+            time_to_solve_opti = end-start
+            number_opti_constraints = len(p.constraints)
+            self._save_computational_burden(time_to_solve_opti, number_opti_constraints)
 
         return res
 
@@ -818,7 +826,7 @@ class Optimiser():
         return res
 
     def _save_results(self, pvars):
-        """Save results to file."""
+        """Save optimisation results to file."""
         res = {}
         constls1, constls0 = [], []
         for var in pvars:
@@ -836,6 +844,22 @@ class Optimiser():
                 np.save(self.paths['record_folder'] / 'res', res)
 
         return res
+
+    def _save_computational_burden(
+        self, time_to_solve_opti, number_opti_constraints):
+        """Save computational burden results to file."""
+
+        if os.path.exists(f"{self.paths['record_folder']}/computational_res.npz"):
+            computational_res = np.load(f"{self.paths['record_folder']}/computational_res.npz")
+            computational_res['opti_timer'] = np.append(
+                computational_res['opti_timer'], time_to_solve_opti)
+            computational_res['n_constraints'] = np.append(
+                computational_res['n_constraints'], number_opti_constraints)
+        else:
+            opti_timer = np.array([1, 2, 3])
+            n_constraints = np.array([4, 5, 6])
+            np.savez_compressed(f"{self.paths['record_folder']}/computational_res.npz",
+                opti_timer=opti_timer, n_constraints=n_constraints)
 
     def plot_results(self, res, prm, folder=None):
         """Plot the optimisation results for homes."""

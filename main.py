@@ -37,13 +37,15 @@ settings = {
         'max_grid_export': 13,
         'penalty_import': 0.01,
         'penalty_export': 0.01,
-        'manage_voltage': True,
+        'manage_voltage': False,
         'penalty_overvoltage': 0.1,
         'penalty_undervoltage': 0.1,
         'max_voltage': 1.001,
         'min_voltage': 0.999,
         'weight_network_costs': 1,
-        'subset_line_losses_modelled': 30
+        'subset_line_losses_modelled': 15,
+        'compare_pandapower_optimisation': False,
+        'computational_burden_analysis': True
     }
 }
 
