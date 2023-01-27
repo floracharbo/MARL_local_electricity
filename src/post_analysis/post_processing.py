@@ -24,6 +24,34 @@ from src.post_analysis.print_results import print_results
 from src.utilities.userdeftools import distr_learning, get_prm_save
 
 
+def _print_stats_voltage_losses_errors(prm, env):
+    if prm['grd']['compare_pandapower_optimisation']:
+        if env.network.n_losses_error > 1:
+            print(
+                f"Warning: There were {env.network.n_losses_error} difference "
+                f"in hourly line losses between pandapower and optimizer "
+                f"that were larger than 1e-2 kWh\n."
+                f"The maximum difference was {env.network.max_losses_error} kWh\n."
+                f"To increase accuracy, the user could increase the "
+                f"subset_line_losses_modelled "
+                f"(currently: {env.network.subset_line_losses_modelled} lines)"
+            )
+        if env.network.n_voltage_error > 1:
+            print(
+                f"Warning: There were {env.network.n_voltage_error} difference "
+                f"in hourly voltage costs between the optimisation and pandapower "
+                f"larger than 0.01% of the total daily costs\n. "
+                f"The largest error was {env.network.max_voltage_rel_error * 100} %.\n"
+                f"The network was simulated with pandapower to correct the voltages "
+                f"when this occurred."
+            )
+    else:
+        print(
+            "optimisations were not compared with pandapower simulations "
+            "to check voltages and losses"
+        )
+
+
 def _max_min_q(q_table, n_states, minq, maxq, prm):
     """Compare min/max q values with saved ones. Update if necessary."""
     for type_q in q_table.keys():
@@ -178,6 +206,10 @@ def post_processing(
                         paths["folder_run"], entry), os.path.join(
                         paths["folder_run"], new_file))
         file = open(paths["results_file"], "a", encoding="utf-8")  # append
+
+    # print stats voltage and losses error
+    if prm['grd']['manage_voltage']:
+        _print_stats_voltage_losses_errors(prm, env)
 
     if "description_run" in prm["save"]:
         file.write("run description: " + prm["save"]["description_run"] + "\n")

@@ -40,13 +40,16 @@ class Explorer():
         self.rl = self.prm["RL"]
         if self.rl["type_env"] == "discrete":
             self.rl["n_total_discrete_states"] = env.spaces.n["state"]
-        for e in ["n_homes", "discrete", "descriptors", "multipliers",
-                  "global_multipliers", "granularity", "brackets"]:
-            self.__dict__[e] = env.spaces.__dict__[e]
+        for info in [
+            "n_homes", "discrete", "descriptors", "multipliers",
+            "global_multipliers", "granularity", "brackets"
+        ]:
+            setattr(self, info, getattr(env.spaces, info))
+
         self.last_epoch = record.last_epoch
         self.res_path = prm["paths"]["opt_res"]
-        for e in ["D", "solver", "N"]:
-            self.__dict__[e] = prm["syst"][e]
+        for info in ["D", "solver", "N"]:
+            setattr(self, info, prm["syst"][info])
         self.episode_batch = {}
 
         self.data = DataManager(env, prm, self)
@@ -59,13 +62,11 @@ class Explorer():
             env, prm, learner, self.episode_batch
         )
 
-        self.break_down_rewards_entries = \
-            prm["syst"]["break_down_rewards_entries"]
         self.step_vals_entries = [
             "state", "ind_global_state", "action", "ind_global_action",
-            "reward", "diff_rewards", "indiv_rewards", "next_state",
+            "reward", "diff_rewards", "next_state",
             "ind_next_global_state", "done", "bool_flex", "constraint_ok"
-        ] + self.break_down_rewards_entries
+        ] + prm['syst']['break_down_rewards_entries']
         self.method_vals_entries = ["seeds", "n_not_feas", "not_feas_vars"]
 
         self.env.update_date(0)
@@ -208,7 +209,7 @@ class Explorer():
             # add penalty if the constraints are violated
             if not constraint_ok:
                 sequence_feasible = False
-                reward_a = self._apply_reward_penalty(
+                reward_a, _ = self._apply_reward_penalty(
                     evaluation, reward_a)
             rewards_baseline.append(reward_a)
             if reward_a is None:
@@ -236,9 +237,11 @@ class Explorer():
                 and not evaluation:
 
             if self.rl["competitive"]:
-                indiv_rewards = - break_down_rewards[-1]
+                indiv_grid_battery_costs = - self._get_break_down_reward(
+                    break_down_rewards, 'indiv_grid_battery_costs'
+                )
                 diff_rewards = [
-                    indiv_rewards[home] - rewards_baseline[home][home]
+                    indiv_grid_battery_costs[home] - rewards_baseline[home][home]
                     for home in self.homes
                 ]
             else:
@@ -265,6 +268,9 @@ class Explorer():
             }
 
         return global_ind
+
+    def _get_break_down_reward(self, break_down_rewards, label):
+        return break_down_rewards[self.prm['syst']['break_down_rewards_entries'].index(label)]
 
     def _get_one_episode(
             self, method, epoch, actions, state,
@@ -304,27 +310,17 @@ class Explorer():
                     evaluation, method, record_output, batch, done)
             if not constraint_ok:
                 sequence_feasible = False
-                reward = self._apply_reward_penalty(evaluation, reward)
+                reward, _ = self._apply_reward_penalty(evaluation, reward)
             else:
-                if not self.rl['trajectory']:
-                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
-                        traj_reward = self.learning_manager.learning(
-                            current_state, state, action, reward, done,
-                            eval_method, step, evaluation, traj_reward, step_vals
-                        )
-                else:
-                    traj_reward += reward
-
                 diff_rewards = self._compute_diff_rewards(
                     method, evaluation, reward, rewards_baseline, break_down_rewards
                 )
                 global_ind = self._compute_global_ind_state_action(
                     current_state, state, action, done, method
                 )
-                indiv_rewards = - np.array(break_down_rewards[-1])
                 step_vals_ = [
                     current_state, global_ind["state"], action, global_ind["action"], reward,
-                    diff_rewards, indiv_rewards, state, global_ind["next_state"], done,
+                    diff_rewards, state, global_ind["next_state"], done,
                     bool_flex, constraint_ok, *break_down_rewards
                 ]
                 for info, var in zip(self.step_vals_entries, step_vals_):
@@ -332,10 +328,22 @@ class Explorer():
 
                 # if instant feedback,
                 # learn right away at the end of the step
+                if not evaluation and not self.rl['trajectory']:
+                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
+                        self.learning_manager.learning(
+                            current_state, state, action, reward, done,
+                            eval_method, step, step_vals, epoch
+                        )
                 self.learning_manager.q_learning_instant_feedback(
                     evaluation, method, step_vals, step
                 )
 
+                if self.rl['trajectory']:
+                    if type(reward) in [float, int, np.float64]:
+                        traj_reward += reward
+                    else:
+                        for home in self.homes:
+                            traj_reward[home] += reward[home]
                 step += 1
 
         return step_vals, traj_reward, sequence_feasible
@@ -424,7 +432,7 @@ class Explorer():
                         and method != "baseline":
                     for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
                         self.learning_manager.trajectory_deep_learn(
-                            states, actions, traj_reward, eval_method, evaluation, step_vals
+                            states, actions, traj_reward, eval_method, evaluation, step_vals, epoch
                         )
 
             if not sequence_feasible:  # if data is not feasible, make new data
@@ -493,7 +501,7 @@ class Explorer():
                            f"better than opt {np.mean(step_vals['opt']['reward'])}"
 
     def _opt_step_init(
-            self, time_step, batchflex_opt, batch_avail_ev, res
+            self, time_step, batchflex_opt, batch_avail_car, res
     ):
         step_vals_i = {}
         # update time at each time step
@@ -521,7 +529,7 @@ class Explorer():
 
         step_vals_i["state"] = self.env.spaces.opt_step_to_state(
             self.prm, res, time_step, loads_prev,
-            loads_step, batch_avail_ev, loads, home_vars
+            loads_step, batch_avail_car, loads, home_vars
         )
 
         self.env.heat.E_heat_min_max(time_step)
@@ -537,9 +545,19 @@ class Explorer():
 
         return passive_vars
 
+    def _check_res_T_air(self, res, time_step):
+        for home in self.homes:
+            T_air = res["T_air"][home][time_step]
+            if T_air < self.env.heat.T_LB[home][time_step] - 1e-1 \
+                    or T_air > self.env.heat.T_UB[home][time_step] + 1e-1:
+                print(f"home {home} time_step {time_step} "
+                      f"res['T_air'][home][time_step] {T_air} "
+                      f"T_LB[home] {self.env.heat.T_LB[home][time_step]} "
+                      f"T_UB[home] {self.env.heat.T_UB[home][time_step]}")
+
     def _get_diff_rewards(
             self, evaluation, time_step, action, date,
-            loads, res, feasible, reward, indiv_rewards
+            loads, res, feasible, reward, indiv_grid_battery_costs
     ):
         obtain_diff_reward = any(
             len(q.split("_")) >= 2
@@ -547,6 +565,7 @@ class Explorer():
             for q in self.prm["RL"]["type_Qs"]
         )
         if obtain_diff_reward and not evaluation:
+            self._check_res_T_air(res, time_step)
             rewards_baseline, feasible_getting_baseline = \
                 self._get_artificial_baseline_reward_opt(
                     time_step, action, date, loads, res, evaluation
@@ -555,7 +574,7 @@ class Explorer():
                 feasible = False
             if self.prm["RL"]["competitive"]:
                 diff_rewards = [
-                    indiv_rewards[home] - rewards_baseline[home][home]
+                    indiv_grid_battery_costs[home] - rewards_baseline[home][home]
                     for home in self.homes
                 ]
             else:
@@ -570,16 +589,15 @@ class Explorer():
 
     def _append_step_vals(
             self, method, step_vals_i, res, time_step,
-            loads_prev, loads_step, batch_avail_ev, step_vals,
+            loads_prev, loads_step, batch_avail_car, step_vals,
             break_down_rewards, feasible, loads, home_vars
     ):
-        keys = self.break_down_rewards_entries + ["constraint_ok"]
+        keys = self.prm["syst"]["break_down_rewards_entries"] + ["constraint_ok"]
         vars = break_down_rewards + [feasible]
         for key_, var in zip(keys, vars):
             step_vals_i[key_] = var
-
         keys = [
-            "state", "action", "reward", "indiv_rewards", "diff_rewards",
+            "state", "action", "reward", "indiv_grid_battery_costs", "diff_rewards",
             "bool_flex", "constraint_ok",
             "ind_global_action", "ind_global_state"
         ]
@@ -597,7 +615,7 @@ class Explorer():
             step_vals[method]["next_state"].append(
                 self.env.spaces.opt_step_to_state(
                     self.prm, res, time_step + 1, loads_prev,
-                    loads_step, batch_avail_ev, loads, home_vars
+                    loads_step, batch_avail_car, loads, home_vars
                 )
             )
             if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
@@ -616,7 +634,7 @@ class Explorer():
         return step_vals
 
     def _tests_individual_step_rl_matches_res(
-            self, res, time_step, batch, reward
+            self, res, time_step, batch, reward, break_down_rewards,
     ):
         prm = self.prm
         assert isinstance(batch[0], dict), f"type(batch[0]) {type(batch)}"
@@ -644,15 +662,13 @@ class Explorer():
             f"res cons {sum_consa} does not match input demand " \
             f"{np.sum(loads[:, 0: prm['syst']['N']])}"
 
-        gc_i = res['pci'][time_step] + res['pco'][time_step]  \
-            + prm["grd"]["C"][time_step] * (
-                res['grid'][time_step][0] + prm["grd"]['loss'] * res['grid2'][time_step][0]
+        gc_i = prm["grd"]["C"][time_step] * (
+            res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
         )
         gc_per_start_i = [
             prm["grd"]["Call"][i + time_step] * (
-                res['grid'][time_step][0]
-                + prm["grd"]['loss'] * res['grid2'][time_step][0]
-            ) + res['pci'][time_step] + res['pco'][time_step]
+                res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
+            )
             for i in range(len(prm['grd']['Call']) - self.N)
         ]
         potential_i0s = [
@@ -662,38 +678,34 @@ class Explorer():
         assert self.env.i0_costs in potential_i0s
 
         # check reward from environment and res variables match
-        gc_t = res['pci'][time_step][0] + res['pco'][time_step][0] \
-            + prm["grd"]["C"][time_step] * (
-                res["grid"][time_step][0]
-                + prm["grd"]["R"] / (prm["grd"]["V"] ** 2) * res["grid2"][time_step][0]
-        )
-        sc_t = prm["car"]["C"] * (
-            sum(
-                res["discharge_tot"][home][time_step]
-                + res["charge"][home][time_step]
-                for home in range(prm['syst']['n_homes'])
-            ) + sum(
-                self.prm["loads"]['discharge_tot0'][home][time_step]
-                + self.prm["loads"]['charge0'][home][time_step]
-                for home in range(prm['syst']['n_homesP'])
-            )
-        )
-        dc_t = prm["grd"]["export_C"] * (
-            sum(
-                res["netp_abs"][home][time_step]
-                for home in range(self.prm['syst']['n_homes'])
-            )
-            + sum(
-                self.env.netp_to_exports(self.prm['loads']['netp0'])[home][time_step]
-                for home in range(self.prm['syst']['n_homesP'])
-            )
-        )
-        res_reward_t = - (gc_t + sc_t + dc_t)
-
         if not prm["RL"]["competitive"]:
-            assert abs(reward - res_reward_t) < 5e-3, \
-                f"reward {reward} != res_reward_t " \
-                f"from res variables {res_reward_t}"
+            if abs(reward + res['hourly_total_costs'][time_step]) > 5e-3:
+                tot_delta = reward + res['hourly_total_costs'][time_step]
+                print(
+                    f"reward {reward} != "
+                    f"res reward {- res['hourly_total_costs'][time_step]} "
+                    f"(delta {tot_delta})"
+                )
+                labels = [
+                    'grid_energy_costs',
+                    'battery_degradation_costs',
+                    'distribution_network_export_costs',
+                    'import_export_costs',
+                    'voltage_costs'
+                ]
+                for label in labels:
+                    sub_cost_env = break_down_rewards[
+                        self.prm['syst']['break_down_rewards_entries'].index(label)
+                    ]
+                    sub_cost_res = res[f'hourly_{label}'][time_step]
+                    if abs(sub_cost_env - sub_cost_res) > 1e-3:
+                        sub_delta = sub_cost_env - sub_cost_res
+                        print(
+                            f"{label} costs do not match: env {sub_cost_env} vs res {sub_cost_res} "
+                            f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
+                        )
+            assert abs(reward + res['hourly_total_costs'][time_step]) < 5e-3, \
+                f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
             self, evaluation, exploration_method, time_step, step_vals, epoch
@@ -708,12 +720,12 @@ class Explorer():
 
             [
                 current_state, actions, reward, state,
-                reward_diffs, indiv_rewards
+                reward_diffs, indiv_grid_battery_costs
             ] = [
                 step_vals["opt"][e][-1]
                 for e in [
                     "state", "action", "reward", "next_state",
-                    "diff_rewards", "indiv_rewards"
+                    "diff_rewards", "indiv_grid_battery_costs"
                 ]
             ]
             if rl["type_learning"] == "q_learning":
@@ -747,22 +759,16 @@ class Explorer():
 
             elif rl["type_learning"] in ["DDPG", "DQN", "DDQN"]:
                 self.learning_manager.independent_deep_learning(
-                    current_state, actions, reward, indiv_rewards,
+                    current_state, actions, reward, indiv_grid_battery_costs,
                     state, reward_diffs
                 )
 
     def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
-        sum_res_rewards = (- (res["gc"] + res["sc"] + res["dc"]))
         if not (self.prm["RL"]["competitive"] and not evaluation):
-            if abs(sum_rl_rewards - sum_res_rewards) > 5e-2:
-                print("abs(sum_rl_rewards - sum_res_rewards) > 5e-2")
-                np.save('res_error', res)
-                np.save('sum_rl_rewards', sum_rl_rewards)
-
-            assert abs(sum_rl_rewards - sum_res_rewards) < 5e-2, \
-                "tot rewards don't match: "\
-                f"sum_rl_rewards = {sum_rl_rewards}, sum_res_rewards {sum_res_rewards} "
-            f"sum costs opt = {- (res['gc'] + res['sc'] + res['dc'])}"
+            assert abs(sum_rl_rewards + res['total_costs']) < 1e-3, \
+                "tot rewards don't match: " \
+                f"sum_RL_rewards = {sum_rl_rewards}, " \
+                f"sum costs opt = {res['total_costs']}"
 
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
@@ -770,7 +776,7 @@ class Explorer():
         sum_gc_i = res['pc'] + np.sum(
             [
                 C[time_step_]
-                * (res['grid'][time_step_][0] + loss * res['grid2'][time_step_][0])
+                * (res['grid'][time_step_] + loss * res['grid2'][time_step_])
                 for time_step_ in range(self.N)
             ]
         )
@@ -781,14 +787,14 @@ class Explorer():
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
             [self.prm["grd"]["C"][time_step_] * (
-                res['grid'][time_step_][0]
-                + self.prm["grd"]['loss'] * res['grid2'][time_step_][0]
+                res['grid'][time_step_]
+                + self.prm["grd"]['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
         )
-        if not (abs(sum_gc_0 - res['gc']) < 1e-3):
+        if not (abs(sum_gc_0 - res['grid_energy_costs']) < 1e-3):
             i_start_res = [
                 i for i in range(len(self.prm['grd']['Call']) - self.N)
-                if abs(self.sum_gc_for_start_Call_index(res, i) - res['gc']) < 1e-3
+                if abs(self.sum_gc_for_start_Call_index(res, i) - res['grid_energy_costs']) < 1e-3
             ]
             if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
@@ -805,7 +811,7 @@ class Explorer():
         method = "opt"
         sum_rl_rewards = 0
         step_vals[method] = initialise_dict(self.step_vals_entries)
-        batchflex_opt, batch_avail_ev = [
+        batchflex_opt, batch_avail_car = [
             [batch[home][e] for home in range(len(batch))] for e in ["flex", "avail_car"]
         ]
         self._check_i0_costs_res(res)
@@ -818,38 +824,46 @@ class Explorer():
         for time_step in range(len(res["grid"])):
             # initialise step variables
             [step_vals_i, date, loads, loads_step, loads_prev, home_vars] = self._opt_step_init(
-                time_step, batchflex_opt, batch_avail_ev, res
+                time_step, batchflex_opt, batch_avail_car, res
             )
 
-            # translate dp into action value
+            # translate individual imports/exports into action value
             step_vals_i["bool_flex"], step_vals_i["action"], error = \
                 env.action_translator.optimisation_to_rl_env_action(
                     time_step, date, res["netp"][:, time_step],
-                    loads, home_vars, res)
+                    loads, home_vars, res
+            )
 
             step_vals_i = self.env.spaces.get_ind_global_state_action(step_vals_i)
             feasible = not any(error)
 
-            # determine rewards
+            if self.prm["grd"]['compare_pandapower_optimisation']:
+                res, hourly_line_losses_pp, hourly_voltage_costs_pp \
+                    = self.env.network.test_network_comparison_optimiser_pandapower(
+                        res, time_step, self.prm['grd']['C'][time_step]
+                    )
+
             step_vals_i["reward"], break_down_rewards = env.get_reward(
-                res["netp"][:, time_step],
-                res["discharge_tot"][:, time_step],
-                res["charge"][:, time_step],
+                netp=res["netp"][:, time_step],
+                discharge_tot=res["discharge_tot"][:, time_step],
+                charge=res["charge"][:, time_step],
                 time_step=time_step,
                 passive_vars=self._get_passive_vars(time_step),
-                evaluation=evaluation
+                hourly_line_losses=res['hourly_line_losses'][time_step],
+                voltage_squared=res['voltage_squared'][:, time_step],
             )
-
-            step_vals_i["indiv_rewards"] = - np.array(break_down_rewards[-1])
+            step_vals_i["indiv_grid_battery_costs"] = - np.array(
+                self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
+            )
             self._tests_individual_step_rl_matches_res(
-                res, time_step, batch, step_vals_i["reward"]
+                res, time_step, batch, step_vals_i["reward"], break_down_rewards
             )
 
             # substract baseline rewards to reward -
             # for training, not evaluating
             step_vals_i["diff_rewards"], feasible = self._get_diff_rewards(
                 evaluation, time_step, step_vals_i["action"], date, loads, res,
-                feasible, step_vals_i["reward"], step_vals_i["indiv_rewards"]
+                feasible, step_vals_i["reward"], step_vals_i["indiv_grid_battery_costs"]
             )
             if not feasible:
                 step_vals_i["reward"], step_vals_i["diff_rewards"] = self._apply_reward_penalty(
@@ -863,7 +877,7 @@ class Explorer():
             # append experience dictionaries
             step_vals = self._append_step_vals(
                 method, step_vals_i, res, time_step,
-                loads_prev, loads_step, batch_avail_ev, step_vals,
+                loads_prev, loads_step, batch_avail_car, step_vals,
                 break_down_rewards, feasible, loads, home_vars
             )
 
@@ -911,23 +925,35 @@ class Explorer():
             ldfixed = [sum(batchflex_opt[home][time_step][:])
                        for home in self.homes]
         else:
-            ldfixed = [batchflex_opt[home][time_step][0]
-                       for home in self.homes]
-        tot_cons_loads = \
-            [res["totcons"][home][time_step] - res["E_heat"][home][time_step]
-             for home in self.homes]
-        wholesalet, cintensityt = \
-            [self.prm["grd"][e][self.env.i0_costs + time_step]
-             for e in ["wholesale_all", "cintensity_all"]]
+            ldfixed = [batchflex_opt[home][time_step][0] for home in self.homes]
+        tot_cons_loads = [
+            res["totcons"][home][time_step] - res["E_heat"][home][time_step]
+            for home in self.homes
+        ]
+        wholesalet, cintensityt = [
+            self.prm["grd"][e][self.env.i0_costs + time_step]
+            for e in ["wholesale_all", "cintensity_all"]
+        ]
+        if self.prm["grd"]['compare_pandapower_optimisation']:
+            loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
+        else:
+            loaded_buses, sgen_buses = None, None
 
-        record_output = \
-            [res["netp"][:, time_step], res["discharge_other"][:, time_step],
-             step_vals_i["action"], step_vals_i["reward"], break_down_rewards,
-             res["store"][:, time_step], ldflex, ldfixed,
-             res["totcons"][:, time_step], tot_cons_loads,
-             res["E_heat"][:, time_step], res["T"][:, time_step],
-             res["T_air"][:, time_step], self.prm["grd"]["C"][time_step],
-             wholesalet, cintensityt]
+        record_output = []
+        for entry in [
+            'netp', 'discharge_other', 'store', 'totcons', 'E_heat',
+            'T', 'T_air', 'voltage_squared'
+        ]:
+            record_output.append(res[entry][:, time_step])
+        record_output.append(res['hourly_line_losses'][time_step])
+        record_output += [
+            step_vals_i["action"], step_vals_i["reward"],
+            ldflex, ldfixed, tot_cons_loads,
+            self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
+            break_down_rewards,
+            loaded_buses, sgen_buses
+        ]
+        # last 2 items are 'loaded_buses', 'sgen_buses'
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
 
@@ -974,6 +1000,16 @@ class Explorer():
 
         return flex_load, l_fixed, loads_step
 
+    def _get_combs_actions(self, actions):
+        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
+        for home in self.homes:
+            actions_baseline_a = np.array(actions)
+            actions_baseline_a[home] = 1
+            combs_actions[home] = actions_baseline_a
+        combs_actions[-1] = 1
+
+        return combs_actions
+
     def _get_artificial_baseline_reward_opt(
             self,
             time_step: int,
@@ -994,33 +1030,25 @@ class Explorer():
         gens = prm["grd"]["gen"][:, time_step]
         self.env.heat.T = res["T"][:, time_step]
         self.env.car.store = res["store"][:, time_step]
-        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
-        for home in self.homes:
-            actions_baseline_a = np.array(actions)
-            actions_baseline_a[home] = 1
-            combs_actions[home] = actions_baseline_a
-        combs_actions[-1] = 1
+        combs_actions = self._get_combs_actions(actions)
         feasible = True
-        for home in self.homes:
-            T_air = res["T_air"][home][time_step]
-            if T_air < self.env.heat.T_LB[home][time_step] - 1e-1 \
-                    or T_air > self.env.heat.T_UB[home][time_step] + 1e-1:
-                print(f"home {home} time_step {time_step} "
-                      f"res['T_air'][home][time_step] {T_air} "
-                      f"T_LB[home] {self.env.heat.T_LB[home][time_step]} "
-                      f"T_UB[home] {self.env.heat.T_UB[home][time_step]}")
+
         for comb_actions in combs_actions:
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
-            home_vars, loads, constraint_ok = env.policy_to_rewardvar(
-                None, other_input=input_take_action)
+            home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
+                env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self._get_passive_vars(time_step)
-
             reward_baseline_a, _ = env.get_reward(
-                home_vars["netp"], self.env.car.discharge_tot, self.env.car.charge,
-                time_step=time_step, passive_vars=passive_vars,
-                evaluation=evaluation)
+                netp=home_vars["netp"],
+                discharge_tot=self.env.car.discharge_tot,
+                charge=self.env.car.charge,
+                time_step=time_step,
+                passive_vars=passive_vars,
+                hourly_line_losses=hourly_line_losses,
+                voltage_squared=voltage_squared
+            )
 
             if not constraint_ok:
                 feasible = False
@@ -1031,8 +1059,7 @@ class Explorer():
             rewards_baseline.append(reward_baseline_a)
 
             # revert back store
-            self.env.car.store = [res["store"][home][time_step]
-                                  for home in self.homes]
+            self.env.car.store = [res["store"][home][time_step] for home in self.homes]
 
         return rewards_baseline, feasible
 

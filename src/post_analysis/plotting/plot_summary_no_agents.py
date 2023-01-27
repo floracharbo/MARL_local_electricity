@@ -20,7 +20,7 @@ from src.utilities.userdeftools import (data_source, distr_learning,
                                         initialise_dict, reward_type)
 
 
-def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):
+def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag, run_mode=1):
     if os.path.exists(PATH + f'run{run}/inputData/prm.npy'):
         prm = np.load(
             PATH + f'run{run}/inputData/prm.npy',
@@ -41,7 +41,8 @@ def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag):
         Path('/Users/floracharbonnier/Documents/GitHub/dphil')
     prm['paths']['input_folder'] = 'Inputs'
     prm, _ = initialise_objects(
-        prm, no_run=run, initialise_record=False)
+        prm, no_run=run, initialise_record=False, run_mode=run_mode
+    )
     if n_ag == 1:
         prm['RL']['evaluation_methods'] = \
             [e for e in prm['RL']['evaluation_methods']
@@ -243,7 +244,7 @@ def plot_results_vs_nag():
     else:
         fig = plt.figure(figsize=(5.023, 2.953))
     for n_ag, run in zip(n_ags, runs):
-        prm, metrics = _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag)
+        prm, metrics = _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag, run_mode=2)
         res = _metrics_to_results(
             prm, n_ag, to_plot, res, res_entries, metrics
         )

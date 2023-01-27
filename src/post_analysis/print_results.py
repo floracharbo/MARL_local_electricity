@@ -16,20 +16,28 @@ def _print_str(str_, save_run, f=None):
 
 def _print_savings(metrics, prm):
     # different ways of expressing savings
-    # A - savings per hour per agent relative to the baseline
-    # B - savings per month per agent relative to the baseline
-    # C - percentage saving relative to the baseline
-    # D - percentage of optimal savings achieved
+    labels = [
+        'savings per hour per agent relative to the baseline',
+        'savings per month per agent relative to the baseline',
+        'percentage saving relative to the baseline',
+        'percentage of optimal savings achieved'
+    ]
+    values = []
     for e in ['opt_d_d', 'opt_n_c']:
         e = e if prm['syst']['n_homes'] > 1 else e[:-1] + 'd'
         if e in metrics['end']['ave'].keys():
             for p in ['ave', 'p50']:
                 A = metrics['end'][p][e] - metrics['end'][p]['baseline']
-                B = A * 24 * 365 / 12
-                C = A / (- metrics['end'][p]['baseline']) * 100
-                D = A / (metrics['end'][p]['opt']
-                         - metrics['end'][p]['baseline']) * 100
-                print(f'{e}, {p}: A = {A}, B = {B}, C = {C}, D = {D}')
+                values.append(A)
+                values.append(A * prm['syst']['H'] * 365 / 12)
+                values.append(A / (- metrics['end'][p]['baseline']) * 100)
+                if 'opt' in metrics['end'][p]:
+                    values.append(
+                        A / (metrics['end'][p]['opt'] - metrics['end'][p]['baseline']) * 100
+                    )
+                print(f"{e}, {p}")
+                for value, label in zip(values, labels):
+                    print(f"{label}: {value}")
 
 
 def _print_stats(f, prm, record, metrics):

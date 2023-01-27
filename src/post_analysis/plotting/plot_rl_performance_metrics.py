@@ -237,6 +237,7 @@ def _plot_compare_all_signs(
             if len(entry.split('_')) > 1 else entry
         xs[label] = i
         colours_plot_end[label] = prm['save']['colourse'][entry]
+
     baseline, opt = [
         metrics[m_][ave][e]
         if e in metrics[m_][ave] else None

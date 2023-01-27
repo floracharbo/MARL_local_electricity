@@ -9,7 +9,7 @@ from torch.optim import Adam, RMSprop
 
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
-from src.learners.facmac.modules.critics.facmac import FACMACCritic
+from src.learners.facmac.modules.critics.facmac_critic import FACMACCritic
 
 
 class FACMACLearner(Learner):
@@ -176,7 +176,7 @@ class FACMACLearner(Learner):
             raise Exception(f"unknown target update mode: "
                             f"{self.rl['target_update_mode']}!")
 
-    def train(self, batch: EpisodeBatch):
+    def train(self, batch: EpisodeBatch, t_env):
         # Train the critic batched
         self._train_critic(batch)
 
@@ -187,10 +187,11 @@ class FACMACLearner(Learner):
         if self.rl['supervised_loss']:
             for episode in range(batch.batch_size):
                 for step in range(batch.max_seq_length):
-                    td_error[episode, step] += th.sum(th.square(
-                        batch.data.transition_data['actions'][episode][step]
-                        - batch.data.transition_data['optimal_actions'][episode, step]
-                    )) * self.rl['supervised_loss_weight']
+                    if batch.data.transition_data['optimal_actions'][episode, step][0][0] != -1:
+                        td_error[episode, step] += th.sum(th.square(
+                            batch.data.transition_data['actions'][episode][step]
+                            - batch.data.transition_data['optimal_actions'][episode, step]
+                        )) * self.rl['supervised_loss_weight']
 
         return td_error
 

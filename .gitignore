@@ -8,10 +8,12 @@ results/
 *.icloud
 potentially_useless
 input_data/hedge_inputs*
+*European_LV_CSV*
 outputs/*
 .gitignore.swp
 *.DS_Store
 src/post_analysis/plot_time_performance_layers.py
 out_rl_*
+out_marl_*
 debug/*
 input_data/open_data/European_LV_CSV/*

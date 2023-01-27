@@ -9,15 +9,17 @@ Plotting results RL
 """
 import matplotlib.pyplot as plt
 
-from src.post_analysis.plotting.check_learning_over_time import \
-    plot_eval_action
+from src.post_analysis.plotting.check_learning_over_time import (
+    check_model_changes, plot_eval_action)
 from src.post_analysis.plotting.initialise_plotting_variables import \
     initialise_variables
 from src.post_analysis.plotting.plot_break_down_savings import (
-    barplot_breakdown_savings, barplot_indiv_savings, distribution_savings,
-    heatmap_savings_per_method)
+    barplot_breakdown_savings, barplot_grid_energy_costs,
+    barplot_indiv_savings, distribution_savings, heatmap_savings_per_method)
 from src.post_analysis.plotting.plot_episode_results import (
-    plot_env_input, plot_imp_exp_check, plot_imp_exp_violations, plot_res)
+    map_over_undervoltage, plot_env_input, plot_imp_exp_check,
+    plot_imp_exp_violations, plot_res, plot_voltage_violations,
+    voltage_penalty_per_bus)
 from src.post_analysis.plotting.plot_moving_average_rewards import (
     plot_mova_eval_per_repeat, plot_results_all_repeats)
 from src.post_analysis.plotting.plot_q_learning_explorations_values import (
@@ -87,17 +89,20 @@ def plotting(record, spaces, prm, f):
             diff_to_opt=diff_to_opt
         )
 
-    # 3 - bar plot metrics
+    # 2 - bar plot metrics
     barplot_metrics(prm, lower_bound, upper_bound)
 
     if prm['save']['plot_type'] > 0:
-        # 4 - plot distribution of daily savings
+        # 3 - plot distribution of daily savings
         distribution_savings(prm, aggregate='daily')
         distribution_savings(prm, aggregate='test_period')
 
-        # 5 - heat map of reductions rel to baseline per data source,
+        # 4 - heat map of reductions rel to baseline per data source,
         # reward ref and MARL structure
         heatmap_savings_per_method(prm)
+
+        # 5 - do bar plot of all costs reduction rel to baseline,
+        barplot_breakdown_savings(record, prm, plot_type='savings')
 
         # 6 - do bar plot of all costs reduction rel to baseline,
         barplot_breakdown_savings(record, prm, plot_type='costs')
@@ -145,15 +150,33 @@ def plotting(record, spaces, prm, f):
     if prm['save']['plot_type'] > 0:
         plot_eval_action(record, prm)
 
-        # 19 - grid import and export and corresponding limit violations
-        all_methods_to_plot = prm['RL']['evaluation_methods']
-        folder_run = prm["paths"]["folder_run"]
-        # plot the aggregated hourly import and export and the limits
+    # 19 - grid import and export and corresponding limit violations
+    all_methods_to_plot = prm['RL']['evaluation_methods']
+    folder_run = prm["paths"]["folder_run"]
+    # 20 - plot the aggregated hourly import and export and the limits
+    if prm['grd']['manage_agg_power']:
         plot_imp_exp_violations(
             prm, all_methods_to_plot, folder_run)
-        # (Sanity Check) plot grid = grid_in - grid_out
-        plot_imp_exp_check(
+        if not prm['grd']['manage_voltage']:
+            barplot_breakdown_savings(record, prm, plot_type='costs')
+    # 21 - (Sanity Check) plot grid = grid_in - grid_out
+    plot_imp_exp_check(
+        prm, all_methods_to_plot, folder_run)
+
+    # 21 - over- and undervoltage
+    if prm['grd']['manage_voltage']:
+        map_over_undervoltage(
+            prm, all_methods_to_plot, folder_run, net=prm["grd"]["net"]
+        )
+        plot_voltage_violations(
             prm, all_methods_to_plot, folder_run)
+        barplot_breakdown_savings(record, prm, plot_type='costs')
+        barplot_grid_energy_costs(record, prm, plot_type='costs')
+        voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run)
+    barplot_breakdown_savings(record, prm, plot_type='costs')
+
+    # 22 - check that some learning has occurred
+    check_model_changes(prm)
 
     plt.close('all')
 

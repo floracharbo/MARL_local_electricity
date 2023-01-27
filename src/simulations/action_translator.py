@@ -13,8 +13,6 @@ import numpy as np
 import seaborn as sns
 from matplotlib import gridspec
 
-from src.utilities.userdeftools import initialise_dict
-
 
 class Action_translator:
     """
@@ -39,9 +37,11 @@ class Action_translator:
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
         self.z_orders = [1, 3, 2, 0, 4]
         self.H = prm['syst']['H']
-        for e in ['aggregate_actions', 'dim_actions_1', 'low_action',
-                  'high_action', 'type_env', 'server', 'no_flex_action']:
-            self.__dict__[e] = prm['RL'][e]
+        for info in [
+            'aggregate_actions', 'dim_actions_1', 'low_action',
+            'high_action', 'type_env', 'server', 'no_flex_action'
+        ]:
+            setattr(self, info, prm['RL'][info])
         self.bat_dep = prm['car']['dep']
         self.export_C = prm['grd']['export_C']
 
@@ -127,10 +127,10 @@ class Action_translator:
 
         # How much generation left after storing as much as possible
         gnet_store = gnet_flex - g_to_store
-        self.k = initialise_dict(homes, 'empty_dict')
+        self.k = {home: {} for home in homes}
 
         # get relevant points in graph
-        d = initialise_dict(self.entries, 'empty_dict')
+        d = {entry: {} for entry in self.entries}
         action_points, xs = [{} for _ in range(2)]
 
         d['ds']['A'] = - s_avail_dis + s_add_0
@@ -461,7 +461,7 @@ class Action_translator:
         """Get the coefficients of the linear function for the action variable."""
         letters = ['A', 'B', 'C', 'D', 'E', 'F']
 
-        self.k.append(initialise_dict(self.entries))
+        self.k.append({entry: [] for entry in self.entries})
         # reference line - dp
 
         self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]

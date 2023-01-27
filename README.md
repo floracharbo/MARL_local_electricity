@@ -83,7 +83,7 @@ User inputs are in the inputs folder
 - gen.yaml: PV generation inputs
 - heat2.yaml: heating putings
 - loads.yaml: household loads inputs
-- ntw.yaml: network inputs
+- grd.yaml: electricity grid inputs
 - paths.yaml: user paths inputs
 - RL.yaml: reinforcement learning inputs
 - save.yaml: data savings inputs
@@ -96,7 +96,7 @@ If values entered are in a list format, multiple experiments will loop though th
 
 Alternatively, settings can be entered through the command line rather than from the .py or .yaml files, e.g.
 
-`python main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC --o avail_EV_step --rnn_hidden_dim 100`
+`python main.py -n 5 --n_repeats 2 --n_epochs 20 -o grdC --o avail_car_step --rnn_hidden_dim 100`
 
 Where `-o` stands for observation, `-n` for the number of homes. You can add more abbreviations in the `get_settings_i` function in the `initialise_prm.py` file.
 

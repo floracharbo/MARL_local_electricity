@@ -63,7 +63,7 @@ def check_model_changes_q_learning(prm):
         ).item()
         for evaluation_method in q_tables[0].keys():
             assert not np.all(
-                np.array(q_tables[prm['RL']['n_repeats'] - 1][evaluation_method][0]) == 0
+                np.array(q_tables[prm['RL']['n_epochs'] - 1][evaluation_method][0]) == 0
             ), f"q_table for {evaluation_method} is all zeros repeat {repeat}"
 
 

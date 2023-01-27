@@ -87,7 +87,11 @@ def _add_settings_to_prm(settings, prm):
     if settings is not None:
         for key in settings.keys():
             for sub_key in settings[key].keys():
-                if sub_key == settings["RL"]["type_learning"]:
+                type_learning = \
+                    settings["RL"]["type_learning"] \
+                    if "RL" in settings and "type_learning" in settings["RL"] \
+                    else prm["RL"]["type_learning"]
+                if sub_key == type_learning:
                     for sub_sub_key in settings[key][sub_key].keys():
                         prm[key][sub_key][sub_sub_key] = \
                             settings[key][sub_key][sub_sub_key]
