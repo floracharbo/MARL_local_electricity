@@ -25,7 +25,8 @@ settings = {
     },
     'syst': {
         'test_on_run': True,
-        'n_homes': 3
+        'n_homes': 3,
+        'n_homesP': 0
     },
     'grd': {
         'max_grid_in': 5,
@@ -43,7 +44,8 @@ settings = {
         'max_voltage': 1.001,
         'min_voltage': 0.999,
         'weight_network_costs': 1,
-        'subset_line_losses_modelled': 30
+        'subset_line_losses_modelled': 1,
+        'compare_pandapower_optimisation': False
     }
 }
 
