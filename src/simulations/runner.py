@@ -510,13 +510,6 @@ def get_number_runs(settings):
 def run(run_mode, settings, no_runs=None):
     prm = input_paths()
 
-    if settings['grd']["subset_line_losses_modelled"] > 50:
-        print(
-            'Warning: More than 50 lines will be modelled with losses,'
-            'the optimization process might take a lot of time '
-            'and is best solved using a powerful computer.'
-        )
-
     if run_mode == 1:
         # obtain the number of runs from the longest settings entry
         n_runs = get_number_runs(settings)

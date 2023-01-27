@@ -94,6 +94,13 @@ def initialise_objects(
     if not prm['RL']['supervised_loss'] and prm['RL']['n_epochs_supervised_loss'] > 0:
         prm['RL']['n_epochs_supervised_loss'] = 0
 
+    if prm['grd']["subset_line_losses_modelled"] > 50:
+        print(
+            'Warning: More than 50 lines will be modelled with losses,'
+            'the optimization process might take a lot of time '
+            'and is best solved using a powerful computer.'
+        )
+
     return prm, record
 
 

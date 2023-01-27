@@ -349,10 +349,10 @@ class LocalElecEnv():
             if record:
                 loads_flex = np.zeros(self.n_homes) if self.date == self.date_end \
                     else [sum(batch_flex[home][h][1:]) for home in homes]
-                loaded_buses = self.network.loaded_buses if self.prm['grd']['manage_voltage'] \
-                    else None
-                sgen_buses = self.network.sgen_buses if self.prm['grd']['manage_voltage'] \
-                    else None
+                if self.prm['grd']['manage_voltage']:
+                    loaded_buses, sgen_buses = self.network.loaded_buses, self.network.sgen_buses
+                else:
+                    loaded_buses, sgen_buses = None, None
                 record_output = [
                     home_vars['netp'],
                     self.car.discharge,
@@ -369,7 +369,6 @@ class LocalElecEnv():
                     self.cintensity[self.time].copy(),
                     break_down_rewards,
                     loaded_buses, sgen_buses
-
                 ]
 
                 return [next_state, self.done, reward, break_down_rewards,
@@ -418,10 +417,13 @@ class LocalElecEnv():
         # negative netp is selling, positive buying, losses in kWh
         grid = sum(netp) + sum(netp0) + hourly_line_losses
         # import and export limits
-        import_export_costs = self.network.compute_import_export_costs(grid)
 
-        # Voltage costs
-        if np.count_nonzero(voltage_squared) > 0:
+        if self.prm['grd']['manage_agg_power']:
+            import_export_costs = self.network.compute_import_export_costs(grid)
+        else:
+            import_export_costs = 0
+
+        if self.prm['grd']['manage_voltage']:
             voltage_costs = self.network.compute_voltage_costs(voltage_squared)
         else:
             voltage_costs = 0

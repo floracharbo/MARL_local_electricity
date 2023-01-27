@@ -52,10 +52,10 @@ class Optimiser():
             )
             res['hourly_line_losses'] = res['hourly_line_losses_pu'] * self.grd['base_power'] / 1000
         else:
-            res["voltage_squared"] = np.zeros([1, self.N])
-            res['hourly_line_losses'] = np.zeros(self.N)
+            res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
             res['hourly_voltage_costs'] = np.zeros(self.N)
+            res['hourly_line_losses'] = np.zeros(self.N)
 
         res['hourly_grid_energy_costs'] = self.grd['C'][0: self.N] * (
             res["grid"] + self.grd["loss"] * res["grid2"]

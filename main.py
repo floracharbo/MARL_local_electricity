@@ -18,15 +18,15 @@ settings = {
 
     'RL': {
         # current experiment
-        'batch_size': 2,
-        'state_space': [['grdC']],
-        'n_epochs': 5,
-        'n_repeats': 2,
+        'state_space': [['grdC_n2', 'flexibility']] * 5,
+        'n_epochs': 20,
+        'n_repeats': 3,
+        'type_learning': ['facmac'],
+        'evaluation_methods': ['env_r_c', 'opt_d_d'] * 5,
+        'facmac': {'hysteretic': True, 'beta_to_alpha': 0.1}
     },
     'syst': {
-        'test_on_run': True,
-        'n_homes': 3,
-        'n_homesP': 0
+        'n_homes': 10
     },
     'grd': {
         'max_grid_in': 5,
