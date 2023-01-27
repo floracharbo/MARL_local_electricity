@@ -38,7 +38,7 @@ settings = {
         'max_grid_export': 13,
         'penalty_import': 0.01,
         'penalty_export': 0.01,
-        'manage_voltage': True,
+        'manage_voltage': False,
         'penalty_overvoltage': 0.1,
         'penalty_undervoltage': 0.1,
         'max_voltage': 1.001,

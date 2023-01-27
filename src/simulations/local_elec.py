@@ -54,7 +54,7 @@ class LocalElecEnv():
         self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
 
-        if self.prm['grd']['manage_voltage']:
+        if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
             self.network = Network(prm)
 
         # initialise parameters
@@ -416,8 +416,10 @@ class LocalElecEnv():
         import_export_costs = self.network.compute_import_export_costs(grid)
 
         # Voltage costs
-        if voltage_squared is not None:
+        if np.count_nonzero(voltage_squared) > 0:
             voltage_costs = self.network.compute_voltage_costs(voltage_squared)
+        else:
+            voltage_costs = 0
 
         if self.prm['grd']['charge_type'] == 0:
             sum_netp = sum(self.netp_to_exports(netp))

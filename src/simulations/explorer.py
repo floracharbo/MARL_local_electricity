@@ -842,7 +842,7 @@ class Explorer():
                     = self.env.network.test_network_comparison_optimiser_pandapower(
                         res, time_step, self.prm['grd']['C'][time_step]
                     )
-
+            
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
                 discharge_tot=res["discharge_tot"][:, time_step],

@@ -546,7 +546,7 @@ def _update_rl_prm(prm, initialise_all):
 
 
 def _naming_file_extension_network_parameters(grd):
-    """ Adds the mange_voltage and manage_agg_power settings to optimization results in opt_res """
+    """ Adds the manage_voltage and manage_agg_power settings to optimization results in opt_res """
     upper_quantities = ['max_voltage', 'max_grid_import']
     lower_quantities = ['min_voltage', 'max_grid_export']
     penalties_upper = ['overvoltage', 'import']
