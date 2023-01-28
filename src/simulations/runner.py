@@ -12,6 +12,7 @@ import time  # to record time it takes to run simulations
 from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
+import yaml
 
 import numpy as np
 import torch as th
@@ -507,10 +508,16 @@ def get_number_runs(settings):
     return n_runs
 
 
-def run(run_mode, settings, no_runs=None):
+def run(run_mode, no_runs=None):
     prm = input_paths()
 
     if run_mode == 1:
+        with open(f"config_files/experiment_settings.yaml", "rb") as file:
+            settings = yaml.safe_load(file)
+
+        if settings is None:
+            settings = {}
+
         # obtain the number of runs from the longest settings entry
         n_runs = get_number_runs(settings)
 
