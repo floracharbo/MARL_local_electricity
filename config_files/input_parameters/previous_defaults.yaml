@@ -1,18 +1,34 @@
-"""
-If the user changes any of the input parameter files
-but would like to keep the organise_results post processing file
-create entries in the format
+# If the user changes any of the input parameter files
+# but would like to keep the organise_results post processing file
 
-parameter_changed: [local_machine_id, timestamp_change, previous_default_value]
+# 1 - enter the machine for which this change applied and the time from which it applies
+# in entry in machine_time_pairs; you can obtain these using:
 
-for example, if changing the default number of epochs in RL.yaml on the 28th Jan 2023, from 10 to 20:
-local_machine_id = str(uuid.UUID(int=uuid.getnode()))
-timestamp_change = datetime.datetime.now().timestamp()
-previous_default_value = 10
-parameter_changed = RL-n_epochs
+# local_machine_id = str(uuid.UUID(int=uuid.getnode()))
+# timestamp_change = datetime.datetime.now().timestamp()
 
-note the syntax for parameter_changed: key-subkey or key-subkey-subsubkey; for example if changing
-prm['RL']['facmac']['batch_size']:
-parameter_changed = RL-facmac-batch_size
+# 2 - enter all the parameter changes for this machine-time pair in the file as:
+# parameter_changed: [machine_time_pair_idx, previous_default_value]
 
-"""
+# note the syntax for parameter_changed: key-subkey or key-subkey-subsubkey;
+# for example, if changing the default number of epochs in RL.yaml:
+# parameter_changed = RL-n_epochs
+
+# if changing prm['RL']['facmac']['batch_size']:
+# parameter_changed = RL-facmac-batch_size
+
+machine_time_pairs:
+  1: ['00000000-0000-0000-0000-1a709829c70d', 1668095345.5865762]
+  2: ['00000000-0000-0000-0000-1a709829c70d', 1674755868.2259605]
+
+'n_hidden_layers': [1, 1]
+'aggregate_actions': [1, True]
+'supervised_loss': [1, True]
+'normalise_states': [2, False]
+'lr': [2, 1e-5]
+'facmac-critic_lr': [2, 1e-5]
+'ou_stop_episode': [2, 100]
+'start_steps': [2, 0]
+'hyper_initialization_nonzeros': [2, 0]
+'rnn_hidden_dim': [2, 1.e+2]
+'DDPG-rdn_eps_greedy_indiv': [2, False]
