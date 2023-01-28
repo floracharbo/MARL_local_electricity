@@ -353,6 +353,7 @@ class LocalElecEnv():
                     loaded_buses, sgen_buses = self.network.loaded_buses, self.network.sgen_buses
                 else:
                     loaded_buses, sgen_buses = None, None
+                test_timer = 1
                 record_output = [
                     home_vars['netp'],
                     self.car.discharge,
@@ -368,7 +369,8 @@ class LocalElecEnv():
                     self.wholesale[self.time].copy(),
                     self.cintensity[self.time].copy(),
                     break_down_rewards,
-                    loaded_buses, sgen_buses
+                    loaded_buses, sgen_buses,
+                    test_timer
                 ]
 
                 return [next_state, self.done, reward, break_down_rewards,

@@ -645,7 +645,8 @@ class Optimiser():
         if self.grd['computational_burden_analysis']:
             time_to_solve_opti = end - start
             number_opti_constraints = len(p.constraints)
-            self._save_computational_burden_opti(time_to_solve_opti, number_opti_constraints)
+            #self.computational_analysis.add_to_computational_res(time_to_solve_opti, 'time_to_solve_opti')
+            #self._save_computational_burden_opti(time_to_solve_opti, number_opti_constraints)
 
         return res
 
