@@ -14,7 +14,6 @@ from src.simulations.runner import run
 
 # Inputs
 settings = {
-    'heat': {'file': 'heat2'},
 
     'RL': {
         # current experiment

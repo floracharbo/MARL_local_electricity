@@ -81,7 +81,7 @@ conda activate my_venv
 User inputs are in the inputs folder
 - car.yaml: battery inputs
 - gen.yaml: PV generation inputs
-- heat2.yaml: heating putings
+- heat.yaml: heating putings
 - loads.yaml: household loads inputs
 - grd.yaml: electricity grid inputs
 - paths.yaml: user paths inputs
