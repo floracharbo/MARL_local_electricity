@@ -1,0 +1,16 @@
+# to conduct experiments with parameters varying from the default parameters, enter such parameters here
+
+# the example below is provided as an example
+
+#RL:
+#    state_space: [['grdC_n2', 'flexibility']]
+#    n_epochs: 20
+#    n_repeats: 3
+#    type_learning: ['facmac']
+#    evaluation_methods: [['env_r_c', 'opt_d_d']]
+#    facmac:
+#        hysteretic: True
+#        beta_to_alpha: 0.1
+#
+#syst:
+#    n_homes: 10
