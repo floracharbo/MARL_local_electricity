@@ -224,6 +224,13 @@ def _facmac_initialise(prm):
 
     if not prm['syst']["server"]:
         rl["use_cuda"] = False
+    if rl['use_cuda'] and not th.cuda.is_available():
+        print(
+            f"rl['use_cuda'] was True, and server is {prm['syst']['server']}, "
+            "but not th.cuda.is_available(). Set use_cuda <- False"
+        )
+        rl['use_cuda'] = False
+
     rl["device"] = "cuda" if rl["use_cuda"] else "cpu"
 
     _make_action_space(rl)
@@ -678,9 +685,8 @@ def _syst_info(prm):
     syst["n_int_per_hr"] = int(syst["H"] / 24)
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
-    # syst['current_date0_dtm'] = syst['date0_dtm']
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
-    syst['machine_id'] = uuid.UUID(int=uuid.getnode())
+    syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['timestampe'] = datetime.datetime.now().timestamp()
 
 
