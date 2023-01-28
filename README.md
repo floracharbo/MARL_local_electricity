@@ -78,19 +78,22 @@ conda activate my_venv
 ```
 
 5. Define user inputs
-User inputs are in the inputs folder
-- car.yaml: battery inputs
-- gen.yaml: PV generation inputs
-- heat2.yaml: heating putings
-- loads.yaml: household loads inputs
-- grd.yaml: electricity grid inputs
-- paths.yaml: user paths inputs
-- RL.yaml: reinforcement learning inputs
-- save.yaml: data savings inputs
-- syst.yaml: general system inputs
+Default settings are in the inputs folder `config_files/input_parameters`:
+- `car.yaml`: battery inputs
+- `gen.yaml`: PV generation inputs
+- `heat2.yaml`: heating putings
+- `loads.yaml`: household loads inputs
+- `grd.yaml`: electricity grid inputs
+- `paths.yaml`: user paths inputs
+- `RL.yaml`: reinforcement learning inputs
+- `save.yaml`: data savings inputs
+- `syst.yaml`: general system inputs
+
+If the user wishes to change these default settings, whilst still being able to compare previous runs in `organise_results`, the previous default settings should be recorded in `input_parameters/previous_defaults.yaml`.
 
 The user can modify entries in the yaml files, or keep these as default values and enter specific values in the main_rl.py file in the settings dictionary, as shown in as an example in the file.
 If values entered are in a list format, multiple experiments will loop though these values, so multiple experiments can be planned in one run.
+
 
 6. Run`main.py`
 
