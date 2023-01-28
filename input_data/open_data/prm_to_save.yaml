@@ -23,7 +23,8 @@ syst: ['solver',
   'n_clus',
   'time_end',
   'n_homes',
-  'n_homesP'
+  'n_homesP',
+  'n_opti_constraints'
 ]
 loads: ['flextype', 'share_flex', 'max_delay']
 RL: []

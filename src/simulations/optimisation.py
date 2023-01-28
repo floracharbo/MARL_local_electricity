@@ -647,6 +647,8 @@ class Optimiser():
             number_opti_constraints = len(p.constraints)
             #self.computational_analysis.add_to_computational_res(time_to_solve_opti, 'time_to_solve_opti')
             #self._save_computational_burden_opti(time_to_solve_opti, number_opti_constraints)
+            if self.prm['syst']['n_opti_constraints'] is None:
+                self.prm['syst']['n_opti_constraints'] = number_opti_constraints
 
         return res
 
