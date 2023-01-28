@@ -17,3 +17,4 @@ out_rl_*
 out_marl_*
 debug/*
 input_data/open_data/European_LV_CSV/*
+config_files/experiment_settings.yaml
