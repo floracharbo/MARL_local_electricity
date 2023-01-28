@@ -13,6 +13,7 @@ import os
 import pickle
 from pathlib import Path
 from typing import Optional, Tuple
+import uuid
 
 import numpy as np
 import torch as th
@@ -221,7 +222,7 @@ def _facmac_initialise(prm):
         rl['obs_shape'] *= prm['syst']['N']
     rl["state_shape"] = rl["obs_shape"] * rl["n_homes"]
 
-    if not rl["server"]:
+    if not prm['syst']["server"]:
         rl["use_cuda"] = False
     rl["device"] = "cuda" if rl["use_cuda"] else "cpu"
 
@@ -510,7 +511,7 @@ def _update_rl_prm(prm, initialise_all):
     _dims_states_actions(rl, syst)
 
     # learning parameter variables
-    rl["ncpu"] = mp.cpu_count() if rl["server"] else 10
+    rl["ncpu"] = mp.cpu_count() if syst["server"] else 10
     rl['episode_limit'] = 0 if rl['trajectory'] else syst['N']
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
@@ -601,7 +602,6 @@ def opt_res_seed_save_paths(prm):
     if rl["deterministic"] == 2:
         for file in ["opt_res_file", "seeds_file"]:
             paths[file] += "_noisy"
-    syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
 
     for file in ["opt_res_file", "seeds_file"]:
         if rl["deterministic"] == 2:
@@ -669,8 +669,8 @@ def _update_grd_prm(prm):
         grd['compare_pandapower_optimisation'] = False
 
 
-def _time_info(prm):
-    syst = prm["syst"]
+def _syst_info(prm):
+    syst, paths = prm["syst"], prm['paths']
     if "H" not in syst:
         syst["H"] = 24
     syst["N"] = syst["D"] * syst["H"]
@@ -679,6 +679,9 @@ def _time_info(prm):
     # duration of time interval in hrs
     syst["dt"] = 1 / syst["n_int_per_hr"]
     # syst['current_date0_dtm'] = syst['date0_dtm']
+    syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
+    syst['machine_id'] = uuid.UUID(int=uuid.getnode())
+    syst['timestampe'] = datetime.datetime.now().timestamp()
 
 
 def _homes_info(loads, syst, gen, heat):
@@ -722,7 +725,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
 
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
-    _time_info(prm)
+    _syst_info(prm)
     _homes_info(loads, syst, gen, heat)
 
     # update paths and parameters from inputs
