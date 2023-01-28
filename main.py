@@ -19,26 +19,26 @@ settings = {
     'RL': {
         # current experiment
         'state_space': [['grdC_n2', 'flexibility']] * 5,
-        'n_epochs': 20,
+        'n_epochs': 10,
         'n_repeats': 3,
-        'type_learning': ['facmac'],
+        'type_learning': ['q_learning'],
         'evaluation_methods': ['env_r_c', 'opt_d_d'] * 5,
         'facmac': {'hysteretic': True, 'beta_to_alpha': 0.1}
     },
     'syst': {
-        'n_homes': 10
+        'n_homes': 3
     },
     'grd': {
         'max_grid_in': 5,
         'max_grid_out': 5,
-        'penalty_coefficient_in': 0.001,
-        'penalty_coefficient_out': 0.001,
+        'penalty_coefficient_in': 0.01,
+        'penalty_coefficient_out': 0.01,
         'manage_agg_power': True,
-        'max_grid_import': 13,
-        'max_grid_export': 13,
+        'max_grid_import': 11,
+        'max_grid_export': 11,
         'penalty_import': 0.01,
         'penalty_export': 0.01,
-        'manage_voltage': True,
+        'manage_voltage': False,
         'penalty_overvoltage': 0.1,
         'penalty_undervoltage': 0.1,
         'max_voltage': 1.001,

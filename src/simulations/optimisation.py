@@ -19,6 +19,7 @@ import time
 import pandas as pd
 
 from src.utilities.userdeftools import comb
+from src.simulations.record import Record
 
 
 class Optimiser():
@@ -649,6 +650,7 @@ class Optimiser():
             #self._save_computational_burden_opti(time_to_solve_opti, number_opti_constraints)
             if self.prm['syst']['n_opti_constraints'] is None:
                 self.prm['syst']['n_opti_constraints'] = number_opti_constraints
+                Record.opti_timer["test"] = 5
 
         return res
 
