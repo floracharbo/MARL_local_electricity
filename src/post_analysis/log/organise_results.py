@@ -216,11 +216,11 @@ def add_default_values(log, previous_defaults):
         key, subkey, subsubkey = get_key_subkeys_column(column)
         if key is not None:
             # get you have correct data loaded or load it
-            path = Path(f"config_files/input_parameters/{key}.yaml")
+            path = Path(f"config_files/default_input_parameters/{key}.yaml")
             if key != file_name:
                 if path.is_file():
                     file_name = key
-                    with open(f"config_files/input_parameters/{file_name}.yaml", "rb") as file:
+                    with open(f"config_files/default_input_parameters/{file_name}.yaml", "rb") as file:
                         default_data = yaml.safe_load(file)
                 else:
                     default_data = None
