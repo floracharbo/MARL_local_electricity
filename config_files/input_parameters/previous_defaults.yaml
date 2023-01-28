@@ -1,0 +1,18 @@
+"""
+If the user changes any of the input parameter files
+but would like to keep the organise_results post processing file
+create entries in the format
+
+parameter_changed: [local_machine_id, timestamp_change, previous_default_value]
+
+for example, if changing the default number of epochs in RL.yaml on the 28th Jan 2023, from 10 to 20:
+local_machine_id = str(uuid.UUID(int=uuid.getnode()))
+timestamp_change = datetime.datetime.now().timestamp()
+previous_default_value = 10
+parameter_changed = RL-n_epochs
+
+note the syntax for parameter_changed: key-subkey or key-subkey-subsubkey; for example if changing
+prm['RL']['facmac']['batch_size']:
+parameter_changed = RL-facmac-batch_size
+
+"""
