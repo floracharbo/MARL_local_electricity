@@ -165,15 +165,14 @@ def fill_in_log_value_with_run_data(log, row, column, prm_default):
     with open("config_files/input_parameters/previous_defaults.yaml", "rb") as file:
         previous_defaults = yaml.safe_load(file)
 
-    machine_time_pairs = previous_defaults['machine_time_pairs']
-    del previous_defaults['machine_time_pairs']
+    timestamp_changes = previous_defaults['timestamp_changes']
+    del previous_defaults['timestamp_changes']
 
     if column in previous_defaults:
-        machine_time_pair_id = previous_defaults[column][0]
-        machine_id_change, timestamp_change = machine_time_pairs[machine_time_pair_id]
-        machine_id_run = log.loc[row, 'syst-machine_id'] if 'syst-machine_id' in log.columns else None
+        timestamp_change_idx = previous_defaults[column][0]
+        timestamp_change = timestamp_changes[timestamp_change_idx]
         timestamp_run = log.loc[row, 'syst-timestamp']
-        if (machine_id_run is None or machine_id_change == machine_id_run) and timestamp_run < timestamp_change:
+        if timestamp_run < timestamp_change:
             log.loc[row, column] = previous_defaults[column][1]
     else:
         key, subkey, subsubkey = get_key_subkeys_column(column)

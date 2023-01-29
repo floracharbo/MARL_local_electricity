@@ -1,14 +1,12 @@
 # If the user changes any of the input parameter files
 # but would like to keep the organise_results post processing file
 
-# 1 - enter the machine for which this change applied and the time from which it applies
-# in entry in machine_time_pairs; you can obtain these using:
-
-# local_machine_id = str(uuid.UUID(int=uuid.getnode()))
-# timestamp_change = datetime.datetime.now().timestamp()
+# 1 - enter the time from which it applies in timestamp_changes
+# you can obtain this using:
+# timestamp_changes = datetime.datetime.now().timestamp()
 
 # 2 - enter all the parameter changes for this machine-time pair in the file as:
-# parameter_changed: [machine_time_pair_idx, previous_default_value]
+# parameter_changed: [timestamp_change_idx, previous_default_value]
 
 # note the syntax for parameter_changed: key-subkey or key-subkey-subsubkey;
 # for example, if changing the default number of epochs in RL.yaml:
@@ -17,9 +15,9 @@
 # if changing prm['RL']['facmac']['batch_size']:
 # parameter_changed = RL-facmac-batch_size
 
-machine_time_pairs:
-  1: ['00000000-0000-0000-0000-1a709829c70d', 1668095345.5865762]
-  2: ['00000000-0000-0000-0000-1a709829c70d', 1674755868.2259605]
+timestamp_changes:
+  1: 1668095345.5865762
+  2: 1674755868.2259605
 
 'RL-n_hidden_layers': [1, 1]
 'RL-aggregate_actions': [1, True]
