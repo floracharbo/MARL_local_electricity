@@ -63,7 +63,6 @@ class Runner():
         self.explorer.ind_seed_deterministic = - 1
         date0, delta, i0_costs = None, None, None
         # multiple repetition to sample different learning trajectories
-        print(f"start run_experiment self.rl['evaluation_methods'] {self.rl['evaluation_methods']}")
 
         while repeat < self.rl['n_repeats']:
             print(f"repeat {repeat}")
@@ -531,7 +530,7 @@ def run(run_mode, settings, no_runs=None):
             for e in ['type_learning', 'n_repeats', 'n_epochs',
                       'server', 'state_space']:
                 description_run += f"prm['RL'][{e}] {prm['RL'][e]} "
-            print(description_run)
+            print(f"experiment settings: {description_run}")
             prm['save']['description_run'] = description_run
 
             if prm['RL']['type_learning'] == 'facmac':

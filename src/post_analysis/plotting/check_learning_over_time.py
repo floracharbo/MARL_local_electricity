@@ -72,7 +72,6 @@ def check_model_changes_facmac(prm):
         method for method in prm["RL"]["evaluation_methods"]
         if method not in ["baseline", "opt", "random"]
     ]
-    print(f"check_model_changes networks {networks}")
     agents_learned = {}
     mixer_learned = {}
     prm["RL"]["nn_learned"] = True

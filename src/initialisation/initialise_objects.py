@@ -113,9 +113,6 @@ def _make_action_space(rl):
     if rl["discretize_actions"]:
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
-        print(f"rl['low_action'] = {rl['low_action']}")
-        print(f"np.shape(rl['low_action']) = {np.shape(rl['low_action'])}")
-        print(f"rl['dim_actions'] = {rl['dim_actions']}")
         action_space = spaces.Box(
             low=np.array(rl["low_action"], dtype=np.float32),
             high=np.array(rl["high_action"], dtype=np.float32),
