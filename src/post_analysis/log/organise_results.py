@@ -161,9 +161,19 @@ def replace_single_default_value(value, default_data, subkey, subsubkey):
     return value
 
 
-def fill_in_log_value_with_run_data(log, row, column, run_no, prm_default, previous_defaults):
-    if column in previous_defaults and run_no <= previous_defaults[column][0]:
-        log.loc[row, column] = previous_defaults[column][1]
+def fill_in_log_value_with_run_data(log, row, column, prm_default):
+    with open("config_files/input_parameters/previous_defaults.yaml", "rb") as file:
+        previous_defaults = yaml.safe_load(file)
+
+    timestamp_changes = previous_defaults['timestamp_changes']
+    del previous_defaults['timestamp_changes']
+
+    if column in previous_defaults:
+        timestamp_change_idx = previous_defaults[column][0]
+        timestamp_change = timestamp_changes[timestamp_change_idx]
+        timestamp_run = log.loc[row, 'syst-timestamp']
+        if timestamp_run < timestamp_change:
+            log.loc[row, column] = previous_defaults[column][1]
     else:
         key, subkey, subsubkey = get_key_subkeys_column(column)
         if key in prm_default:
@@ -196,7 +206,7 @@ def save_default_values_to_run_data(log):
             pickle.dump(prm_default, file)
 
 
-def add_default_values(log, previous_defaults):
+def add_default_values(log):
     file_name = ''
     # add any default value previously saved row by row
     for row in range(len(log)):
@@ -207,9 +217,7 @@ def add_default_values(log, previous_defaults):
                 prm_default = pickle.load(file)
             for column in log.columns:
                 if log.loc[row, column] is None and column != 'syst-time_end':
-                    log = fill_in_log_value_with_run_data(
-                        log, row, column, run_no, prm_default, previous_defaults
-                    )
+                    log = fill_in_log_value_with_run_data(log, row, column, prm_default)
 
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -630,12 +638,13 @@ def compare_all_runs_for_column_of_interest(
 
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
-                        not isinstance(current_col, str) and np.isnan(current_col)
-                        and not isinstance(row_col, str) and np.isnan(row_col)
+                        (not isinstance(current_col, str) and np.isnan(current_col))
+                        and (not isinstance(row_col, str) and np.isnan(row_col))
                     )
                     for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
                     if i_col not in indexes_ignore
                 )
+
             n_homes_on_laptop_only = not (
                 column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
             )
@@ -923,20 +932,6 @@ def remove_key_from_columns_names(new_columns):
 if __name__ == "__main__":
     results_path = Path("outputs/results")
     results_analysis_path = Path("outputs/results_analysis")
-    previous_defaults = {
-        'n_hidden_layers': [813, 1],
-        'aggregate_actions': [813, True],
-        'supervised_loss': [813, True],
-        'normalise_states': [2126, False],
-        'lr': [2126, 1e-5],
-        'facmac-critic_lr': [2126, 1e-5],
-        'ou_stop_episode': [2126, 100],
-        'start_steps': [2126, 0],
-        'hyper_initialization_nonzeros': [2126, 0],
-        'rnn_hidden_dim': [2126, 1.e+2],
-        'DDPG-rdn_eps_greedy_indiv': [2126, False],
-    }
-    # rename_runs(results_path)
 
     if not results_analysis_path.exists():
         os.mkdir(results_analysis_path)
@@ -964,7 +959,7 @@ if __name__ == "__main__":
     new_columns, log = remove_columns_that_never_change_and_tidy(
         log, columns0, columns_results_methods
     )
-    log = add_default_values(log, previous_defaults=previous_defaults)
+    log = add_default_values(log)
     log = fix_learning_specific_values(log)
     new_columns = remove_key_from_columns_names(new_columns)
 

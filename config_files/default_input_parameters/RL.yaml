@@ -13,7 +13,6 @@ check_feasibility_with_opt: False
 offset_reward: False
 delta_reward: 0.05
 competitive: False # individual agents learn ased in maximising their own rewards - i still plot total rewards though during evaluation -> constrains to decentralised learning
-server: False
 n_end_test: 10
 share_epochs_start_end_eval: 0.8
 save_model: True

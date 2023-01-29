@@ -78,10 +78,10 @@ conda activate my_venv
 ```
 
 5. Define user inputs
-Default inputs are in the inputs folder
+Default settings are in the inputs folder `config_files/input_parameters`:
 - car.yaml: battery inputs
 - gen.yaml: PV generation inputs
-- heat.yaml: heating putings
+- heat.yaml: heating inputs
 - loads.yaml: household loads inputs
 - grd.yaml: electricity grid inputs
 - paths.yaml: user paths inputs
@@ -89,8 +89,12 @@ Default inputs are in the inputs folder
 - save.yaml: data savings inputs
 - syst.yaml: general system inputs
 
+
+If the user wishes to change these default settings, whilst still being able to compare previous runs in `organise_results`, the previous default settings should be recorded in `input_parameters/previous_defaults.yaml`.
+
 To use experiment-specific settings different to the default parameters in `config_files/default_input_parameters`, enter specific values in the `settings` dictionary in the `main.py` file, as shown in as an example in the file.
 If values entered are in a list format, multiple experiments will loop though these values, so multiple experiments can be planned in one run.
+
 
 6. Run`main.py`
 

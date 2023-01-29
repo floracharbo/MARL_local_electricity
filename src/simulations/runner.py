@@ -506,6 +506,22 @@ def get_number_runs(settings):
     return n_runs
 
 
+def print_description_run(prm, settings):
+    description_run = 'current code '
+    base_RL_settings = ['type_learning', 'n_repeats', 'n_epochs', 'state_space']
+    for setting in base_RL_settings:
+        description_run += f"prm['RL'][{setting}] {prm['RL'][setting]} "
+    for key, setting in settings.items():
+        for subkey, subsetting in setting.items():
+            if subkey not in base_RL_settings:
+                description_run += f"settings[{key}][{subkey}] {subsetting}"
+
+    print(description_run)
+    prm['save']['description_run'] = description_run
+
+    return prm
+
+
 def run(run_mode, settings, no_runs=None):
     prm = input_paths()
 
@@ -526,12 +542,7 @@ def run(run_mode, settings, no_runs=None):
             # initialise learning parameters, system parameters and recording
             prm, record = initialise_objects(prm, settings=settings_i)
 
-            description_run = 'current code '
-            for e in ['type_learning', 'n_repeats', 'n_epochs',
-                      'server', 'state_space']:
-                description_run += f"prm['RL'][{e}] {prm['RL'][e]} "
-            print(f"experiment settings: {description_run}")
-            prm['save']['description_run'] = description_run
+            prm = print_description_run(prm, settings_i)
 
             if prm['RL']['type_learning'] == 'facmac':
                 # Setting the random seed throughout the modules
