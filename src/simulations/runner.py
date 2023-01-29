@@ -12,7 +12,6 @@ import time  # to record time it takes to run simulations
 from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
-import yaml
 
 import numpy as np
 import torch as th
