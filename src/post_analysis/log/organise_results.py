@@ -638,12 +638,13 @@ def compare_all_runs_for_column_of_interest(
 
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
-                        not isinstance(current_col, str) and np.isnan(current_col)
-                        and not isinstance(row_col, str) and np.isnan(row_col)
+                        (not isinstance(current_col, str) and np.isnan(current_col))
+                        and (not isinstance(row_col, str) and np.isnan(row_col))
                     )
                     for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
                     if i_col not in indexes_ignore
                 )
+
             n_homes_on_laptop_only = not (
                 column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
             )
