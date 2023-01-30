@@ -50,26 +50,31 @@ class Network:
         ]:
             setattr(self, info, prm['grd'][info])
 
-        self.network_data_path = prm['paths']['network_data']
+        if prm['grd']['manage_voltage']:
+            self.network_data_path = prm['paths']['network_data']
 
-        # ieee network and corresponding incidence matrix
-        self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
-        self.n_non_flex_homes = len(self.net.asymmetric_load) - self.n_homes
-        self.loads_single_phase()
-        self.in_incidence_matrix = np.where(self.incidence_matrix == -1, self.incidence_matrix, 0)
-        self.out_incidence_matrix = np.where(self.incidence_matrix == 1, self.incidence_matrix, 0)
+            # ieee network and corresponding incidence matrix
+            self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
+            self.n_non_flex_homes = len(self.net.asymmetric_load) - self.n_homes
+            self.loads_single_phase()
+            self.in_incidence_matrix = np.where(
+                self.incidence_matrix == -1, self.incidence_matrix, 0
+            )
+            self.out_incidence_matrix = np.where(
+                self.incidence_matrix == 1, self.incidence_matrix, 0
+            )
 
-        # line data matrix
-        self.line_resistance, self.line_reactance = self.network_line_data()
+            # line data matrix
+            self.line_resistance, self.line_reactance = self.network_line_data()
 
-        # external grid: define grid voltage at 1.0 and slack bus as bus 1
-        self.net.ext_grid['vm_pu'] = 1.0
-        self.net.ext_grid['bus'] = 1
+            # external grid: define grid voltage at 1.0 and slack bus as bus 1
+            self.net.ext_grid['vm_pu'] = 1.0
+            self.net.ext_grid['bus'] = 1
 
-        self.n_losses_error = 0
-        self.max_losses_error = - 1
-        self.n_voltage_error = 0
-        self.max_voltage_rel_error = - 1
+            self.n_losses_error = 0
+            self.max_losses_error = - 1
+            self.n_voltage_error = 0
+            self.max_voltage_rel_error = - 1
 
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """
