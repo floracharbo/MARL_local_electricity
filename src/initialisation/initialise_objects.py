@@ -768,6 +768,7 @@ def _filter_type_learning_facmac(rl):
         "exploration": ["env_r_c", "opt", "baseline"],
         "evaluation": ["env_r_c", "opt_r_c", "opt", "baseline", "random"]
     }
+
     for stage in ["evaluation", "exploration"]:
         new_methods = []
         for method in rl[f"{stage}_methods"]:
@@ -780,6 +781,8 @@ def _filter_type_learning_facmac(rl):
         for method in new_methods:
             if method in valid_types[stage] or "env_r_c" in method:
                 rl[f"{stage}_methods"].append(method)
+            else:
+                print(f"{method} is not a valid method for {stage} stage with facmac")
 
 
 def _filter_type_learning_competitive(rl):
