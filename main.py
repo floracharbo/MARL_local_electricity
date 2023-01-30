@@ -12,53 +12,26 @@ Created on Sat Feb  1 15:14:20 2020.
 
 from src.simulations.runner import run
 
-# Inputs
-settings = {
-    'heat': {'file': 'heat2'},
+# Enter experiment-specific settings in the dictionary below if using different parameters
+# to the default parameters in config_files/default_input_parameters, using the example syntax below.
 
+settings = {
     'RL': {
-        # current experiment
-        'state_space': [['grdC_n2', 'flexibility']] * 5,
-        'n_epochs': 10,
-        'n_repeats': 3,
-        'type_learning': ['q_learning'],
-        'evaluation_methods': ['env_r_c', 'opt_d_d'] * 5,
-        'facmac': {'hysteretic': True, 'beta_to_alpha': 0.1}
+       'state_space': [['grdC_n2', 'flexibility'], ['grdC']],
+       'n_epochs': 20,
+       'n_repeats': 3,
+       'type_learning': ['facmac'] * 2,
+       'evaluation_methods': [['env_r_c', 'opt_d_d']] * 2,
+       'facmac': {
+           'hysteretic': True,
+           'beta_to_alpha': 0.11,
+        },
     },
     'syst': {
-        'n_homes': 3
-    },
-    'grd': {
-        'max_grid_in': 5,
-        'max_grid_out': 5,
-        'penalty_coefficient_in': 0.01,
-        'penalty_coefficient_out': 0.01,
-        'manage_agg_power': True,
-        'max_grid_import': 11,
-        'max_grid_export': 11,
-        'penalty_import': 0.01,
-        'penalty_export': 0.01,
-        'manage_voltage': False,
-        'penalty_overvoltage': 0.1,
-        'penalty_undervoltage': 0.1,
-        'max_voltage': 1.001,
-        'min_voltage': 0.999,
-        'weight_network_costs': 1,
-        'subset_line_losses_modelled': 15,
-        'compare_pandapower_optimisation': False,
-        'computational_burden_analysis': True
+       'n_homes': 10,
     }
 }
 
-# obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation
-# obs_agent_id: True # Include the agent's one_hot id in the observation
-# rnn_hidden_dim: 1.e+2 # for rnn agent (from 64)
-# n_hidden_layers: 1
-# exploration_mode: "gaussian"
-# hyper_initialization_nonzeros: 0
-# lr: 1.e-5
-# buffer_size: 5000
-# on server check centralised opts false - next lr sensitivity
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 RUN_MODE = 1
 no_runs = [823]  # if plotting

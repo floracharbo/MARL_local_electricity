@@ -14,7 +14,6 @@ if not results_analysis_path.exists():
 
 candidates_left = True
 settings = {
-    'heat': {'file': 'heat2'},
     'RL': {
         'type_learning': 'facmac',
         # 'aggregate_actions': False,
