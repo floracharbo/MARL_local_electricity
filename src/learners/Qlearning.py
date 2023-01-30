@@ -79,7 +79,7 @@ class TabularQLearner:
             if isinstance(self.rl['q_learning']['eps'], float):
                 self.eps = self.rl['q_learning']['eps']
             else:
-                for method in self.rl['eval_action_choice']:
+                for method in self.rl['evaluation_methods_with_decision']:
                     self.eps[method] = self.rl['q_learning']['eps'][method]
         self.T = self.rl['T0'] if self.rl['q_learning']['T_decay'] \
             else self.rl['q_learning']['T']
@@ -116,7 +116,7 @@ class TabularQLearner:
                     eps = self.eps
                 else:
                     eps = self.eps[q] \
-                        if q in self.rl['eval_action_choice'] else None
+                        if q in self.rl['evaluation_methods_with_decision'] else None
 
             if self.rl['q_learning']['policy'] in ['boltzmann', 'mixed']:
                 actions = range(len(q_table[s]))
@@ -233,7 +233,7 @@ class TabularQLearner:
     def _reward_based_eps_control(self, mean_eval_rewards):
         # XU et al. 2018 Reward-Based Exploration
         k = {}
-        for method in self.rl['eval_action_choice']:
+        for method in self.rl['evaluation_methods_with_decision']:
             self.rMT = self.rMT / self.rl['tauMT'][method] + np.mean(
                 mean_eval_rewards[method][- self.rl['n_explore']:])
             self.rLT = self.rLT / self.rl['tauLT'][method] + self.rMT
@@ -246,7 +246,7 @@ class TabularQLearner:
 
         assert not (isinstance(self.eps, (float, int))), \
             "have eps per method"
-        for method in self.rl['eval_action_choice']:
+        for method in self.rl['evaluation_methods_with_decision']:
             eps = self.rl['lambda'] * k[method] \
                 + (1 - self.rl['lambda']) * self.eps[method]
             self.eps[method] = min(1, max(0, eps))
@@ -258,7 +258,7 @@ class TabularQLearner:
             self._reward_based_eps_control(mean_eval_rewards)
 
         else:
-            for method in self.rl['eval_action_choice']:
+            for method in self.rl['evaluation_methods_with_decision']:
                 if self.rl['control_eps'] == 1:
                     decrease_eps = self._control_decrease_eps(
                         method, epoch, mean_eval_rewards, decrease_eps
@@ -268,7 +268,7 @@ class TabularQLearner:
 
             if isinstance(self.eps, (float, int)):
                 decrease_eps = True \
-                    if sum(1 for method in self.rl['eval_action_choice']
+                    if sum(1 for method in self.rl['evaluation_methods_with_decision']
                            if decrease_eps[method]) > 0 \
                     else False
                 factor = self.rl['epsilon_decay_param'] if decrease_eps \
@@ -279,7 +279,7 @@ class TabularQLearner:
                 if epoch >= self.rl['q_learning']['end_decay']:
                     self.eps = 0
             else:
-                for method in self.rl['eval_action_choice']:
+                for method in self.rl['evaluation_methods_with_decision']:
                     factor = self.rl['epsilon_decay_param'][method] \
                         if decrease_eps[method] \
                         else (1 / self.rl['epsilon_decay_param'][method])

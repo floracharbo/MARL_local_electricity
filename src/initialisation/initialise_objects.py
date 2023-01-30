@@ -11,9 +11,9 @@ import datetime
 import multiprocessing as mp
 import os
 import pickle
+import uuid
 from pathlib import Path
 from typing import Optional, Tuple
-import uuid
 
 import numpy as np
 import torch as th
@@ -372,7 +372,7 @@ def _format_rl_parameters(rl):
                 # give them all methods the same eps value
                 var = rl[type_learning][key]
                 rl[type_learning][key] = {}
-                for evaluation_method in rl["eval_action_choice"]:
+                for evaluation_method in rl["evaluation_methods_with_decision"]:
                     rl[type_learning][key][evaluation_method] = var
 
     return rl
@@ -419,7 +419,7 @@ def _exploration_parameters(rl):
     #             # give them all methods the same eps value
     #             var = rl[type_learning][key]
     #             rl[type_learning][key] = {}
-    #             for evaluation_method in rl["eval_action_choice"]:
+    #             for evaluation_method in rl["evaluation_methods_with_decision"]:
     #                 rl[type_learning][key][evaluation_method] = var
     #         elif key == "control_window_eps":
         control_window_eps = rl["control_window_eps"]
@@ -429,7 +429,7 @@ def _exploration_parameters(rl):
         if window_per_method_specified:
             specified_per_reward_only = len(list(control_window_eps.keys())[0].split("_")) == 1
             if specified_per_reward_only:
-                for evaluation_method in rl["eval_action_choice"]:
+                for evaluation_method in rl["evaluation_methods_with_decision"]:
                     rl["control_window_eps"][evaluation_method] = \
                         control_window_eps[reward_type(evaluation_method)]
 
@@ -851,19 +851,19 @@ def _make_type_eval_list(rl, large_q_bool=False):
     if sum(method[0: 3] == 'opt' and len(method) > 3 for method in rl["evaluation_methods"]) > 0:
         rl["exploration_methods"] += ['opt']
 
-    rl["eval_action_choice"] = [
+    rl["evaluation_methods_with_decision"] = [
         t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
     ]
-    assert len(rl["eval_action_choice"]) > 0, \
+    assert len(rl["evaluation_methods_with_decision"]) > 0, \
         "not valid eval_type with action_choice"
 
     _filter_type_learning_facmac(rl)
 
     rl["type_Qs"] \
-        = rl["eval_action_choice"] + [
-        ac + "0" for ac in rl["eval_action_choice"]
-        if len(ac.split("_")) >= 3 and (
-            reward_type(ac) == "A" or distr_learning(ac)[0] == "C"
+        = rl["evaluation_methods_with_decision"] + [
+        method + "0" for method in rl["evaluation_methods_with_decision"]
+        if len(method.split("_")) >= 3 and (
+            reward_type(method) == "A" or distr_learning(method)[0] == "C"
         )
     ]
 

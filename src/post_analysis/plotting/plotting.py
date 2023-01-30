@@ -35,7 +35,7 @@ def _plot_epsilon(repeat, prm, record):
     if 'eps' in record.__dict__.keys() and record.eps != {}:
         if isinstance(record.eps[repeat][0], dict):
             fig = plt.figure()
-            for method in prm['RL']['eval_action_choice']:
+            for method in prm['RL']['evaluation_methods_with_decision']:
                 plt.plot(
                     [
                         record.eps[repeat][e][method]
