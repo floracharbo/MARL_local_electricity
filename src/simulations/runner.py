@@ -63,7 +63,6 @@ class Runner():
         self.explorer.ind_seed_deterministic = - 1
         date0, delta, i0_costs = None, None, None
         # multiple repetition to sample different learning trajectories
-        print(f"start run_experiment self.rl['evaluation_methods'] {self.rl['evaluation_methods']}")
 
         while repeat < self.rl['n_repeats']:
             print(f"repeat {repeat}")

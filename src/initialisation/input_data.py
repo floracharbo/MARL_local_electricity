@@ -44,7 +44,7 @@ def input_paths():
     """Load paths parameters."""
     prm = {}
     # Get the defaults from default.yaml
-    with open("config_files/input_parameters/paths.yaml", "rb") as file:
+    with open("config_files/default_input_parameters/paths.yaml", "rb") as file:
         prm["paths"] = yaml.safe_load(file)
 
     return prm
@@ -71,7 +71,7 @@ def _load_parameters(prm, settings):
                 info_file = settings["heat"]["file"]
             else:
                 info_file = info
-            path_param = f"config_files/input_parameters/{info_file}.yaml"
+            path_param = f"config_files/default_input_parameters/{info_file}.yaml"
             if os.path.exists(path_param):
                 with open(path_param, "rb") as file:
                     prm[info] = yaml.safe_load(file)

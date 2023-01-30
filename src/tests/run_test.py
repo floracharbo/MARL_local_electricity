@@ -162,8 +162,6 @@ def patch_plot_compare_all_signs(
 
 def test_all(mocker):
     settings = {
-        'heat': {'file': 'heat2'},
-
         'RL': {
             # current experiment
             'batch_size': 2,

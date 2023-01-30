@@ -224,11 +224,11 @@ def add_default_values(log):
         key, subkey, subsubkey = get_key_subkeys_column(column)
         if key is not None:
             # get you have correct data loaded or load it
-            path = Path(f"config_files/input_parameters/{key}.yaml")
+            path = Path(f"config_files/default_input_parameters/{key}.yaml")
             if key != file_name:
                 if path.is_file():
-                    file_name = key
-                    with open(f"config_files/input_parameters/{file_name}.yaml", "rb") as file:
+                    file_path = f"config_files/default_input_parameters/{key}.yaml"
+                    with open(file_path, "rb") as file:
                         default_data = yaml.safe_load(file)
                 else:
                     default_data = None
@@ -917,6 +917,7 @@ def plot_sensitivity_analyses(new_columns, log):
         elif column_of_interest == 'grdC_n':
             print("column_of_interest grdC_n and did not plot anything")
 
+
 def remove_key_from_columns_names(new_columns):
     # remove key from column name
     for i in range(len(new_columns)):
@@ -926,6 +927,7 @@ def remove_key_from_columns_names(new_columns):
             new_columns[i] = new_columns[i][len_start_remove:]
 
     return new_columns
+
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")
