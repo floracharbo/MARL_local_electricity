@@ -11,9 +11,9 @@ import datetime
 import multiprocessing as mp
 import os
 import pickle
+import uuid
 from pathlib import Path
 from typing import Optional, Tuple
-import uuid
 
 import numpy as np
 import torch as th

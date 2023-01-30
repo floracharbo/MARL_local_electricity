@@ -54,7 +54,7 @@ class LocalElecEnv():
         self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
 
-        if self.prm['grd']['manage_voltage']:
+        if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
             self.network = Network(prm)
 
         # initialise parameters
