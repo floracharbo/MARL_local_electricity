@@ -10,7 +10,7 @@ from torch.optim import Adam, RMSprop
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
 from src.learners.facmac.modules.critics.facmac_critic import FACMACCritic
-
+from src.utilities.userdeftools import getBack
 
 class FACMACLearner(Learner):
     def __init__(self, mac, scheme, rl, N):
@@ -126,9 +126,20 @@ class FACMACLearner(Learner):
         for g in self.critic_optimiser.param_groups:
             g['lr'] = lr
 
+        mixer_before = self.mixer.state_dict()['hyper_b_1.weight'].clone()
+        agent_before = self.mac.agent.fc1.weight.data.clone()
+
         self.critic_optimiser.zero_grad()
         loss.backward()
         self.critic_optimiser.step()
+
+        # getBack(loss.grad_fn)
+        mixer_after = self.mixer.state_dict()['hyper_b_1.weight'].clone()
+        agent_after = self.mac.agent.fc1.weight.data.clone()
+
+        mixer_changed = not th.all(mixer_before == mixer_after)
+        agent_network_changed = not th.all(agent_before == agent_after)
+        assert mixer_changed, f"mixer_changed {mixer_changed}"
 
     def _train_actor(self, batch):
         # Optimize over the entire joint action space
@@ -138,7 +149,7 @@ class FACMACLearner(Learner):
         self.critic.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
             agent_outs = self.mac.forward(
-                batch, t=t, select_actions=True)["actions"]. \
+                batch, t=t, select_actions=True). \
                 view(batch.batch_size, self.n_agents, self.n_actions)
             q, self.critic.hidden_states = self.critic(
                 self._build_inputs(batch, t=t), agent_outs,
@@ -152,20 +163,31 @@ class FACMACLearner(Learner):
             chosen_action_qvals.append(q)
         mac_out = th.stack(mac_out, dim=1)
         chosen_action_qvals = th.stack(chosen_action_qvals, dim=1)
-        pi = mac_out
 
         chosen_action_qvals = self.add_supervised_loss(chosen_action_qvals, batch)
         # Compute the actor loss
-        pg_loss = - chosen_action_qvals.mean() + (pi ** 2).mean() * 1e-3
+        pg_loss = - chosen_action_qvals.mean() + (mac_out ** 2).mean() * 1e-3
         lr = self.rl['lr'] if (not self.hysteretic or pg_loss > 0) \
             else self.rl['lr'] * self.beta_to_alpha
         for g in self.agent_optimiser.param_groups:
             g['lr'] = lr
 
         # Optimise agents
+        mixer_before = self.mixer.state_dict()['hyper_b_1.weight'].clone()
+        agent_before = self.mac.agent.fc1.weight.data.clone()
         self.agent_optimiser.zero_grad()
         pg_loss.backward()
+        # getBack(pg_loss.grad_fn)
+
         self.agent_optimiser.step()
+
+        mixer_after = self.mixer.state_dict()['hyper_b_1.weight'].clone()
+        agent_after = self.mac.agent.fc1.weight.data.clone()
+
+        mixer_changed = not th.all(mixer_before == mixer_after)
+        agent_network_changed = not th.all(agent_before == agent_after)
+        assert agent_network_changed, f"agent_network_changed {agent_network_changed}"
+
         if self.rl['target_update_mode'] == "hard":
             print("hard target update")
             self._update_targets()
