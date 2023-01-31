@@ -32,6 +32,7 @@ class Optimiser():
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
+        self.record = Record(prm)
 
     def res_post_processing(self, res):
         for key, val in res.items():
@@ -78,10 +79,10 @@ class Optimiser():
 
         return res
 
-    def solve(self, prm):
+    def solve(self, prm, epoch):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        res, prm = self._problem(prm)
+        res, prm = self._problem(prm, epoch)
 
         if prm['car']['efftype'] == 1:
             init_eta = prm['car']['etach']
@@ -616,7 +617,7 @@ class Optimiser():
 
         return p, import_export_costs
 
-    def _problem(self, prm):
+    def _problem(self, prm, epoch):
         """Solve optimisation problem."""
         # initialise problem
         p = pic.Problem()
@@ -648,7 +649,7 @@ class Optimiser():
             number_opti_constraints = len(p.constraints)
             if 'n_opti_constraints' not in prm['syst']:
                 prm['syst']['n_opti_constraints'] = number_opti_constraints
-            #Record.timer_opti["test"] = 5
+            self.record.timing_daily_optimization(time_step=epoch, timer_opti=time_to_solve_opti)
 
         return res, prm
 

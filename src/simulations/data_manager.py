@@ -203,7 +203,7 @@ class DataManager():
 
         if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
             try:
-                res = self.optimiser.solve(self.prm)
+                res = self.optimiser.solve(self.prm, epoch)
             except Exception as ex:  # if infeasible, make new data
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())

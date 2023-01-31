@@ -55,7 +55,7 @@ class Runner():
         # which will interact with the environment
         self.explorer = Explorer(env, prm, self.learner, record, self.mac)
 
-    def run_experiment(self):
+    def run_experiment(self, prm):
         """For a given state space, explore and learn from the environment."""
         repeat = 0  # initialise repetition number
         new_env = True  # boolean for creating a new environment
@@ -66,7 +66,7 @@ class Runner():
 
         while repeat < self.rl['n_repeats']:
             print(f"repeat {repeat}")
-            episode, converged = self._new_repeat(repeat, new_env)
+            episode, converged = self._new_repeat(repeat, new_env, prm)
 
             # looping through epochs
             # have progress bar while running through epochs
@@ -230,14 +230,14 @@ class Runner():
             self.new_episode_batch = None
             self.mac = None
 
-    def _new_repeat(self, repeat, new_env):
+    def _new_repeat(self, repeat, new_env, prm):
         # track whether the learning has converged
         # (useful for deterministic case)
         converged = False
         self.explorer.t_env = 0
         self._initialise_buffer_learner_mac()
         # initialise dictionaries for storing relevant values during repeat
-        self.record.new_repeat(repeat, self.rl)
+        self.record.new_repeat(repeat, self.rl, prm)
         #  at each repeat reinitialise agent clusters
         #  according to clus0 probabilities
         if new_env:  # need to create a new environment
@@ -553,7 +553,7 @@ def run(run_mode, settings, no_runs=None):
             # with relevant parameters
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
-            runner.run_experiment()
+            runner.run_experiment(prm)
             record.save(end_of='end')  # save progress at end
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode

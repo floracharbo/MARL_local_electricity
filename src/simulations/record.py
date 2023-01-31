@@ -98,7 +98,8 @@ class Record():
 
     def new_repeat(self,
                    repeat: int,
-                   rl: dict
+                   rl: dict,
+                   prm
                    ):
         """Reinitialise object properties at the start of new repeat."""
         self.repeat = repeat  # current repetition index
@@ -111,6 +112,9 @@ class Record():
 
         self.duration_epoch[repeat], self.eps[repeat] \
             = [initialise_dict(range(rl["n_epochs"])) for _ in range(2)]
+        
+        self.timer_opti[repeat] = initialise_dict(range(rl["n_epochs"]))
+        self.timer_pandapower[repeat] = initialise_dict(range(rl["n_epochs"] * prm['syst']['H']))
 
         self.train_rewards[repeat] = initialise_dict(rl["exploration_methods"])
 
@@ -178,6 +182,20 @@ class Record():
         self._update_eps(rl, learner, epoch, end_test)
 
         self.duration_epoch[self.repeat][epoch] = duration_epoch
+
+    def timing_daily_optimization(self,
+                  time_step: int,
+                  timer_opti: float,
+                  ):
+        """TImes the optimization solving function"""
+        self.timer_opti[self.repeat][time_step] = timer_opti
+
+    def timing_hourly_pandapower(self,
+                  time_step: int,
+                  timer_pandapower: float,
+                  ):
+        """Times the pandapower solving function"""
+        self.timer_pandapower[self.repeat][time_step] = timer_pandapower
 
     def last_epoch(self, evaluation, method, record_output, batch, done):
         """Record more information for the final epoch in self.last."""
