@@ -14,6 +14,7 @@ class BasicMAC:
         input_shape = self._get_input_shape(scheme)
         self.N = N
         self._build_agents(input_shape)
+        self.fc1_0 = self.agent.fc1.weight.data.clone()
         self.agent_output_type = rl['agent_output_type']
         self.hidden_states = None
 
@@ -25,7 +26,8 @@ class BasicMAC:
             ep_batch, t_ep, return_logits=(not test_mode))
         chosen_actions = self.action_selector.select_action(
             agent_outputs[bs], avail_actions[bs], t_env,
-            test_mode=test_mode, explore=explore)
+            test_mode=test_mode, explore=explore
+        )
 
         return chosen_actions
 
