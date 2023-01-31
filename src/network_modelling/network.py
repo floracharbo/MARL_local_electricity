@@ -9,6 +9,7 @@ Created on Mon Nov 28 2022.
 import numpy as np
 import pandapower as pp
 import pandapower.networks
+import time
 
 
 class Network:
@@ -40,6 +41,7 @@ class Network:
         for info in ['n_homes', 'M', 'N']:
             setattr(self, info, prm['syst'][info])
         self.homes = range(self.n_homes)
+        self.duration_pp = []
 
         # upper and lower voltage limits
         for info in [
@@ -185,6 +187,7 @@ class Network:
         self.net.bus.drop(duplicated_buses, inplace=True)
 
     def pf_simulation(self, netp: list):
+        start = time.time()
         """ Given selected action, obtain voltage on buses and lines using pandapower """
         self.net.load.p_mw = 0
         self.net.sgen.p_mw = 0
@@ -201,6 +204,8 @@ class Network:
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
         voltage = np.array(self.net.res_bus['vm_pu'])
+        end = time.time()
+        self.duration_pp.append(end - start)
 
         return hourly_line_losses, voltage
 

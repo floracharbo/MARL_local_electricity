@@ -26,7 +26,6 @@ from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
 from src.utilities.userdeftools import initialise_dict
-from src.simulations.record import Record
 
 
 class LocalElecEnv():
@@ -55,7 +54,6 @@ class LocalElecEnv():
         self.labels_day_trans = prm['syst']['labels_day_trans']
         self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
-        self.record = Record
 
         if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
             self.network = Network(prm)
@@ -559,14 +557,7 @@ class LocalElecEnv():
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
         if self.prm['grd']['manage_voltage']:
-            start = time.time()
             hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
-            end = time.time()
-            voltage_squared = np.square(voltage)
-            if self.prm['grd']['computational_burden_analysis']:
-                time_to_solve_pp = end - start
-                self.record.timing_hourly_pandapower(time_step=h, timer_pandapower=time_to_solve_pp)
-      
 
         else:
             voltage_squared = None

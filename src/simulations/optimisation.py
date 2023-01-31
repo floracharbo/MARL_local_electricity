@@ -15,11 +15,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
-import time
-import pandas as pd
 
 from src.utilities.userdeftools import comb
-from src.simulations.record import Record
 
 
 class Optimiser():
@@ -32,7 +29,6 @@ class Optimiser():
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
-        self.record = Record(prm)
 
     def res_post_processing(self, res):
         for key, val in res.items():
@@ -79,10 +75,10 @@ class Optimiser():
 
         return res
 
-    def solve(self, prm, epoch):
+    def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        res, prm = self._problem(prm, epoch)
+        res, prm = self._problem(prm)
 
         if prm['car']['efftype'] == 1:
             init_eta = prm['car']['etach']
@@ -617,7 +613,7 @@ class Optimiser():
 
         return p, import_export_costs
 
-    def _problem(self, prm, epoch):
+    def _problem(self, prm):
         """Solve optimisation problem."""
         # initialise problem
         p = pic.Problem()
@@ -638,18 +634,14 @@ class Optimiser():
             p, netp, grid, grid_energy_costs, battery_degradation_costs, voltage_costs
         )
         # solve
-        start = time.time()
         p.solve(verbose=0, solver=self.syst['solver'])
-        end = time.time()
 
         # save results
         res = self._save_results(p.variables)
         if self.grd['computational_burden_analysis']:
-            time_to_solve_opti = end - start
             number_opti_constraints = len(p.constraints)
             if 'n_opti_constraints' not in prm['syst']:
                 prm['syst']['n_opti_constraints'] = number_opti_constraints
-            self.record.timing_daily_optimization(time_step=epoch, timer_opti=time_to_solve_opti)
 
         return res, prm
 

@@ -23,6 +23,7 @@ import copy
 import glob
 import os
 import traceback
+import time
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -60,6 +61,8 @@ class DataManager():
         # how many i have thrown out because it was infeasible during training
         # instead of looking at the n-th seed, look at the(n+d_ind_seed)th seed
         self.d_ind_seed = {'P': 0, '': 0}
+
+        self.timer_optimisation = []
 
     def format_grd(self, batch, passive_ext):
         """Format network parameters in preparation for optimisation."""
@@ -203,7 +206,11 @@ class DataManager():
 
         if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
             try:
-                res = self.optimiser.solve(self.prm, epoch)
+                start = time.time()
+                res = self.optimiser.solve(self.prm)
+                end = time.time()
+                duration_opti = end - start
+                self.timer_optimisation.append(duration_opti)
             except Exception as ex:  # if infeasible, make new data
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())
