@@ -519,7 +519,12 @@ def _update_rl_prm(prm, initialise_all):
     rl['episode_limit'] = 0 if rl['trajectory'] else syst['N']
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
-    prm["RL"]["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
+
+    if rl['type_learning'] == 'facmac' and rl['learner'] == 'facmac_learner_discrete':
+        rl["type_env"] = 'discrete'
+    else:
+        rl["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
+
     rl["start_end_eval"] = int(rl["share_epochs_start_end_eval"] * rl["n_epochs"])
     rl["n_all_epochs"] = rl["n_epochs"] + rl["n_end_test"]
     if rl["type_learning"] == "DDPG":
@@ -684,7 +689,7 @@ def _syst_info(prm):
     syst["dt"] = 1 / syst["n_int_per_hr"]
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
-    syst['timestampe'] = datetime.datetime.now().timestamp()
+    syst['timestamp'] = datetime.datetime.now().timestamp()
 
 
 def _homes_info(loads, syst, gen, heat):
