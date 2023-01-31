@@ -11,6 +11,9 @@ class Agent(nn.Module):
         self.N = N
         self.cuda_available = True if th.cuda.is_available() else False
         self.device = th.device("cuda") if self.cuda_available else th.device("cpu")
+        self.dim_output = \
+            self.rl['dim_actions'] * self.rl['n_discrete_actions'] if self.rl['learner'] == 'facmac_learner_discrete' \
+            else self.rl['dim_actions']
         if self.rl['nn_type'] == 'linear':
             self.fc1 = nn.Linear(input_shape, self.rl['rnn_hidden_dim'])
             self.layers = []
@@ -67,7 +70,7 @@ class Agent(nn.Module):
                 )
 
         self.fc_out = nn.Linear(
-            self.rl['rnn_hidden_dim'], self.rl['dim_actions']
+            self.rl['rnn_hidden_dim'], self.dim_output
         )
 
         self._gpu_parallelisation()
