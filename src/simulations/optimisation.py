@@ -81,7 +81,7 @@ class Optimiser():
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        res = self._problem()
+        res, prm = self._problem(prm)
 
         if prm['car']['efftype'] == 1:
             init_eta = prm['car']['etach']
@@ -94,7 +94,7 @@ class Optimiser():
                 eta_old = copy.deepcopy(prm['car']['etach'])
                 print(f"prm['grd']['loads'][0][0][0] = "
                       f"{prm['grd']['loads'][0][0][0]}")
-                res = self._problem(prm)
+                res, prm = self._problem(prm)
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
                 if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
@@ -616,7 +616,7 @@ class Optimiser():
 
         return p, import_export_costs
 
-    def _problem(self):
+    def _problem(self, prm):
         """Solve optimisation problem."""
         # initialise problem
         p = pic.Problem()
@@ -646,13 +646,11 @@ class Optimiser():
         if self.grd['computational_burden_analysis']:
             time_to_solve_opti = end - start
             number_opti_constraints = len(p.constraints)
-            #self.computational_analysis.add_to_computational_res(time_to_solve_opti, 'time_to_solve_opti')
-            #self._save_computational_burden_opti(time_to_solve_opti, number_opti_constraints)
-            if self.prm['syst']['n_opti_constraints'] is None:
-                self.prm['syst']['n_opti_constraints'] = number_opti_constraints
-                Record.opti_timer["test"] = 5
+            if 'n_opti_constraints' not in prm['syst']:
+                prm['syst']['n_opti_constraints'] = number_opti_constraints
+            #Record.timer_opti["test"] = 5
 
-        return res
+        return res, prm
 
     def _plot_y(self, prm, y, time):
         for home in range(prm['syst']['n_homes']):
