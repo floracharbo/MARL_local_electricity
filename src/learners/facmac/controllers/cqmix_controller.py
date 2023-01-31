@@ -103,13 +103,13 @@ class CQMixMAC(BasicMAC):
                 ep_batch[bs], t_ep,
                 hidden_states=hidden_states,
                 test_mode=test_mode, select_actions=True
-            )["actions"]
+            )
             # just to make sure detach
             chosen_actions = chosen_actions.view(
                 ep_batch[bs].batch_size, self.n_agents,
                 self.rl['dim_actions']
             ).detach()
-            pass
+
         elif self.rl['agent_facmac'] == "icnn":
             inputs = self._build_inputs(ep_batch[bs], t_ep)
             chosen_actions = self.agent.bundle_tuned2(observation=inputs)
@@ -164,16 +164,16 @@ class CQMixMAC(BasicMAC):
                 f"No known agent type selected for cqmix! "
                 f"({self.rl['agent_facmac']})")
 
-        # Now do appropriate noising
-        # Ornstein-Uhlenbeck:
-        chosen_actions = self._exploration_noising(
-            test_mode, chosen_actions, t_env,
-            explore_agent_ids, action_space, ep_batch, bs
-        )
-
-        # For continuous actions, clamp actions to permissible action range
-        # (necessary after exploration)
-        chosen_actions = self._clamp_actions(action_space, chosen_actions)
+        if self.rl['learner'] != 'facmac_learner_discrete':
+            # Now do appropriate noising
+            # Ornstein-Uhlenbeck:
+            chosen_actions = self._exploration_noising(
+                test_mode, chosen_actions, t_env,
+                explore_agent_ids, action_space, ep_batch, bs
+            )
+            # For continuous actions, clamp actions to permissible action range
+            # (necessary after exploration)
+            chosen_actions = self._clamp_actions(action_space, chosen_actions)
 
         return chosen_actions
 
@@ -185,13 +185,18 @@ class CQMixMAC(BasicMAC):
                 test_mode=False):
         agent_inputs = self._build_inputs(ep_batch, t)
         ret = self.agent(agent_inputs, self.hidden_states, actions=actions)
+        chosen_actions = ret['actions']
         if select_actions:
             self.hidden_states = ret["hidden_state"]
-            return ret
+            if self.rl['learner'] == 'facmac_learner_discrete':
+                a = ret['actions'].view(-1, self.rl['dim_actions_1'], self.rl['n_discrete_actions'])
+                b = th.nn.functional.gumbel_softmax(a, tau=1, hard=False, dim=-1)
+                chosen_actions = b.argmax(dim=-1)
+            return chosen_actions
         agent_outs = ret["Q"]
         self.hidden_states = ret["hidden_state"]
 
-        if self.agent_output_type == "pi_logits":
+        if select_actions and self.agent_output_type == "pi_logits":
             agent_outs = th.nn.functional.softmax(agent_outs, dim=-1)
             if not test_mode:
                 agent_outs = \
@@ -199,7 +204,7 @@ class CQMixMAC(BasicMAC):
                      + th.ones_like(agent_outs)
                      * self.action_selector.epsilon / agent_outs.size(-1))
 
-        return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), actions
+        return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), chosen_actions
 
     def _build_inputs(self, batch, t, target_mac=False,
                       last_target_action=None):
