@@ -32,15 +32,15 @@ class Record():
             prm["syst"]["break_down_rewards_entries"]
         self.repeat_entries = prm["save"]["repeat_entries"] \
             + prm["syst"]["break_down_rewards_entries"]
-        # timer entries
-        self.mean_opti_timer = []
         # entries that change for state ind but are the same across repeats
         self.stateind_entries = prm["save"]["stateind_entries"]
-        self.entries = self.repeat_entries + self.stateind_entries
+        self.timer_entries = prm["save"]["timer_entries"]
+        self.entries = self.repeat_entries + self.stateind_entries + self.timer_entries
         # all entries
         for info in self.entries:
             setattr(self, info, {})
-
+        # timer entries
+        #self.mean_opti_timer = {}
         # all exploration / evaluation methods
         self.all_methods = rl["evaluation_methods"] + \
             list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
@@ -73,7 +73,8 @@ class Record():
 
         for entry in self.stateind_entries:
             setattr(self, entry, {})
-
+        for entry in self.timer_entries:
+            setattr(self, entry, {})
         for entry in self.repeat_entries:
             setattr(self, entry, initialise_dict(range(rl["n_repeats"])))
 
@@ -198,7 +199,7 @@ class Record():
         the explorations and evaluations
         """
         labels = self.repeat_entries if end_of == "repeat" \
-            else self.stateind_entries
+            else (self.stateind_entries + self.timer_entries)
         if not self.save_qtables:
             labels = [label for label in labels if label not in ["q_tables", "counter"]] \
                 if end_of == "repeat" \

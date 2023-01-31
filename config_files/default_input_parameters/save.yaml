@@ -18,13 +18,13 @@ last_entries: [
   'break_down_rewards',  # values i want to store from last epoch so that i can plot
   'loaded_buses', 'sgen_buses'
 ]
-
+timer_entries: ['mean_opti_timer', 'timer_pandapower',
+   'timer_comparison_opti_pp', 'timer_find_feasible_data']
 repeat_entries: [
   'train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',
    'stability', 'last', 'seed', 'eps', 'ind_seed_deterministic',
    'duration_epoch', 'n_not_feas', 'not_feas_vars', 'train_actions',
-   'train_states', 'q_tables', 'counter', 'timer_opti', 'timer_pandapower',
-   'timer_comparison_opti_pp', 'timer_find_feasible_data', 'mean_opti_timer'
+   'train_states', 'q_tables', 'counter'
 ]
 stateind_entries: [
   'possible_states', 'granularity_state0', 'granularity_state1', 'multipliers_state'
