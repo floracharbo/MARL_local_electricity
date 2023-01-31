@@ -99,9 +99,10 @@ class ActionSelector:
 
             action_indexes = [self.env.spaces.global_to_indiv_index(
                 "action", ind_action[a_]) for a_ in self.homes]
-            action = [self.env.spaces.index_to_val(
-                action_indexes[a_], typev="action")
-                for a_ in self.homes]
+            action = [
+                self.env.spaces.index_to_val(action_indexes[a_], typev="action")
+                for a_ in self.homes
+            ]
 
         return action, tf_prev_state
 
@@ -206,19 +207,26 @@ class ActionSelector:
 
         self.episode_batch[method].update(pre_transition_data, ts=step)
         if self.rl['action_selector'] == "gumbel":
-            actions = self.mac[method].select_actions(
+            action = self.mac[method].select_actions(
                 self.episode_batch[method], t_ep=step, t_env=t_env,
-                test_mode=evaluation, explore=(not evaluation))
-            action = th.argmax(actions, dim=-1).long()
+                test_mode=evaluation
+            ).view(self.rl['n_homes'], self.rl['dim_actions'])
+            # action = th.argmax(actions, dim=-1).long()
         else:
             action = self.mac[method].select_actions(
                 self.episode_batch[method], t_ep=step,
                 t_env=t_env, test_mode=evaluation
             )
 
-        action = [[float(action[0][home][i])
-                   for i in range(self.rl['dim_actions'])]
-                  for home in self.homes]
+        # action = [
+        #     [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
+        #     for home in self.homes
+        # ]
+        if self.rl['learner'] == 'facmac_learner_discrete':
+            action = [
+                self.env.spaces.index_to_val(action[a_], typev="action")
+                for a_ in self.homes
+            ]
 
         return action
 
