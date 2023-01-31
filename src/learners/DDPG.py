@@ -383,10 +383,12 @@ class Learner_DDPG:
                 else legal_action
         elif rdn_eps_greedy_indiv:
             rdn = [np.random.rand() for _ in range(self.rl['dim_actions'])]
-            legal_action = [np.random.rand()
-                            if rdn[i] > self.rl['DDPG']['eps']
-                            else legal_action[i]
-                            for i in range(self.rl['dim_actions'])]
+            legal_action = [
+                np.random.rand()
+                if rdn[i] > self.rl['DDPG']['eps']
+                else legal_action[i]
+                for i in range(self.rl['dim_actions'])
+            ]
 
         return [np.squeeze(legal_action)]
 
