@@ -248,7 +248,7 @@ class DataManager():
         # boolean: whether optimisation problem is feasible;
         # start by assuming it is not
         data_feasible = 0
-        iteration = -1
+        iteration = - 1
         while not data_feasible and iteration < 100:
             # try solving problem else making new data until problem solved
             iteration += 1

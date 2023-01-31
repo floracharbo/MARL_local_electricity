@@ -8,16 +8,17 @@ class FACMACDiscreteCritic(nn.Module):
         super(FACMACDiscreteCritic, self).__init__()
         self.rl = rl
         self.n_actions = rl['dim_actions']
-        self.n_agents = rl['n_agents']
+        self.n_agents = rl['n_homes']
         self.input_shape = scheme["obs"]["vshape"] + self.n_actions
         self.output_type = "q"
         self.hidden_states = None
 
         # Set up network layers
-        self.set_up_network_layers(rl)
+        # self.set_up_network_layers(self.rl)
 
         # Set up network layers
-        self.fc1 = nn.Linear(self.input_shape, rl['rnn_hidden_dim'])
+        self.layers = nn.ModuleList([])
+        self.fc1 = nn.Linear(self.input_shape, self.rl['rnn_hidden_dim'])
         if self.rl['n_hidden_layers_critic'] > 0:
             self.layers.extend(
                 [
@@ -25,7 +26,7 @@ class FACMACDiscreteCritic(nn.Module):
                     for _ in range(self.rl['n_hidden_layers_critic'])
                 ]
             )
-        self.fc_out = nn.Linear(rl['rnn_hidden_dim'], 1)
+        self.fc_out = nn.Linear(self.rl['rnn_hidden_dim'], 1)
 
     def init_hidden(self, batch_size):
         # make hidden states on same device as model
