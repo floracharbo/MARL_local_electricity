@@ -44,12 +44,9 @@ class Record():
     def _intialise_dictionaries_entries_to_record(self, prm):
         # initialise entries
         # entries that change for each repeat
-        self.break_down_rewards_entries = \
-            prm["syst"]["break_down_rewards_entries"]
-        self.repeat_entries = prm["save"]["repeat_entries"] \
-                              + prm["syst"]["break_down_rewards_entries"]
-        # entries that change for state ind but are the same across repeats
-
+        self.break_down_rewards_entries = prm["syst"]["break_down_rewards_entries"]
+        self.repeat_entries = prm["save"]["repeat_entries"] + self.break_down_rewards_entries
+        # entries that change for run but are the same across repeats
         self.run_entries = prm["save"]["run_entries"]
         self.last_entries = prm["save"]["last_entries"]
 
@@ -60,20 +57,17 @@ class Record():
         for entry in self.repeat_entries:
             setattr(self, entry, initialise_dict(range(self.n_repeats)))
 
-
     def _add_rl_info_to_object(self, rl):
         # all exploration / evaluation methods
+        for info in ["n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space"]:
+            setattr(self, info, rl[info])
         self.all_methods = rl["evaluation_methods"] + \
-                           list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
+            list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
 
         # depending on the dimension of the q tables
         self.save_qtables = True \
-            if (rl["state_space"] is None or len(rl["state_space"]) <= 2) \
-               and rl["n_epochs"] <= 1e3 \
+            if (self.state_space is None or len(self.state_space) <= 2) and self.n_epochs <= 1e3 \
             else False
-
-        for info in ["n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space"]:
-            setattr(self, info, rl[info])
 
         for info in ["gamma", "epsilon_decay"]:
             setattr(

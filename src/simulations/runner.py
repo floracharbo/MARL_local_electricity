@@ -505,9 +505,9 @@ class Runner():
             self.explorer.data.timer_feasible_data
         )
 
+
 def get_number_runs(settings):
     n_runs = 1
-
     for sub_dict in settings.values():
         for val in list(sub_dict.values()):
             if isinstance(val, dict):

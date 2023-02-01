@@ -257,7 +257,9 @@ class Network:
             # )
             replace_with_pp_simulation = True
 
-        return replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp
+        return [
+            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp
+        ]
 
     def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
         # Line losses test
