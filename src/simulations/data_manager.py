@@ -22,8 +22,8 @@ for optimisation problem.
 import copy
 import glob
 import os
-import traceback
 import time
+import traceback
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -74,13 +74,13 @@ class DataManager():
         potential_delay = np.zeros((loads['n_types'], syst['N']), dtype=int)
         if loads['flextype'] == 1:
             potential_delay[0] = np.zeros(syst['N'])
-            for time in range(syst['N']):
-                potential_delay[1, time] = max(min(loads['flex'][1], syst['N'] - 1 - time), 0)
+            for t in range(syst['N']):
+                potential_delay[1, t] = max(min(loads['flex'][1], syst['N'] - 1 - t), 0)
         else:
             for load_type in range(loads['n_types']):
-                for time in range(syst['N']):
-                    potential_delay[load_type][time] = max(
-                        min(loads['flex'][load_type], syst['N'] - 1 - time), 0)
+                for t in range(syst['N']):
+                    potential_delay[load_type][t] = max(
+                        min(loads['flex'][load_type], syst['N'] - 1 - t), 0)
 
         # make ntw matrices
         grd['Bcap'] = np.zeros((syst['n_homes' + passive_ext], syst['N']))
@@ -92,16 +92,16 @@ class DataManager():
         share_flexs = loads['share_flexs' + passive_ext]
         for home in range(syst['n_homes' + passive_ext]):
             grd['gen'][home] = batch[home]['gen'][0: len(grd['gen'][home])]
-            for time in range(syst['N']):
-                grd['Bcap'][home, time] = car['cap' + passive_ext][home]
+            for t in range(syst['N']):
+                grd['Bcap'][home, t] = car['cap' + passive_ext][home]
                 for load_type in range(loads['n_types']):
-                    grd['loads'][0][home][time] \
-                        = batch[home]['loads'][time] * (1 - share_flexs[home])
-                    grd['loads'][1][home][time] \
-                        = batch[home]['loads'][time] * share_flexs[home]
+                    grd['loads'][0][home][t] \
+                        = batch[home]['loads'][t] * (1 - share_flexs[home])
+                    grd['loads'][1][home][t] \
+                        = batch[home]['loads'][t] * share_flexs[home]
                     for time_cons in range(syst['N']):
-                        if time <= time_cons <= time + int(potential_delay[load_type][time]):
-                            grd['flex'][time, load_type, home, time_cons] = 1
+                        if t <= time_cons <= t + int(potential_delay[load_type][t]):
+                            grd['flex'][t, load_type, home, time_cons] = 1
 
         # optimisation of power flow
         if grd['manage_voltage']:

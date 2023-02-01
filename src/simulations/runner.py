@@ -13,8 +13,6 @@ from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
 
-from statistics import mean
-
 import numpy as np
 import torch as th
 from tqdm import tqdm
@@ -555,13 +553,10 @@ def run(run_mode, settings, no_runs=None):
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment(prm)
-
             record.timer_stats(prm, runner.explorer.env.network.timer_pp,
-                runner.explorer.env.network.timer_comparison,
-                runner.explorer.data.timer_optimisation,
-                runner.explorer.data.timer_feasible_data, i)
-            
-
+                               runner.explorer.env.network.timer_comparison,
+                               runner.explorer.data.timer_optimisation,
+                               runner.explorer.data.timer_feasible_data, i)
             record.save(end_of='end')  # save progress at end
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode

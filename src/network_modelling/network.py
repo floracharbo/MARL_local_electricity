@@ -6,10 +6,11 @@ Created on Mon Nov 28 2022.
 @author: julie-vienne
 """
 
+import time
+
 import numpy as np
 import pandapower as pp
 import pandapower.networks
-import time
 
 
 class Network:

@@ -17,7 +17,6 @@ from gym import spaces
 from gym.utils import seeding
 from scipy.stats import norm
 from six import integer_types
-import time
 
 from src.home_components.battery import Battery
 from src.home_components.heat import Heat

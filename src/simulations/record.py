@@ -187,7 +187,7 @@ class Record():
                 self.last[self.repeat]["batch"] = batch
 
     def timer_stats(self, prm, timer_pp, timer_comparison,
-        timer_optimisation, timer_feasible_data, i):
+                    timer_optimisation, timer_feasible_data, i):
         """
         Calculates the mean, standard deviation and count of
         the timer used to evaluate the computational burden
@@ -195,7 +195,8 @@ class Record():
         """
         conditions = [
             (prm["grd"]["manage_voltage"] or prm["grd"]["manage_agg_power"], timer_pp),
-            (prm["grd"]["manage_voltage"] and prm["grd"]["compare_pandapower_optimisation"], timer_comparison),
+            (prm["grd"]["manage_voltage"] and prm["grd"]["compare_pandapower_optimisation"],
+                timer_comparison),
             (True, timer_optimisation),
             (True, timer_feasible_data),
         ]
