@@ -48,38 +48,44 @@ class Network:
             'max_grid_export', 'penalty_export'
         ]:
             setattr(self, info, prm['grd'][info])
-        for attribute in [
-            'timer_pp', 'all_max_rel_diff_voltage',
-            'all_mean_rel_diff_voltage', 'all_std_rel_diff_voltage'
-        ]:
-            setattr(self, attribute, [])
 
-        for attribute in [
-            'count_correction_opti_with_pp', 'n_voltage_error', 'n_losses_error'
-        ]:
-            setattr(self, attribute, 0)
+        if prm['grd']['manage_voltage']:
+            self.network_data_path = prm['paths']['network_data']
+
+            # ieee network and corresponding incidence matrix
+            self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
+            self.n_non_flex_homes = len(self.net.asymmetric_load) - self.n_homes
+            self.loads_single_phase()
+            self.in_incidence_matrix = np.where(
+                self.incidence_matrix == -1, self.incidence_matrix, 0
+            )
+            self.out_incidence_matrix = np.where(
+                self.incidence_matrix == 1, self.incidence_matrix, 0
+            )
+
+            # line data matrix
+            self.line_resistance, self.line_reactance = self.network_line_data()
+
+            # external grid: define grid voltage at 1.0 and slack bus as bus 1
+            self.net.ext_grid['vm_pu'] = 1.0
+            self.net.ext_grid['bus'] = 1
+
+            self.n_losses_error = 0
+            self.max_losses_error = - 1
+            self.n_voltage_error = 0
+            self.max_voltage_rel_error = - 1
+
+            for attribute in [
+                'count_correction_opti_with_pp', 'n_voltage_error', 'n_losses_error'
+            ]:
+                setattr(self, attribute, 0)
+            for attribute in [
+                'timer_pp', 'all_max_rel_diff_voltage',
+                'all_mean_rel_diff_voltage', 'all_std_rel_diff_voltage'
+            ]:
+                setattr(self, attribute, [])
 
         self.homes = range(self.n_homes)
-
-        # upper and lower voltage limits
-        self.network_data_path = prm['paths']['network_data']
-
-        # ieee network and corresponding incidence matrix
-        self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
-        self.n_non_flex_homes = len(self.net.asymmetric_load) - self.n_homes
-        self.loads_single_phase()
-        self.in_incidence_matrix = np.where(self.incidence_matrix == -1, self.incidence_matrix, 0)
-        self.out_incidence_matrix = np.where(self.incidence_matrix == 1, self.incidence_matrix, 0)
-
-        # line data matrix
-        self.line_resistance, self.line_reactance = self.network_line_data()
-
-        # external grid: define grid voltage at 1.0 and slack bus as bus 1
-        self.net.ext_grid['vm_pu'] = 1.0
-        self.net.ext_grid['bus'] = 1
-
-        self.max_losses_error = - 1
-        self.max_voltage_rel_error = - 1
 
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """
