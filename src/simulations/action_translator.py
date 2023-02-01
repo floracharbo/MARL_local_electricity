@@ -39,7 +39,7 @@ class Action_translator:
         self.H = prm['syst']['H']
         for info in [
             'aggregate_actions', 'dim_actions_1', 'low_action',
-            'high_action', 'type_env', 'server', 'no_flex_action'
+            'high_action', 'type_env', 'no_flex_action'
         ]:
             setattr(self, info, prm['RL'][info])
         self.bat_dep = prm['car']['dep']

@@ -1,0 +1,32 @@
+# If the user changes any of the input parameter files
+# but would like to keep the organise_results post processing file
+
+# 1 - enter the time from which it applies in timestamp_changes
+# you can obtain this using:
+# timestamp_changes = datetime.datetime.now().timestamp()
+
+# 2 - enter all the parameter changes for this machine-time pair in the file as:
+# parameter_changed: [timestamp_change_idx, previous_default_value]
+
+# note the syntax for parameter_changed: key-subkey or key-subkey-subsubkey;
+# for example, if changing the default number of epochs in RL.yaml:
+# parameter_changed = RL-n_epochs
+
+# if changing prm['RL']['facmac']['batch_size']:
+# parameter_changed = RL-facmac-batch_size
+
+timestamp_changes:
+  1: 1668095345.5865762
+  2: 1674755868.2259605
+
+'RL-n_hidden_layers': [1, 1]
+'RL-aggregate_actions': [1, True]
+'RL-supervised_loss': [1, True]
+'RL-normalise_states': [2, False]
+'RL-lr': [2, 1e-5]
+'RL-facmac-critic_lr': [2, 1e-5]
+'RL-ou_stop_episode': [2, 100]
+'RL-start_steps': [2, 0]
+'RL-hyper_initialization_nonzeros': [2, 0]
+'RL-rnn_hidden_dim': [2, 1.e+2]
+'RL-DDPG-rdn_eps_greedy_indiv': [2, False]

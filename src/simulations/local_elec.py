@@ -61,7 +61,7 @@ class LocalElecEnv():
         for info in ['N', 'n_int_per_hr', 'dt']:
             setattr(self, info, prm['syst'][info])
 
-        self.server = self.rl['server']
+        self.server = prm['syst']['server']
         self.action_translator = Action_translator(prm, self)
         self.i0_costs = 0
         self.car = Battery(prm)
