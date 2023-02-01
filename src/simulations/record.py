@@ -33,9 +33,8 @@ class Record():
         self.repeat_entries = prm["save"]["repeat_entries"] \
             + prm["syst"]["break_down_rewards_entries"]
         # entries that change for state ind but are the same across repeats
-        self.stateind_entries = prm["save"]["stateind_entries"]
-        self.timer_entries = prm["save"]["timer_entries"]
-        self.entries = self.repeat_entries + self.stateind_entries + self.timer_entries
+        self.run_entries = prm["save"]["run_entries"]
+        self.entries = self.repeat_entries + self.run_entries
         # all entries
         for info in self.entries:
             setattr(self, info, {})
@@ -71,9 +70,7 @@ class Record():
             if not os.path.exists(prm["paths"][e]):
                 os.mkdir(prm["paths"][e])
 
-        for entry in self.stateind_entries:
-            setattr(self, entry, {})
-        for entry in self.timer_entries:
+        for entry in self.run_entries:
             setattr(self, entry, {})
         for entry in self.repeat_entries:
             setattr(self, entry, initialise_dict(range(rl["n_repeats"])))
@@ -199,7 +196,7 @@ class Record():
         the explorations and evaluations
         """
         labels = self.repeat_entries if end_of == "repeat" \
-            else (self.stateind_entries + self.timer_entries)
+            else self.run_entries
         if not self.save_qtables:
             labels = [label for label in labels if label not in ["q_tables", "counter"]] \
                 if end_of == "repeat" \
@@ -220,14 +217,14 @@ class Record():
         repeat_labels = [e for e in self.repeat_entries if e not in ["q_tables", "counter"]] \
             if not self.save_qtables \
             else self.repeat_entries
-        stateind_labels = self.stateind_entries
+        run_labels = self.run_entries
         if prm['RL']['type_learning'] == 'q_learning' and not self.save_qtables:
-            stateind_labels += ["q_tables", "counter"]
+            run_labels += ["q_tables", "counter"]
 
         for label in repeat_labels:
             for repeat in range(prm["RL"]["n_repeats"]):
                 self._loading_file(label, repeat)
-        for label in stateind_labels:
+        for label in run_labels:
             self._loading_file(label)
 
     def _loading_file(self, label: str, repeat: int = None):
