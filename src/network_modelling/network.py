@@ -47,8 +47,7 @@ class Network:
         self.count_correction_opti_with_pp = 0
         self.all_max_rel_diff_voltage = []
         self.all_mean_rel_diff_voltage = []
-        self.all_std_diff_voltage = []
-
+        self.all_std_rel_diff_voltage = []
         # upper and lower voltage limits
         for info in [
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',

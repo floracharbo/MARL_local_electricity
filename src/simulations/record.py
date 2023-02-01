@@ -218,7 +218,7 @@ class Record():
     def comparison_stats(self, all_max_rel_diff_voltage,
                          all_mean_rel_diff_voltage,
                          all_std_rel_diff_voltage,
-                         count_correction_opti_with_pp)
+                         count_correction_opti_with_pp):
         """
         Prepares the comparison entries computed by running the comparison
         between pandapower and the optimizer in the case of voltage management
