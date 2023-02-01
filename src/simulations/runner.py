@@ -555,33 +555,13 @@ def run(run_mode, settings, no_runs=None):
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment(prm)
-            if prm["grd"]["manage_voltage"] or prm["grd"]["manage_agg_power"]:
-                if len(runner.explorer.env.network.timer_pp) != 0:
-                    record.timer_pp_mean[i] = np.mean(runner.explorer.env.network.timer_pp)
-                    record.timer_pp_std[i] = np.std(runner.explorer.env.network.timer_pp)
-            else:
-                record.timer_pp_mean[i] = 0
-                record.timer_pp_std[i] = 0
+
+            record.timer_stats(prm, runner.explorer.env.network.timer_pp,
+                runner.explorer.env.network.timer_comparison,
+                runner.explorer.data.timer_optimisation,
+                runner.explorer.data.timer_feasible_data, i)
             
-            if prm["grd"]["manage_voltage"] and prm["grd"]["compare_pandapower_optimisation"]:
-                if len(runner.explorer.env.network.timer_comparison) != 0:
-                    record.timer_comparison_mean[i] = np.mean(
-                        runner.explorer.env.network.timer_comparison)
-                    record.timer_comparison_std[i] = np.std(
-                        runner.explorer.env.network.timer_comparison)
-                    record.timer_comparison_count[i] = len(
-                        runner.explorer.env.network.timer_comparison)
-            else:
-                record.timer_comparison_mean[i] = 0
-                record.timer_comparison_std[i] = 0
-                record.timer_comparison_count[i] = 0
-            
-            if len(runner.explorer.data.timer_optimisation) == 0:
-                record.timer_opti_mean[i] = 0
-                record.timer_opti_std[i] = 0
-            else:
-                record.timer_opti_mean[i] = np.mean(runner.explorer.data.timer_optimisation)
-                record.timer_opti_std[i] = np.std(runner.explorer.data.timer_optimisation)
+
             record.save(end_of='end')  # save progress at end
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode
