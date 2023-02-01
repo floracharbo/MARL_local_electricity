@@ -34,10 +34,11 @@ class Record():
 
         self._intialise_dictionaries_entries_to_record(prm)
 
-        for e in ["record_folder", "fig_folder"]:
-            if not os.path.exists(prm["paths"][e]):
-                os.mkdir(prm["paths"][e])
-        self.save_days = prm["paths"]["folder_run"] / "save_days"
+        prm["paths"]["save_days"] = prm["paths"]["folder_run"] / "save_days"
+        self.record_folder = prm["paths"]["record_folder"]
+        for folder in ["folder_run", "record_folder", "save_days", "fig_folder"]:
+            if not os.path.exists(prm["paths"][folder]):
+                os.mkdir(prm["paths"][folder])
 
         self.repeat = 0  # current repeat
 
