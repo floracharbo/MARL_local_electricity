@@ -224,9 +224,9 @@ class Record():
         between pandapower and the optimizer in the case of voltage management
         """
         setattr(self, "comparison_max_rel_diff_voltage", all_max_rel_diff_voltage)
-        setattr(self, "comparison_mean_rel_diff_voltage" , all_mean_rel_diff_voltage)
+        setattr(self, "comparison_mean_rel_diff_voltage", all_mean_rel_diff_voltage)
         setattr(self, "comparison_std_rel_diff_voltage", all_std_rel_diff_voltage)
-        setattr(self, "comparison_count" , count_correction_opti_with_pp)
+        setattr(self, "comparison_count", count_correction_opti_with_pp)
 
     def save(self, end_of: str = "repeat"):
         """
