@@ -204,6 +204,8 @@ facmac:
         # to vary
         batch_size: 5 # Num of tuples to train on.
         gamma: 0.85
+        eps_greedy: False
+        epsilon: 0.5
 
 aggregate_actions: False
 

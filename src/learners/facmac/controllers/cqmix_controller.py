@@ -95,8 +95,12 @@ class CQMixMAC(BasicMAC):
 
         action_space = self.rl['action_space']
 
+        rdn = np.random.rand()
+
+        if self.rl['facmac']['eps_greedy'] and rdn < self.rl['facmac']['epsilon']:
+            chosen_actions = np.random.rand((self.rl['dim_actions']))
         # Note batch_size_run is set to be 1 in our experiments
-        if self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
+        elif self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
             hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] \
                 else self.hidden_states[bs]
             chosen_actions = self.forward(
