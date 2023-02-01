@@ -96,7 +96,6 @@ class Record():
     def new_repeat(self,
                    repeat: int,
                    rl: dict,
-                   prm
                    ):
         """Reinitialise object properties at the start of new repeat."""
         self.repeat = repeat  # current repetition index
@@ -187,7 +186,7 @@ class Record():
                 self.last[self.repeat]["batch"] = batch
 
     def timer_stats(self, prm, timer_pp, timer_comparison,
-                    timer_optimisation, timer_feasible_data, i):
+                    timer_optimisation, timer_feasible_data):
         """
         Calculates the mean, standard deviation and count of
         the timer used to evaluate the computational burden
@@ -218,9 +217,9 @@ class Record():
                 timer_std = 0
                 timer_count = 0
 
-        setattr(self, timer_types.pop(0) + '_mean' + '[{}]'.format(i), timer_mean)
-        setattr(self, timer_types.pop(0) + '_std' + '[{}]'.format(i), timer_std)
-        setattr(self, timer_types.pop(0) + '_count' + '[{}]'.format(i), timer_count)
+            setattr(self, f"{timer_types}_mean", timer_mean)
+            setattr(self, f"{timer_types}_std", timer_std)
+            setattr(self, f"{timer_types}_count", timer_count)
 
     def save(self, end_of: str = "repeat"):
         """

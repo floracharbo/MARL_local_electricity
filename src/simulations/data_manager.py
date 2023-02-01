@@ -120,7 +120,6 @@ class DataManager():
             grd['net'] = self.env.network.net
 
     def _passive_find_feasible_data(self):
-        start = time.time()
         passive = True
 
         file_id_path = self.paths['opt_res'] / f"batch{self.file_id()}"
@@ -143,9 +142,6 @@ class DataManager():
         res = None
         new_res = False
         seed_data = res, batch
-        end = time.time()
-        duration_feasible_data = end - start
-        self.timer_feasible_data.append(duration_feasible_data)
         return seed_data, new_res, data_feasible
 
     def _check_data_computations_required(self, type_actions, feasibility_checked):
@@ -258,6 +254,7 @@ class DataManager():
         """
         # boolean: whether optimisation problem is feasible;
         # start by assuming it is not
+        start = time.time()
         data_feasible = 0
         iteration = -1
         while not data_feasible and iteration < 100:
@@ -288,6 +285,9 @@ class DataManager():
 
         if new_res:
             np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
+        end = time.time()
+        duration_feasible_data = end - start
+        self.timer_feasible_data.append(duration_feasible_data)
 
         return seed_data, step_vals
 

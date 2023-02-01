@@ -66,7 +66,7 @@ class Runner():
 
         while repeat < self.rl['n_repeats']:
             print(f"repeat {repeat}")
-            episode, converged = self._new_repeat(repeat, new_env, prm)
+            episode, converged = self._new_repeat(repeat, new_env)
 
             # looping through epochs
             # have progress bar while running through epochs
@@ -230,14 +230,14 @@ class Runner():
             self.new_episode_batch = None
             self.mac = None
 
-    def _new_repeat(self, repeat, new_env, prm):
+    def _new_repeat(self, repeat, new_env):
         # track whether the learning has converged
         # (useful for deterministic case)
         converged = False
         self.explorer.t_env = 0
         self._initialise_buffer_learner_mac()
         # initialise dictionaries for storing relevant values during repeat
-        self.record.new_repeat(repeat, self.rl, prm)
+        self.record.new_repeat(repeat, self.rl)
         #  at each repeat reinitialise agent clusters
         #  according to clus0 probabilities
         if new_env:  # need to create a new environment
@@ -556,7 +556,7 @@ def run(run_mode, settings, no_runs=None):
             record.timer_stats(prm, runner.explorer.env.network.timer_pp,
                                runner.explorer.env.network.timer_comparison,
                                runner.explorer.data.timer_optimisation,
-                               runner.explorer.data.timer_feasible_data, i)
+                               runner.explorer.data.timer_feasible_data)
             record.save(end_of='end')  # save progress at end
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode

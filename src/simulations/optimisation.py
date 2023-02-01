@@ -78,7 +78,7 @@ class Optimiser():
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        res, prm = self._problem(prm)
+        res = self._problem(prm)
 
         if prm['car']['efftype'] == 1:
             init_eta = prm['car']['etach']
@@ -91,7 +91,7 @@ class Optimiser():
                 eta_old = copy.deepcopy(prm['car']['etach'])
                 print(f"prm['grd']['loads'][0][0][0] = "
                       f"{prm['grd']['loads'][0][0][0]}")
-                res, prm = self._problem(prm)
+                res = self._problem(prm)
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
                 if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
@@ -640,9 +640,9 @@ class Optimiser():
         res = self._save_results(p.variables)
         number_opti_constraints = len(p.constraints)
         if 'n_opti_constraints' not in prm['syst']:
-            prm['syst']['n_opti_constraints'] = number_opti_constraints
+            self.syst['n_opti_constraints'] = number_opti_constraints
 
-        return res, prm
+        return res
 
     def _plot_y(self, prm, y, time):
         for home in range(prm['syst']['n_homes']):
