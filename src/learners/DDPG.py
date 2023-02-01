@@ -284,6 +284,7 @@ class Learner_DDPG:
             maxval=+0.003 * self.rl['init_weight_mult'])
 
         model = tf.keras.Sequential()
+        print(f"self.rl['dim_states'] {self.rl['dim_states']}")
         if self.rl['LSTM']:
             model.add(layers.LSTM(self.rl['dim_out_layer12'],
                                   input_shape=(1, self.rl['dim_states']),
