@@ -78,7 +78,7 @@ class Optimiser():
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        res = self._problem(prm)
+        res = self._problem()
 
         if prm['car']['efftype'] == 1:
             init_eta = prm['car']['etach']
@@ -91,7 +91,7 @@ class Optimiser():
                 eta_old = copy.deepcopy(prm['car']['etach'])
                 print(f"prm['grd']['loads'][0][0][0] = "
                       f"{prm['grd']['loads'][0][0][0]}")
-                res = self._problem(prm)
+                res = self._problem()
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
                 if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
@@ -613,7 +613,7 @@ class Optimiser():
 
         return p, import_export_costs
 
-    def _problem(self, prm):
+    def _problem(self):
         """Solve optimisation problem."""
         # initialise problem
         p = pic.Problem()
@@ -639,7 +639,7 @@ class Optimiser():
         # save results
         res = self._save_results(p.variables)
         number_opti_constraints = len(p.constraints)
-        if 'n_opti_constraints' not in prm['syst']:
+        if 'n_opti_constraints' not in self.syst:
             self.syst['n_opti_constraints'] = number_opti_constraints
 
         return res
