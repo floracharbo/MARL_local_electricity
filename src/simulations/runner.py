@@ -556,9 +556,11 @@ def run(run_mode, settings, no_runs=None):
             runner = Runner(env, prm, record)
             runner.run_experiment(prm)
             if len(runner.explorer.data.timer_optimisation) == 0:
-                record.mean_opti_timer[i] = 0
+                record.timer_opti_mean[i] = 0
+                record.timer_opti_std[i] = 0
             else:
-                record.mean_opti_timer[i] = mean(runner.explorer.data.timer_optimisation)
+                record.timer_opti_mean[i] = np.mean(runner.explorer.data.timer_optimisation)
+                record.timer_opti_std[i] = np.std(runner.explorer.data.timer_optimisation)
             record.save(end_of='end')  # save progress at end
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode

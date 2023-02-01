@@ -638,10 +638,9 @@ class Optimiser():
 
         # save results
         res = self._save_results(p.variables)
-        if self.grd['computational_burden_analysis']:
-            number_opti_constraints = len(p.constraints)
-            if 'n_opti_constraints' not in prm['syst']:
-                prm['syst']['n_opti_constraints'] = number_opti_constraints
+        number_opti_constraints = len(p.constraints)
+        if 'n_opti_constraints' not in prm['syst']:
+            prm['syst']['n_opti_constraints'] = number_opti_constraints
 
         return res, prm
 

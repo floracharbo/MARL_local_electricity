@@ -26,8 +26,9 @@ repeat_entries: [
 ]
 run_entries: [
   'possible_states', 'granularity_state0', 'granularity_state1', 'multipliers_state',
-  'mean_opti_timer', 'timer_pandapower',
-  'timer_comparison_opti_pp', 'timer_find_feasible_data'
+  'timer_opti_mean', 'timer_opti_std' 'timer_pp_mean', 'timer_pp_std',
+  'timer_comparison_mean', 'timer_comparison_std', 'timer_feasible_data_mean',
+  'timer_feasible_data_std'
 ]
 save_nns: True
 plotting_batch: False
