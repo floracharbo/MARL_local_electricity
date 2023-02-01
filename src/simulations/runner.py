@@ -555,6 +555,14 @@ def run(run_mode, settings, no_runs=None):
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment(prm)
+            if prm["grd"]["manage_voltage"] or prm["grd"]["manage_agg_power"]:
+                if len(runner.explorer.env.network.timer_pp) != 0:
+                    record.timer_pp_mean[i] = np.mean(runner.explorer.env.network.timer_pp)
+                    record.timer_pp_std[i] = np.std(runner.explorer.env.network.timer_pp)
+            else:
+                record.timer_pp_mean[i] = 0
+                record.timer_pp_std[i] = 0
+            
             if len(runner.explorer.data.timer_optimisation) == 0:
                 record.timer_opti_mean[i] = 0
                 record.timer_opti_std[i] = 0

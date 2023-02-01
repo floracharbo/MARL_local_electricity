@@ -38,8 +38,6 @@ class Record():
         # all entries
         for info in self.entries:
             setattr(self, info, {})
-        # timer entries
-        #self.mean_opti_timer = {}
         # all exploration / evaluation methods
         self.all_methods = rl["evaluation_methods"] + \
             list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))

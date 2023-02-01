@@ -41,7 +41,7 @@ class Network:
         for info in ['n_homes', 'M', 'N']:
             setattr(self, info, prm['syst'][info])
         self.homes = range(self.n_homes)
-        self.duration_pp = []
+        self.timer_pp = []
 
         # upper and lower voltage limits
         for info in [
@@ -205,7 +205,8 @@ class Network:
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
         voltage = np.array(self.net.res_bus['vm_pu'])
         end = time.time()
-        self.duration_pp.append(end - start)
+        duration_pp = end - start
+        self.timer_pp.append(duration_pp)
 
         return hourly_line_losses, voltage
 
