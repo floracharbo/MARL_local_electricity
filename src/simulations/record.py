@@ -190,8 +190,9 @@ class Record():
             if done and method == "baseline":
                 self.last[self.repeat]["batch"] = batch
 
-    def timer_stats(self, timer_pp, timer_comparison,
-                    timer_optimisation, timer_feasible_data):
+    def timer_stats(
+        self, timer_pp, timer_comparison, timer_optimisation, timer_feasible_data
+    ):
         """
         Calculates the mean, standard deviation and count of
         the timer used to evaluate the computational burden
@@ -218,19 +219,6 @@ class Record():
             setattr(self, f"{timer_name}_mean", timer_mean)
             setattr(self, f"{timer_name}_std", timer_std)
             setattr(self, f"{timer_name}_count", timer_count)
-
-    def comparison_stats(self, all_max_rel_diff_voltage,
-                         all_mean_rel_diff_voltage,
-                         all_std_rel_diff_voltage,
-                         count_correction_opti_with_pp):
-        """
-        Prepares the comparison entries computed by running the comparison
-        between pandapower and the optimizer in the case of voltage management
-        """
-        setattr(self, "comparison_max_rel_diff_voltage", all_max_rel_diff_voltage)
-        setattr(self, "comparison_mean_rel_diff_voltage", all_mean_rel_diff_voltage)
-        setattr(self, "comparison_std_rel_diff_voltage", all_std_rel_diff_voltage)
-        setattr(self, "comparison_count", count_correction_opti_with_pp)
 
     def save(self, end_of: str = "repeat"):
         """

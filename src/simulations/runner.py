@@ -490,6 +490,20 @@ class Runner():
                 else:
                     self.learner[method].target_update()
 
+    def save_computation_statistics(self):
+        if self.prm["grd"]["compare_pandapower_optimisation"]:
+            pandapower_stats_labels = [
+                'all_max_rel_diff_voltage', 'all_mean_rel_diff_voltage',
+                'all_std_rel_diff_voltage', 'count_correction_opti_with_pp'
+            ]
+            for info in pandapower_stats_labels:
+                setattr(self.record, info, self.explorer.env.network.__dict__[info])
+        self.record.timer_stats(
+            self.explorer.env.network.timer_pp,
+            self.explorer.env.network.timer_comparison,
+            self.explorer.data.timer_optimisation,
+            self.explorer.data.timer_feasible_data
+        )
 
 def get_number_runs(settings):
     n_runs = 1
@@ -553,15 +567,7 @@ def run(run_mode, settings, no_runs=None):
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment(prm)
-            if prm["grd"]["compare_pandapower_optimisation"]:
-                record.comparison_stats(runner.explorer.env.network.all_max_rel_diff_voltage,
-                                        runner.explorer.env.network.all_mean_rel_diff_voltage,
-                                        runner.explorer.env.network.all_std_rel_diff_voltage,
-                                        runner.explorer.env.network.count_correction_opti_with_pp)
-            record.timer_stats(runner.explorer.env.network.timer_pp,
-                               runner.explorer.env.network.timer_comparison,
-                               runner.explorer.data.timer_optimisation,
-                               runner.explorer.data.timer_feasible_data)
+            runner.save_computation_statistics()
             record.save(end_of='end')  # save progress at end
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode
