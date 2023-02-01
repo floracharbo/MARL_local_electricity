@@ -186,48 +186,40 @@ class Record():
             if done and method == "baseline":
                 self.last[self.repeat]["batch"] = batch
 
-    def timer_stats(self, prm, timer_pp,
-            timer_comparison, timer_optimisation,
-            timer_feasible_data, i):
-        """"
+    def timer_stats(self, prm, timer_pp, timer_comparison,
+        timer_optimisation, timer_feasible_data, i):
+        """
         Calculates the mean, standard deviation and count of
         the timer used to evaluate the computational burden
         of some functions and methods.
         """
+        conditions = [
+            (prm["grd"]["manage_voltage"] or prm["grd"]["manage_agg_power"], timer_pp),
+            (prm["grd"]["manage_voltage"] and prm["grd"]["compare_pandapower_optimisation"], timer_comparison),
+            (True, timer_optimisation),
+            (True, timer_feasible_data),
+        ]
 
-        if prm["grd"]["manage_voltage"] or prm["grd"]["manage_agg_power"]:
-            if len(timer_pp) != 0:
-                self.timer_pp_mean[i] = np.mean(timer_pp)
-                self.timer_pp_std[i] = np.std(timer_pp)
-        else:
-            self.timer_pp_mean[i] = 0
-            self.timer_pp_std[i] = 0
+        timer_types = [
+            'timer_pp',
+            'timer_comparison',
+            'timer_opti',
+            'timer_feasible_data'
+        ]
 
-        if prm["grd"]["manage_voltage"] and prm["grd"]["compare_pandapower_optimisation"]:
-            if len(timer_comparison) != 0:
-                self.timer_comparison_mean[i] = np.mean(timer_comparison)
-                self.timer_comparison_std[i] = np.std(timer_comparison)
-                self.timer_comparison_count[i] = len(timer_comparison)
-        else:
-            self.timer_comparison_mean[i] = 0
-            self.timer_comparison_std[i] = 0
-            self.timer_comparison_count[i] = 0
-            
-        if len(timer_optimisation) == 0:
-            self.timer_opti_mean[i] = 0
-            self.timer_opti_std[i] = 0
-        else:
-            self.timer_opti_mean[i] = np.mean(timer_optimisation)
-            self.timer_opti_std[i] = np.std(timer_optimisation)
+        for condition, timer in conditions:
+            if condition and len(timer) != 0:
+                timer_mean = np.mean(timer)
+                timer_std = np.std(timer)
+                timer_count = len(timer)
+            else:
+                timer_mean = 0
+                timer_std = 0
+                timer_count = 0
 
-        if len(timer_feasible_data) == 0:
-            self.timer_feasible_data_mean[i] = 0
-            self.timer_feasible_data_std[i] = 0
-        else:
-            self.timer_feasible_data_mean[i] = np.mean(timer_feasible_data)
-            self.timer_feasible_data_std[i] = np.std(timer_feasible_data)
-            self.timer_feasible_data_count = len(timer_feasible_data)
-
+            setattr(self, timer_types.pop(0) + '_mean' + '[{}]'.format(i), timer_mean)
+            setattr(self, timer_types.pop(0) + '_std' + '[{}]'.format(i), timer_std)
+            setattr(self, timer_types.pop(0) + '_count' + '[{}]'.format(i), timer_count)
 
     def save(self, end_of: str = "repeat"):
         """
