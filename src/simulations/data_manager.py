@@ -63,6 +63,7 @@ class DataManager():
         self.d_ind_seed = {'P': 0, '': 0}
 
         self.timer_optimisation = []
+        self.timer_feasible_data = []
 
     def format_grd(self, batch, passive_ext):
         """Format network parameters in preparation for optimisation."""
@@ -119,6 +120,7 @@ class DataManager():
             grd['net'] = self.env.network.net
 
     def _passive_find_feasible_data(self):
+        start = time.time()
         passive = True
 
         file_id_path = self.paths['opt_res'] / f"batch{self.file_id()}"
@@ -141,7 +143,9 @@ class DataManager():
         res = None
         new_res = False
         seed_data = res, batch
-
+        end = time.time()
+        duration_feasible_data = end - start
+        self.timer_feasible_data.append(duration_feasible_data)
         return seed_data, new_res, data_feasible
 
     def _check_data_computations_required(self, type_actions, feasibility_checked):
