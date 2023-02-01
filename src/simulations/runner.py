@@ -498,9 +498,12 @@ class Runner():
             ]
             for info in pandapower_stats_labels:
                 setattr(self.record, info, self.explorer.env.network.__dict__[info])
+        timer_pp = self.explorer.env.network.timer_pp if self.prm['grd']['manage_voltage'] else None
+        timer_comparison = self.explorer.env.network.timer_comparison \
+            if self.prm["grd"]['compare_pandapower_optimisation'] else None
+
         self.record.timer_stats(
-            self.explorer.env.network.timer_pp,
-            self.explorer.env.network.timer_comparison,
+            timer_pp, timer_comparison,
             self.explorer.data.timer_optimisation,
             self.explorer.data.timer_feasible_data
         )
