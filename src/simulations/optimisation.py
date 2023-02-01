@@ -91,7 +91,7 @@ class Optimiser():
                 eta_old = copy.deepcopy(prm['car']['etach'])
                 print(f"prm['grd']['loads'][0][0][0] = "
                       f"{prm['grd']['loads'][0][0][0]}")
-                res = self._problem(prm)
+                res = self._problem()
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
                 if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
