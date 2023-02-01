@@ -220,7 +220,7 @@ class Buffer:
             record_range, self.rl['DDPG']['batch_size'])
 
         # Convert to tensors
-        state_batch = tf.convert_to_tensor(self.state_buffer[batch_indices]).view((-1, 1, self.rl['dim_states']))
+        state_batch = tf.reshape(tf.convert_to_tensor(self.state_buffer[batch_indices]), (-1, 1, self.rl['dim_states']))
         action_batch = tf.convert_to_tensor(self.action_buffer[batch_indices])
         reward_batch = tf.convert_to_tensor(self.reward_buffer[batch_indices])
         next_state_batch = tf.convert_to_tensor(
