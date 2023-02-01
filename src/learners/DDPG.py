@@ -220,15 +220,17 @@ class Buffer:
             record_range, self.rl['DDPG']['batch_size'])
 
         # Convert to tensors
-        state_batch = tf.convert_to_tensor(self.state_buffer[batch_indices])
+        state_batch = tf.convert_to_tensor(self.state_buffer[batch_indices]).view((-1, 1, self.rl['dim_states']))
         action_batch = tf.convert_to_tensor(self.action_buffer[batch_indices])
         reward_batch = tf.convert_to_tensor(self.reward_buffer[batch_indices])
         next_state_batch = tf.convert_to_tensor(
             self.next_state_buffer[batch_indices])
         tf.config.set_soft_device_placement(True)
-        self.update(target_actor, target_critic, actor_model,
-                    critic_model, actor_optimizer, critic_optimizer,
-                    state_batch, action_batch, reward_batch, next_state_batch)
+        self.update(
+            target_actor, target_critic, actor_model,
+            critic_model, actor_optimizer, critic_optimizer,
+            state_batch, action_batch, reward_batch, next_state_batch
+        )
         if self.decay_alpha is not None:
             lr = max(self.min_alpha,
                      self.critic_lr * self.decay_alpha ** self.t)
