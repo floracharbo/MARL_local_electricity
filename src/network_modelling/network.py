@@ -42,6 +42,7 @@ class Network:
             setattr(self, info, prm['syst'][info])
         self.homes = range(self.n_homes)
         self.timer_pp = []
+        self.timer_comparison = []
 
         # upper and lower voltage limits
         for info in [
@@ -265,6 +266,7 @@ class Network:
 
     def test_network_comparison_optimiser_pandapower(self, res, time_step, grdCt):
         """Compares hourly results from network modelling in optimizer and pandapower"""
+        start = time.time()
         # Results from optimization
         do_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp \
             = self._check_voltage_differences(res, time_step)
@@ -273,6 +275,9 @@ class Network:
             res = self._replace_res_values_with_pp_simulation(
                 res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
             )
+        end = time.time()
+        duration_comparison = end - start
+        self.timer_comparison.append(duration_comparison)
 
         return res, hourly_line_losses_pp, hourly_voltage_costs_pp
 

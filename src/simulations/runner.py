@@ -563,6 +563,19 @@ def run(run_mode, settings, no_runs=None):
                 record.timer_pp_mean[i] = 0
                 record.timer_pp_std[i] = 0
             
+            if prm["grd"]["manage_voltage"] and prm["grd"]["compare_pandapower_optimisation"]:
+                if len(runner.explorer.env.network.timer_comparison) != 0:
+                    record.timer_comparison_mean[i] = np.mean(
+                        runner.explorer.env.network.timer_comparison)
+                    record.timer_comparison_std[i] = np.std(
+                        runner.explorer.env.network.timer_comparison)
+                    record.timer_comparison_count[i] = len(
+                        runner.explorer.env.network.timer_comparison)
+            else:
+                record.timer_comparison_mean[i] = 0
+                record.timer_comparison_std[i] = 0
+                record.timer_comparison_count[i] = 0
+            
             if len(runner.explorer.data.timer_optimisation) == 0:
                 record.timer_opti_mean[i] = 0
                 record.timer_opti_std[i] = 0
