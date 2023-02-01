@@ -553,7 +553,7 @@ def run(run_mode, settings, no_runs=None):
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment(prm)
-            record.timer_stats(prm, runner.explorer.env.network.timer_pp,
+            record.timer_stats(runner.explorer.env.network.timer_pp,
                                runner.explorer.env.network.timer_comparison,
                                runner.explorer.data.timer_optimisation,
                                runner.explorer.data.timer_feasible_data)

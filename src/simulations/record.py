@@ -25,6 +25,7 @@ class Record():
     def __init__(self, prm: dict, no_run: int = None):
         """Add relevant properties from prm to the object."""
         rl = prm["RL"]
+        self.grd = prm["grd"]
         self.no_run = no_run
         # initialise entries
         # entries that change for each repeat
@@ -185,29 +186,22 @@ class Record():
             if done and method == "baseline":
                 self.last[self.repeat]["batch"] = batch
 
-    def timer_stats(self, prm, timer_pp, timer_comparison,
+    def timer_stats(self, timer_pp, timer_comparison,
                     timer_optimisation, timer_feasible_data):
         """
         Calculates the mean, standard deviation and count of
         the timer used to evaluate the computational burden
         of some functions and methods.
         """
-        conditions = [
-            (prm["grd"]["manage_voltage"] or prm["grd"]["manage_agg_power"], timer_pp),
-            (prm["grd"]["manage_voltage"] and prm["grd"]["compare_pandapower_optimisation"],
-                timer_comparison),
-            (True, timer_optimisation),
-            (True, timer_feasible_data),
+        list_timer_attributes = [
+            (self.grd["manage_voltage"] or self.grd["manage_agg_power"], timer_pp, 'timer_pp'),
+            (self.grd["manage_voltage"] and self.grd["compare_pandapower_optimisation"],
+                timer_comparison, 'timer_comparison'),
+            (True, timer_optimisation, 'timer_optimisation'),
+            (True, timer_feasible_data, 'timer_feasible_data'),
         ]
 
-        timer_types = [
-            'timer_pp',
-            'timer_comparison',
-            'timer_opti',
-            'timer_feasible_data'
-        ]
-
-        for condition, timer in conditions:
+        for condition, timer, timer_name in list_timer_attributes:
             if condition and len(timer) != 0:
                 timer_mean = np.mean(timer)
                 timer_std = np.std(timer)
@@ -217,9 +211,9 @@ class Record():
                 timer_std = 0
                 timer_count = 0
 
-            setattr(self, f"{timer_types}_mean", timer_mean)
-            setattr(self, f"{timer_types}_std", timer_std)
-            setattr(self, f"{timer_types}_count", timer_count)
+            setattr(self, f"{timer_name}_mean", timer_mean)
+            setattr(self, f"{timer_name}_std", timer_std)
+            setattr(self, f"{timer_name}_count", timer_count)
 
     def save(self, end_of: str = "repeat"):
         """
