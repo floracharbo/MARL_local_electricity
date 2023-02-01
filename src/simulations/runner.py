@@ -55,7 +55,7 @@ class Runner():
         # which will interact with the environment
         self.explorer = Explorer(env, prm, self.learner, record, self.mac)
 
-    def run_experiment(self, prm):
+    def run_experiment(self):
         """For a given state space, explore and learn from the environment."""
         repeat = 0  # initialise repetition number
         new_env = True  # boolean for creating a new environment
@@ -566,7 +566,7 @@ def run(run_mode, settings, no_runs=None):
             # with relevant parameters
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
-            runner.run_experiment(prm)
+            runner.run_experiment()
             runner.save_computation_statistics()
             record.save(end_of='end')  # save progress at end
             post_processing(
