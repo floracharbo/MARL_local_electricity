@@ -41,14 +41,6 @@ class Network:
         """
         for info in ['n_homes', 'M', 'N']:
             setattr(self, info, prm['syst'][info])
-        self.homes = range(self.n_homes)
-        self.timer_pp = []
-        self.timer_comparison = []
-        self.count_correction_opti_with_pp = 0
-        self.all_max_rel_diff_voltage = []
-        self.all_mean_rel_diff_voltage = []
-        self.all_std_rel_diff_voltage = []
-        # upper and lower voltage limits
         for info in [
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
@@ -56,7 +48,20 @@ class Network:
             'max_grid_export', 'penalty_export'
         ]:
             setattr(self, info, prm['grd'][info])
+        for attribute in [
+            'timer_pp', 'all_max_rel_diff_voltage',
+            'all_mean_rel_diff_voltage', 'all_std_rel_diff_voltage'
+        ]:
+            setattr(self, attribute, [])
 
+        for attribute in [
+            'count_correction_opti_with_pp', 'n_voltage_error', 'n_losses_error'
+        ]:
+            setattr(self, attribute, 0)
+
+        self.homes = range(self.n_homes)
+
+        # upper and lower voltage limits
         self.network_data_path = prm['paths']['network_data']
 
         # ieee network and corresponding incidence matrix
@@ -73,9 +78,7 @@ class Network:
         self.net.ext_grid['vm_pu'] = 1.0
         self.net.ext_grid['bus'] = 1
 
-        self.n_losses_error = 0
         self.max_losses_error = - 1
-        self.n_voltage_error = 0
         self.max_voltage_rel_error = - 1
 
     def _matrix_flexible_buses(self):
