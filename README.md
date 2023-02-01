@@ -66,7 +66,7 @@ conda create -n "my_venv" python==3.9.13
 
 2. Install packages, inserting your operating system (os) in the yml file name below (mac or linux).
 ```sh
-conda env update --name my_venv --file environment_[os].yml --prune
+conda env update --name my_venv --file config_files/environments/environment_[os].yml --prune
 ```
 
 3. Obtain Mosek licence and move to adequate folder.

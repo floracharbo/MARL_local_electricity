@@ -74,8 +74,6 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
     }
     if subkey == 'n_homes' and key != 'syst':
         return columns0
-    if key == 'syst' and subkey == 'server':
-        return columns0
 
     if subkey not in ignore:
         if key == 'ntw':
@@ -162,7 +160,7 @@ def replace_single_default_value(value, default_data, subkey, subsubkey):
 
 
 def fill_in_log_value_with_run_data(log, row, column, prm_default):
-    with open("config_files/input_parameters/previous_defaults.yaml", "rb") as file:
+    with open("config_files/default_input_parameters/previous_defaults.yaml", "rb") as file:
         previous_defaults = yaml.safe_load(file)
 
     timestamp_changes = previous_defaults['timestamp_changes']
@@ -928,6 +926,15 @@ def remove_key_from_columns_names(new_columns):
 
     return new_columns
 
+def remove_server_duplicate(log, columns0):
+    if 'RL-server' in columns0:
+        log['syst-server'] = log.apply(
+            lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'], axis=1
+        )
+        log.drop(columns=['RL-server'], inplace=True)
+        columns0.remove('RL-server')
+
+    return log, columns0
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")
@@ -956,6 +963,7 @@ if __name__ == "__main__":
             if row is not None:
                 log.loc[len(log.index)] = row
                 newly_added_runs.append(row[0])
+    log, columns0 = remove_server_duplicate(log, columns0)
     new_columns, log = remove_columns_that_never_change_and_tidy(
         log, columns0, columns_results_methods
     )

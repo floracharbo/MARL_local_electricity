@@ -70,9 +70,7 @@ class Network:
             self.net.ext_grid['vm_pu'] = 1.0
             self.net.ext_grid['bus'] = 1
 
-            self.n_losses_error = 0
             self.max_losses_error = - 1
-            self.n_voltage_error = 0
             self.max_voltage_rel_error = - 1
 
             for attribute in [
@@ -86,6 +84,7 @@ class Network:
                 setattr(self, attribute, [])
 
         self.homes = range(self.n_homes)
+
 
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """
