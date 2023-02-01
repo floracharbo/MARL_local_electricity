@@ -44,6 +44,10 @@ class Network:
         self.homes = range(self.n_homes)
         self.timer_pp = []
         self.timer_comparison = []
+        self.count_correction_opti_with_pp = 0
+        self.all_max_rel_diff_voltage = []
+        self.all_mean_rel_diff_voltage = []
+        self.all_std_diff_voltage = []
 
         # upper and lower voltage limits
         for info in [
@@ -220,13 +224,14 @@ class Network:
         # Voltage test
         abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
         rel_diff_voltage = abs_diff_voltage / res['voltage'][:, time_step]
-        self.max_rel_diff_voltage = max(rel_diff_voltage)
-        self.mean_rel_diff_voltage = np.mean(rel_diff_voltage)
-        self.std_rel_diff_voltage = np.std(rel_diff_voltage)
-        if self.max_rel_diff_voltage > 0.1:
+        max_rel_diff_voltage = max(rel_diff_voltage)
+        self.all_max_rel_diff_voltage.append(max(rel_diff_voltage))
+        self.all_mean_rel_diff_voltage.append(np.mean(rel_diff_voltage))
+        self.all_std_rel_diff_voltage.append(np.std(rel_diff_voltage))
+        if max_rel_diff_voltage > 0.1:
             print(
                 f"The max diff of voltage between the optimizer and pandapower for hour {time_step}"
-                f" is {self.max_rel_diff_voltage * 100}% ({max(abs_diff_voltage)}V) "
+                f" is {max_rel_diff_voltage * 100}% ({max(abs_diff_voltage)}V) "
                 f"at bus {np.argmax(rel_diff_voltage)}"
                 f"The network will be simulated with pandapower to correct the voltages"
             )
@@ -288,6 +293,7 @@ class Network:
             self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
     ):
         # corrected hourly_line_losses and grid values
+        self.count_correction_opti_with_pp += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
 
         grid_pp = \

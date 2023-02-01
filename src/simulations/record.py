@@ -215,6 +215,19 @@ class Record():
             setattr(self, f"{timer_name}_std", timer_std)
             setattr(self, f"{timer_name}_count", timer_count)
 
+    def comparison_stats(self, all_max_rel_diff_voltage,
+                         all_mean_rel_diff_voltage,
+                         all_std_rel_diff_voltage,
+                         count_correction_opti_with_pp)
+        """
+        Prepares the comparison entries computed by running the comparison
+        between pandapower and the optimizer in the case of voltage management
+        """
+        setattr(self, "comparison_max_rel_diff_voltage", all_max_rel_diff_voltage)
+        setattr(self, "comparison_mean_rel_diff_voltage" , all_mean_rel_diff_voltage)
+        setattr(self, "comparison_std_rel_diff_voltage", all_std_rel_diff_voltage)
+        setattr(self, "comparison_count" , count_correction_opti_with_pp)
+
     def save(self, end_of: str = "repeat"):
         """
         Save the relevant record object information to files.

@@ -553,6 +553,11 @@ def run(run_mode, settings, no_runs=None):
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment(prm)
+            if prm["grd"]["compare_pandapower_optimisation"]:
+                record.comparison_stats(runner.explorer.env.network.all_max_rel_diff_voltage,
+                                    runner.explorer.env.network.all_mean_rel_diff_voltage,
+                                    runner.explorer.env.network.all_std_rel_diff_voltage,
+                                    runner.explorer.env.network.count_correction_opti_with_pp)
             record.timer_stats(runner.explorer.env.network.timer_pp,
                                runner.explorer.env.network.timer_comparison,
                                runner.explorer.data.timer_optimisation,
