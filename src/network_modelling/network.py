@@ -232,8 +232,8 @@ class Network:
         all_rel_diff_voltage = all_abs_diff_voltage / res['voltage'][:, time_step]
         max_rel_diff_voltage = max(all_rel_diff_voltage)
         self.max_rel_diff_voltage.append(max_rel_diff_voltage)
-        self.all_mean_rel_diff_voltage.append(np.mean(all_rel_diff_voltage))
-        self.all_std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
+        self.mean_rel_diff_voltage.append(np.mean(all_rel_diff_voltage))
+        self.std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
         if max_rel_diff_voltage > 0.1:
             print(
                 f"The max diff of voltage between the optimizer and pandapower for hour {time_step}"
