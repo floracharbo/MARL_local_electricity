@@ -558,6 +558,7 @@ class LocalElecEnv():
         if self.prm['grd']['manage_voltage']:
             hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
             voltage_squared = np.square(voltage)
+
         else:
             voltage_squared = None
             hourly_line_losses = 0

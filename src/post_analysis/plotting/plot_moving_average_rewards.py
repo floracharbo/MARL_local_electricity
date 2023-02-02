@@ -65,7 +65,7 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
     if moving_average:
         plt.title('Moving average of difference between baseline and reward')
 
-    plt.gca().set_yticks(np.arange(-0.15, 0.2, 0.05))
+    # plt.gca().set_yticks(np.arange(-0.15, 0.2, 0.05))
     plt.xlabel('Episode')
     # ylabel = 'Moving average ' if moving_average else ''
     title_display = "Savings relative to baseline"

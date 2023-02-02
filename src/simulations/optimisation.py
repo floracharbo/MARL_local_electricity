@@ -34,7 +34,7 @@ class Optimiser():
         for key, val in res.items():
             if len(np.shape(val)) == 2 and np.shape(val)[1] == 1:
                 res[key] = res[key][:, 0]
-
+        res['house_cons'] = res['totcons'] - res['E_heat']
         if self.grd['manage_agg_power']:
             res['hourly_import_export_costs'] = \
                 res['hourly_import_costs'] + res['hourly_export_costs']
@@ -95,7 +95,7 @@ class Optimiser():
                 print(f"res['constl(0, 0)'][0][0] "
                       f"= {res['constl(0, 0)'][0][0]}")
                 if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
-                    print('fixed loads smaller than fixed onsumption home=0 time=0')
+                    print('fixed loads smaller than fixed consumption home=0 time=0')
                 if abs(np.sum(res['totcons']) - np.sum(res['E_heat'])
                        - np.sum(prm['grd']['loads'])) > 1e-3:
                     print(f"tot load cons "
@@ -489,9 +489,8 @@ class Optimiser():
             ) + E_heat
             == totcons)
 
-        p.add_list_of_constraints(
-            [consa[load_type] >= 0 for load_type in range(self.loads['n_types'])]
-        )
+        for load_type in range(self.loads['n_types']):
+            p.add_constraint(consa[load_type] >= 0)
         p.add_list_of_constraints([constl[tl] >= 0 for tl in tlpairs])
         p.add_constraint(totcons >= 0)
 
@@ -638,6 +637,9 @@ class Optimiser():
 
         # save results
         res = self._save_results(p.variables)
+        number_opti_constraints = len(p.constraints)
+        if 'n_opti_constraints' not in self.syst:
+            self.syst['n_opti_constraints'] = number_opti_constraints
 
         return res
 
@@ -820,7 +822,7 @@ class Optimiser():
         return res
 
     def _save_results(self, pvars):
-        """Save results to file."""
+        """Save optimisation results to file."""
         res = {}
         constls1, constls0 = [], []
         for var in pvars:

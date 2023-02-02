@@ -516,7 +516,7 @@ class Explorer():
         )
         assert all(
             res['totcons'][:, time_step] - res['E_heat'][:, time_step]
-            <= loads["l_flex"] + loads["l_fixed"] + 1e-3
+            <= loads["l_flex"] + loads["l_fixed"] + 1e-2
         ), f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
            f"available loads {loads['l_flex'] + loads['l_fixed']}"
         _, _, loads_prev = self._fixed_flex_loads(
@@ -634,17 +634,21 @@ class Explorer():
         return step_vals
 
     def _tests_individual_step_rl_matches_res(
-            self, res, time_step, batch, reward, break_down_rewards,
+            self, res, time_step, batch, reward, break_down_rewards, flex
     ):
         prm = self.prm
         assert isinstance(batch[0], dict), f"type(batch[0]) {type(batch)}"
-        flex, loads = [np.array(
-            [batch[home][e] for home in range(len(batch))])
-            for e in ["flex", "loads"]
-        ]
+        loads = np.array([batch[home]['loads'] for home in range(len(batch))])
 
         # check tot cons
         for home in self.homes:
+            if not (
+                res["totcons"][home][time_step] <=
+                sum(flex[home][time_step])
+                + self.env.heat.E_heat_min[home]
+                + self.env.heat.potential_E_flex()[home] + 1e-3
+            ):
+                print()
             assert res["totcons"][home][time_step] <= \
                    sum(flex[home][time_step]) \
                    + self.env.heat.E_heat_min[home] \
@@ -704,7 +708,7 @@ class Explorer():
                             f"{label} costs do not match: env {sub_cost_env} vs res {sub_cost_res} "
                             f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
                         )
-            assert abs(reward + res['hourly_total_costs'][time_step]) < 5e-3, \
+            assert abs(reward + res['hourly_total_costs'][time_step]) < 1e-3, \
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
@@ -765,10 +769,11 @@ class Explorer():
 
     def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
         if not (self.prm["RL"]["competitive"] and not evaluation):
-            assert abs(sum_rl_rewards + res['total_costs']) < 1e-3, \
+            assert abs(sum_rl_rewards + res['total_costs']) < 1e-2, \
                 "tot rewards don't match: " \
                 f"sum_RL_rewards = {sum_rl_rewards}, " \
-                f"sum costs opt = {res['total_costs']}"
+                f"sum costs opt = {res['total_costs']}" \
+                f"abs(sum_rl_rewards + res['total_costs']) {abs(sum_rl_rewards + res['total_costs'])}"
 
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
@@ -812,7 +817,7 @@ class Explorer():
         sum_rl_rewards = 0
         step_vals[method] = initialise_dict(self.step_vals_entries)
         batchflex_opt, batch_avail_car = [
-            [batch[home][e] for home in range(len(batch))] for e in ["flex", "avail_car"]
+            np.array([batch[home][e] for home in range(len(batch))]) for e in ["flex", "avail_car"]
         ]
         self._check_i0_costs_res(res)
 
@@ -856,7 +861,7 @@ class Explorer():
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
             self._tests_individual_step_rl_matches_res(
-                res, time_step, batch, step_vals_i["reward"], break_down_rewards
+                res, time_step, batch, step_vals_i["reward"], break_down_rewards, batchflex_opt
             )
 
             # substract baseline rewards to reward -

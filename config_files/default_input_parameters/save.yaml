@@ -18,15 +18,26 @@ last_entries: [
   'break_down_rewards',  # values i want to store from last epoch so that i can plot
   'loaded_buses', 'sgen_buses'
 ]
-
 repeat_entries: [
   'train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',
    'stability', 'last', 'seed', 'eps', 'ind_seed_deterministic',
    'duration_epoch', 'n_not_feas', 'not_feas_vars', 'train_actions',
    'train_states', 'q_tables', 'counter'
 ]
-stateind_entries: [
-  'possible_states', 'granularity_state0', 'granularity_state1', 'multipliers_state'
+run_entries0: [
+  'timer_optimisation_mean', 'timer_optimisation_std', 'timer_optimisation_count',
+  'timer_pp_mean', 'timer_pp_std', 'timer_pp_count',
+  'timer_comparison_mean', 'timer_comparison_std', 'timer_comparison_count',
+  'timer_feasible_data_mean', 'timer_feasible_data_std', 'timer_feasible_data_count',
+  'max_rel_diff_voltage', 'mean_rel_diff_voltage',  'std_rel_diff_voltage', 'count_correction_opti_with_pp'
 ]
+pandapower_voltage_entries: [
+  'max_rel_diff_voltage', 'mean_rel_diff_voltage',
+  'std_rel_diff_voltage', 'count_correction_opti_with_pp'
+]
+discrete_states_info_entries : [
+    'possible_states', 'granularity_state0', 'granularity_state1', 'multipliers_state'
+]
+
 save_nns: True
 plotting_batch: False

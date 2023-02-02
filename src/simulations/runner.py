@@ -490,10 +490,26 @@ class Runner():
                 else:
                     self.learner[method].target_update()
 
+    def save_computation_statistics(self):
+        for info in self.prm["save"]["pandapower_voltage_entries"]:
+            value = self.explorer.env.network.__dict__[info] \
+                if self.prm["grd"]["compare_pandapower_optimisation"] \
+                else None
+            setattr(self.record, info, value)
+
+        timer_pp = self.explorer.env.network.timer_pp if self.prm['grd']['manage_voltage'] else []
+        timer_comparison = self.explorer.env.network.timer_comparison \
+            if self.prm["grd"]['compare_pandapower_optimisation'] else []
+
+        self.record.timer_stats(
+            timer_pp, timer_comparison,
+            self.explorer.data.timer_optimisation,
+            self.explorer.data.timer_feasible_data
+        )
+
 
 def get_number_runs(settings):
     n_runs = 1
-
     for sub_dict in settings.values():
         for val in list(sub_dict.values()):
             if isinstance(val, dict):
@@ -528,7 +544,6 @@ def run(run_mode, settings, no_runs=None):
     if run_mode == 1:
         # obtain the number of runs from the longest settings entry
         n_runs = get_number_runs(settings)
-
         # loop through runs
         for i in range(n_runs):
             remove_old_prms = [e for e in prm if e != 'paths']
@@ -554,6 +569,7 @@ def run(run_mode, settings, no_runs=None):
             record.init_env(env)  # record progress as we train
             runner = Runner(env, prm, record)
             runner.run_experiment()
+            runner.save_computation_statistics()
             record.save(end_of='end')  # save progress at end
             post_processing(
                 record, env, prm, start_time=start_time, settings_i=settings_i, run_mode=run_mode
