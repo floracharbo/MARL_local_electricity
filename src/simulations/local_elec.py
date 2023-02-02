@@ -8,8 +8,8 @@ Created on Mon Feb  3 10:47:57 2020.
 """
 
 import copy
-import pickle
 import math
+import pickle
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
@@ -569,7 +569,7 @@ class LocalElecEnv():
             q_car_flex = 0
             # p_car_flex is needed to set apparent power limits
             p_car_flex = - (self.car.loss_ch[home] + self.car.charge[home]) \
-                         + self.car.discharge[home]
+                + self.car.discharge[home]
             netq_flex = q_car_flex + q_heat_home_flex
             netq_non_flex = q_heat_home_car_non_flex
             hourly_line_losses, voltage = self.network.pf_simulation(
