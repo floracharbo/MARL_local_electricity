@@ -26,6 +26,7 @@ class Optimiser():
         """Initialise solver object for doing optimisations."""
         self.N = prm["syst"]["N"]
         self.n_homes = prm["syst"]["n_homes"]
+        self.n_homesP = prm["syst"]["n_homesP"]
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
@@ -116,6 +117,9 @@ class Optimiser():
         voltage_costs = p.add_variable('voltage_costs', 1)  # daily voltage violation costs
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
+        q_heat_home_flex = p.add_variable('q_heat_home_flex', (self.n_homes, self.N), vtype='continuous')
+        q_heat_home_car_non_flex = p.add_variable('q_heat_home_car_non_flex', \
+            (self.n_homesP, self.N), vtype='continuous')
         qi = p.add_variable('qi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         # decision variables: power flow
         pij = p.add_variable('pij', (self.grd['n_lines'], self.N), vtype='continuous')
@@ -137,16 +141,22 @@ class Optimiser():
             'undervoltage_costs', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
 
-        # active and reactive loads: netp and q_car_flex from kW to W (*1000) to per unit system (/Ab)
+        # active and reactive loads: modify loads from kW to W (*1000) to per unit system (/Ab)
         p.add_list_of_constraints(
             [
                 pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
+                + self.grd['non_flex_buses'] * self.loads['netp0'][:][t] * 1000 / self.grd['base_power']
                 for t in range(self.N)
             ]
         )
+
         p.add_list_of_constraints(
+            [
             qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t] * 1000 / self.grd['base_power']
+			+ self.grd['flex_buses'] * q_heat_home_flex[:, t] * 1000 / self.grd['base_power']
+			+ self.grd['non_flex_buses'] * q_heat_home_car_non_flex[:, t] * 1000 / self.grd['base_power']
             for t in range(self.N)
+            ]
         )
 
         # external grid between bus 1 and 2
@@ -278,7 +288,7 @@ class Optimiser():
         p.add_list_of_constraints(
             [
                 grid[time]
-                - np.sum(self.loads['netp0'][b0][time] for b0 in range(self.syst['n_homesP']))
+                - np.sum(self.loads['netp0'][b0][time] for b0 in range(self.n_homesP))
                 - pic.sum([netp[home, time] for home in range(self.n_homes)])
                 # * Ab for W, /1000 for kW
                 - hourly_line_losses_pu[time] * self.grd['base_power'] / 1000
@@ -412,7 +422,7 @@ class Optimiser():
                 [[abs(self.loads['netp0'][b0][time])
                   if self.loads['netp0'][b0][time] < 0
                   else 0
-                  for b0 in range(self.syst['n_homesP'])] for time in range(self.N)])
+                  for b0 in range(self.n_homesP)] for time in range(self.N)])
             p.add_constraint(netp_abs >= - netp)
             p.add_constraint(netp_abs >= 0)
             # distribution costs
@@ -428,7 +438,7 @@ class Optimiser():
                 [
                     [
                         self.loads['netp0'][b0][time] ** 2
-                        for b0 in range(self.syst['n_homesP'])
+                        for b0 in range(self.n_homesP)
                     ]
                     for time in range(self.N)
                 ]
