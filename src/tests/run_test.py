@@ -36,7 +36,7 @@ def patch_find_feasible_data(
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
     if 'house_cons' not in res:
-        res = self.optimiser.res_post_processing(res)
+        res['house_cons'] = res['totcons'] - res['E_heat']
     for file in files:
         print(
             f"copy {self.paths['test_data'] / names_files[file]}"
