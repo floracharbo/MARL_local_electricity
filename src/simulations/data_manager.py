@@ -190,6 +190,8 @@ class DataManager():
                 res = np.load(self.paths['opt_res']
                               / self.res_name,
                               allow_pickle=True).item()
+                if 'house_cons' not in res:
+                    res = self.res_post_processing(res)
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext],
@@ -199,9 +201,7 @@ class DataManager():
         data_feasibles = self._format_data_optimiser(batch, passive=passive)
 
         if not all(data_feasibles):
-            batch, data_feasibles = self._loop_replace_data(
-                data_feasibles, passive
-            )
+            batch, data_feasibles = self._loop_replace_data(data_feasibles, passive)
             feasibility_checked = False
 
         if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
@@ -500,13 +500,15 @@ class DataManager():
     def update_flexibility_opt(self, batchflex_opt, res, time_step):
         """Update available flexibility based on optimisation results."""
         n_homes = len(res["E_heat"])
-        cons_flex_opt = \
-            [res["totcons"][home][time_step] - batchflex_opt[home][time_step][0]
-             - res["E_heat"][home][time_step] for home in range(n_homes)]
-        inputs_update_flex = \
-            [time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes]
-        new_batch_flex = self.env.update_flex(
-            cons_flex_opt, opts=inputs_update_flex)
+        cons_flex_opt = res["house_cons"][:, time_step] - batchflex_opt[:, time_step, 0]
+        if not (np.all(np.greater(cons_flex_opt, - 1e-3))):
+            print()
+        assert np.all(np.greater(cons_flex_opt, - 1e-3)), f"cons_flex_opt {cons_flex_opt}"
+        cons_flex_opt = np.where(cons_flex_opt > 0, cons_flex_opt, 0)
+        inputs_update_flex = [
+            time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes
+        ]
+        new_batch_flex = self.env.update_flex(cons_flex_opt, opts=inputs_update_flex)
         for home in range(n_homes):
             batchflex_opt[home][time_step: time_step + 2] = new_batch_flex[home]
 
