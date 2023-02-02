@@ -778,7 +778,7 @@ class Explorer():
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
         loss = self.prm['grd']['loss']
-        sum_gc_i = res['pc'] + np.sum(
+        sum_gc_i = np.sum(
             [
                 C[time_step_]
                 * (res['grid'][time_step_] + loss * res['grid2'][time_step_])
@@ -807,7 +807,7 @@ class Explorer():
                 np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res[0])
 
     def get_steps_opt(
-            self, res, step_vals, evaluation, batch, epoch
+            self, res, pp_simulation_required, step_vals, evaluation, batch, epoch
     ):
         """Translate optimisation results to states, actions, rewards."""
         env, rl = self.env, self.prm["RL"]
@@ -842,7 +842,7 @@ class Explorer():
             step_vals_i = self.env.spaces.get_ind_global_state_action(step_vals_i)
             feasible = not any(error)
 
-            if self.prm["grd"]['compare_pandapower_optimisation']:
+            if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 res, hourly_line_losses_pp, hourly_voltage_costs_pp \
                     = self.env.network.test_network_comparison_optimiser_pandapower(
                         res, time_step, self.prm['grd']['C'][time_step]

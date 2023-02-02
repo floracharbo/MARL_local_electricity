@@ -39,7 +39,7 @@ class DataManager():
         """Add relevant information to the properties of the object."""
         self.env = env
         self.prm = prm
-        self.optimiser = Optimiser(prm)
+        self.optimiser = Optimiser(prm, self.env.network.compute_import_export_costs)
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
@@ -190,6 +190,7 @@ class DataManager():
                 res = np.load(self.paths['opt_res']
                               / self.res_name,
                               allow_pickle=True).item()
+                pp_simulation_required = False
                 if 'house_cons' not in res:
                     res['house_cons'] = res['totcons'] - res['E_heat']
             # [factors, clusters] = self._load_res()
@@ -207,7 +208,7 @@ class DataManager():
         if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
             try:
                 start = time.time()
-                res = self.optimiser.solve(self.prm)
+                res, pp_simulation_required = self.optimiser.solve(self.prm)
                 end = time.time()
                 duration_opti = end - start
                 self.timer_optimisation.append(duration_opti)
@@ -221,7 +222,7 @@ class DataManager():
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
             step_vals, data_feasible = self.get_steps_opt(
-                res, step_vals, evaluation, batch, epoch
+                res, pp_simulation_required, step_vals, evaluation, batch, epoch
             )
 
         seed_data = [res, batch]
