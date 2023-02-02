@@ -55,10 +55,11 @@ def patch_find_feasible_data(
         batch, passive=passive
     )
     data_feasible = True
+    pp_simulation_required = False
     if data_feasible and 'opt' in type_actions:  # start with opt
         # exploration through optimisation
         step_vals, data_feasible = self.get_steps_opt(
-            res, step_vals, evaluation, batch, epoch
+            res, pp_simulation_required, step_vals, evaluation, batch, epoch
         )
 
     seed_data = res, batch
