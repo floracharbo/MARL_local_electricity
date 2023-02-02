@@ -115,7 +115,7 @@ class Optimiser():
         # loads on network from agents
         voltage_costs = p.add_variable('voltage_costs', 1)  # daily voltage violation costs
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
-        netq = p.add_variable('netq', (self.n_homes, self.N), vtype='continuous')
+        q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
         qi = p.add_variable('qi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         # decision variables: power flow
         pij = p.add_variable('pij', (self.grd['n_lines'], self.N), vtype='continuous')
@@ -137,7 +137,7 @@ class Optimiser():
             'undervoltage_costs', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
 
-        # active and reactive loads: netp and netq from kW to W (*1000) to per unit system (/Ab)
+        # active and reactive loads: netp and q_car_flex from kW to W (*1000) to per unit system (/Ab)
         p.add_list_of_constraints(
             [
                 pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
@@ -145,7 +145,7 @@ class Optimiser():
             ]
         )
         p.add_list_of_constraints(
-            qi[:, t] == self.grd['flex_buses'] * netq[:, t] * 1000 / self.grd['base_power']
+            qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t] * 1000 / self.grd['base_power']
             for t in range(self.N)
         )
 
