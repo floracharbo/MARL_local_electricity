@@ -35,6 +35,8 @@ def patch_find_feasible_data(
     res, batch = [
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
+    if 'house_cons' not in res:
+        res = self.optimiser.res_post_processing(res)
     for file in files:
         print(
             f"copy {self.paths['test_data'] / names_files[file]}"

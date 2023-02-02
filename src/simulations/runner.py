@@ -497,9 +497,9 @@ class Runner():
                 else None
             setattr(self.record, info, value)
 
-        timer_pp = self.explorer.env.network.timer_pp if self.prm['grd']['manage_voltage'] else None
+        timer_pp = self.explorer.env.network.timer_pp if self.prm['grd']['manage_voltage'] else []
         timer_comparison = self.explorer.env.network.timer_comparison \
-            if self.prm["grd"]['compare_pandapower_optimisation'] else None
+            if self.prm["grd"]['compare_pandapower_optimisation'] else []
 
         self.record.timer_stats(
             timer_pp, timer_comparison,

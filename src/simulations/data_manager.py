@@ -191,7 +191,7 @@ class DataManager():
                               / self.res_name,
                               allow_pickle=True).item()
                 if 'house_cons' not in res:
-                    res = self.res_post_processing(res)
+                    res = self.optimiser.res_post_processing(res)
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext],
