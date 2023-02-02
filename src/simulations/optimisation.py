@@ -73,6 +73,8 @@ class Optimiser():
             if key[0: len('hourly')] == 'hourly':
                 assert len(val) == self.N, f"np.shape(res[{key}]) = {np.shape(val)}"
 
+        assert np.all(res['consa(1)'] > -1e-3), f"negative flexible consumptions in the optimisation!"
+
         return res
 
     def solve(self, prm):
