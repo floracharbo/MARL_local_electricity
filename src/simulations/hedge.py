@@ -56,7 +56,7 @@ class HEDGE:
         if other_prm is not None:
             for key, val in other_prm.items():
                 for subkey, subval in val.items():
-                    prm[key][subkey] = val
+                    prm[key][subkey] = subval
 
         return prm
 
