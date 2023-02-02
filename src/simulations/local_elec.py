@@ -572,6 +572,8 @@ class LocalElecEnv():
                 + self.car.discharge[home]
             netq_flex = q_car_flex + q_heat_home_flex
             netq_non_flex = q_heat_home_car_non_flex
+            # import/export external grid
+            q_ext_grid = q_heat_home_car_non_flex + q_car_flex + q_heat_home_flex
             hourly_line_losses, voltage = self.network.pf_simulation(
                 home_vars['netp'], p_non_flex,
                 netq_flex, netq_non_flex)
