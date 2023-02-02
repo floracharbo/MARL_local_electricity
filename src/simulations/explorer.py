@@ -634,17 +634,21 @@ class Explorer():
         return step_vals
 
     def _tests_individual_step_rl_matches_res(
-            self, res, time_step, batch, reward, break_down_rewards,
+            self, res, time_step, batch, reward, break_down_rewards, flex
     ):
         prm = self.prm
         assert isinstance(batch[0], dict), f"type(batch[0]) {type(batch)}"
-        flex, loads = [np.array(
-            [batch[home][e] for home in range(len(batch))])
-            for e in ["flex", "loads"]
-        ]
+        loads = np.array([batch[home]['loads'] for home in range(len(batch))])
 
         # check tot cons
         for home in self.homes:
+            if not (
+                res["totcons"][home][time_step] <=
+                sum(flex[home][time_step])
+                + self.env.heat.E_heat_min[home]
+                + self.env.heat.potential_E_flex()[home] + 1e-3
+            ):
+                print()
             assert res["totcons"][home][time_step] <= \
                    sum(flex[home][time_step]) \
                    + self.env.heat.E_heat_min[home] \
@@ -857,7 +861,7 @@ class Explorer():
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
             self._tests_individual_step_rl_matches_res(
-                res, time_step, batch, step_vals_i["reward"], break_down_rewards
+                res, time_step, batch, step_vals_i["reward"], break_down_rewards, batchflex_opt
             )
 
             # substract baseline rewards to reward -
