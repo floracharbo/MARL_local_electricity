@@ -48,13 +48,8 @@ class Record():
         self.break_down_rewards_entries = prm["syst"]["break_down_rewards_entries"]
         self.repeat_entries = prm["save"]["repeat_entries"] + self.break_down_rewards_entries
         # entries that change for run but are the same across repeats
-        self.run_entries = prm["save"]["run_entries"]
+        self.run_entries = prm["save"]["run_entries0"] + prm["save"]["pandapower_voltage_entries"]
         self.last_entries = prm["save"]["last_entries"]
-
-        for info in self.repeat_entries + self.run_entries:
-            setattr(self, info, {})
-        for entry in self.run_entries:
-            setattr(self, entry, {})
         for entry in self.repeat_entries:
             setattr(self, entry, initialise_dict(range(self.n_repeats)))
 
