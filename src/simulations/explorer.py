@@ -768,7 +768,8 @@ class Explorer():
             assert abs(sum_rl_rewards + res['total_costs']) < 1e-2, \
                 "tot rewards don't match: " \
                 f"sum_RL_rewards = {sum_rl_rewards}, " \
-                f"sum costs opt = {res['total_costs']}"
+                f"sum costs opt = {res['total_costs']}" \
+                f"abs(sum_rl_rewards + res['total_costs']) {abs(sum_rl_rewards + res['total_costs'])}"
 
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
@@ -812,7 +813,7 @@ class Explorer():
         sum_rl_rewards = 0
         step_vals[method] = initialise_dict(self.step_vals_entries)
         batchflex_opt, batch_avail_car = [
-            [batch[home][e] for home in range(len(batch))] for e in ["flex", "avail_car"]
+            np.array([batch[home][e] for home in range(len(batch))]) for e in ["flex", "avail_car"]
         ]
         self._check_i0_costs_res(res)
 
