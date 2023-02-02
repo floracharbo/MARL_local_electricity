@@ -15,6 +15,7 @@ from datetime import timedelta
 from typing import Tuple
 
 import numpy as np
+import math
 
 from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
@@ -839,9 +840,19 @@ class Explorer():
 
             if self.prm["grd"]['compare_pandapower_optimisation']:
                 p_non_flex, _, _ = self.env._get_passive_vars(time_step)
-                res, hourly_line_losses_pp, hourly_voltage_costs_pp \
-                    = self.env.network.test_network_comparison_optimiser_pandapower(
-                        res, time_step, self.prm['grd']['C'][time_step], p_non_flex
+                netq_non_flex = p_non_flex \
+                    * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
+                # q_car_flex will be a decision variable
+                q_car_flex = 0
+                netq_flex = q_car_flex + q_heat_home_flex
+                q_heat_home_flex = home_vars['tot_cons'] \
+                    * math.tan(math.acos(self.grd['pf_flex_heat_homer']))
+                res, _, _ = self.env.network.test_network_comparison_optimiser_pandapower(
+                        res, time_step,
+                        self.prm['grd']['C'][time_step],
+                        p_non_flex,
+                        netq_flex,
+                        netq_non_flex
                     )
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(

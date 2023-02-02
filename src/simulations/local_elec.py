@@ -9,6 +9,7 @@ Created on Mon Feb  3 10:47:57 2020.
 
 import copy
 import pickle
+import math
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
@@ -416,8 +417,8 @@ class LocalElecEnv():
 
         # negative netp is selling, positive buying, losses in kWh
         grid = sum(netp) + sum(netp0) + hourly_line_losses
-        # import and export limits
 
+        # import and export limits
         if self.prm['grd']['manage_agg_power']:
             import_export_costs = self.network.compute_import_export_costs(grid)
         else:
@@ -559,10 +560,21 @@ class LocalElecEnv():
 
         if self.prm['grd']['manage_voltage']:
             if passive_vars is not None:
-                p_non_flex, _. _ = self._get_passive_vars(h)
+                p_non_flex, _, _ = self._get_passive_vars(h)
+            q_heat_home_car_non_flex = p_non_flex \
+                * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
+            q_heat_home_flex = home_vars['tot_cons'] \
+                * math.tan(math.acos(self.grd['pf_flex_heat_homer']))
+            # q_car_flex will be a decision variable
+            q_car_flex = 0
+            # p_car_flex is needed to set apparent power limits
+            p_car_flex = - (self.car.loss_ch[home] + self.car.charge[home]) \
+                         + self.car.discharge[home]
+            netq_flex = q_car_flex + q_heat_home_flex
+            netq_non_flex = q_heat_home_car_non_flex
             hourly_line_losses, voltage = self.network.pf_simulation(
-                home_vars['netp'],
-                p_non_flex)
+                home_vars['netp'], p_non_flex,
+                netq_flex, netq_non_flex)
             voltage_squared = np.square(voltage)
         else:
             voltage_squared = None
