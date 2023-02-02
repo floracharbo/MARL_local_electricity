@@ -78,8 +78,7 @@ class Network:
             ]:
                 setattr(self, attribute, 0)
             for attribute in [
-                'timer_pp', 'all_max_rel_diff_voltage',
-                'all_mean_rel_diff_voltage', 'all_std_rel_diff_voltage'
+                'timer_pp', 'max_rel_diff_voltage', 'mean_rel_diff_voltage', 'std_rel_diff_voltage'
             ]:
                 setattr(self, attribute, [])
 
@@ -229,17 +228,17 @@ class Network:
         hourly_line_losses_pp, voltage_pp = self.pf_simulation(res["netp"][:, time_step])
 
         # Voltage test
-        abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
-        rel_diff_voltage = abs_diff_voltage / res['voltage'][:, time_step]
-        max_rel_diff_voltage = max(rel_diff_voltage)
-        self.all_max_rel_diff_voltage.append(max(rel_diff_voltage))
-        self.all_mean_rel_diff_voltage.append(np.mean(rel_diff_voltage))
-        self.all_std_rel_diff_voltage.append(np.std(rel_diff_voltage))
+        all_abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
+        all_rel_diff_voltage = all_abs_diff_voltage / res['voltage'][:, time_step]
+        max_rel_diff_voltage = max(all_rel_diff_voltage)
+        self.max_rel_diff_voltage.append(max_rel_diff_voltage)
+        self.all_mean_rel_diff_voltage.append(np.mean(all_rel_diff_voltage))
+        self.all_std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
         if max_rel_diff_voltage > 0.1:
             print(
                 f"The max diff of voltage between the optimizer and pandapower for hour {time_step}"
-                f" is {max_rel_diff_voltage * 100}% ({max(abs_diff_voltage)}V) "
-                f"at bus {np.argmax(rel_diff_voltage)}"
+                f" is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
+                f"at bus {np.argmax(all_rel_diff_voltage)}"
                 f"The network will be simulated with pandapower to correct the voltages"
             )
             replace_with_pp_simulation = True

@@ -492,12 +492,9 @@ class Runner():
 
     def save_computation_statistics(self):
         if self.prm["grd"]["compare_pandapower_optimisation"]:
-            pandapower_stats_labels = [
-                'all_max_rel_diff_voltage', 'all_mean_rel_diff_voltage',
-                'all_std_rel_diff_voltage', 'count_correction_opti_with_pp'
-            ]
-            for info in pandapower_stats_labels:
+            for info in self.prm["save"]["pandapower_voltage_entries"]:
                 setattr(self.record, info, self.explorer.env.network.__dict__[info])
+
         timer_pp = self.explorer.env.network.timer_pp if self.prm['grd']['manage_voltage'] else None
         timer_comparison = self.explorer.env.network.timer_comparison \
             if self.prm["grd"]['compare_pandapower_optimisation'] else None
