@@ -668,7 +668,7 @@ class Optimiser():
 
         if self.grd['manage_voltage']:
             res, pp_simulation_required = self._check_and_correct_cons_constraints(
-                res, constl_constraints, consa_positivity_constraints
+                res, constl_constraints, consa_positivity_constraints, loads_met_constraints
             )
         else:
             pp_simulation_required = False
@@ -676,7 +676,7 @@ class Optimiser():
         return res, pp_simulation_required
 
     def _check_and_correct_cons_constraints(
-            self, res, constl_constraints, consa_positivity_constraints
+            self, res, constl_constraints, consa_positivity_constraints, loads_met_constraints
     ):
         slacks_pos = consa_positivity_constraints[1].slack
         slacks_constl = np.array([
@@ -689,9 +689,21 @@ class Optimiser():
             ]
             for load_type in range(self.loads['n_types'])
         ])
+        slack_loads_met = np.array([
+            [
+                [
+                    loads_met_constraints[load_type][home][time_step].slack
+                    for time_step in range(self.N)
+                ]
+                for home in range(self.n_homes)
+            ]
+            for load_type in range(self.loads['n_types'])
+        ])
         load_types_slack, homes_slack, time_steps_slack = np.where(
             slacks_constl < - 5e-3
         )
+        if np.min(slack_loads_met) < - 5e-3:
+            print("issues with slack_loads_met too!")
         if np.min(slacks_pos) < - 5e-3:
             assert len(load_types_slack) > 0, "slack pos issue whereas no slacks_constl issue?"
 
