@@ -221,7 +221,7 @@ class LocalElecEnv():
         if opts is None:
             h = self._get_time_step()
             n_homes = self.n_homes
-            batch_flex = [self.batch[home]['flex'] for home in range(n_homes)]
+            batch_flex = np.array([self.batch[home]['flex'] for home in range(n_homes)])
         else:
             h, batch_flex, max_delay, n_homes = opts
 
@@ -232,18 +232,15 @@ class LocalElecEnv():
             f"np.shape(batch_flex) {np.shape(batch_flex)} " \
             f"self.max_delay {self.max_delay}"
 
-        new_batch_flex = np.array(
-            [
-                [copy.deepcopy(batch_flex[home][ih]) for ih in range(h, h + 2)]
-                for home in range(n_homes)
-            ]
-        )
+        new_batch_flex = copy.deepcopy(batch_flex[:, h: h + 2])
 
         for home in range(n_homes):
             remaining_cons = max(cons_flex[home], 0)
+            if cons_flex[home] > np.sum(batch_flex[home][h][1:]) + 1e-3:
+                print()
             assert cons_flex[home] <= np.sum(batch_flex[home][h][1:]) + 1e-3, \
-                f"cons_flex[home] {cons_flex[home]} " \
-                f"> np.sum(batch_flex[home][h][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-3"
+                f"cons_flex[home={home}] {cons_flex[home]} " \
+                f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-3"
 
             # remove what has been consumed
             for i_flex in range(1, self.max_delay + 1):
@@ -291,7 +288,7 @@ class LocalElecEnv():
         """Compute environment updates and reward from selected action."""
         h = self._get_time_step()
         homes = self.homes
-        batch_flex = [self.batch[home]['flex'] for home in homes]
+        batch_flex = np.array([self.batch[home]['flex'] for home in homes])
         self._batch_tests(batch_flex, h)
         # self.check_batch_flex(h, batch_flex)
         # update batch if needed
@@ -486,7 +483,7 @@ class LocalElecEnv():
         return - np.where(netp < 0, netp, 0)
 
     def get_loads_fixed_flex_gen(self, date, time_step):
-        batch_flex = [self.batch[home]['flex'][time_step] for home in self.homes]
+        batch_flex = np.array([self.batch[home]['flex'][time_step] for home in self.homes])
         loads, home_vars = {}, {}
         if date == self.date_end - timedelta(hours=self.dt):
             loads['l_flex'] = np.zeros(self.n_homes)
