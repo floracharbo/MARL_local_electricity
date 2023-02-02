@@ -491,9 +491,11 @@ class Runner():
                     self.learner[method].target_update()
 
     def save_computation_statistics(self):
-        if self.prm["grd"]["compare_pandapower_optimisation"]:
-            for info in self.prm["save"]["pandapower_voltage_entries"]:
-                setattr(self.record, info, self.explorer.env.network.__dict__[info])
+        for info in self.prm["save"]["pandapower_voltage_entries"]:
+            value = self.explorer.env.network.__dict__[info] \
+                if self.prm["grd"]["compare_pandapower_optimisation"] \
+                else None
+            setattr(self.record, info, value)
 
         timer_pp = self.explorer.env.network.timer_pp if self.prm['grd']['manage_voltage'] else None
         timer_comparison = self.explorer.env.network.timer_comparison \
