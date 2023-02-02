@@ -415,7 +415,7 @@ class LocalElecEnv():
         # import and export limits
 
         if self.prm['grd']['manage_agg_power']:
-            import_export_costs = self.network.compute_import_export_costs(grid)
+            import_export_costs, _, _ = self.network.compute_import_export_costs(grid)
         else:
             import_export_costs = 0
 
@@ -425,10 +425,10 @@ class LocalElecEnv():
             voltage_costs = 0
 
         if self.prm['grd']['charge_type'] == 0:
-            sum_netp = sum(self.netp_to_exports(netp))
-            sum_netp0 = sum(self.netp_to_exports(netp0))
-            netpvar = sum_netp + sum_netp0
-            distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
+            sum_netp_export = sum(self.netp_to_exports(netp))
+            sum_netp0_export = sum(self.netp_to_exports(netp0))
+            netp_export = sum_netp_export + sum_netp0_export
+            distribution_network_export_costs = self.prm['grd']['export_C'] * netp_export
         else:
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
