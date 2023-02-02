@@ -307,7 +307,8 @@ class LocalElecEnv():
             self.slid_day = False
         home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
             self.policy_to_rewardvar(
-                action, E_req_only=E_req_only
+                action, E_req_only=E_req_only,
+                passive_vars=self._get_passive_vars(h),
             )
         if not constraint_ok:
             print('constraint false not returning to original values')
@@ -509,7 +510,8 @@ class LocalElecEnv():
             self,
             action: list,
             other_input: list = None,
-            E_req_only: bool = False
+            E_req_only: bool = False,
+            passive_vars: list = None,
     ):
         """Given selected action, obtain results of the step."""
         if other_input is None:
@@ -556,7 +558,11 @@ class LocalElecEnv():
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
         if self.prm['grd']['manage_voltage']:
-            hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
+            if passive_vars is not None:
+                p_non_flex, _. _ = self._get_passive_vars(h)
+            hourly_line_losses, voltage = self.network.pf_simulation(
+                home_vars['netp'],
+                p_non_flex)
             voltage_squared = np.square(voltage)
         else:
             voltage_squared = None

@@ -37,9 +37,10 @@ class Network:
         prm:
             input parameters
         """
-        for info in ['n_homes', 'M', 'N']:
+        for info in ['n_homes', 'M', 'N', 'n_homesP']:
             setattr(self, info, prm['syst'][info])
         self.homes = range(self.n_homes)
+        self.homesP = range(self.n_homesP)
 
         # upper and lower voltage limits
         for info in [
@@ -189,7 +190,7 @@ class Network:
         self.net.line.drop(duplicated_lines, inplace=True)
         self.net.bus.drop(duplicated_buses, inplace=True)
 
-    def pf_simulation(self, netp: list):
+    def pf_simulation(self, netp: list, p_non_flex: list = None):
         """ Given selected action, obtain voltage on buses and lines using pandapower """
         self.net.load.p_mw = 0
         self.net.sgen.p_mw = 0
@@ -200,6 +201,12 @@ class Network:
                 self.net.load['p_mw'].iloc[home] = netp[home] / 1000
             else:
                 self.net.sgen['p_mw'].iloc[home] = abs(netp[home]) / 1000
+        if self.homeP is not None:
+            for homeP in self.homesP:
+                if p_non_flex[homeP] >= 0:
+                    self.net.load['p_mw'].iloc[home+homeP] = p_non_flex[homeP] / 1000
+                else:
+                    self.net.sgen['p_mw'].iloc[home+homeP] = abs(p_non_flex[homeP]) / 1000
 
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw > 0])
@@ -209,10 +216,12 @@ class Network:
 
         return hourly_line_losses, voltage
 
-    def _check_voltage_differences(self, res, time_step):
+    def _check_voltage_differences(self, res, time_step, p_non_flex):
         do_pp_simulation = False
         # Results from pandapower
-        hourly_line_losses_pp, voltage_pp = self.pf_simulation(res["netp"][:, time_step])
+        hourly_line_losses_pp, voltage_pp = self.pf_simulation(
+            res["netp"][:, time_step],
+            p_non_flex)
 
         # Voltage test
         abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
@@ -262,11 +271,11 @@ class Network:
             #     f"(currently: {self.subset_line_losses_modelled} lines)"
             # )
 
-    def test_network_comparison_optimiser_pandapower(self, res, time_step, grdCt):
+    def test_network_comparison_optimiser_pandapower(self, res, time_step, grdCt, p_non_flex):
         """Compares hourly results from network modelling in optimizer and pandapower"""
         # Results from optimization
         do_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp \
-            = self._check_voltage_differences(res, time_step)
+            = self._check_voltage_differences(res, time_step, p_non_flex)
         self._check_losses_differences(res, hourly_line_losses_pp, time_step)
         if do_pp_simulation:
             res = self._replace_res_values_with_pp_simulation(

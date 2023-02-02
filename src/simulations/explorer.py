@@ -838,9 +838,10 @@ class Explorer():
             feasible = not any(error)
 
             if self.prm["grd"]['compare_pandapower_optimisation']:
+                p_non_flex, _, _ = self.env._get_passive_vars(time_step)
                 res, hourly_line_losses_pp, hourly_voltage_costs_pp \
                     = self.env.network.test_network_comparison_optimiser_pandapower(
-                        res, time_step, self.prm['grd']['C'][time_step]
+                        res, time_step, self.prm['grd']['C'][time_step], p_non_flex
                     )
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
@@ -1036,7 +1037,8 @@ class Explorer():
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
             home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
-                env.policy_to_rewardvar(None, other_input=input_take_action)
+                env.policy_to_rewardvar(None, other_input=input_take_action,
+                passive_vars = self._get_passive_vars(time_step))
             self.env.car.store = bat_store
             passive_vars = self._get_passive_vars(time_step)
             reward_baseline_a, _ = env.get_reward(
