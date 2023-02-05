@@ -73,9 +73,7 @@ class Network:
             self.max_losses_error = - 1
             self.max_voltage_rel_error = - 1
 
-            for attribute in [
-                'count_correction_opti_with_pp', 'n_voltage_error', 'n_losses_error'
-            ]:
+            for attribute in ['count_correction_opti_with_pp', 'n_losses_error']:
                 setattr(self, attribute, 0)
             for attribute in [
                 'timer_pp', 'timer_comparison', 'max_rel_diff_voltage',
@@ -234,7 +232,8 @@ class Network:
         self.max_rel_diff_voltage.append(max_rel_diff_voltage)
         self.mean_rel_diff_voltage.append(np.mean(all_rel_diff_voltage))
         self.std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
-        if max_rel_diff_voltage > 0.1:
+
+        if max_rel_diff_voltage > self.tol_rel_voltage_diff:
             print(
                 f"The max diff of voltage between the optimizer and pandapower for hour {time_step}"
                 f" is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
@@ -249,16 +248,9 @@ class Network:
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
             / res['total_costs']
         )
-        if abs_rel_voltage_error > 1e-4:
-            self.n_voltage_error += 1
+        if abs_rel_voltage_error > self.tol_rel_voltage_costs:
             if abs_rel_voltage_error > self.max_voltage_rel_error:
                 self.max_voltage_rel_error = abs_rel_voltage_error
-            # print(
-            #     f"Warning: The difference in voltage costs between "
-            #     f"the optimisation and pandapower for hour {time_step} "
-            #     f"is {abs_rel_voltage_error} of the total daily costs. "
-            #     f"The network will be simulated with pandapower to correct the voltages."
-            # )
             replace_with_pp_simulation = True
 
         return [

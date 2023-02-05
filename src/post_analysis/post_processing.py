@@ -36,19 +36,20 @@ def _print_stats_voltage_losses_errors(prm, network):
                 f"subset_line_losses_modelled "
                 f"(currently: {network.subset_line_losses_modelled} lines)"
             )
-        if network.n_voltage_error > 1:
+
+        if network.count_correction_opti_with_pp > 1:
             print(
-                f"Warning: There were {network.n_voltage_error} difference "
+                f"Warning: There were {network.count_correction_opti_with_pp} difference "
                 f"in hourly voltage costs between the optimisation and pandapower "
-                f"larger than 0.01% of the total daily costs\n. "
+                f"larger than {prm['grd']['tol_rel_voltage_costs'] * 100}% of the total daily costs\n. "
                 f"The largest error was {network.max_voltage_rel_error * 100} %.\n"
                 f"The network was simulated with pandapower to correct the voltages "
-                f"when this occurred."
+                f"when this occurred.\n"
             )
 
     else:
         print(
-            "optimisations were not compared with pandapower simulations "
+            "Optimisations were not compared with pandapower simulations "
             "to check voltages and losses"
         )
 
