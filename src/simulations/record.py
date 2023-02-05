@@ -48,8 +48,10 @@ class Record():
         self.break_down_rewards_entries = prm["syst"]["break_down_rewards_entries"]
         self.repeat_entries = prm["save"]["repeat_entries"] + self.break_down_rewards_entries
         # entries that change for run but are the same across repeats
-        self.run_entries = prm["save"]["run_entries0"] \
-            + prm["save"]["pandapower_voltage_entries"] + prm['save']['discrete_states_info_entries']
+        self.run_entries = \
+            prm["save"]["run_entries0"] \
+            + prm["save"]["pandapower_voltage_entries"] \
+            + prm['save']['discrete_states_info_entries']
         self.discrete_states_info_entries = prm['save']['discrete_states_info_entries']
         self.last_entries = prm["save"]["last_entries"]
         for entry in self.repeat_entries:
@@ -200,7 +202,6 @@ class Record():
             (True, timer_optimisation, 'timer_optimisation'),
             (True, timer_feasible_data, 'timer_feasible_data'),
         ]
-
 
         for condition, timer, timer_name in list_timer_attributes:
             if condition and len(timer) != 0:

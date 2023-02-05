@@ -18,6 +18,7 @@ import picos as pic
 
 from src.utilities.userdeftools import comb
 
+
 class Optimiser():
     """The Optimiser object manages convex optimisations."""
 
@@ -643,7 +644,8 @@ class Optimiser():
 
         p, charge, discharge_other, battery_degradation_costs = self._storage_constraints(p)
         p, E_heat = self._temperature_constraints(p)
-        p, totcons, loads_met_constraints, constl_constraints, consa_positivity_constraints = self._cons_constraints(p, E_heat)
+        p, totcons, loads_met_constraints, constl_constraints, consa_positivity_constraints \
+            = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(p)
         # prosumer energy balance, active power
         p.add_constraint(
@@ -664,7 +666,6 @@ class Optimiser():
         number_opti_constraints = len(p.constraints)
         if 'n_opti_constraints' not in self.syst:
             self.syst['n_opti_constraints'] = number_opti_constraints
-
 
         if self.grd['manage_voltage']:
             res, pp_simulation_required = self._check_and_correct_cons_constraints(
@@ -759,7 +760,7 @@ class Optimiser():
                 np.multiply(self.grd['C'][0: self.N], res['grid'] + self.grd['loss'] * res['grid2'])
             )
             res['distribution_network_export_costs'] = self.grd['export_C'] * (
-                    np.sum(res['netp_export']) + self.sum_netp0_export
+                np.sum(res['netp_export']) + self.sum_netp0_export
             )
 
             if self.grd['manage_agg_power']:

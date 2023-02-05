@@ -502,8 +502,7 @@ class DataManager():
         """Update available flexibility based on optimisation results."""
         n_homes = len(res["E_heat"])
         cons_flex_opt = res["house_cons"][:, time_step] - batchflex_opt[:, time_step, 0]
-        if not (np.all(np.greater(cons_flex_opt, - 1e-2))):
-            print()
+
         assert np.all(np.greater(cons_flex_opt, - 1e-2)), f"cons_flex_opt {cons_flex_opt}"
         cons_flex_opt = np.where(cons_flex_opt > 0, cons_flex_opt, 0)
         inputs_update_flex = [

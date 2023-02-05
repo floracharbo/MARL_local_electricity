@@ -78,12 +78,12 @@ class Network:
             ]:
                 setattr(self, attribute, 0)
             for attribute in [
-                'timer_pp', 'timer_comparison', 'max_rel_diff_voltage', 'mean_rel_diff_voltage', 'std_rel_diff_voltage'
+                'timer_pp', 'timer_comparison', 'max_rel_diff_voltage',
+                'mean_rel_diff_voltage', 'std_rel_diff_voltage'
             ]:
                 setattr(self, attribute, [])
 
         self.homes = range(self.n_homes)
-
 
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """

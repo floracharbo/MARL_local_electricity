@@ -642,13 +642,6 @@ class Explorer():
 
         # check tot cons
         for home in self.homes:
-            if not (
-                res["totcons"][home][time_step] <=
-                sum(flex[home][time_step])
-                + self.env.heat.E_heat_min[home]
-                + self.env.heat.potential_E_flex()[home] + 1e-3
-            ):
-                print()
             assert res["totcons"][home][time_step] <= \
                    sum(flex[home][time_step]) \
                    + self.env.heat.E_heat_min[home] \
@@ -773,7 +766,8 @@ class Explorer():
                 "tot rewards don't match: " \
                 f"sum_RL_rewards = {sum_rl_rewards}, " \
                 f"sum costs opt = {res['total_costs']}" \
-                f"abs(sum_rl_rewards + res['total_costs']) {abs(sum_rl_rewards + res['total_costs'])}"
+                f"abs(sum_rl_rewards + res['total_costs']) " \
+                f"{abs(sum_rl_rewards + res['total_costs'])}"
 
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
