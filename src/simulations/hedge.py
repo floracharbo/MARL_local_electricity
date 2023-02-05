@@ -400,10 +400,6 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            try:
-                a = self.car['cap'][home]
-            except Exception as ex:
-                print(ex)
             while np.max(day["loads_car"][i_home]) > self.car['cap'][home] and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")

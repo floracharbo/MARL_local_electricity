@@ -101,8 +101,10 @@ class Heat:
             E_req_only = False
 
         # current indoor air temperatures
-        self.T_air = [prm["heat"]["T_req" + self.passive_ext][home][0]
-                      for home in range(self.n_homes)]
+        self.T_air = [
+            prm["heat"]["T_req" + self.passive_ext][home][0]
+            for home in range(self.n_homes)
+        ]
 
         # required temperature profile
         self.T_req = prm["heat"]["T_req" + self.passive_ext]
