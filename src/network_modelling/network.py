@@ -56,7 +56,7 @@ class Network:
 
             # ieee network and corresponding incidence matrix
             self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
-            self.n_non_flex_homes = len(self.net.asymmetric_load) - self.n_homes
+            self.n_non_flex_homes = self.n_homesP
             self.loads_single_phase()
             self.in_incidence_matrix = np.where(
                 self.incidence_matrix == -1, self.incidence_matrix, 0

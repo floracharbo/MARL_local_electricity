@@ -125,8 +125,9 @@ class Optimiser():
         p_car_flex2 = p.add_variable('p_car_flex2', (self.n_homes, self.N), vtype='continuous')
         q_heat_home_flex = p.add_variable(
             'q_heat_home_flex', (self.n_homes, self.N), vtype='continuous')
-        q_heat_home_car_non_flex = p.add_variable(
-            'q_heat_home_car_non_flex', (self.n_homesP, self.N), vtype='continuous')
+        if self.n_homesP > 0:
+            q_heat_home_car_non_flex = p.add_variable(
+                'q_heat_home_car_non_flex', (self.n_homesP, self.N), vtype='continuous')
         qi = p.add_variable('qi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         # decision variables: power flow
         pij = p.add_variable('pij', (self.grd['n_lines'], self.N), vtype='continuous')
@@ -149,18 +150,27 @@ class Optimiser():
         )
 
         # active and reactive loads: modify loads from kW to W (*1000) to per unit system (/Ab)
-        p.add_list_of_constraints(
-            [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
-                + self.grd['non_flex_buses'] * self.loads['netp0'][:][t]
-                * 1000 / self.grd['base_power']
-                for t in range(self.N)])
-
-        p.add_list_of_constraints(
-            [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t] * 1000 / self.grd['base_power']
-                + self.grd['flex_buses'] * q_heat_home_flex[:, t] * 1000 / self.grd['base_power']
-                + self.grd['non_flex_buses'] * q_heat_home_car_non_flex[:, t]
-                * 1000 / self.grd['base_power']
-                for t in range(self.N)])
+        if self.n_homesP > 0:
+            p.add_list_of_constraints(
+                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
+                    + self.grd['non_flex_buses'] * self.loads['netp0'][:][t]
+                    * 1000 / self.grd['base_power']
+                    for t in range(self.N)])
+            p.add_list_of_constraints(
+                [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
+                    * 1000 / self.grd['base_power']
+                    + self.grd['flex_buses'] * q_heat_home_flex[:, t] * 1000 / self.grd['base_power']
+                    + self.grd['non_flex_buses'] * q_heat_home_car_non_flex[:, t]
+                    * 1000 / self.grd['base_power']
+                    for t in range(self.N)])
+        else:
+            p.add_list_of_constraints(
+                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
+                    for t in range(self.N)])
+            p.add_list_of_constraints([qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
+                    * 1000 / self.grd['base_power']
+                    + self.grd['flex_buses'] * q_heat_home_flex[:, t] * 1000 / self.grd['base_power']
+                    for t in range(self.N)])
 
         # constraints on active, reactive and apparent power
 
