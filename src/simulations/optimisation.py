@@ -65,7 +65,10 @@ class Optimiser():
                 + np.sum(self.loads['charge0'], axis=0)
             )
         res['hourly_distribution_network_export_costs'] = \
-            self.grd["export_C"] * (np.sum(res["netp_abs"], axis=0) + self.sum_netp0_abs)
+            self.grd["export_C"] * (
+                np.sum(res["netp_abs"], axis=0)
+                + np.sum(self.netp0_abs, axis=0)
+            )
         res['hourly_total_costs'] = \
             (res['hourly_import_export_costs'] + res['hourly_voltage_costs']) \
             * self.grd["weight_network_costs"] \
@@ -413,12 +416,10 @@ class Optimiser():
             netp_abs = p.add_variable(
                 'netp_abs', (self.n_homes, self.N), vtype='continuous'
             )
-            self.sum_netp0_abs = np.sum(
-                np.where(
-                    self.loads['netp0'] < 0,
-                    abs(self.loads['netp0']),
-                    0
-                )
+            self.netp0_abs = np.where(
+                self.loads['netp0'] < 0,
+                abs(self.loads['netp0']),
+                0
             )
 
             p.add_constraint(netp_abs >= - netp)
@@ -426,7 +427,7 @@ class Optimiser():
             # distribution costs
             p.add_constraint(
                 distribution_network_export_costs
-                == grd['export_C'] * (pic.sum(netp_abs) + self.sum_netp0_abs)
+                == grd['export_C'] * (pic.sum(netp_abs) + np.sum(self.netp0_abs))
             )
 
         else:
