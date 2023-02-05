@@ -41,7 +41,8 @@ def _print_stats_voltage_losses_errors(prm, network):
             print(
                 f"Warning: There were {network.count_correction_opti_with_pp} difference "
                 f"in hourly voltage costs between the optimisation and pandapower "
-                f"larger than {prm['grd']['tol_rel_voltage_costs'] * 100}% of the total daily costs\n. "
+                f"larger than {prm['grd']['tol_rel_voltage_costs'] * 100}% "
+                f"of the total daily costs\n. "
                 f"The largest error was {network.max_voltage_rel_error * 100} %.\n"
                 f"The network was simulated with pandapower to correct the voltages "
                 f"when this occurred.\n"
@@ -180,9 +181,11 @@ def _print_stats_cons_constraints_errors(prm, data_manager):
                 f"the maximum violation of {prm['syst']['tol_cons_constraints']:.2E}"
             )
         else:
+            share_violations = data_manager.n_cons_constraint_violations \
+                / data_manager.n_optimisations
             print(
                 f"Warning: consumptions did not always add up in optimisation results."
-                f"In {data_manager.n_cons_constraint_violations/data_manager.n_optimisations * 100} %"
+                f"In {share_violations * 100} %"
                 f"of optimisations, the flexible consumption constraints were violated by "
                 f"more than {prm['syst']['tol_cons_constraints']}.\n"
                 f"The maximum violation was {data_manager.max_cons_slack:.2E}.\n"
