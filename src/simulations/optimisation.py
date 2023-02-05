@@ -18,14 +18,13 @@ import picos as pic
 
 from src.utilities.userdeftools import comb
 
-
 class Optimiser():
     """The Optimiser object manages convex optimisations."""
 
     def __init__(self, prm, compute_import_export_costs):
         """Initialise solver object for doing optimisations."""
-        self.N = prm["syst"]["N"]
-        self.n_homes = prm["syst"]["n_homes"]
+        for attribute in ['N', 'n_homes', 'tol_cons_constraints']:
+            setattr(self, attribute, prm['syst'][attribute])
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
@@ -71,7 +70,7 @@ class Optimiser():
             if key[0: len('hourly')] == 'hourly':
                 assert len(val) == self.N, f"np.shape(res[{key}]) = {np.shape(val)}"
 
-        assert np.all(res['consa(1)'] > -1e-3), \
+        assert np.all(res['consa(1)'] > - self.tol_cons_constraints), \
             f"negative flexible consumptions in the optimisation! " \
             f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
 
@@ -666,12 +665,15 @@ class Optimiser():
         if 'n_opti_constraints' not in self.syst:
             self.syst['n_opti_constraints'] = number_opti_constraints
 
+
         if self.grd['manage_voltage']:
             res, pp_simulation_required = self._check_and_correct_cons_constraints(
                 res, constl_constraints, consa_positivity_constraints, loads_met_constraints
             )
         else:
             pp_simulation_required = False
+
+        res['corrected_cons'] = pp_simulation_required
 
         return res, pp_simulation_required
 
@@ -700,19 +702,19 @@ class Optimiser():
             for load_type in range(self.loads['n_types'])
         ])
         load_types_slack, homes_slack, time_steps_slack = np.where(
-            slacks_constl < - 5e-3
+            slacks_constl < - self.tol_cons_constraints
         )
-        if np.min(slack_loads_met) < - 5e-3:
+        if np.min(slack_loads_met) < - self.tol_cons_constraints:
             print("issues with slack_loads_met too!")
-        if np.min(slacks_pos) < - 5e-3:
+        if np.min(slacks_pos) < - self.tol_cons_constraints:
             assert len(load_types_slack) > 0, "slack pos issue whereas no slacks_constl issue?"
 
         pp_simulation_required = len(time_steps_slack) > 0
         if pp_simulation_required:
             print(
-                f"Warning: consumptions do not add up in optimisation results. "
-                f"The constraints are violated by {abs(np.min(slacks_constl))} \n"
-                "This will be fixed but optimality is not guarantted."
+                f"Warning: consumptions do not add up in optimisation results.\n"
+                f"The constraints are violated by {abs(np.min(slacks_constl)):.2E}\n"
+                "This will be fixed but optimality is not guaranteed."
             )
 
         for load_type, home, time_step in zip(
