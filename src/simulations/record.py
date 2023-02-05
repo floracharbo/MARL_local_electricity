@@ -24,28 +24,48 @@ class Record():
 
     def __init__(self, prm: dict, no_run: int = None):
         """Add relevant properties from prm to the object."""
-        rl = prm["RL"]
         self.no_run = no_run
+        self.n_homes = prm["syst"]["n_homes"]
+
+        self._add_rl_info_to_object(prm["RL"])
+
+        for attribute in ['manage_voltage', 'manage_agg_power', 'compare_pandapower_optimisation']:
+            setattr(self, attribute, prm['grd'][attribute])
+
+        self._intialise_dictionaries_entries_to_record(prm)
+
+        prm["paths"]["save_days"] = prm["paths"]["folder_run"] / "save_days"
+        self.record_folder = prm["paths"]["record_folder"]
+        for folder in ["folder_run", "record_folder", "save_days", "fig_folder"]:
+            if not os.path.exists(prm["paths"][folder]):
+                os.mkdir(prm["paths"][folder])
+
+        self.repeat = 0  # current repeat
+
+    def _intialise_dictionaries_entries_to_record(self, prm):
         # initialise entries
         # entries that change for each repeat
-        self.break_down_rewards_entries =\
-            prm["syst"]["break_down_rewards_entries"]
-        self.repeat_entries = prm["save"]["repeat_entries"] \
-            + prm["syst"]["break_down_rewards_entries"]
+        self.break_down_rewards_entries = prm["syst"]["break_down_rewards_entries"]
+        self.repeat_entries = prm["save"]["repeat_entries"] + self.break_down_rewards_entries
+        # entries that change for run but are the same across repeats
+        self.run_entries = prm["save"]["run_entries0"] \
+            + prm["save"]["pandapower_voltage_entries"] + prm['save']['discrete_states_info_entries']
+        self.discrete_states_info_entries = prm['save']['discrete_states_info_entries']
+        self.last_entries = prm["save"]["last_entries"]
+        for entry in self.repeat_entries:
+            setattr(self, entry, initialise_dict(range(self.n_repeats)))
 
-        # entries that change for state ind but are the same across repeats
-        self.stateind_entries = prm["save"]["stateind_entries"]
-        self.entries = self.repeat_entries + self.stateind_entries
-        # all entries
-        for info in self.entries:
-            setattr(self, info, {})
-
+    def _add_rl_info_to_object(self, rl):
         # all exploration / evaluation methods
+        for info in ["n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space"]:
+            setattr(self, info, rl[info])
         self.all_methods = rl["evaluation_methods"] + \
             list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
-        # parameters needed for generating paths string
-        for info in ["n_epochs", "instant_feedback", "type_env", "n_repeats"]:
-            setattr(self, info, rl[info])
+
+        # depending on the dimension of the q tables
+        self.save_qtables = True \
+            if (self.state_space is None or len(self.state_space) <= 2) and self.n_epochs <= 1e3 \
+            else False
 
         for info in ["gamma", "epsilon_decay"]:
             setattr(
@@ -53,32 +73,6 @@ class Record():
                 info,
                 rl[rl["type_learning"]][info] if info in rl[rl['type_learning']] else None
             )
-        self.n_homes = prm["syst"]["n_homes"]
-        # save q tables at each step in record
-        # depending on the dimension of the q tables
-        self.save_qtables = True \
-            if (rl["state_space"] is None or len(rl["state_space"]) <= 2) \
-            and rl["n_epochs"] <= 1e3 \
-            else False
-        self.n_epoch = rl["n_epochs"]
-        self.last_entries = prm["save"]["last_entries"]
-        # create folder
-        self.paths = prm["paths"]
-        self.opt_res_file = prm["paths"]["opt_res_file"]
-        prm["paths"]["save_days"] = prm["paths"]["folder_run"] / "save_days"
-        for e in ["folder_run", "record_folder", "save_days", "fig_folder"]:
-            if not os.path.exists(prm["paths"][e]):
-                os.mkdir(prm["paths"][e])
-
-        for entry in self.stateind_entries:
-            setattr(self, entry, {})
-
-        for entry in self.repeat_entries:
-            setattr(self, entry, initialise_dict(range(rl["n_repeats"])))
-
-        self.state_space = rl["state_space"]
-
-        self.repeat = 0  # current repeat
 
     def init_env(self, env: object):
         """
@@ -95,10 +89,13 @@ class Record():
             self.granularity_state1 = None if len(
                 self.state_space) == 1 else env.spaces.granularity["state"][1]
             self.multipliers_state = env.spaces.multipliers["state"]
+        else:
+            for entry in self.discrete_states_info_entries:
+                setattr(self, entry, None)
 
     def new_repeat(self,
                    repeat: int,
-                   rl: dict
+                   rl: dict,
                    ):
         """Reinitialise object properties at the start of new repeat."""
         self.repeat = repeat  # current repetition index
@@ -188,6 +185,37 @@ class Record():
             if done and method == "baseline":
                 self.last[self.repeat]["batch"] = batch
 
+    def timer_stats(
+        self, timer_pp, timer_comparison, timer_optimisation, timer_feasible_data
+    ):
+        """
+        Calculates the mean, standard deviation and count of
+        the timer used to evaluate the computational burden
+        of some functions and methods.
+        """
+        list_timer_attributes = [
+            (self.manage_voltage or self.manage_agg_power, timer_pp, 'timer_pp'),
+            (self.manage_voltage and self.compare_pandapower_optimisation,
+                timer_comparison, 'timer_comparison'),
+            (True, timer_optimisation, 'timer_optimisation'),
+            (True, timer_feasible_data, 'timer_feasible_data'),
+        ]
+
+
+        for condition, timer, timer_name in list_timer_attributes:
+            if condition and len(timer) != 0:
+                timer_mean = np.mean(timer)
+                timer_std = np.std(timer)
+                timer_count = len(timer)
+            else:
+                timer_mean = 0
+                timer_std = 0
+                timer_count = 0
+
+            setattr(self, f"{timer_name}_mean", timer_mean)
+            setattr(self, f"{timer_name}_std", timer_std)
+            setattr(self, f"{timer_name}_count", timer_count)
+
     def save(self, end_of: str = "repeat"):
         """
         Save the relevant record object information to files.
@@ -196,7 +224,7 @@ class Record():
         the explorations and evaluations
         """
         labels = self.repeat_entries if end_of == "repeat" \
-            else self.stateind_entries
+            else self.run_entries
         if not self.save_qtables:
             labels = [label for label in labels if label not in ["q_tables", "counter"]] \
                 if end_of == "repeat" \
@@ -204,8 +232,8 @@ class Record():
         repeat = self.repeat if end_of == "repeat" else None
         for label in labels:
             save_path = Path(f"{label}" if repeat is None else f"{label}_repeat{repeat}")
-            if self.paths["record_folder"] is not None:
-                save_path = Path(self.paths["record_folder"]) / save_path
+            if self.record_folder is not None:
+                save_path = Path(self.record_folder) / save_path
             to_save = self.__dict__[label] if end_of == "end" \
                 else self.__dict__[label][self.repeat]
             np.save(save_path, to_save)
@@ -217,14 +245,14 @@ class Record():
         repeat_labels = [e for e in self.repeat_entries if e not in ["q_tables", "counter"]] \
             if not self.save_qtables \
             else self.repeat_entries
-        stateind_labels = self.stateind_entries
+        run_labels = self.run_entries
         if prm['RL']['type_learning'] == 'q_learning' and not self.save_qtables:
-            stateind_labels += ["q_tables", "counter"]
+            run_labels += ["q_tables", "counter"]
 
         for label in repeat_labels:
             for repeat in range(prm["RL"]["n_repeats"]):
                 self._loading_file(label, repeat)
-        for label in stateind_labels:
+        for label in run_labels:
             self._loading_file(label)
 
     def _loading_file(self, label: str, repeat: int = None):
@@ -234,7 +262,7 @@ class Record():
         Given instruction for specific file to load by load method,
         """
         str_ = f"{label}" if repeat is None else f"{label}_repeat{repeat}"
-        str_ = os.path.join(self.paths["record_folder"], str_ + ".npy")
+        str_ = os.path.join(self.record_folder, str_ + ".npy")
         obj = np.load(str_, allow_pickle=True)
         if len(np.shape(obj)) == 0:
             obj = obj.item()
