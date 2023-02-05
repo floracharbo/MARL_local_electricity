@@ -308,9 +308,8 @@ class LocalElecEnv():
             self.slid_day = False
         home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
             self.policy_to_rewardvar(
-                action, E_req_only=E_req_only,
-                passive_vars=self._get_passive_vars(h),
-            )
+                action, E_req_only=E_req_only)
+                #passive_vars=self._get_passive_vars(h))
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
