@@ -352,6 +352,7 @@ class Explorer():
             self, env, repeat, epoch, i_explore, methods,
             step_vals, evaluation
     ):
+        env.set_passive_active(passive=False)
         rl = self.rl
         self.data.passive_ext = ""
         self.n_homes = self.prm["syst"]["n_homes"]
