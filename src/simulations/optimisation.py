@@ -59,7 +59,11 @@ class Optimiser():
             res["grid"] + self.grd["loss"] * res["grid2"]
         )
         res['hourly_battery_degradation_costs'] = \
-            self.car["C"] * np.sum(res["discharge_tot"] + res["charge"], axis=0)
+            self.car["C"] * (
+                np.sum(res["discharge_tot"] + res["charge"], axis=0)
+                + np.sum(self.loads['discharge_tot0'], axis=0)
+                + np.sum(self.loads['charge0'], axis=0)
+            )
         res['hourly_distribution_network_export_costs'] = \
             self.grd["export_C"] * (np.sum(res["netp_abs"], axis=0) + self.sum_netp0_abs)
         res['hourly_total_costs'] = \
