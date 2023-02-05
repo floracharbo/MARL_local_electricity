@@ -172,9 +172,6 @@ def _clean_up(prm, no_run):
 
 
 def _print_stats_cons_constraints_errors(prm, data_manager):
-    # self.n_optimisations = 0
-    # self.pp_simulations = 0
-    # self.max_cons_slack = -1
     if data_manager.n_optimisations > 0:
         if data_manager.n_cons_constraint_violations == 0:
             print(
