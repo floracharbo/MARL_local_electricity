@@ -215,8 +215,8 @@ class Network:
             else:
                 self.net.sgen['q_mvar'].iloc[home] = abs(netq_flex[home]) / 1000
         # passive houses
-        if self.homeP is not None:
-            for homeP in self.homesP:
+        if self.homesP is not None:
+            for homesP in self.homesP:
                 # active power
                 if p_non_flex[homeP] >= 0:
                     self.net.load['p_mw'].iloc[home + homeP] = p_non_flex[homeP] / 1000

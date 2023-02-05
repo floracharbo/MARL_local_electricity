@@ -561,9 +561,9 @@ class LocalElecEnv():
             # p_non_flex, _, _ = self._get_passive_vars(h)
             p_non_flex = 0
             q_heat_home_car_non_flex = p_non_flex \
-                * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
+                * math.tan(math.acos(self.prm['grd']['pf_non_flex_heat_home_car']))
             q_heat_home_flex = home_vars['tot_cons'] \
-                * math.tan(math.acos(self.grd['pf_flex_heat_homer']))
+                * math.tan(math.acos(self.prm['grd']['pf_flexible_heat_home']))
             # q_car_flex will be a decision variable
             q_car_flex = 0
             # p_car_flex is needed to set apparent power limits
