@@ -36,9 +36,9 @@ def _print_stats_voltage_losses_errors(prm, env):
                 f"subset_line_losses_modelled "
                 f"(currently: {env.network.subset_line_losses_modelled} lines)"
             )
-        if env.network.n_voltage_error > 1:
+        if env.network.count_correction_opti_with_pp > 1:
             print(
-                f"Warning: There were {env.network.n_voltage_error} difference "
+                f"Warning: There were {env.network.count_correction_opti_with_pp} difference "
                 f"in hourly voltage costs between the optimisation and pandapower "
                 f"larger than 0.01% of the total daily costs\n. "
                 f"The largest error was {env.network.max_voltage_rel_error * 100} %.\n"
