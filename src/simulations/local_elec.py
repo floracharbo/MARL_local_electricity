@@ -373,6 +373,14 @@ class LocalElecEnv():
                 return [next_state, self.done, reward, break_down_rewards,
                         home_vars['bool_flex'], constraint_ok, None]
 
+
+    def get_passive_vars(self, time_step):
+        passive_vars = [
+            self.prm["loads"][e][:, time_step]
+            for e in ["netp0", "discharge_tot0", "charge0"]
+        ]
+        return passive_vars
+
     def get_reward(
             self,
             netp: list,
@@ -388,15 +396,13 @@ class LocalElecEnv():
             netp0, discharge_tot0, charge0 = passive_vars
         elif self.passive_ext == 'P':
             netp0, discharge_tot0, charge0 = [
-                [0 for _ in range(self.prm['syst']['n_homesP'])] for _ in range(3)
+                np.zeros(self.prm['syst']['n_homesP']) for _ in range(3)
             ]
         else:
             seconds_per_interval = 3600 * 24 / self.prm['syst']['H']
             hour = int((self.date - self.date0).seconds / seconds_per_interval)
-            netp0, discharge_tot0, charge0 = [
-                [self.prm['loads'][e][home][hour]
-                 for home in range(self.prm['syst']['n_homesP'])]
-                for e in ['netp0', 'discharge_tot0', 'charge0']]
+            netp0, discharge_tot0, charge0 = self.get_passive_vars(hour)
+
         time_step = self.time if time_step is None else time_step
         if discharge_tot is None:
             discharge_tot = self.car.discharge_tot
@@ -574,7 +580,7 @@ class LocalElecEnv():
                 self.time, self.date, self.done, self.car.store
             ]
             batch_flex_h = [
-                self.batch[home]['flex'][self.step] for home in self.homes
+                self.batch[home]['flex'][self.time] for home in self.homes
             ]
         else:
             date = inputs[1]
