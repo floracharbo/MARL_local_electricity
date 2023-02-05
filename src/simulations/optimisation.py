@@ -477,24 +477,20 @@ class Optimiser():
         for tl in tlpairs:
             constl[tl] = p.add_variable('constl{0}'.format(tl), (self.n_homes, self.N))
 
-        loads_met_constraints = []
         constl_constraints = []
         for load_type in range(self.loads['n_types']):
-            loads_met_constraints_lt = []
             constl_constraints_lt = []
             for home in range(self.n_homes):
-                loads_met_constraints_lt_home = []
                 constl_constraints_lt_home = []
                 for time in range(self.N):
                     # time = tD
-                    loads_met_constraints_lt_home_t = p.add_constraint(
+                    p.add_constraint(
                         pic.sum(
                             [constl[time, load_type][home, tC]
                              * self.grd['flex'][time, load_type, home, tC]
                              for tC in range(self.N)]
                         )
                         == self.grd['loads'][load_type, home, time])
-                    loads_met_constraints_lt_home.append(loads_met_constraints_lt_home_t)
                     # time = tC
                     constl_constraints_lt_home_t = p.add_constraint(
                         pic.sum(
@@ -502,9 +498,7 @@ class Optimiser():
                         ) == consa[load_type][home, time]
                     )
                     constl_constraints_lt_home.append(constl_constraints_lt_home_t)
-                loads_met_constraints_lt.append(loads_met_constraints_lt_home)
                 constl_constraints_lt.append(constl_constraints_lt_home)
-            loads_met_constraints.append(loads_met_constraints_lt)
             constl_constraints.append(constl_constraints_lt)
         p.add_constraint(
             pic.sum(
@@ -512,14 +506,12 @@ class Optimiser():
                  for load_type in range(self.loads['n_types'])]
             ) + E_heat
             == totcons)
-        consa_positivity_constraints = []
         for load_type in range(self.loads['n_types']):
-            c = p.add_constraint(consa[load_type] >= 0)
-            consa_positivity_constraints.append(c)
+            p.add_constraint(consa[load_type] >= 0)
         p.add_list_of_constraints([constl[tl] >= 0 for tl in tlpairs])
         p.add_constraint(totcons >= 0)
 
-        return p, totcons, loads_met_constraints, constl_constraints, consa_positivity_constraints
+        return p, totcons, constl_constraints
 
     def _temperature_constraints(self, p):
         """Add temperature constraints to the problem."""
@@ -644,8 +636,7 @@ class Optimiser():
 
         p, charge, discharge_other, battery_degradation_costs = self._storage_constraints(p)
         p, E_heat = self._temperature_constraints(p)
-        p, totcons, loads_met_constraints, constl_constraints, consa_positivity_constraints \
-            = self._cons_constraints(p, E_heat)
+        p, totcons, constl_constraints = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(p)
         # prosumer energy balance, active power
         p.add_constraint(
@@ -669,7 +660,7 @@ class Optimiser():
 
         if self.grd['manage_voltage']:
             res, pp_simulation_required = self._check_and_correct_cons_constraints(
-                res, constl_constraints, consa_positivity_constraints, loads_met_constraints
+                res, constl_constraints
             )
         else:
             pp_simulation_required = False
@@ -679,9 +670,8 @@ class Optimiser():
         return res, pp_simulation_required
 
     def _check_and_correct_cons_constraints(
-            self, res, constl_constraints, consa_positivity_constraints, loads_met_constraints
+            self, res, constl_constraints
     ):
-        slacks_pos = consa_positivity_constraints[1].slack
         slacks_constl = np.array([
             [
                 [
@@ -692,23 +682,9 @@ class Optimiser():
             ]
             for load_type in range(self.loads['n_types'])
         ])
-        slack_loads_met = np.array([
-            [
-                [
-                    loads_met_constraints[load_type][home][time_step].slack
-                    for time_step in range(self.N)
-                ]
-                for home in range(self.n_homes)
-            ]
-            for load_type in range(self.loads['n_types'])
-        ])
         load_types_slack, homes_slack, time_steps_slack = np.where(
             slacks_constl < - self.tol_cons_constraints
         )
-        if np.min(slack_loads_met) < - self.tol_cons_constraints:
-            print("issues with slack_loads_met too!")
-        if np.min(slacks_pos) < - self.tol_cons_constraints:
-            assert len(load_types_slack) > 0, "slack pos issue whereas no slacks_constl issue?"
 
         pp_simulation_required = len(time_steps_slack) > 0
         if pp_simulation_required:
