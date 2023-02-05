@@ -43,12 +43,12 @@ class DataManager():
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
-        self.rl = prm['RL']
-        self.check_feasibility_with_opt = self.rl['check_feasibility_with_opt']
         self.deterministic_created = False
 
         self.seeds = prm['RL']['seeds']
+        self.rl = prm['RL']
         self.force_optimisation = prm['syst']['force_optimisation']
+        self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
@@ -64,6 +64,11 @@ class DataManager():
 
         self.timer_optimisation = []
         self.timer_feasible_data = []
+
+        # keep track of optimisation consumption constraint violations
+        self.n_optimisations = 0
+        self.n_cons_constraint_violations = 0
+        self.max_cons_slack = -1
 
     def format_grd(self, batch, passive_ext):
         """Format network parameters in preparation for optimisation."""
@@ -145,8 +150,9 @@ class DataManager():
         return seed_data, new_res, data_feasible
 
     def _check_data_computations_required(self, type_actions, feasibility_checked):
-        opt_needed = 'opt' in type_actions \
-                     or (not feasibility_checked and self.check_feasibility_with_opt)
+        opt_needed = \
+            'opt' in type_actions \
+            or (not feasibility_checked and self.rl['check_feasibility_with_opt'])
 
         if opt_needed:
             file_exists = (self.paths['opt_res'] / self.res_name).is_file()
@@ -212,6 +218,9 @@ class DataManager():
                 end = time.time()
                 duration_opti = end - start
                 self.timer_optimisation.append(duration_opti)
+                self.n_optimisations += 1
+                self.n_cons_constraint_violations += pp_simulation_required
+                self.max_cons_slack = np.max([self.max_cons_slack, res['max_cons_slack']])
             except Exception as ex:  # if infeasible, make new data
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())
@@ -503,7 +512,8 @@ class DataManager():
         n_homes = len(res["E_heat"])
         cons_flex_opt = res["house_cons"][:, time_step] - batchflex_opt[:, time_step, 0]
 
-        assert np.all(np.greater(cons_flex_opt, - 1e-2)), f"cons_flex_opt {cons_flex_opt}"
+        assert np.all(np.greater(cons_flex_opt, - self.tol_cons_constraints * 2)), \
+            f"cons_flex_opt {cons_flex_opt}"
         cons_flex_opt = np.where(cons_flex_opt > 0, cons_flex_opt, 0)
         inputs_update_flex = [
             time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes

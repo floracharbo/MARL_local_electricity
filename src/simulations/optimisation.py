@@ -664,6 +664,7 @@ class Optimiser():
             )
         else:
             pp_simulation_required = False
+            res['max_cons_slack'] = -1
 
         res['corrected_cons'] = pp_simulation_required
 
@@ -687,12 +688,7 @@ class Optimiser():
         )
 
         pp_simulation_required = len(time_steps_slack) > 0
-        if pp_simulation_required:
-            print(
-                f"Warning: consumptions do not add up in optimisation results.\n"
-                f"The constraints are violated by {abs(np.min(slacks_constl)):.2E}\n"
-                "This will be fixed but optimality is not guaranteed."
-            )
+        res['max_cons_slack'] = abs(np.min(slacks_constl))
 
         for load_type, home, time_step in zip(
                 load_types_slack, homes_slack, time_steps_slack
