@@ -69,7 +69,7 @@ class LocalElecEnv():
             n_homes=prm['syst']['n_homes'],
             factors0=prm['syst']['f0'],
             clusters0=prm['syst']['clus0'],
-            prm=prm
+            prm=prm,
         )
         self.spaces = EnvSpaces(self)
         self.spaces.new_state_space(self.rl['state_space'])
@@ -102,7 +102,7 @@ class LocalElecEnv():
                 factors0=prm['syst']['f0'],
                 clusters0=prm['syst']['clus0'],
                 prm=prm,
-                other_prm={'car': {'cap': prm['car']['capP']}}
+                other_prm={'car': {'cap': prm['car']['capP']}},
             )
 
     def reset(
@@ -168,22 +168,14 @@ class LocalElecEnv():
     def set_passive_active(self, passive: bool = False):
         """Update environment properties for passive or active case."""
         self.passive_ext = 'P' if passive else ''
-        for info in [
-            'cap', 'T_LB', 'T_UB', 'T_req', 'store0',
-            'mincharge', 'car', 'loads', 'gen'
-        ]:
-            # set variables for passive or active case
-            setattr(self, f"{info}_p", info + self.passive_ext)
-        self.coeff_T = self.prm['heat']['T_coeff' + self.passive_ext]
-        self.coeff_Tair = self.prm['heat']['T_air_coeff' + self.passive_ext]
         self.n_homes = self.prm['syst']['n_homes' + self.passive_ext]
         self.homes = range(self.n_homes)
-        for e in ['cap_p', 'store0_p', 'mincharge_p', 'n_homes']:
-            setattr(self.action_translator, e, getattr(self, e))
-            setattr(self.spaces, e, getattr(self, e))
-
-        self.T_air = [self.prm['heat']['T_req' + self.passive_ext][home][0]
-                      for home in self.homes]
+        setattr(self.action_translator, 'n_homes', getattr(self, 'n_homes'))
+        setattr(self.spaces, 'n_homes', getattr(self, 'n_homes'))
+        self.T_air = [
+            self.prm['heat']['T_req' + self.passive_ext][home][0]
+            for home in self.homes
+        ]
         self.car.set_passive_active(passive, self.prm)
 
     def update_date(self, i0_costs: int, date0: datetime = None):
@@ -394,7 +386,7 @@ class LocalElecEnv():
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
             netp0, discharge_tot0, charge0 = passive_vars
-        elif self.cap_p == 'capP':
+        elif self.passive_ext == 'P':
             netp0, discharge_tot0, charge0 = [
                 [0 for _ in range(self.prm['syst']['n_homesP'])] for _ in range(3)
             ]
@@ -641,65 +633,6 @@ class LocalElecEnv():
                   if rand > p_intervals[ip]][-1]
         return choice
 
-    def _next_factors(self, passive_ext=None, transition_type=None, rands=None, homes=[]):
-        """Compute self-correlated random scaling factors for data profiles."""
-        homes = range(self.prm['syst']['n_homes' + passive_ext]) if len(homes) == 0 else homes
-        if passive_ext is None:
-            passive_ext = '' if self.car_p == 'car' else 'P'
-        transition_type = transition_type if transition_type is not None \
-            else self.labels_day_trans[self.idt0 * 2 + self.idt * 1]
-        transition_type_ = transition_type[0:2] \
-            if transition_type not in self.residual_distribution_prms["loads"] \
-            else transition_type
-        factor_ev_new_interval = np.zeros((len(homes),))
-        for i_home in range(len(homes)):
-            home = homes[i_home]
-            # factor for demand - differentiate between day types
-            df = norm.ppf(
-                rands[0][i_home],
-                *list(self.residual_distribution_prms["loads"][transition_type_])
-            )
-            self.f['loads' + passive_ext][home] = \
-                self.f["loads" + passive_ext][home] \
-                + df \
-                - self.mean_residual["loads"][transition_type_]
-            # factor for generation - without differentiation between day types
-            df = norm.ppf(
-                rands[2][i_home], *self.residual_distribution_prms["gen"]
-            )
-            self.f["gen" + passive_ext][home] = \
-                self.f["gen" + passive_ext][home] + df - self.mean_residual["gen"]
-
-            # factor for EV consumption
-            fs_brackets = self.prm['car']['fs_brackets'][transition_type_]
-            current_interval = \
-                [i for i in range(self.prm['car']['intervals_fprob'] - 1)
-                 if fs_brackets[i] <= self.f['car' + passive_ext][home]][-1]
-
-            if self.cluss[home]["car"][-1] == self.n_clus["car"]:
-                # no trip day the day before
-                probs = self.prm["car"]["f_prob_zero2pos"][transition_type_]
-            else:
-                probs = self.prm["car"]["f_prob_pos"][transition_type_][current_interval]
-            choice = self._ps_rand_to_choice(
-                probs, rands[1][i_home]
-            )
-            factor_ev_new_interval[i_home] = choice
-            self.f["car" + passive_ext][home] \
-                = self.prm["car"]["mid_fs_brackets"][transition_type_][int(choice)]
-            for data_type in ["loads", "car"]:
-                self.f[f"{data_type}{passive_ext}"][home] = min(
-                    max(self.hedge.f_min[data_type], self.f[f"{data_type}{passive_ext}"][home]),
-                    self.hedge.f_max[data_type]
-                )
-            i_month = self.date.month - 1
-            self.f[f"gen{passive_ext}"][home] = min(
-                max(self.hedge.f_min["gen"][i_month], self.f[f"gen{passive_ext}"][home]),
-                self.hedge.f_max["gen"][i_month]
-            )
-
-        return factor_ev_new_interval
-
     def _get_next_clusters(self, transition_type, homes):
         for home in homes:
             for data_type in self.behaviour_types:
@@ -769,10 +702,7 @@ class LocalElecEnv():
             for t in range(self.N):
                 tot_t = self.dloaded * self.prm["syst"]["N"] + t
                 loads_t = self.batch[home]["loads"][tot_t]
-                try:
-                    dayflex_a[t, 0] = (1 - share_flexs[home]) * loads_t
-                except Exception as ex:
-                    print(ex)
+                dayflex_a[t, 0] = (1 - share_flexs[home]) * loads_t
                 dayflex_a[t, self.max_delay] = share_flexs[home] * loads_t
             self.batch[home]['flex'] = np.concatenate(
                 (self.batch[home]['flex'], dayflex_a)
