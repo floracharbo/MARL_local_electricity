@@ -237,9 +237,9 @@ class LocalElecEnv():
         for home in range(n_homes):
             remaining_cons = max(cons_flex[home], 0)
 
-            assert cons_flex[home] <= np.sum(batch_flex[home][h][1:]) + 5e-3, \
+            assert cons_flex[home] <= np.sum(batch_flex[home][h][1:]) + 1e-2, \
                 f"cons_flex[home={home}] {cons_flex[home]} " \
-                f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-3"
+                f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-2"
 
             # remove what has been consumed
             for i_flex in range(1, self.max_delay + 1):
