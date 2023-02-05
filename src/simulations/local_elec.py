@@ -558,8 +558,8 @@ class LocalElecEnv():
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
         if self.prm['grd']['manage_voltage']:
-            if passive_vars is not None:
-                p_non_flex, _, _ = self._get_passive_vars(h)
+            # p_non_flex, _, _ = self._get_passive_vars(h)
+            p_non_flex = 0
             q_heat_home_car_non_flex = p_non_flex \
                 * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
             q_heat_home_flex = home_vars['tot_cons'] \
