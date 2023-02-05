@@ -40,14 +40,14 @@ def _print_stats_voltage_losses_errors(prm, env):
             print(
                 f"Warning: There were {env.network.count_correction_opti_with_pp} difference "
                 f"in hourly voltage costs between the optimisation and pandapower "
-                f"larger than {prm['grd']['tol_rel_diff_voltage'] * 100}% of the total daily costs\n. "
+                f"larger than {prm['grd']['tol_rel_voltage_costs'] * 100}% of the total daily costs\n. "
                 f"The largest error was {env.network.max_voltage_rel_error * 100} %.\n"
                 f"The network was simulated with pandapower to correct the voltages "
-                f"when this occurred."
+                f"when this occurred.\n"
             )
     else:
         print(
-            "optimisations were not compared with pandapower simulations "
+            "Optimisations were not compared with pandapower simulations "
             "to check voltages and losses"
         )
 
