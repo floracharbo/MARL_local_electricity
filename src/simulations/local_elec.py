@@ -560,10 +560,10 @@ class LocalElecEnv():
         if self.prm['grd']['manage_voltage']:
             # p_non_flex, _, _ = self._get_passive_vars(h)
             p_non_flex = 0
-            q_heat_home_car_non_flex = p_non_flex \
-                * math.tan(math.acos(self.prm['grd']['pf_non_flex_heat_home_car']))
-            q_heat_home_flex = home_vars['tot_cons'] \
-                * math.tan(math.acos(self.prm['grd']['pf_flexible_heat_home']))
+            q_heat_home_car_non_flex = self._calculate_reactive_power(p_non_flex,
+                self.prm['grd']['pf_non_flex_heat_home_car'])
+            q_heat_home_flex = self._calculate_reactive_power(home_vars['tot_cons'],
+                self.prm['grd']['pf_flexible_heat_home'])
             # q_car_flex will be a decision variable
             q_car_flex = 0
             # p_car_flex is needed to set apparent power limits
@@ -585,6 +585,11 @@ class LocalElecEnv():
             constraint_ok = False
 
         return home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok
+
+
+    def _calculate_reactive_power(self, active_power, power_factor):
+        reactive_power = active_power * math.tan(math.acos(power_factor))
+        return reactive_power
 
     def get_state_vals(
             self,
