@@ -412,7 +412,6 @@ class Learner_DDPG:
 
         return [np.squeeze(legal_action)]
 
-    @tf.function
     def learn(self, prev_state, action, reward, state):
         self.buffer.record((prev_state, action, reward, state))
         self.buffer.learn(self.target_actor, self.target_critic,
