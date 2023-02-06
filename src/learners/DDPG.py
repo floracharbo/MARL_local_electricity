@@ -179,12 +179,6 @@ class Buffer:
                     target_actions, (shape[0], 1, shape[1]))
             else:
                 target_actions = tf.reshape(target_actions, (-1, self.rl['dim_actions']))
-
-            print(f"type(next_state_batch) {type(next_state_batch)}")
-            # print(f"next_state_batch.size() {next_state_batch.size()}")
-            print(f"type(target_actions) {type(target_actions)}")
-            # print(f"target_actions.size() {target_actions.size()}")
-
             target_val = target_critic(
                 [next_state_batch, target_actions], training=True
             )
@@ -387,10 +381,7 @@ class Learner_DDPG:
         """`sample_action()` returns an action sampled from
         our Actor network plus some noise for exploration."""
         self.state_to_sample = state
-        print(f"state {state}")
-        print(f"np.shape(state) {np.shape(state)}")
         x = self.actor_model(state)
-        print(369)
         sampled_actions = tf.squeeze(x)
         noise = self.noise_object() if eps_greedy \
             else [0 for _ in range(self.rl['dim_actions'])]
