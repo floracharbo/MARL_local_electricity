@@ -154,7 +154,7 @@ class Buffer:
     # computations in our function.
     # This provides a large speed up for blocks of code that contain
     # many small TensorFlow operations such as this one.
-    # @tf.function
+    @tf.function
     def update(self, target_actor, target_critic, actor_model, critic_model,
                actor_optimizer, critic_optimizer, state_batch, action_batch,
                reward_batch, next_state_batch):
