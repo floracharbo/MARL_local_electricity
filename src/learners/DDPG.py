@@ -328,7 +328,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_states']), name='critic_stateInput')
         else:
             state_input = layers.Input(
-                shape=(self.rl['dim_states']), name='critic_stateInput')
+                shape=(1, self.rl['dim_states']), name='critic_stateInput')
 
         state_out = layers.Dense(
             16, activation=self.rl['activation'],
@@ -343,7 +343,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_actions']), name='critic_actionInput')
         else:
             action_input = layers.Input(
-                shape=(self.rl['dim_actions']), name='critic_actionInput')
+                shape=(1, self.rl['dim_actions']), name='critic_actionInput')
 
         action_out = layers.Dense(
             32, activation=self.rl['activation'],
