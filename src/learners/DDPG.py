@@ -297,7 +297,6 @@ class Learner_DDPG:
             maxval=+0.003 * self.rl['init_weight_mult'])
 
         model = tf.keras.Sequential()
-        print(f"self.rl['dim_states'] {self.rl['dim_states']}")
         if self.rl['LSTM']:
             model.add(layers.LSTM(self.rl['dim_out_layer12'],
                                   input_shape=(1, self.rl['dim_states']),
@@ -321,8 +320,6 @@ class Learner_DDPG:
         return model
 
     def get_critic(self, name_model=None):
-        print(f"self.rl['dim_actions'] {self.rl['dim_actions']}")
-        print(F"self.rl['dim_states'] {self.rl['dim_states']}")
         # State as input
         if self.rl['LSTM']:
             state_input = layers.Input(
@@ -371,8 +368,6 @@ class Learner_DDPG:
         model = tf.keras.Model([state_input, action_input], outputs)
         if self.name is not None:
             model._name = self.name + name_model
-
-        print(f"model.summary() {model.summary()}")
 
         return model
 
