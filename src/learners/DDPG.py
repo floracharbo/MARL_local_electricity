@@ -307,7 +307,6 @@ class Learner_DDPG:
         if self.name is not None:
             model._name = self.name + name_model
 
-        print(f"model.summary() {model.summary()}")
         return model
 
     def get_critic(self, name_model=None):
