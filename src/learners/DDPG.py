@@ -130,12 +130,12 @@ class Buffer:
     def reset(self):
         self.buffer_counter = 0
         # We use different np.arrays for each tuple element
-        self.state_buffer = np.zeros(
+        self.state_buffer = tf.zeros(
             (self.buffer_capacity, self.rl['dim_states']))
-        self.action_buffer = np.zeros(
+        self.action_buffer = tf.zeros(
             (self.buffer_capacity, self.rl['dim_actions']))
-        self.reward_buffer = np.zeros((self.buffer_capacity, 1))
-        self.next_state_buffer = np.zeros(
+        self.reward_buffer = tf.zeros((self.buffer_capacity, 1))
+        self.next_state_buffer = tf.zeros(
             (self.buffer_capacity, self.rl['dim_states']))
         self.t = 0
 
