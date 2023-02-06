@@ -76,6 +76,7 @@ class OUActionNoise:
         self.x_initial = x_initial
         self.reset()
 
+    @tf.function
     def __call__(self):
         # Formula taken from
         # https://www.wikipedia.org/wiki/Ornstein-Uhlenbeck_process.
@@ -125,6 +126,7 @@ class Buffer:
         self.reset()
         self.t = 0
 
+    @tf.function
     def reset(self):
         self.buffer_counter = 0
         # We use different np.arrays for each tuple element
@@ -225,6 +227,7 @@ class Buffer:
         )
 
     # We compute the loss and update parameters
+    @tf.function
     def learn(self, target_actor, target_critic, actor_model,
               critic_model, actor_optimizer, critic_optimizer):
         # Get sampling range
@@ -263,6 +266,7 @@ class Learner_DDPG:
         self.name = name
         self.reset()
 
+    @tf.function
     def reset(self):
         self.actor_model = self.get_actor('actor_model')
         self.critic_model = self.get_critic('critic_model')
@@ -407,6 +411,7 @@ class Learner_DDPG:
 
         return [np.squeeze(legal_action)]
 
+    @tf.function
     def learn(self, prev_state, action, reward, state):
         self.buffer.record((prev_state, action, reward, state))
         self.buffer.learn(self.target_actor, self.target_critic,
