@@ -17,7 +17,7 @@ from src.simulations.runner import run
 
 settings = {
     'RL': {
-       'state_space': [['grdC', 'flexibility']],
+       'state_space': [['grdC']],
        'n_epochs': 5,
        'n_repeats': 2,
        'type_learning': ['DDPG'],
