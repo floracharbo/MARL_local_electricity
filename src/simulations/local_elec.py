@@ -459,7 +459,7 @@ class LocalElecEnv():
         )
         costs_wholesale = wholesalet * (sum(netp) + sum(netp0))
         costs_upstream_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
-        total_costs = -reward
+        total_costs = - reward
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
