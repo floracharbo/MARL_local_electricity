@@ -17,19 +17,18 @@ from src.simulations.runner import run
 
 settings = {
     'RL': {
-       'state_space': [['grdC', 'flexibility']],
-       'n_epochs': 20,
-       'n_repeats': 3,
+       'state_space': [['grdC']],
+       'n_epochs': 5,
+       'n_repeats': 2,
        'type_learning': ['DDPG'],
-       'evaluation_methods': [['env_r_c', 'opt_d_d']] * 2,
+       'evaluation_methods': [['env_r_c']],
        'facmac': {
            'hysteretic': True,
            'beta_to_alpha': 0.11,
         },
     },
     'syst': {
-       'n_homes': 10,
-
+       'n_homes': 5,
     }
 }
 
