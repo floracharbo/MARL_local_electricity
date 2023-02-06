@@ -57,9 +57,17 @@ class Optimiser():
             res["grid"] + self.grd["loss"] * res["grid2"]
         )
         res['hourly_battery_degradation_costs'] = \
-            self.car["C"] * np.sum(res["discharge_tot"] + res["charge"], axis=0)
+            self.car["C"] * (
+                np.sum(res["discharge_tot"] + res["charge"], axis=0)
+                + np.sum(self.loads['discharge_tot0'], axis=0)
+                + np.sum(self.loads['charge0'], axis=0)
+            )
         res['hourly_distribution_network_export_costs'] = \
-            self.grd["export_C"] * np.sum(res["netp_export"], axis=0)
+            self.grd["export_C"] * (
+                np.sum(res["netp_export"], axis=0)
+                + np.sum(self.netp0_export, axis=0)
+            )
+
         res['hourly_total_costs'] = \
             (res['hourly_import_export_costs'] + res['hourly_voltage_costs']) \
             * self.grd["weight_network_costs"] \
@@ -422,35 +430,33 @@ class Optimiser():
                 (self.n_homes, self.N),
                 vtype='continuous'
             )
-            self.sum_netp0_export = np.sum(
-                np.where(self.loads['netp0'] < 0, abs(self.loads['netp0']), 0)
+            self.netp0_export = np.where(
+                self.loads['netp0'] < 0,
+                abs(self.loads['netp0']),
+                0
             )
             p.add_constraint(netp_export >= - netp)
             p.add_constraint(netp_export >= 0)
+
             # distribution costs
             p.add_constraint(
                 distribution_network_export_costs
-                == grd['export_C'] * (pic.sum(netp_export) + self.sum_netp0_export)
+                == grd['export_C'] * (pic.sum(netp_export) + np.sum(self.netp0_export))
             )
 
         else:
-            netp2 = p.add_variable('netp2', (self.n_homes, self.N),
-                                   vtype='continuous')
-            sum_netp2 = np.sum(
-                [
-                    [
-                        self.loads['netp0'][b0][time] ** 2
-                        for b0 in range(self.syst['n_homesP'])
-                    ]
-                    for time in range(self.N)
-                ]
+            netp2 = p.add_variable(
+                'netp2', (self.n_homes, self.N), vtype='continuous'
             )
+            sum_netp0_squared = np.sum(np.square(self.loads['netp0']))
             for home in range(self.n_homes):
                 p.add_list_of_constraints(
                     [netp2[home, time] >= netp[home, time] * netp[home, time]
                      for time in range(self.N)])
             p.add_constraint(
-                distribution_network_export_costs == grd['export_C'] * (pic.sum(netp2) + sum_netp2)
+                distribution_network_export_costs == grd['export_C'] * (
+                    pic.sum(netp2) + sum_netp0_squared
+                )
             )
 
         return p, distribution_network_export_costs

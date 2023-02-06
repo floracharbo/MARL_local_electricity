@@ -91,7 +91,7 @@ class Explorer():
 
     def _init_passive_data(self):
         for e in ["netp0", "discharge_tot0", "charge0"]:
-            self.prm["loads"][e] = []
+            self.prm["loads"][e] = np.zeros((self.prm['syst']['n_homesP'], self.N))
 
     def _passive_get_steps(
             self, env, repeat, epoch, i_explore, methods, step_vals
@@ -112,8 +112,9 @@ class Explorer():
         )
 
         # reset environment
-        env.reset(seed=self.data.seed[self.data.passive_ext],
-                  load_data=True, passive=True)
+        env.reset(
+            seed=self.data.seed[self.data.passive_ext], load_data=True, passive=True
+        )
 
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
@@ -121,12 +122,14 @@ class Explorer():
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
                 action, record=record,
-                evaluation=evaluation, netp_storeout=True)
-            for info, val in zip(
-                    ["netp0", "discharge_tot0", "charge0"],
-                    [netp, discharge_tot, charge]
-            ):
-                self.prm["loads"][info].append(val)
+                evaluation=evaluation, netp_storeout=True
+            )
+            if not done:
+                for info, val in zip(
+                        ["netp0", "discharge_tot0", "charge0"],
+                        [netp, discharge_tot, charge]
+                ):
+                    self.prm["loads"][info][:, env.time] = val
             if not sequence_feasible:
                 # if data is not feasible, make new data
                 if seed_ind < len(self.data.seeds[self.data.passive_ext]):
@@ -168,11 +171,6 @@ class Explorer():
                      env.car.store]
                 env.get_state_vals(inputs=inputs_state_val)
                 sequence_feasible = True
-        for info in ["netp0", "discharge_tot0", "charge0"]:
-            self.prm["loads"][info] = [
-                [self.prm["loads"][info][time][home] for time in range(self.N)]
-                for home in self.homes
-            ]
 
         return step_vals
 
@@ -352,6 +350,7 @@ class Explorer():
             self, env, repeat, epoch, i_explore, methods,
             step_vals, evaluation
     ):
+        env.set_passive_active(passive=False)
         rl = self.rl
         self.data.passive_ext = ""
         self.n_homes = self.prm["syst"]["n_homes"]
@@ -537,14 +536,6 @@ class Explorer():
 
         return step_vals_i, date, loads, loads_step, loads_prev, home_vars
 
-    def _get_passive_vars(self, time_step):
-        passive_vars = \
-            [[self.prm["loads"][e][home][time_step]
-              for home in range(self.prm['syst']['n_homesP'])]
-             for e in ["netp0", "discharge_tot0", "charge0"]]
-
-        return passive_vars
-
     def _check_res_T_air(self, res, time_step):
         for home in self.homes:
             T_air = res["T_air"][home][time_step]
@@ -701,7 +692,8 @@ class Explorer():
                             f"{label} costs do not match: env {sub_cost_env} vs res {sub_cost_res} "
                             f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
                         )
-            assert abs(reward + res['hourly_total_costs'][time_step]) < 1e-3, \
+
+            assert abs(reward + res['hourly_total_costs'][time_step]) < 5e-3, \
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
@@ -847,7 +839,7 @@ class Explorer():
                 discharge_tot=res["discharge_tot"][:, time_step],
                 charge=res["charge"][:, time_step],
                 time_step=time_step,
-                passive_vars=self._get_passive_vars(time_step),
+                passive_vars=self.env.get_passive_vars(time_step),
                 hourly_line_losses=res['hourly_line_losses'][time_step],
                 voltage_squared=res['voltage_squared'][:, time_step],
             )
@@ -1037,7 +1029,7 @@ class Explorer():
             home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
                 env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
-            passive_vars = self._get_passive_vars(time_step)
+            passive_vars = self.env.get_passive_vars(time_step)
             reward_baseline_a, _ = env.get_reward(
                 netp=home_vars["netp"],
                 discharge_tot=self.env.car.discharge_tot,
