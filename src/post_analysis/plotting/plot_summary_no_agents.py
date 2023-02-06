@@ -105,6 +105,99 @@ def plot_results_vs_nag():
     res_entries = ['xs', 'ave', 'std', 'p25', 'p50', 'p75']
     res = initialise_dict(res_entries, 'empty_dict')
 
+    # new runs 50 epochs - for paper
+    # runs = [263, 264, 265, 266, 267, 268, 269, 270, 271]
+    # n_ags = [1,   2,   3,   4,   5,   15,  10,  20, 30]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+
+    # fixed advantage - 20210308
+    # runs = [272, 273, 274, 275, 276, 277, 278, 279]
+    # n_ags = [1,   4,   10,  2,   3,   5,   20,  30]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+
+    # 07 May 2021 - compare again, hysteretic
+    # runs = [395, 392, 396, 397]
+    # n_ags = [1,   5,   10,  30 ]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+    # TITLE = 'results_vs_nag_hysteretic_20210507'
+
+    # 8 May 2021 - compare again, NOT hysteretic
+    # runs = [403, 404, 405, 406]
+    # n_ags = [1,   5,   10,  30 ]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+
+    # policy_gradient (DDPG) 09.05.21
+    # runs = [428, 429, 430, 431]
+    # n_ags = [1,   5,   10,  30 ]
+    # opts = [False for _ in range(len(runs))]
+    # diff = [False for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+    # to_plot = ['env_r_c']
+
+    # not policy gradient, 20 repeats, 12.05.21
+    # runs = [433, 434, 435]
+    # n_ags = [1,   5,   10]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+
+    # policy gradient 10 repeats 11.06.21
+    # runs = range(505, 509)
+    # n_ags = [1,   5,   10,  30 ]
+    # opts = [False for _ in range(len(runs))]
+    # diff = [False for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+    # to_plot = ['env_r_d']
+    # TITLE = 'results_vs_nag_DDPG_110621'
+
+    # runs = range(518,527) # for update paper applied energy
+    # n_ags = [1, 2, 3, 4, 5, 15, 10, 20, 30]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+    # TITLE = 'results_vs_nag_20210713'
+    # type_learning = ['q_learning'] * len(n_ags)
+
+    # 25 aug 2021 - new data as changed temperature control
+    # - for update IEEEv2 - also for 1st submission applied energy
+    # for update paper applied energy
+    runs = list(range(530, 537)) + list(range(538, 543))[:-3]
+
+    n_ags = [1, 2, 3, 5, 10, 20, 30, 4, 15, 7, 6, 50][:-3]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+    TITLE = 'results_vs_nag_20210826_tryagain_'
+    # type_learning = ['q_learning'] * len(n_ags)
+
+    # 07 feb 2022 - new data as changed temperature control
+    # for resubmission applied energy
+    # runs = [603, 604] + list(range(606, 613))
+    # n_ags = [1, 2, 3, 4, 5, 10, 15, 20, 30]
+    # opts = [True for _ in range(len(runs))]
+    # diff = [True for _ in range(len(runs))]
+    # larQ = [False for _ in range(len(runs))]
+    # polg = [False for _ in range(len(runs))]
+    # TITLE = 'results_vs_nag_20220209'
+    # type_learning = ['q_learning'] * len(n_ags)
+    #
     plt.rcParams['font.size'] = '10'
 
     to_plot = ['opt', 'env_r_c', 'opt_d_d']
