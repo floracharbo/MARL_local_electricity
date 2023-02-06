@@ -320,6 +320,8 @@ class Learner_DDPG:
         return model
 
     def get_critic(self, name_model=None):
+        print(f"self.rl['dim_actions'] {self.rl['dim_actions']}")
+        print(F"self.rl['dim_states'] {self.rl['dim_states']}")
         # State as input
         if self.rl['LSTM']:
             state_input = layers.Input(
