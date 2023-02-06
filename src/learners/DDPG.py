@@ -177,7 +177,8 @@ class Buffer:
                     target_actions, (shape[0], 1, shape[1]))
             print(f"type(next_state_batch) {type(next_state_batch)}")
             # print(f"next_state_batch.size() {next_state_batch.size()}")
-            print(f"target_actions.size() {target_actions.size()}")
+            print(f"type(target_actions) {type(target_actions)}")
+            # print(f"target_actions.size() {target_actions.size()}")
 
             target_val = target_critic(
                 [next_state_batch, target_actions], training=True
