@@ -209,8 +209,11 @@ class Network:
             netq_flex: list = None,
             netq_non_flex: list = None):
         """ Given selected action, obtain voltage on buses and lines using pandapower """
+        # removing old loads
         self.net.load.p_mw = 0
         self.net.sgen.p_mw = 0
+        self.net.load.q_var = 0
+        self.net.sgen.q_var = 0
         # pandapower uses MW while the simulations uses kW
         # add a load if power < 0 or a generation if power > 0
         # assign flexible homes
