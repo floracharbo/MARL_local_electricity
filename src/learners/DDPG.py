@@ -325,6 +325,7 @@ class Learner_DDPG:
         if self.name is not None:
             model._name = self.name + name_model
 
+        print(f"model.summary() {model.summary()}")
         return model
 
     def get_critic(self, name_model=None):
@@ -384,6 +385,7 @@ class Learner_DDPG:
         """`sample_action()` returns an action sampled from
         our Actor network plus some noise for exploration."""
         self.state_to_sample = state
+        print(f"np.shape(state) {np.shape(state)}")
         x = self.actor_model(state)
         sampled_actions = tf.squeeze(x)
         noise = self.noise_object() if eps_greedy \
