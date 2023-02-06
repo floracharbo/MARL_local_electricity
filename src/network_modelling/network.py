@@ -233,7 +233,7 @@ class Network:
                     netq_non_flex, self.n_homes + homeP, type='q_mvar')
 
         pp.runpp(self.net)
-        self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw > 0])
+        self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw >= 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
         voltage = np.array(self.net.res_bus['vm_pu'])
