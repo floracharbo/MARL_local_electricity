@@ -170,8 +170,6 @@ class Buffer:
             )
             action_batch = tf.reshape(action_batch, (shape[0], 1, shape[1]))
         else:
-            if len(state_batch.shape) == 2 and state_batch.shape[1] == self.rl['dim_states']:
-                print(f"172 useless")
             state_batch = tf.reshape(state_batch, (-1, self.rl['dim_states']))
         with tf.GradientTape() as tape:
             target_actions = target_actor(next_state_batch, training=True)
@@ -179,8 +177,6 @@ class Buffer:
                 target_actions = tf.reshape(
                     target_actions, (shape[0], 1, shape[1]))
             else:
-                if len(target_actions.shape) == 2 and target_actions.shape[1] == self.rl['dim_actions']:
-                    print(f"188 useless")
                 target_actions = tf.reshape(target_actions, (-1, self.rl['dim_actions']))
             target_val = target_critic(
                 [next_state_batch, target_actions], training=True
@@ -214,8 +210,6 @@ class Buffer:
             if self.rl['LSTM']:
                 actions = tf.reshape(actions, (shape[0], 1, shape[1]))
             else:
-                if len(actions.shape) == 2 and actions.shape[1] == self.rl['dim_actions']:
-                    print(f"223 useless")
                 actions = tf.reshape(actions, (-1, self.rl['dim_actions']))
             critic_value = critic_model([state_batch, actions], training=True)
             # Used `-value` as we want to maximize the value given
@@ -237,8 +231,6 @@ class Buffer:
             record_range, self.rl['DDPG']['batch_size'])
 
         # Convert to tensors
-        if len(self.state_buffer[batch_indices].shape) == 3 and self.state_buffer[batch_indices].shape[1] == 1 and self.state_buffer[batch_indices].shape[2] == self.rl['dim_states']:
-            print(f"245 useless")
         state_batch = tf.reshape(tf.convert_to_tensor(self.state_buffer[batch_indices]), (-1, 1, self.rl['dim_states']))
         action_batch = tf.convert_to_tensor(self.action_buffer[batch_indices])
         reward_batch = tf.convert_to_tensor(self.reward_buffer[batch_indices])
