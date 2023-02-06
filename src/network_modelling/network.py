@@ -9,6 +9,7 @@ Created on Mon Nov 28 2022.
 import numpy as np
 import pandapower as pp
 import pandapower.networks
+import random
 
 
 class Network:
@@ -77,6 +78,10 @@ class Network:
             self.n_voltage_error = 0
             self.max_voltage_rel_error = - 1
 
+            # randomly assigning agents to laoded buses
+            self.existing_homes_network = list(self.net.asymmetric_load['bus'])
+            random.shuffle(self.existing_homes_network)
+
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """
         flex_buses = np.zeros((len(self.net.bus), self.n_homes))
@@ -126,15 +131,21 @@ class Network:
         self.non_flex_buses = self._matrix_non_flexible_buses()
 
         if len(self.net.asymmetric_load) > 0:
-            # Add single phase loads and sgen to originally loaded buses
-            houses = self.net.asymmetric_load
-            for i in range(len(houses)):
-                pp.create_load(self.net, houses['bus'][i], p_mw=0, q_mvar=0, name=f"load{i+1}")
-                pp.create_sgen(self.net, houses['bus'][i], p_mw=0, q_mvar=0, name=f"sgen{i+1}")
             # Remove asymmetric loads on the three phases
-            for i in range(len(self.net.asymmetric_load)):
-                self.net.asymmetric_load['in_service'] = False
-
+            self.net.asymmetric_load['in_service'] = False
+            # Add single phase loads and generations instead
+            for home in self.homes:
+                pp.create_load(self.net, bus=self.existing_homes_network[home],
+                    p_mw=0, q_mvar=0, name=f'flex{home}')
+                pp.create_sgen(self.net, bus=self.existing_homes_network[home],
+                    p_mw=0, q_mvar=0, name=f'flex{home}')
+            if self.n_homesP > 0:
+                for homeP in self.homesP:
+                    pp.create_load(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                        p_mw=0, q_mvar=0, name=f'passive{homeP}')
+                    pp.create_sgen(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                        p_mw=0, q_mvar=0, name=f'passive{homeP}')
+            
             # Remove bus duplicates
             # buscoords = pd.read_csv(self.network_data_path / 'Buscoords.csv', skiprows=1)
             # self._remove_duplicates_buses_lines(buscoords)
@@ -215,7 +226,7 @@ class Network:
             else:
                 self.net.sgen['q_mvar'].iloc[home] = abs(netq_flex[home]) / 1000
         # passive houses
-        if self.homesP is not None:
+        if self.n_homesP > 0:
             for homeP in self.homesP:
                 # active power
                 if p_non_flex[homeP] >= 0:
