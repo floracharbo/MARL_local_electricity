@@ -162,26 +162,15 @@ class Buffer:
                reward_batch, next_state_batch):
         # Training and updating Actor & Critic networks.
         # See Pseudo Code.
-        if self.rl['LSTM']:
-            shape = np.shape(state_batch)
-            state_batch = tf.reshape(state_batch, (shape[0], 1, shape[1]))
-            next_state_batch = tf.reshape(
-                next_state_batch, (shape[0], 1, shape[1])
-            )
-            action_batch = tf.reshape(action_batch, (shape[0], 1, shape[1]))
-        else:
-            state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
-            next_state_batch = tf.reshape(next_state_batch, (-1, 1, self.rl['dim_states']))
+        # state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
+        # next_state_batch = tf.reshape(
+        #     next_state_batch, (-1, 1, self.rl['dim_states'])
+        # )
+        # action_batch = tf.reshape(action_batch, (-1, 1, self.rl['dim_actions']))
 
         with tf.GradientTape() as tape:
             target_actions = target_actor(next_state_batch, training=True)
-            if self.rl['LSTM']:
-                target_actions = tf.reshape(
-                    target_actions, (shape[0], 1, shape[1]))
-            else:
-                target_actions = tf.reshape(target_actions, (-1, self.rl['dim_actions']))
-                next_state_batch = tf.reshape(next_state_batch, (-1, self.rl['dim_states']))
-                state_batch = tf.reshape(state_batch, (-1, self.rl['dim_states']))
+            # target_actions = tf.reshape(target_actions, (-1, 1, self.rl['dim_actions']))
             target_val = target_critic(
                 [next_state_batch, target_actions], training=True
             )
@@ -209,13 +198,8 @@ class Buffer:
         critic_optimizer.apply_gradients(
             zip(critic_grad, critic_model.trainable_variables)
         )
-        state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
         with tf.GradientTape() as tape:
             actions = actor_model(state_batch, training=True)
-            if self.rl['LSTM']:
-                actions = tf.reshape(actions, (shape[0], 1, shape[1]))
-            else:
-                actions = tf.reshape(actions, (-1, self.rl['dim_actions']))
             critic_value = critic_model([state_batch, actions], training=True)
             # Used `-value` as we want to maximize the value given
             # by the critic for our actions
@@ -236,7 +220,8 @@ class Buffer:
             record_range, self.rl['DDPG']['batch_size'])
 
         # Convert to tensors
-        state_batch = tf.reshape(tf.convert_to_tensor(self.state_buffer[batch_indices]), (-1, 1, self.rl['dim_states']))
+        state_batch = tf.convert_to_tensor(self.state_buffer[batch_indices])
+        # state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
         action_batch = tf.convert_to_tensor(self.action_buffer[batch_indices])
         reward_batch = tf.convert_to_tensor(self.reward_buffer[batch_indices])
         next_state_batch = tf.convert_to_tensor(
@@ -332,7 +317,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_states']), name='critic_stateInput')
         else:
             state_input = layers.Input(
-                shape=(self.rl['dim_states']), name='critic_stateInput')
+                shape=(1, self.rl['dim_states']), name='critic_stateInput')
 
         state_out = layers.Dense(
             16, activation=self.rl['activation'],
@@ -347,7 +332,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_actions']), name='critic_actionInput')
         else:
             action_input = layers.Input(
-                shape=(self.rl['dim_actions']), name='critic_actionInput')
+                shape=(1, self.rl['dim_actions']), name='critic_actionInput')
 
         action_out = layers.Dense(
             32, activation=self.rl['activation'],
@@ -381,7 +366,6 @@ class Learner_DDPG:
                       rdn_eps_greedy_indiv=False):
         """`sample_action()` returns an action sampled from
         our Actor network plus some noise for exploration."""
-        state = tf.reshape(state, (-1, 1, self.rl['dim_states']))
         print(f"np.shape(state) {np.shape(state)}")
         x = self.actor_model(state)
         sampled_actions = tf.squeeze(x)
