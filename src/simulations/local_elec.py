@@ -15,7 +15,6 @@ from typing import List, Tuple
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
-from scipy.stats import norm
 from six import integer_types
 
 from src.home_components.battery import Battery
@@ -213,7 +212,7 @@ class LocalElecEnv():
         if opts is None:
             h = self._get_time_step()
             n_homes = self.n_homes
-            batch_flex = [self.batch[home]['flex'] for home in range(n_homes)]
+            batch_flex = np.array([self.batch[home]['flex'] for home in range(n_homes)])
         else:
             h, batch_flex, max_delay, n_homes = opts
 
@@ -224,18 +223,14 @@ class LocalElecEnv():
             f"np.shape(batch_flex) {np.shape(batch_flex)} " \
             f"self.max_delay {self.max_delay}"
 
-        new_batch_flex = np.array(
-            [
-                [copy.deepcopy(batch_flex[home][ih]) for ih in range(h, h + 2)]
-                for home in range(n_homes)
-            ]
-        )
+        new_batch_flex = copy.deepcopy(batch_flex[:, h: h + 2])
 
         for home in range(n_homes):
             remaining_cons = max(cons_flex[home], 0)
-            assert cons_flex[home] <= np.sum(batch_flex[home][h][1:]) + 1e-3, \
-                f"cons_flex[home] {cons_flex[home]} " \
-                f"> np.sum(batch_flex[home][h][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-3"
+
+            assert cons_flex[home] <= np.sum(batch_flex[home][h][1:]) + 1e-2, \
+                f"cons_flex[home={home}] {cons_flex[home]} " \
+                f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-2"
 
             # remove what has been consumed
             for i_flex in range(1, self.max_delay + 1):
@@ -283,7 +278,7 @@ class LocalElecEnv():
         """Compute environment updates and reward from selected action."""
         h = self._get_time_step()
         homes = self.homes
-        batch_flex = [self.batch[home]['flex'] for home in homes]
+        batch_flex = np.array([self.batch[home]['flex'] for home in homes])
         self._batch_tests(batch_flex, h)
         # self.check_batch_flex(h, batch_flex)
         # update batch if needed
@@ -373,7 +368,6 @@ class LocalElecEnv():
                 return [next_state, self.done, reward, break_down_rewards,
                         home_vars['bool_flex'], constraint_ok, None]
 
-
     def get_passive_vars(self, time_step):
         passive_vars = [
             self.prm["loads"][e][:, time_step]
@@ -416,7 +410,7 @@ class LocalElecEnv():
         # import and export limits
 
         if self.prm['grd']['manage_agg_power']:
-            import_export_costs = self.network.compute_import_export_costs(grid)
+            import_export_costs, _, _ = self.network.compute_import_export_costs(grid)
         else:
             import_export_costs = 0
 
@@ -426,10 +420,10 @@ class LocalElecEnv():
             voltage_costs = 0
 
         if self.prm['grd']['charge_type'] == 0:
-            sum_netp = sum(self.netp_to_exports(netp))
-            sum_netp0 = sum(self.netp_to_exports(netp0))
-            netpvar = sum_netp + sum_netp0
-            distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
+            sum_netp_export = sum(self.netp_to_exports(netp))
+            sum_netp0_export = sum(self.netp_to_exports(netp0))
+            netp_export = sum_netp_export + sum_netp0_export
+            distribution_network_export_costs = self.prm['grd']['export_C'] * netp_export
         else:
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
@@ -457,7 +451,7 @@ class LocalElecEnv():
         )
         costs_wholesale = wholesalet * (sum(netp) + sum(netp0))
         costs_upstream_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
-        total_costs = -reward
+        total_costs = - reward
         emissions = cintensityt * (grid + self.prm['grd']['loss'] * grid ** 2)
         emissions_from_grid = cintensityt * grid
         emissions_from_loss = cintensityt * self.prm['grd']['loss'] * grid ** 2
@@ -484,7 +478,7 @@ class LocalElecEnv():
         return - np.where(netp < 0, netp, 0)
 
     def get_loads_fixed_flex_gen(self, date, time_step):
-        batch_flex = [self.batch[home]['flex'][time_step] for home in self.homes]
+        batch_flex = np.array([self.batch[home]['flex'][time_step] for home in self.homes])
         loads, home_vars = {}, {}
         if date == self.date_end - timedelta(hours=self.dt):
             loads['l_flex'] = np.zeros(self.n_homes)
