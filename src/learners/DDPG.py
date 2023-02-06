@@ -209,6 +209,7 @@ class Buffer:
         critic_optimizer.apply_gradients(
             zip(critic_grad, critic_model.trainable_variables)
         )
+        state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
         with tf.GradientTape() as tape:
             actions = actor_model(state_batch, training=True)
             if self.rl['LSTM']:
