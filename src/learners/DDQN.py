@@ -15,7 +15,7 @@ class Agent_DDQN():
         # per agent per time step
         # dim_actions is the number of decisions to make
         # (e.g. for all agents, for all time steps...)
-        # action_dim is how many different possible actions
+        # action_dim is how many possible actions
         # to consider in the Q table overall
         self.action_dim = rl['n_discrete_actions'] ** rl['dim_actions']
         self.gamma = rl['DDQN']['gamma']  # 0.90

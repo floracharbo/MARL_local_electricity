@@ -1057,7 +1057,7 @@ class Explorer():
 
             rewards_baseline.append(reward_baseline_a)
 
-            # revert back store
+            # revert store
             self.env.car.store = [res["store"][home][time_step] for home in self.homes]
 
         return rewards_baseline, feasible

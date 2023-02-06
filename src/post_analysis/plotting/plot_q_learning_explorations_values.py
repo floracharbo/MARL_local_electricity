@@ -84,7 +84,7 @@ def _plot_unique_state_best_psi(
                 best_theta[method][home][s] = \
                     index_to_val([indmax], typev='action')[0]
 
-            # plot historgram of best theta per method
+            # plot histogram of the best theta per method
             fig, ax = plt.subplots()
             y_pos = np.arange(len(eval_entries_plot_indiv))
             i_tables = [
@@ -149,7 +149,7 @@ def plot_best_actions(
     elif rl['dim_states'] == 1:
         _plot_1d_state_space_best_psi(prm, best_theta, repeat)
 
-    # if two dimensional state space heatmap for each method
+    # if two-dimensional state space heatmap for each method
     # besttheta[state1, state2]
     elif rl['dim_states'] == 2:
         _plot_2d_state_space_best_psi(
@@ -166,7 +166,7 @@ def plot_q_values(repeat, index_to_val, prm):
     if rl['state_space'] == [None] and prm['syst']['n_homes'] < 4:
         for home in range(prm['syst']['n_homes']):
             # plot heat map of value of each action for different methods
-            # 2D array of best theta values
+            # 2D array of the best theta values
             M = np.zeros((len(eval_entries_plot_indiv), rl['n_action']))
 
             for i_t in range(len(eval_entries_plot_indiv)):

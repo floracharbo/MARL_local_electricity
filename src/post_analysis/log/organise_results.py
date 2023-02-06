@@ -854,7 +854,7 @@ def plot_sensitivity_analyses(new_columns, log):
     matplotlib.rc('font', **font)
     # loop through each column
     # search for runs that are all the same except for that one columnx changing
-    # and plot y axis best score vs x axis value (numerical or categorical)
+    # and plot y-axis best score vs x-axis value (numerical or categorical)
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
     columns_of_interest = [
@@ -926,15 +926,18 @@ def remove_key_from_columns_names(new_columns):
 
     return new_columns
 
+
 def remove_server_duplicate(log, columns0):
     if 'RL-server' in columns0:
         log['syst-server'] = log.apply(
-            lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'], axis=1
+            lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'],
+            axis=1
         )
         log.drop(columns=['RL-server'], inplace=True)
         columns0.remove('RL-server')
 
     return log, columns0
+
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")

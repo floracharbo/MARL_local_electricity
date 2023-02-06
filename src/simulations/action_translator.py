@@ -238,7 +238,7 @@ class Action_translator:
         self.l_flex = loads['l_flex']
         flex_heat = np.zeros(self.n_homes)
         for home in homes:
-            # boolean for whether or not we have flexibility
+            # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
             if self.aggregate_actions:
                 flex_heat = None

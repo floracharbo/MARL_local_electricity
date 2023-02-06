@@ -151,7 +151,6 @@ class Learner():
 
     def load_models(self, path):
         self.mac.load_models(path)
-        # Not quite right but I don't want to save target networks
         self.target_mac.load_models(path)
         if self.n_agents > 1 and self.mixer is not None:
             self.mixer.load_state_dict(

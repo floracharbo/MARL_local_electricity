@@ -600,7 +600,7 @@ class HEDGE:
                 if t == self.n_steps - 1
                 else self.car["min_charge"] * day["avail_car"][home][t]
             )
-            # min_charge if need to charge up ahead of last step
+            # min_charge to charge up ahead of last step
             if day["avail_car"][home][t]:  # if you are currently in garage
                 # obtain all future trips
                 trip_loads: List[float] = []

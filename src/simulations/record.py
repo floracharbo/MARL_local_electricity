@@ -28,8 +28,7 @@ class Record():
         self.no_run = no_run
         # initialise entries
         # entries that change for each repeat
-        self.break_down_rewards_entries =\
-            prm["syst"]["break_down_rewards_entries"]
+        self.break_down_rewards_entries = prm["syst"]["break_down_rewards_entries"]
         self.repeat_entries = prm["save"]["repeat_entries"] \
             + prm["syst"]["break_down_rewards_entries"]
 

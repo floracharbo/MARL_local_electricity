@@ -38,9 +38,6 @@ def granularity_to_multipliers(granularity):
     by how much to multiply each of the indexes
     to get a unique integer identifier.
     """
-    # check that i am not going to encounter
-    # RuntimeWarning: overflow encountered in long scalars
-    # granular spaces should only be used if their size is manageable
     for i in range(1, len(granularity)):
         assert np.prod(granularity[-i:]) < 1e9, \
             "the global space is too large for granular representation"
@@ -344,7 +341,7 @@ class EnvSpaces():
                 elif self.discrete[type_][v] == 1:
                     indexes.append(int(vals_home[v]))
                 else:
-                    # correct if value is smaller than smallest bracket
+                    # correct if value is smaller than the smallest bracket
                     if vals_home[v] is None:
                         indexes.append(None)
                     else:

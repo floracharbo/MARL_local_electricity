@@ -38,7 +38,7 @@ def initialise_objects(
         run_mode: int = 1
 ) -> Tuple[dict, Optional[object], dict]:
     """
-    Set up parameters dictionary, load data, initialise recording object.
+    Set up parameters' dictionary, load data, initialise recording object.
 
     inputs:
     prm:
@@ -782,7 +782,11 @@ def _filter_type_learning_facmac(rl):
             if method in valid_types[stage] or "env_r_c" in method:
                 rl[f"{stage}_methods"].append(method)
             else:
-                print(f"Warning: {method} is not a valid method for {stage} stage with facmac and has been removed")
+                print(
+                    f"Warning: {method} is not a valid method for {stage} stage "
+                    f"with facmac and has been removed\n"
+                )
+
 
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning

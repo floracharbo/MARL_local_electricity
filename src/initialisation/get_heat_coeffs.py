@@ -99,7 +99,6 @@ def _get_building_characteristics(heat):
     # mean external temperature and external design temperature
     # - arbitrarily do like matlab
     # GW = 1 # EN 12831 D.4.3 correction factor heat losses through the ground
-    # ground
     H['tf'] = A['f'] * (1 - heat['kf_party']) * heat['Ug'][heat['Uvalues']]
     # ISO 2007 7.2.2.2. coupling conductance W 7.2.2. IS02007 13790:2007(E)
     H['is'] = heat['his'] * A['tot']
@@ -170,7 +169,7 @@ def get_heat_coeffs(heat, syst, paths):
 
     inputs
     heat:
-        the heating input data (e.g. building fabric and geometry, etc)
+        the heating input data (e.g. building fabric and geometry, etc.)
     ntw:
         the network input data
         (here, the number of homes 'n_homes' and 'n_homesP' (passive) is relevant)

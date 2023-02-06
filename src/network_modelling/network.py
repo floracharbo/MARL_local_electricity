@@ -21,7 +21,7 @@ class Network:
     network_incidence_matrix:
         Create the network incidence matrix.
     loads_single_phase:
-        Transform a three phase loaded network to a single phase one
+        Transform a three-phase loaded network to a single phase one
 
     Private methods
     _identify_duplicates_buses_lines
@@ -254,13 +254,6 @@ class Network:
             self.n_losses_error += 1
             if abs_loss_error > self.max_losses_error:
                 self.max_losses_error = abs_loss_error
-            # print(
-            #     f"Warning: The difference in hourly line losses "
-            #     f"between pandapower and optimizer for hour {time_step} "
-            #     f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)}. "
-            #     f"To increase accuracy, the user could increase the subset_line_losses_modelled "
-            #     f"(currently: {self.subset_line_losses_modelled} lines)"
-            # )
 
     def test_network_comparison_optimiser_pandapower(self, res, time_step, grdCt):
         """Compares hourly results from network modelling in optimizer and pandapower"""

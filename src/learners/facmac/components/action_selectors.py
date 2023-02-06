@@ -154,9 +154,6 @@ class GaussianActionSelector():
         self.test_greedy = getattr(args, "test_greedy", True)
 
     def select_action(self, mu, sigma, test_mode=False):
-        # expects the following input dimensionalities:
-        # mu: [b x a x u]
-        # sigma: [b x a x u x u]
         assert mu.dim() == 3, "incorrect input dim: mu"
         assert sigma.dim() == 3, "incorrect input dim: sigma"
         sigma = sigma.view(-1, self.args.n_agents,

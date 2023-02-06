@@ -64,20 +64,20 @@ The data pre-processing for the home energy data generation **HEDGE** can be fou
 conda create -n "my_venv" python==3.9.13
 ```
 
-2. Install packages, inserting your operating system (os) in the yml file name below (mac or linux).
+3. Install packages, inserting your operating system (os) in the yml file name below (mac or linux).
 ```sh
 conda env update --name my_venv --file config_files/environments/environment_[os].yml --prune
 ```
 
-3. Obtain Mosek licence and move to adequate folder.
+4. Obtain Mosek licence and move to adequate folder.
 e.g. https://www.mosek.com/products/academic-licenses/
 
-4. Activate environment:
+5. Activate environment:
 ```sh
 conda activate my_venv
 ```
 
-5. Define user inputs
+6. Define user inputs
 Default settings are in the inputs folder `config_files/input_parameters`:
 - car.yaml: battery inputs
 - gen.yaml: PV generation inputs
@@ -89,14 +89,12 @@ Default settings are in the inputs folder `config_files/input_parameters`:
 - save.yaml: data savings inputs
 - syst.yaml: general system inputs
 
-
-If the user wishes to change these default settings, whilst still being able to compare previous runs in `organise_results`, the previous default settings should be recorded in `input_parameters/previous_defaults.yaml`.
-
 To use experiment-specific settings different to the default parameters in `config_files/default_input_parameters`, enter specific values in the `settings` dictionary in the `main.py` file, as shown in as an example in the file.
 If values entered are in a list format, multiple experiments will loop though these values, so multiple experiments can be planned in one run.
 
+If the user wishes to change the default settings, whilst still being able to compare previous runs in `organise_results`, the previous default settings should be recorded in `input_parameters/previous_defaults.yaml`.
 
-6. Run`main.py`
+7. Run`main.py`
 
 Alternatively, settings can be entered through the command line rather than from the .py or .yaml files, e.g.
 
@@ -104,7 +102,7 @@ Alternatively, settings can be entered through the command line rather than from
 
 Where `-o` stands for observation, `-n` for the number of homes. You can add more abbreviations in the `get_settings_i` function in the `initialise_prm.py` file.
 
-7. Obtain results in`results` folder.
+8. Obtain results in`results` folder.
 
 ## License
 [GNU AGPLv3](LICENSE.txt)

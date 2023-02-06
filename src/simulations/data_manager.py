@@ -57,7 +57,7 @@ class DataManager():
 
         # d_ind_seed is the difference between the current
         # ind_seed from the seed multiplier value and epoch, repeat and
-        # how many i have thrown out because it was infeasible during training
+        # how many were thrown out because they were infeasible during training
         # instead of looking at the n-th seed, look at the(n+d_ind_seed)th seed
         self.d_ind_seed = {'P': 0, '': 0}
 
@@ -436,7 +436,7 @@ class DataManager():
             )
 
         # for subsequent methods, on reinitialisation, it will use this data
-        # obtain data needed saved in batchfile
+        # obtain data saved in the batch file
         [batch] = self._load_res(labels=['batch'])
 
         new_batch_file = 'batch_file' in self.__dict__ \

@@ -154,7 +154,7 @@ class Buffer:
     # Decorating with tf.function allows
     # TensorFlow to build a static graph out of the logic and
     # computations in our function.
-    # This provides a large speed up for blocks of code that contain
+    # This provides a large speed-up for blocks of code that contain
     # many small TensorFlow operations such as this one.
     @tf.function
     def update(self, target_actor, target_critic, actor_model, critic_model,
