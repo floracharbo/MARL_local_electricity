@@ -166,7 +166,7 @@ class Buffer:
         next_state_batch = tf.reshape(
             next_state_batch, (-1, 1, self.rl['dim_states'])
         )
-        # action_batch = tf.reshape(action_batch, (-1, 1, self.rl['dim_actions']))
+        action_batch = tf.reshape(action_batch, (-1, 1, self.rl['dim_actions']))
 
         with tf.GradientTape() as tape:
             target_actions = target_actor(next_state_batch, training=True)
