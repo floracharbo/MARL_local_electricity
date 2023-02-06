@@ -21,7 +21,7 @@ settings = {
        'n_epochs': 5,
        'n_repeats': 2,
        'type_learning': ['DDPG'],
-       'evaluation_methods': [['env_r_c', 'opt_r_c']],
+       'evaluation_methods': [['env_r_c', 'opt_r_c', 'opt_d_d']],
        'facmac': {
            'hysteretic': True,
            'beta_to_alpha': 0.11,
