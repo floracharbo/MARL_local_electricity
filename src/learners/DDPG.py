@@ -180,6 +180,7 @@ class Buffer:
                     target_actions, (shape[0], 1, shape[1]))
             else:
                 target_actions = tf.reshape(target_actions, (-1, self.rl['dim_actions']))
+                next_state_batch = tf.reshape(next_state_batch, (-1, 1, self.rl['dim_states']))
             target_val = target_critic(
                 [next_state_batch, target_actions], training=True
             )
