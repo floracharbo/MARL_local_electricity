@@ -171,6 +171,8 @@ class Buffer:
             action_batch = tf.reshape(action_batch, (shape[0], 1, shape[1]))
         else:
             state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
+            next_state_batch = tf.reshape(next_state_batch, (-1, 1, self.rl['dim_states']))
+
         with tf.GradientTape() as tape:
             target_actions = target_actor(next_state_batch, training=True)
             if self.rl['LSTM']:
