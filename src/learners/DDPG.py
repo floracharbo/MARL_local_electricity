@@ -171,13 +171,6 @@ class Buffer:
             if len(state_batch.shape) == 2 and state_batch.shape[1] == self.rl['dim_states']:
                 print(f"172 useless")
             state_batch = tf.reshape(state_batch, (-1, self.rl['dim_states']))
-            if len(next_state_batch.shape) == 2 and next_state_batch.shape[1] == self.rl['dim_states']:
-                print(f"175 useless")
-            next_state_batch = tf.reshape(next_state_batch, (-1, self.rl['dim_states']))
-            if len(action_batch.shape) == 2 and action_batch.shape[1] == self.rl['dim_actions']:
-                print(f"178 useless")
-            action_batch = tf.reshape(action_batch, (-1, self.rl['dim_actions']))
-
         with tf.GradientTape() as tape:
             target_actions = target_actor(next_state_batch, training=True)
             if self.rl['LSTM']:
