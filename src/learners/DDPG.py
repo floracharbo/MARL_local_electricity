@@ -175,8 +175,13 @@ class Buffer:
             if self.rl['LSTM']:
                 target_actions = tf.reshape(
                     target_actions, (shape[0], 1, shape[1]))
+            print(f"type(next_state_batch) {type(next_state_batch)}")
+            # print(f"next_state_batch.size() {next_state_batch.size()}")
+            print(f"target_actions.size() {target_actions.size()}")
+
             target_val = target_critic(
-                [next_state_batch, target_actions], training=True)
+                [next_state_batch, target_actions], training=True
+            )
             y = reward_batch + self.rl['DDPG']['gamma'] * target_val
             critic_value = critic_model([state_batch, action_batch],
                                         training=True)
@@ -362,6 +367,8 @@ class Learner_DDPG:
         model = tf.keras.Model([state_input, action_input], outputs)
         if self.name is not None:
             model._name = self.name + name_model
+
+        print(f"model.summary() {model.summary()}")
 
         return model
 
