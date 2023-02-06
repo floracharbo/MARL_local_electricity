@@ -31,6 +31,8 @@ class Optimiser():
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
+        self.kW_to_per_unit_conversion = 1000 / prm['grd']['base_power']
+        self.per_unit_to_kW_conversion = prm['grd']['base_power'] / 1000
 
     def res_post_processing(self, res):
         for key, val in res.items():
@@ -50,7 +52,7 @@ class Optimiser():
             res['hourly_voltage_costs'] = np.sum(
                 res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
             )
-            res['hourly_line_losses'] = res['hourly_line_losses_pu'] * self.grd['base_power'] / 1000
+            res['hourly_line_losses'] = res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
         else:
             res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
@@ -149,27 +151,27 @@ class Optimiser():
             'undervoltage_costs', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
 
-        # active and reactive loads: modify loads from kW to W (*1000) to per unit system (/Ab)
+        # active and reactive loads
         if self.n_homesP > 0:
             p.add_list_of_constraints(
-                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
+                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
                     + self.grd['non_flex_buses'] * self.loads['netp0'][:][t]
-                    * 1000 / self.grd['base_power']
+                    * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
             p.add_list_of_constraints(
                 [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
-                    * 1000 / self.grd['base_power']
-                    + self.grd['flex_buses'] * q_heat_home_flex[:, t] * 1000 / self.grd['base_power']
+                    * self.kW_to_per_unit_conversion
+                    + self.grd['flex_buses'] * q_heat_home_flex[:, t] * self.kW_to_per_unit_conversion
                     + self.grd['non_flex_buses'] * q_heat_home_car_non_flex[:, t]
-                    * 1000 / self.grd['base_power']
+                    * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
         else:
             p.add_list_of_constraints(
-                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
+                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
             p.add_list_of_constraints([qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
-                    * 1000 / self.grd['base_power']
-                    + self.grd['flex_buses'] * q_heat_home_flex[:, t] * 1000 / self.grd['base_power']
+                    * self.kW_to_per_unit_conversion
+                    + self.grd['flex_buses'] * q_heat_home_flex[:, t] * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
 
         # constraints on active, reactive and apparent power
@@ -206,10 +208,10 @@ class Optimiser():
 
         # external grid between bus 1 and 2
         p.add_list_of_constraints(
-            [pij[0, t] == grid[t] * 1000 / self.grd['base_power'] for t in range(self.N)]
+            [pij[0, t] == grid[t] * self.kW_to_per_unit_conversion for t in range(self.N)]
         )
         p.add_list_of_constraints(
-            [qij[0, t] == q_ext_grid[t] * 1000 / self.grd['base_power'] for t in range(self.N)]
+            [qij[0, t] == q_ext_grid[t] * self.kW_to_per_unit_conversion for t in range(self.N)]
         )
 
         # active power flow
@@ -335,8 +337,7 @@ class Optimiser():
                 grid[time]
                 - np.sum(self.loads['netp0'][homeP][time] for homeP in range(self.n_homesP))
                 - pic.sum([netp[home, time] for home in range(self.n_homes)])
-                # * Ab for W, /1000 for kW
-                - hourly_line_losses_pu[time] * self.grd['base_power'] / 1000
+                - hourly_line_losses_pu[time] * self.per_unit_to_kW_conversion
                 == 0
                 for time in range(self.N)
             ]
