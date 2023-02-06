@@ -15,7 +15,6 @@ from typing import List, Tuple
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
-from scipy.stats import norm
 from six import integer_types
 
 from src.home_components.battery import Battery
@@ -368,7 +367,6 @@ class LocalElecEnv():
             else:
                 return [next_state, self.done, reward, break_down_rewards,
                         home_vars['bool_flex'], constraint_ok, None]
-
 
     def get_passive_vars(self, time_step):
         passive_vars = [

@@ -8,8 +8,8 @@ The main method is 'make_next_day', which generates new day of data
 (car, loads, gen profiles), calling other methods as needed.
 """
 
-import os
 import copy
+import os
 import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
