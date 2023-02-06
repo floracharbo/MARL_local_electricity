@@ -168,7 +168,8 @@ class Buffer:
             )
             action_batch = tf.reshape(action_batch, (shape[0], 1, shape[1]))
         else:
-            state_batch = tf.reshape(next_state_batch, (-1, 1, self.rl['dim_states']))
+            state_batch = tf.reshape(next_state_batch, (-1, self.rl['dim_states']))
+            action_batch = tf.reshape(action_batch, (-1, self.rl['dim_actions']))
 
         with tf.GradientTape() as tape:
             target_actions = target_actor(next_state_batch, training=True)
@@ -184,8 +185,9 @@ class Buffer:
                 [next_state_batch, target_actions], training=True
             )
             y = reward_batch + self.rl['DDPG']['gamma'] * target_val
-            critic_value = critic_model([state_batch, action_batch],
-                                        training=True)
+            critic_value = critic_model(
+                [state_batch, action_batch], training=True
+            )
             if self.rl['DDPG']['hysteretic']:
                 lr = tf.cond(
                     tf.math.reduce_mean(y - critic_value) < 0,
@@ -328,7 +330,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_states']), name='critic_stateInput')
         else:
             state_input = layers.Input(
-                shape=(1, self.rl['dim_states']), name='critic_stateInput')
+                shape=(self.rl['dim_states']), name='critic_stateInput')
 
         state_out = layers.Dense(
             16, activation=self.rl['activation'],
@@ -343,7 +345,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_actions']), name='critic_actionInput')
         else:
             action_input = layers.Input(
-                shape=(1, self.rl['dim_actions']), name='critic_actionInput')
+                shape=(self.rl['dim_actions']), name='critic_actionInput')
 
         action_out = layers.Dense(
             32, activation=self.rl['activation'],
