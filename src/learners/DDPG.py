@@ -221,7 +221,7 @@ class Buffer:
         )
 
     # We compute the loss and update parameters
-    @tf.function
+    # @tf.function
     def learn(self, target_actor, target_critic, actor_model,
               critic_model, actor_optimizer, critic_optimizer):
         # Get sampling range
