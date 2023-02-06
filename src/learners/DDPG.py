@@ -175,7 +175,8 @@ class Buffer:
             if self.rl['LSTM']:
                 target_actions = tf.reshape(
                     target_actions, (shape[0], 1, shape[1]))
-            print(f"next_state_batch.size() {next_state_batch.size()}")
+            print(f"type(next_state_batch) {type(next_state_batch)}")
+            # print(f"next_state_batch.size() {next_state_batch.size()}")
             print(f"target_actions.size() {target_actions.size()}")
 
             target_val = target_critic(
