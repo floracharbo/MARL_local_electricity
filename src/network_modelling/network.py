@@ -212,33 +212,22 @@ class Network:
         self.net.load.p_mw = 0
         self.net.sgen.p_mw = 0
         # pandapower uses MW while the simulations uses kW
-        # add a load if netp < 0 or a generation if netp > 0
+        # add a load if power < 0 or a generation if power > 0
+        # assign flexible homes
+        if self.n_homes > 0:
+            for home in self.homes:
+                self._assign_power_to_load_or_sgen(
+                    netp, home, type='p_mw')
+                self._assign_power_to_load_or_sgen(
+                    netq_flex, home, type='q_mvar')
 
-        # flexible houses
-        for home in self.homes:
-            # active power
-            if netp[home] >= 0:
-                self.net.load['p_mw'].iloc[home] = netp[home] / 1000
-            else:
-                self.net.sgen['p_mw'].iloc[home] = abs(netp[home]) / 1000
-            # reactive power
-            if netq_flex[home] >= 0:
-                self.net.load['q_mvar'].iloc[home] = netq_flex[home] / 1000
-            else:
-                self.net.sgen['q_mvar'].iloc[home] = abs(netq_flex[home]) / 1000
-        # passive houses
+        # assign passive homes
         if self.n_homesP > 0:
             for homeP in self.homesP:
-                # active power
-                if p_non_flex[homeP] >= 0:
-                    self.net.load['p_mw'].iloc[home + homeP] = p_non_flex[homeP] / 1000
-                else:
-                    self.net.sgen['p_mw'].iloc[home + homeP] = abs(p_non_flex[homeP]) / 1000
-                # reactive power
-                if netq_non_flex[homeP] >= 0:
-                    self.net.load['q_mvar'].iloc[home + homeP] = netq_non_flex[homeP] / 1000
-                else:
-                    self.net.sgen['q_mvar'].iloc[home + homeP] = abs(netq_non_flex[homeP]) / 1000
+                self._assign_power_to_load_or_sgen(
+                    p_non_flex, self.n_homes + homeP, type='p_mw')
+                self._assign_power_to_load_or_sgen(
+                    netq_non_flex, self.n_homes + homeP, type='q_mvar')
 
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw > 0])
@@ -247,6 +236,15 @@ class Network:
         voltage = np.array(self.net.res_bus['vm_pu'])
 
         return hourly_line_losses, voltage
+
+    def _assign_power_to_load_or_sgen(self, power, houses, type):
+        # active power
+        for house in range(houses):
+            if power[house] >= 0:
+                self.net.load[type].iloc[house] = power[house] / 1000
+            else:
+                self.net.sgen[type].iloc[house] = abs(power[house]) / 1000
+
 
     def _check_voltage_differences(self, res, time_step, p_non_flex, netq_flex, netq_non_flex):
         do_pp_simulation = False
