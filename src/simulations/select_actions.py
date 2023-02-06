@@ -167,7 +167,7 @@ class ActionSelector:
         if self.rl["distr_learning"] == "decentralised":
             action = [
                 self.learner[method][home].sample_action(
-                    tf_prev_state[home].view(1, self.rl['dim_states']),
+                    tf.reshape(tf_prev_state[home], (1, self.rl['dim_states'])),
                     eps_greedy=eps_greedy,
                     rdn_eps_greedy=rdn_eps_greedy,
                     rdn_eps_greedy_indiv=rdn_eps_greedy_indiv
