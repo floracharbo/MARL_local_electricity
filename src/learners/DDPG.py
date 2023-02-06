@@ -162,7 +162,7 @@ class Buffer:
                reward_batch, next_state_batch):
         # Training and updating Actor & Critic networks.
         # See Pseudo Code.
-        # state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
+        state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
         next_state_batch = tf.reshape(
             next_state_batch, (-1, 1, self.rl['dim_states'])
         )
