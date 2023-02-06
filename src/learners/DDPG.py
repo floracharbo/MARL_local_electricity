@@ -216,7 +216,8 @@ class Buffer:
             actions = actor_model(state_batch, training=True)
             if self.rl['LSTM']:
                 actions = tf.reshape(actions, (shape[0], 1, shape[1]))
-
+            else:
+                actions = tf.reshape(actions, (-1, self.rl['dim_actions']))
             critic_value = critic_model([state_batch, actions], training=True)
             # Used `-value` as we want to maximize the value given
             # by the critic for our actions
