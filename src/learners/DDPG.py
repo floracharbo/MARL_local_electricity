@@ -312,7 +312,7 @@ class Learner_DDPG:
                                   name='actor_LSTM1'))
         else:
             model.add(layers.Dense(self.rl['dim_out_layer12'],
-                                   input_shape=(self.rl['dim_states']),
+                                   input_shape=(1, self.rl['dim_states']),
                                    activation=self.rl['activation'],
                                    name='actor_Dense1'))
         model.add(layers.Dense(self.rl['dim_out_layer12'],
