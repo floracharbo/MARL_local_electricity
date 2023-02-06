@@ -58,7 +58,12 @@ class Network:
             # ieee network and corresponding incidence matrix
             self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
             self.n_non_flex_homes = self.n_homesP
+            
+            # replacing asymmetric loads with single-phase
+            self.existing_homes_network = list(self.net.asymmetric_load['bus'])
+            random.shuffle(self.existing_homes_network)
             self.loads_single_phase()
+
             self.in_incidence_matrix = np.where(
                 self.incidence_matrix == -1, self.incidence_matrix, 0
             )
@@ -77,10 +82,6 @@ class Network:
             self.max_losses_error = - 1
             self.n_voltage_error = 0
             self.max_voltage_rel_error = - 1
-
-            # randomly assigning agents to laoded buses
-            self.existing_homes_network = list(self.net.asymmetric_load['bus'])
-            random.shuffle(self.existing_homes_network)
 
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """
