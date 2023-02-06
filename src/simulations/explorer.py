@@ -845,7 +845,7 @@ class Explorer():
                 # q_car_flex will be a decision variable
                 q_car_flex = 0
                 q_heat_home_flex = home_vars['tot_cons'] \
-                    * math.tan(math.acos(self.grd['pf_flex_heat_homer']))
+                    * math.tan(math.acos(self.grd['pf_flex_heat_home']))
                 netq_flex = q_car_flex + q_heat_home_flex
                 res, _, _ = self.env.network.test_network_comparison_optimiser_pandapower(
                     res, time_step,
