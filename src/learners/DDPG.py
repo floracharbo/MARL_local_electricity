@@ -266,7 +266,6 @@ class Learner_DDPG:
         self.name = name
         self.reset()
 
-    @tf.function
     def reset(self):
         self.actor_model = self.get_actor('actor_model')
         self.critic_model = self.get_critic('critic_model')
