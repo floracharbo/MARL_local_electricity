@@ -76,6 +76,7 @@ class OUActionNoise:
         self.x_initial = x_initial
         self.reset()
 
+    @tf.function
     def __call__(self):
         # Formula taken from
         # https://www.wikipedia.org/wiki/Ornstein-Uhlenbeck_process.
@@ -142,6 +143,7 @@ class Buffer:
         # Set index to zero if buffer_capacity is exceeded,
         # replacing old records
         index = self.buffer_counter % self.buffer_capacity
+
         self.state_buffer[index] = obs_tuple[0]
         self.action_buffer[index] = obs_tuple[1]
         self.reward_buffer[index] = obs_tuple[2]
@@ -160,22 +162,22 @@ class Buffer:
                reward_batch, next_state_batch):
         # Training and updating Actor & Critic networks.
         # See Pseudo Code.
-        if self.rl['LSTM']:
-            shape = np.shape(state_batch)
-            state_batch = tf.reshape(state_batch, (shape[0], 1, shape[1]))
-            next_state_batch = tf.reshape(
-                next_state_batch, (shape[0], 1, shape[1]))
-            action_batch = tf.reshape(action_batch, (shape[0], 1, shape[1]))
+        state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
+        next_state_batch = tf.reshape(
+            next_state_batch, (-1, 1, self.rl['dim_states'])
+        )
+        action_batch = tf.reshape(action_batch, (-1, 1, self.rl['dim_actions']))
+
         with tf.GradientTape() as tape:
             target_actions = target_actor(next_state_batch, training=True)
-            if self.rl['LSTM']:
-                target_actions = tf.reshape(
-                    target_actions, (shape[0], 1, shape[1]))
+            # target_actions = tf.reshape(target_actions, (-1, 1, self.rl['dim_actions']))
             target_val = target_critic(
-                [next_state_batch, target_actions], training=True)
+                [next_state_batch, target_actions], training=True
+            )
             y = reward_batch + self.rl['DDPG']['gamma'] * target_val
-            critic_value = critic_model([state_batch, action_batch],
-                                        training=True)
+            critic_value = critic_model(
+                [state_batch, action_batch], training=True
+            )
             if self.rl['DDPG']['hysteretic']:
                 lr = tf.cond(
                     tf.math.reduce_mean(y - critic_value) < 0,
@@ -198,9 +200,6 @@ class Buffer:
         )
         with tf.GradientTape() as tape:
             actions = actor_model(state_batch, training=True)
-            if self.rl['LSTM']:
-                actions = tf.reshape(actions, (shape[0], 1, shape[1]))
-
             critic_value = critic_model([state_batch, actions], training=True)
             # Used `-value` as we want to maximize the value given
             # by the critic for our actions
@@ -211,6 +210,7 @@ class Buffer:
         )
 
     # We compute the loss and update parameters
+    @tf.function
     def learn(self, target_actor, target_critic, actor_model,
               critic_model, actor_optimizer, critic_optimizer):
         # Get sampling range
@@ -221,14 +221,17 @@ class Buffer:
 
         # Convert to tensors
         state_batch = tf.convert_to_tensor(self.state_buffer[batch_indices])
+        # state_batch = tf.reshape(state_batch, (-1, 1, self.rl['dim_states']))
         action_batch = tf.convert_to_tensor(self.action_buffer[batch_indices])
         reward_batch = tf.convert_to_tensor(self.reward_buffer[batch_indices])
         next_state_batch = tf.convert_to_tensor(
             self.next_state_buffer[batch_indices])
         tf.config.set_soft_device_placement(True)
-        self.update(target_actor, target_critic, actor_model,
-                    critic_model, actor_optimizer, critic_optimizer,
-                    state_batch, action_batch, reward_batch, next_state_batch)
+        self.update(
+            target_actor, target_critic, actor_model,
+            critic_model, actor_optimizer, critic_optimizer,
+            state_batch, action_batch, reward_batch, next_state_batch
+        )
         if self.decay_alpha is not None:
             lr = max(self.min_alpha,
                      self.critic_lr * self.decay_alpha ** self.t)
@@ -291,7 +294,7 @@ class Learner_DDPG:
                                   name='actor_LSTM1'))
         else:
             model.add(layers.Dense(self.rl['dim_out_layer12'],
-                                   input_shape=(self.rl['dim_states'], ),
+                                   input_shape=(1, self.rl['dim_states']),
                                    activation=self.rl['activation'],
                                    name='actor_Dense1'))
         model.add(layers.Dense(self.rl['dim_out_layer12'],
@@ -313,7 +316,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_states']), name='critic_stateInput')
         else:
             state_input = layers.Input(
-                shape=(self.rl['dim_states']), name='critic_stateInput')
+                shape=(1, self.rl['dim_states']), name='critic_stateInput')
 
         state_out = layers.Dense(
             16, activation=self.rl['activation'],
@@ -328,7 +331,7 @@ class Learner_DDPG:
                 shape=(1, self.rl['dim_actions']), name='critic_actionInput')
         else:
             action_input = layers.Input(
-                shape=(self.rl['dim_actions']), name='critic_actionInput')
+                shape=(1, self.rl['dim_actions']), name='critic_actionInput')
 
         action_out = layers.Dense(
             32, activation=self.rl['activation'],
@@ -362,7 +365,7 @@ class Learner_DDPG:
                       rdn_eps_greedy_indiv=False):
         """`sample_action()` returns an action sampled from
         our Actor network plus some noise for exploration."""
-        self.state_to_sample = state
+        state = tf.reshape(state, (-1, 1, self.rl['dim_states']))
         x = self.actor_model(state)
         sampled_actions = tf.squeeze(x)
         noise = self.noise_object() if eps_greedy \
@@ -380,10 +383,12 @@ class Learner_DDPG:
                 else legal_action
         elif rdn_eps_greedy_indiv:
             rdn = [np.random.rand() for _ in range(self.rl['dim_actions'])]
-            legal_action = [np.random.rand()
-                            if rdn[i] > self.rl['DDPG']['eps']
-                            else legal_action[i]
-                            for i in range(self.rl['dim_actions'])]
+            legal_action = [
+                np.random.rand()
+                if rdn[i] > self.rl['DDPG']['eps']
+                else legal_action[i]
+                for i in range(self.rl['dim_actions'])
+            ]
 
         return [np.squeeze(legal_action)]
 

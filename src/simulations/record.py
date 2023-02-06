@@ -583,6 +583,7 @@ class Record():
                 np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None
                 else None
             )
+
         # we have done at least 6 steps
         if not end_test and len(all_mean_eval_t) > 5 and method != "opt":
             equal_consecutive = \
