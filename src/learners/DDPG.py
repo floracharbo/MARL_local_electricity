@@ -366,7 +366,7 @@ class Learner_DDPG:
                       rdn_eps_greedy_indiv=False):
         """`sample_action()` returns an action sampled from
         our Actor network plus some noise for exploration."""
-        print(f"np.shape(state) {np.shape(state)}")
+        state = tf.reshape(state, (-1, 1, self.rl['dim_states']))
         x = self.actor_model(state)
         sampled_actions = tf.squeeze(x)
         noise = self.noise_object() if eps_greedy \
