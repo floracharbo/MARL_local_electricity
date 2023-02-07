@@ -230,16 +230,16 @@ class Network:
         if self.n_homes > 0:
             for home in self.homes:
                 self._assign_power_to_load_or_sgen(
-                    netp, home, type='p_mw')
+                    netp[home], home, type='p_mw')
                 self._assign_power_to_load_or_sgen(
-                    netq_flex, home, type='q_mvar')
+                    netq_flex[home], home, type='q_mvar')
         # assign passive homes
         if self.n_homesP > 0:
             for homeP in self.homesP:
                 self._assign_power_to_load_or_sgen(
-                    netp0, self.n_homes + homeP, type='p_mw')
+                    netp0[homeP], self.n_homes + homeP, type='p_mw')
                 self._assign_power_to_load_or_sgen(
-                    netq_non_flex, self.n_homes + homeP, type='q_mvar')
+                    netq_non_flex[homeP], self.n_homes + homeP, type='q_mvar')
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw >= 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
@@ -251,13 +251,12 @@ class Network:
 
         return hourly_line_losses, voltage
 
-    def _assign_power_to_load_or_sgen(self, power, houses, type):
+    def _assign_power_to_load_or_sgen(self, power, house_index, type):
         # active power
-        for house in range(houses):
-            if power[house] >= 0:
-                self.net.load[type].iloc[house] = power[house] / 1000
-            else:
-                self.net.sgen[type].iloc[house] = abs(power[house]) / 1000
+        if power >= 0:
+            self.net.load[type].iloc[house_index] = power / 1000
+        else:
+            self.net.sgen[type].iloc[house_index] = abs(power) / 1000
 
     def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_non_flex):
         replace_with_pp_simulation = False
