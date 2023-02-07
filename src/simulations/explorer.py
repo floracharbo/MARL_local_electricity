@@ -830,20 +830,22 @@ class Explorer():
             feasible = not any(error)
 
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
-                netp0, _, _ = self.env._get_passive_vars(time_step)
-                if self.prm["grd"]['reactive_power_for_voltage_control']: 
+                if self.prm['syst']['n_homesP'] > 0: 
+                    netp0, _, _ = self.env._get_passive_vars(time_step)
                     netq_non_flex = netp0 \
                         * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
-                    # q_car_flex will be a decision variable
-                    q_car_flex = 0
-                    q_heat_home_flex = home_vars['tot_cons'] \
-                        * math.tan(math.acos(self.grd['pf_flex_heat_home']))
-                    netq_flex = q_car_flex + q_heat_home_flex
                 else:
                     netq_non_flex = []
-                    netq_flex = []
-                res,hourly_line_losses_pp, hourly_voltage_costs_pp \
-                    = self.env.network.test_network_comparison_optimiser_pandapower(
+                # q_car_flex will be a decision variable
+                p_car_flex = - (np.array(self.env.car.loss_ch) + np.array(self.env.car.charge)) \
+                    + np.array(self.env.car.discharge)
+                q_car_flex = self.env._calculate_reactive_power(p_car_flex,
+                    self.prm['grd']['pf_flexible_heat_home'])
+                q_heat_home_flex = self.env._calculate_reactive_power(home_vars['tot_cons'],
+                    self.grd['pf_flex_heat_home']) 
+                netq_flex = q_car_flex + q_heat_home_flex
+
+                res = self.env.network.test_network_comparison_optimiser_pandapower(
                     res, time_step,
                     self.prm['grd']['C'][time_step],
                     netp0,
