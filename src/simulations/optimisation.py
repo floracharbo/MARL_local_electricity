@@ -136,17 +136,17 @@ class Optimiser():
         voltage_costs = p.add_variable('voltage_costs', 1)  # daily voltage violation costs
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         # variables only needed for passive homes and reactive power
-        if (self.n_homesP > 0) and (self.reactive_power_for_voltage_control):
+        if self.n_homesP > 0:
             q_heat_home_car_non_flex = p.add_variable(
                 'q_heat_home_car_non_flex', (self.n_homesP, self.N), vtype='continuous')
         # variables only needed for reactive power
-        if self.reactive_power_for_voltage_control:
-            q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
-            q_heat_home_flex = p.add_variable(
+        q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
+        q_heat_home_flex = p.add_variable(
                 'q_heat_home_flex', (self.n_homes, self.N), vtype='continuous')
+        p_car_flex = p.add_variable('p_car_flex', (self.n_homes, self.N), vtype='continuous')
+        if self.reactive_power_for_voltage_control:
             q_car_flex2 = p.add_variable('q_car_flex2', (self.n_homes, self.N), vtype='continuous')
             p_car_flex2 = p.add_variable('p_car_flex2', (self.n_homes, self.N), vtype='continuous')
-            p_car_flex = p.add_variable('p_car_flex', (self.n_homes, self.N), vtype='continuous')
         qi = p.add_variable('qi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         # decision variables: power flow
         pij = p.add_variable('pij', (self.grd['n_lines'], self.N), vtype='continuous')
@@ -169,79 +169,65 @@ class Optimiser():
         )
 
         # active and reactive loads
+        # passive homes: heat, home and car
+        if self.n_homesP > 0:
+            p.add_constraint(
+                [q_heat_home_car_non_flex == self._calculate_reactive_power(
+                    self.loads['netp0'],
+                    self.grd['pf_non_flex_heat_home_car'])
+                    ])
+        # flex houses: heat and home
+        p.add_constraint(q_heat_home_flex == self._calculate_reactive_power(
+            totcons, self.grd['pf_flexible_heat_home']))
+
+        # flex houses: car
+        p.add_constraint(p_car_flex == charge / self.car['eta_ch'] + discharge_other)
+        p.add_constraint(p_car_flex <= self.grd['max_active_power_car'])
+
+        # if we don't allow the use of the battery reactive power for control
+        # then we restain it by using the power factor 
+        if self.reactive_power_for_voltage_control:          
+            for time in range(self.N):
+                p.add_list_of_constraints([
+                    p_car_flex2[home, time] >= p_car_flex[home, time]
+                    * p_car_flex[home, time] for home in range(self.n_homes)
+                ])
+                p.add_list_of_constraints([
+                    q_car_flex2[home, time] >= q_car_flex[home, time]
+                    * q_car_flex[home, time] for home in range(self.n_homes)
+                ])
+                p.add_list_of_constraints([
+                    p_car_flex2[home, time] + p_car_flex2[home, time]
+                    <= self.grd['max_apparent_power_car']**2 for home in range(self.n_homes)
+                ])
+        else:
+            p.add_constraint(q_car_flex = self._calculate_reactive_power(
+                p_car_flex, self.grd['pf_flexible_heat_home']))
+
         if self.n_homesP > 0:
             p.add_list_of_constraints(
                 [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
                     + self.grd['non_flex_buses'] * self.loads['netp0'][:][t]
                     * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
-            if self.reactive_power_for_voltage_control:
-                p.add_list_of_constraints(
-                    [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
-                        * self.kW_to_per_unit_conversion
-                        + self.grd['flex_buses'] * q_heat_home_flex[:, t]
-                        * self.kW_to_per_unit_conversion
-                        + self.grd['non_flex_buses'] * q_heat_home_car_non_flex[:, t]
-                        * self.kW_to_per_unit_conversion
-                        for t in range(self.N)])
-            else:
-                p.add_list_of_constraints(    
-                    [qi[:, t] == self.grd['flex_buses'] * self._calculate_reactive_power(
-                                 netp[:, t] * self.kW_to_per_unit_conversion,
-                                 self.grd['pf_flexible_heat_home'])
-                                 + self.grd['non_flex_buses'] * self._calculate_reactive_power(
-                                 self.loads['netp0'][:][t][:, t] * self.kW_to_per_unit_conversion,
-                                 self.grd['pf_non_flex_heat_home_car'])
-                                 for t in range(self.N)])
+            p.add_list_of_constraints(
+                [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
+                    * self.kW_to_per_unit_conversion
+                    + self.grd['flex_buses'] * q_heat_home_flex[:, t]
+                    * self.kW_to_per_unit_conversion
+                    + self.grd['non_flex_buses'] * q_heat_home_car_non_flex[:, t]
+                    * self.kW_to_per_unit_conversion
+                    for t in range(self.N)])
         else:
             p.add_list_of_constraints(
                 [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
             p.add_list_of_constraints(    
-                [qi[:, t] == self.grd['flex_buses'] * self._calculate_reactive_power(
-                             netp[:, t] * self.kW_to_per_unit_conversion,
-                             self.grd['pf_flexible_heat_home'])
+                [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
+                    * self.kW_to_per_unit_conversion
+                    + self.grd['flex_buses'] * q_heat_home_flex[:, t]
+                    * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
-                    
-            if self.reactive_power_for_voltage_control:
-                p.add_list_of_constraints([qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
-                        * self.kW_to_per_unit_conversion
-                        + self.grd['flex_buses'] * q_heat_home_flex[:, t]
-                        * self.kW_to_per_unit_conversion
-                        for t in range(self.N)])
-
-        # passive houses: heat, home and car
-        if self.reactive_power_for_voltage_control:
-            if self.n_homesP > 0:
-                for time in range(self.N):
-                    p.add_list_of_constraints(
-                        [q_heat_home_car_non_flex[homeP][time]
-                            == self._calculate_reactive_power(
-                                    self.loads['netp0'][homeP][time],
-                                    self.grd['pf_non_flex_heat_home_car'])
-                                    for homeP in range(self.n_homesP)])
-            else:
-                # flex houses: heat and home
-                p.add_constraint(q_heat_home_flex == self._calculate_reactive_power(
-                    totcons, self.grd['pf_flexible_heat_home'])
-                )
-
-                # flex houses: car
-                p.add_constraint(p_car_flex == charge / self.car['eta_ch'] + discharge_other)
-                p.add_constraint(p_car_flex <= self.grd['max_active_power_car'])
-                for time in range(self.N):
-                    p.add_list_of_constraints([
-                        p_car_flex2[home, time] >= p_car_flex[home, time]
-                        * p_car_flex[home, time] for home in range(self.n_homes)
-                    ])
-                    p.add_list_of_constraints([
-                        q_car_flex2[home, time] >= q_car_flex[home, time]
-                        * q_car_flex[home, time] for home in range(self.n_homes)
-                    ])
-                    p.add_list_of_constraints([
-                        p_car_flex2[home, time] + p_car_flex2[home, time]
-                        <= self.grd['max_apparent_power_car']**2 for home in range(self.n_homes)
-                    ])
 
         # external grid between bus 1 and 2
         p.add_list_of_constraints(
