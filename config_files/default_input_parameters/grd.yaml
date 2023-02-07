@@ -23,7 +23,7 @@ base_voltage : 416 # base voltage for per unit system in V
 subset_line_losses_modelled : 30 # Number of lines accounted for in losses
 tol_rel_voltage_diff: 1e-2
 tol_rel_voltage_costs: 1e-2
-
+reactive_power_for_voltage_control: False
 pf_non_flex_heat_home_car : 0.95 # Power factor used for passive houses, heat and car power
 pf_flexible_heat_home : 0.95 # Power factor used for flexible houses for home and heat power
 max_active_power_car : 6.6 # Max active power delivered by and to the car battery, convetional charger

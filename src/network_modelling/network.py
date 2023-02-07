@@ -50,7 +50,7 @@ class Network:
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
             'manage_agg_power', 'max_grid_import', 'penalty_import',
-            'max_grid_export', 'penalty_export'
+            'max_grid_export', 'penalty_export', 'reactive_power_for_voltage_control'
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -221,10 +221,9 @@ class Network:
         start = time.time()
         """ Given selected action, obtain voltage on buses and lines using pandapower """
         # removing old loads
-        self.net.load.p_mw = 0
-        self.net.sgen.p_mw = 0
-        self.net.load.q_var = 0
-        self.net.sgen.q_var = 0
+        for power in ['p_mw', 'q_var']:
+            self.net.load[power] = 0
+            self.net.sgen[power] = 0
         # pandapower uses MW while the simulations uses kW
         # add a load if power < 0 or a generation if power > 0
         # assign flexible homes
@@ -232,17 +231,17 @@ class Network:
             for home in self.homes:
                 self._assign_power_to_load_or_sgen(
                     netp, home, type='p_mw')
-                self._assign_power_to_load_or_sgen(
-                    netq_flex, home, type='q_mvar')
-
+                if self.reactive_power_for_voltage_control:
+                    self._assign_power_to_load_or_sgen(
+                        netq_flex, home, type='q_mvar')
         # assign passive homes
         if self.n_homesP > 0:
             for homeP in self.homesP:
                 self._assign_power_to_load_or_sgen(
                     netp0, self.n_homes + homeP, type='p_mw')
-                self._assign_power_to_load_or_sgen(
-                    netq_non_flex, self.n_homes + homeP, type='q_mvar')
-
+                if self.reactive_power_for_voltage_control:
+                    self._assign_power_to_load_or_sgen(
+                        netq_non_flex, self.n_homes + homeP, type='q_mvar')
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw >= 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
@@ -323,7 +322,7 @@ class Network:
         start = time.time()
         # Results from optimization
         replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp \
-            = self._check_voltage_differences(res, time_step)
+            = self._check_voltage_differences(res, time_step, netp0, netq_flex, netq_non_flex)
         self._check_losses_differences(res, hourly_line_losses_pp, time_step)
         if replace_with_pp_simulation:
             res = self._replace_res_values_with_pp_simulation(

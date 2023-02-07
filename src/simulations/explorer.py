@@ -845,13 +845,17 @@ class Explorer():
 
             if self.prm["grd"]['compare_pandapower_optimisation']:
                 netp0, _, _ = self.env._get_passive_vars(time_step)
-                netq_non_flex = netp0 \
-                    * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
-                # q_car_flex will be a decision variable
-                q_car_flex = 0
-                q_heat_home_flex = home_vars['tot_cons'] \
-                    * math.tan(math.acos(self.grd['pf_flex_heat_home']))
-                netq_flex = q_car_flex + q_heat_home_flex
+                if self.prm["grd"]['reactive_power_for_voltage_control']: 
+                    netq_non_flex = netp0 \
+                        * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
+                    # q_car_flex will be a decision variable
+                    q_car_flex = 0
+                    q_heat_home_flex = home_vars['tot_cons'] \
+                        * math.tan(math.acos(self.grd['pf_flex_heat_home']))
+                    netq_flex = q_car_flex + q_heat_home_flex
+                else:
+                    netq_non_flex = []
+                    netq_flex = []
                 res, _, _ = self.env.network.test_network_comparison_optimiser_pandapower(
                     res, time_step,
                     self.prm['grd']['C'][time_step],
@@ -1053,8 +1057,7 @@ class Explorer():
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
             home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
-                env.policy_to_rewardvar(None, other_input=input_take_action,
-                    passive_vars=self._get_passive_vars(time_step))
+                env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self._get_passive_vars(time_step)
             reward_baseline_a, _ = env.get_reward(

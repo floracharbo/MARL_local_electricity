@@ -309,7 +309,6 @@ class LocalElecEnv():
         home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
             self.policy_to_rewardvar(
                 action, E_req_only=E_req_only)
-                #passive_vars=self._get_passive_vars(h))
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
@@ -510,8 +509,7 @@ class LocalElecEnv():
             self,
             action: list,
             other_input: list = None,
-            E_req_only: bool = False,
-            passive_vars: list = None,
+            E_req_only: bool = False
     ):
         """Given selected action, obtain results of the step."""
         if other_input is None:
@@ -558,20 +556,28 @@ class LocalElecEnv():
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
         if self.prm['grd']['manage_voltage']:
-            netp0 = self.prm['loads']['netp0'][:,h]
-            q_heat_home_car_non_flex = self._calculate_reactive_power(netp0,
-                self.prm['grd']['pf_non_flex_heat_home_car'])
-            q_heat_home_flex = self._calculate_reactive_power(home_vars['tot_cons'],
-                self.prm['grd']['pf_flexible_heat_home'])
-            # q_car_flex will be a decision variable
-            q_car_flex = 0
-            # p_car_flex is needed to set apparent power limits
-            p_car_flex = - (self.car.loss_ch[home] + self.car.charge[home]) \
-                + self.car.discharge[home]
-            netq_flex = q_car_flex + q_heat_home_flex
-            netq_non_flex = q_heat_home_car_non_flex
-            # import/export external grid
-            q_ext_grid = q_heat_home_car_non_flex + q_car_flex + q_heat_home_flex
+            if self.prm['syst']['n_homesP'] > 0:
+                netp0 = self.prm['loads']['netp0'][:, h]
+            else:
+                netp0 = []
+            if self.prm['grd']['reactive_power_for_voltage_control']:
+                q_heat_home_car_non_flex = self._calculate_reactive_power(netp0,
+                    self.prm['grd']['pf_non_flex_heat_home_car'])
+                q_heat_home_flex = self._calculate_reactive_power(home_vars['tot_cons'],
+                    self.prm['grd']['pf_flexible_heat_home'])
+                # q_car_flex will be a decision variable
+                q_car_flex = 0
+                # p_car_flex is needed to set apparent power limits
+                p_car_flex = - (self.car.loss_ch[home] + self.car.charge[home]) \
+                    + self.car.discharge[home]
+                netq_flex = q_car_flex + q_heat_home_flex
+                netq_non_flex = q_heat_home_car_non_flex
+                # import/export external grid
+                q_ext_grid = q_heat_home_car_non_flex + q_car_flex + q_heat_home_flex
+            else:
+                netq_flex = []
+                netq_non_flex = []
+            
             hourly_line_losses, voltage = self.network.pf_simulation(
                 home_vars['netp'], netp0,
                 netq_flex, netq_non_flex)
