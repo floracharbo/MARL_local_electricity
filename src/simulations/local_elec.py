@@ -551,25 +551,27 @@ class LocalElecEnv():
         if self.prm['grd']['manage_voltage']:
             if self.prm['syst']['n_homesP'] > 0:
                 netp0 = self.prm['loads']['netp0'][:, h]
-                q_heat_home_car_non_flex = self._calculate_reactive_power(netp0,
-                    self.prm['grd']['pf_non_flex_heat_home_car'])
+                q_heat_home_car_non_flex = self._calculate_reactive_power(
+                    netp0,
+                    self.prm['grd']['pf_non_flex_heat_home_car']
+                    )
             else:
                 netp0 = []
                 q_heat_home_car_non_flex = []
-                q_heat_home_flex = self._calculate_reactive_power(home_vars['tot_cons'],
-                    self.prm['grd']['pf_flexible_heat_home'])
+                q_heat_home_flex = self._calculate_reactive_power(
+                    home_vars['tot_cons'], self.prm['grd']['pf_flexible_heat_home'])
                 # q_car_flex will be a decision variable
                 p_car_flex = - (np.array(self.car.loss_ch) + np.array(self.car.charge)) \
                     + np.array(self.car.discharge)
-                q_car_flex = self._calculate_reactive_power(p_car_flex,
-                    self.prm['grd']['pf_flexible_heat_home'])
+                q_car_flex = self._calculate_reactive_power(
+                    p_car_flex, self.prm['grd']['pf_flexible_heat_home'])
                 # p_car_flex is needed to set apparent power limits
                 netq_flex = q_car_flex + q_heat_home_flex
                 netq_non_flex = q_heat_home_car_non_flex
                 # import/export external grid
                 q_ext_grid = sum(q_heat_home_car_non_flex) + sum(q_car_flex) \
-                             + sum(q_heat_home_flex)
-            
+                    + sum(q_heat_home_flex)
+
             hourly_line_losses, voltage = self.network.pf_simulation(
                 home_vars['netp'], netp0,
                 netq_flex, netq_non_flex)
@@ -582,9 +584,8 @@ class LocalElecEnv():
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
-        return (home_vars, loads, hourly_line_losses, voltage_squared, 
-            q_ext_grid, constraint_ok)
-
+        return (home_vars, loads, hourly_line_losses, voltage_squared,
+                q_ext_grid, constraint_ok)
 
     def _calculate_reactive_power(self, active_power, power_factor):
         reactive_power = active_power * math.tan(math.acos(power_factor))

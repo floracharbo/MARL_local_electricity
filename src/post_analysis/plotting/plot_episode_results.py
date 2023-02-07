@@ -615,6 +615,7 @@ def plot_imp_exp_violations(
             title = f'Import and export and corresponding penalties, repeat{repeat}, {t}'
             title_and_save(title, fig, prm)
 
+
 def plot_reactive_power(
         prm, all_methods_to_plot, folder_run):
     """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
@@ -655,6 +656,7 @@ def plot_reactive_power(
             plt.tight_layout()
             title = f'Reactive power and total costs, repeat{repeat}, {t}'
             title_and_save(title, fig, prm)
+
 
 def plot_voltage_violations(
         prm, all_methods_to_plot, folder_run):

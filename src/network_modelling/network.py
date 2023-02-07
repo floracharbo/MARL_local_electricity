@@ -60,7 +60,7 @@ class Network:
             # ieee network and corresponding incidence matrix
             self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
             self.n_non_flex_homes = self.n_homesP
-            
+
             # replacing asymmetric loads with single-phase
             self.existing_homes_network = list(self.net.asymmetric_load['bus'])
             random.shuffle(self.existing_homes_network)
@@ -147,16 +147,16 @@ class Network:
             # Add single phase loads and generations instead
             for home in self.homes:
                 pp.create_load(self.net, bus=self.existing_homes_network[home],
-                    p_mw=0, q_mvar=0, name=f'flex{home}')
+                               p_mw=0, q_mvar=0, name=f'flex{home}')
                 pp.create_sgen(self.net, bus=self.existing_homes_network[home],
-                    p_mw=0, q_mvar=0, name=f'flex{home}')
+                               p_mw=0, q_mvar=0, name=f'flex{home}')
             if self.n_homesP > 0:
                 for homeP in self.homesP:
                     pp.create_load(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
-                        p_mw=0, q_mvar=0, name=f'passive{homeP}')
+                                   p_mw=0, q_mvar=0, name=f'passive{homeP}')
                     pp.create_sgen(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
-                        p_mw=0, q_mvar=0, name=f'passive{homeP}')
-            
+                                   p_mw=0, q_mvar=0, name=f'passive{homeP}')
+
             # Remove bus duplicates
             # buscoords = pd.read_csv(self.network_data_path / 'Buscoords.csv', skiprows=1)
             # self._remove_duplicates_buses_lines(buscoords)
@@ -232,14 +232,14 @@ class Network:
                 self._assign_power_to_load_or_sgen(
                     netp, home, type='p_mw')
                 self._assign_power_to_load_or_sgen(
-                        netq_flex, home, type='q_mvar')
+                    netq_flex, home, type='q_mvar')
         # assign passive homes
         if self.n_homesP > 0:
             for homeP in self.homesP:
                 self._assign_power_to_load_or_sgen(
                     netp0, self.n_homes + homeP, type='p_mw')
                 self._assign_power_to_load_or_sgen(
-                        netq_non_flex, self.n_homes + homeP, type='q_mvar')
+                    netq_non_flex, self.n_homes + homeP, type='q_mvar')
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw >= 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
@@ -258,7 +258,6 @@ class Network:
                 self.net.load[type].iloc[house] = power[house] / 1000
             else:
                 self.net.sgen[type].iloc[house] = abs(power[house]) / 1000
-
 
     def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_non_flex):
         replace_with_pp_simulation = False
@@ -315,8 +314,7 @@ class Network:
             # )
 
     def test_network_comparison_optimiser_pandapower(
-            self, res, time_step, grdCt, netp0, netq_flex, netq_non_flex
-        ):
+        self, res, time_step, grdCt, netp0, netq_flex, netq_non_flex):
         """Compares hourly results from network modelling in optimizer and pandapower"""
         start = time.time()
         # Results from optimization

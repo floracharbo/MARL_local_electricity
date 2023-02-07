@@ -51,7 +51,8 @@ class Optimiser():
             res['hourly_voltage_costs'] = np.sum(
                 res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
             )
-            res['hourly_line_losses'] = res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
+            res['hourly_line_losses'] = \
+                res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
         else:
             res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
@@ -142,7 +143,7 @@ class Optimiser():
         # variables only needed for reactive power
         q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
         q_heat_home_flex = p.add_variable(
-                'q_heat_home_flex', (self.n_homes, self.N), vtype='continuous')
+            'q_heat_home_flex', (self.n_homes, self.N), vtype='continuous')
         p_car_flex = p.add_variable('p_car_flex', (self.n_homes, self.N), vtype='continuous')
         if self.reactive_power_for_voltage_control:
             q_car_flex2 = p.add_variable('q_car_flex2', (self.n_homes, self.N), vtype='continuous')
@@ -185,8 +186,8 @@ class Optimiser():
         p.add_constraint(p_car_flex <= self.grd['max_active_power_car'])
 
         # if we don't allow the use of the battery reactive power for control
-        # then we restain it by using the power factor 
-        if self.reactive_power_for_voltage_control:          
+        # then we restain it by using the power factor
+        if self.reactive_power_for_voltage_control:
             for time in range(self.N):
                 p.add_list_of_constraints([
                     p_car_flex2[home, time] >= p_car_flex[home, time]
@@ -222,7 +223,7 @@ class Optimiser():
             p.add_list_of_constraints(
                 [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
-            p.add_list_of_constraints(    
+            p.add_list_of_constraints(
                 [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
                     * self.kW_to_per_unit_conversion
                     + self.grd['flex_buses'] * q_heat_home_flex[:, t]
@@ -232,8 +233,9 @@ class Optimiser():
         # external grid between bus 1 and 2
         # we ignore the losses of reactive power
         if self.n_homesP > 0:
-            p.add_constraint(q_ext_grid == sum(q_heat_home_car_non_flex) + sum(q_car_flex) \
-                                           + sum(q_heat_home_flex))
+            p.add_constraint(
+                q_ext_grid ==
+                + sum(q_heat_home_car_non_flex) + sum(q_car_flex) + sum(q_heat_home_flex))
         else:
             p.add_constraint(q_ext_grid == sum(q_car_flex) + sum(q_heat_home_flex))
 
@@ -682,7 +684,7 @@ class Optimiser():
         p.set_objective('min', total_costs)
 
         return p
-    
+
     def _calculate_reactive_power(self, active_power, power_factor):
         reactive_power = active_power * math.tan(math.acos(power_factor))
         return reactive_power

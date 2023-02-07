@@ -830,7 +830,7 @@ class Explorer():
             feasible = not any(error)
 
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
-                if self.prm['syst']['n_homesP'] > 0: 
+                if self.prm['syst']['n_homesP'] > 0:
                     netp0, _, _ = self.env._get_passive_vars(time_step)
                     netq_non_flex = netp0 \
                         * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
@@ -839,10 +839,10 @@ class Explorer():
                 # q_car_flex will be a decision variable
                 p_car_flex = - (np.array(self.env.car.loss_ch) + np.array(self.env.car.charge)) \
                     + np.array(self.env.car.discharge)
-                q_car_flex = self.env._calculate_reactive_power(p_car_flex,
-                    self.prm['grd']['pf_flexible_heat_home'])
-                q_heat_home_flex = self.env._calculate_reactive_power(home_vars['tot_cons'],
-                    self.grd['pf_flex_heat_home']) 
+                q_car_flex = self.env._calculate_reactive_power(
+                    p_car_flex, self.prm['grd']['pf_flexible_heat_home'])
+                q_heat_home_flex = self.env._calculate_reactive_power(
+                    home_vars['tot_cons'], self.grd['pf_flex_heat_home'])
                 netq_flex = q_car_flex + q_heat_home_flex
 
                 res = self.env.network.test_network_comparison_optimiser_pandapower(
@@ -1046,7 +1046,8 @@ class Explorer():
         for comb_actions in combs_actions:
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
-            home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
+            home_vars, loads, hourly_line_losses, voltage_squared, \
+                q_ext_grid, constraint_ok = \
                 env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self.env.get_passive_vars(time_step)
