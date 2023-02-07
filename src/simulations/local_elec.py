@@ -577,6 +577,7 @@ class LocalElecEnv():
                 home_vars['netp'], p_non_flex,
                 netq_flex, netq_non_flex)
             voltage_squared = np.square(voltage)
+
         else:
             voltage_squared = None
             hourly_line_losses = 0
