@@ -68,6 +68,7 @@ class QMixer(nn.Module):
         self.hyper_w_1.to(device)
         self.hyper_w_final.to(device)
         self.V.to(device)
+        self.weight0 = self.state_dict()['hyper_b_1.weight'].clone()
 
     def forward(self, agent_qs, states):
         states = states.cuda() if self.cuda_available else states

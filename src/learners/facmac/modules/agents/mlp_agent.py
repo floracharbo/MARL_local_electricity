@@ -35,9 +35,23 @@ class MLPAgent(Agent):
                 x = nn.Flatten()(x)
             x = F.relu(self.layers[i](x))
 
-        if self.agent_return_logits:
-            actions = self.fc_out(x)
-        else:
-            actions = th.tanh(self.fc_out(x))
+        q = self.fc_out(x)
+        # if self.agent_return_logits:
+        if self.rl['learner'] == 'facmac_learner_discrete':
+            # action_ps = F.gumbel_softmax(self.fc_out(x), tau=1, hard=False)
+            actions = q
+            # actions = F.gumbel_softmax(action_ps, tau=1, hard=False)
 
-        return {"actions": actions, "hidden_state": hidden_state}
+            # a = self.fc_out(x).view(self.rl['n_homes'], self.rl['dim_actions_1'], self.rl['n_discrete_actions'])
+            # b = F.gumbel_softmax(a, tau=1, hard=False)
+            # a.size()
+            # Out[5]: torch.Size([10, 3, 10])
+            # b.size()
+            # Out[6]: torch.Size([10, 3, 10])
+            # b[0, 0].sum()
+            # Out[7]: tensor(1., grad_fn= < SumBackward0 >)
+            # c = b.argmax(dim=2)
+        else:
+            actions = th.tanh(q)
+
+        return {"actions": actions, "hidden_state": hidden_state, "Q": q}

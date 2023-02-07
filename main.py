@@ -17,7 +17,7 @@ from src.simulations.runner import run
 
 settings = {
     'RL': {
-       'state_space': [['grdC_n2', 'flexibility'], ['grdC']],
+       'state_space': [['grdC_n2', 'flexibility']] * 2,
        'n_epochs': 20,
        'n_repeats': 3,
        'type_learning': ['facmac'] * 2,
@@ -26,6 +26,13 @@ settings = {
            'hysteretic': True,
            'beta_to_alpha': 0.11,
         },
+        'action_selector': "gumbel",
+        "learner": ["facmac_learner_discrete"],
+    #     "facmac_learner",
+        'agent_output_type': "pi_logits",
+        'target_update_mode':'hard',
+        'agent_return_logits': False,
+        'mask_before_softmax': True,
     },
     'syst': {
        'n_homes': 10,

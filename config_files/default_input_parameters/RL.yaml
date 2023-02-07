@@ -241,3 +241,4 @@ num_layers_rnn: 1
 grdC_n: 0
 flexibility_states: ['bool_flex', 'store_bool_flex', 'flexibility']
 n_epochs_supervised_loss: 0
+td_lambda: 0.8

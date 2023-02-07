@@ -255,3 +255,17 @@ def should_optimise_for_supervised_loss(epoch, rl):
         rl['supervised_loss']
         and epoch < rl['n_epochs_supervised_loss']
     )
+
+
+def getBack(var_grad_fn):
+    print(var_grad_fn)
+    for n in var_grad_fn.next_functions:
+        if n[0]:
+            try:
+                tensor = getattr(n[0], 'variable')
+                print(n[0])
+                print('Tensor with grad found:', tensor)
+                print(' - gradient:', tensor.grad)
+                print()
+            except AttributeError as e:
+                getBack(n[0])

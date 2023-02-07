@@ -46,7 +46,8 @@ class CQLearner(Learner):
         for t in range(batch.max_seq_length):
             # Note the minimum value of max_seq_length is 2
             agent_outs, _ = self.mac.forward(
-                batch, actions=batch["actions"][:, t:t + 1].detach(), t=t)
+                batch, actions=batch["actions"][:, t:t + 1].detach(), t=t
+            )
             chosen_action_qvals.append(agent_outs)
 
         # Concat over time

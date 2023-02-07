@@ -64,7 +64,7 @@ class MADDPGLearner(Learner):
         self.mac.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length - 1):
             agent_outs = self.mac.forward(
-                batch, t=t, select_actions=True)["actions"].view(
+                batch, t=t, select_actions=True).view(
                 batch.batch_size, self.n_agents, self.n_actions)
 
             chosen_action_qvals = self._append_chosen_action_qvals(
