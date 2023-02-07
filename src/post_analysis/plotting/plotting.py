@@ -19,7 +19,7 @@ from src.post_analysis.plotting.plot_break_down_savings import (
 from src.post_analysis.plotting.plot_episode_results import (
     map_over_undervoltage, plot_env_input, plot_imp_exp_check,
     plot_imp_exp_violations, plot_res, plot_voltage_violations,
-    voltage_penalty_per_bus)
+    voltage_penalty_per_bus, plot_reactive_power)
 from src.post_analysis.plotting.plot_moving_average_rewards import (
     plot_mova_eval_per_repeat, plot_results_all_repeats)
 from src.post_analysis.plotting.plot_q_learning_explorations_values import (
@@ -162,6 +162,7 @@ def plotting(record, spaces, prm, f):
     # 21 - (Sanity Check) plot grid = grid_in - grid_out
     plot_imp_exp_check(
         prm, all_methods_to_plot, folder_run)
+    plot_reactive_power(prm, all_methods_to_plot, folder_run)
 
     # 21 - over- and undervoltage
     if prm['grd']['manage_voltage']:

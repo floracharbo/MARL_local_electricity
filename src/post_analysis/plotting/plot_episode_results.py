@@ -615,6 +615,47 @@ def plot_imp_exp_violations(
             title = f'Import and export and corresponding penalties, repeat{repeat}, {t}'
             title_and_save(title, fig, prm)
 
+def plot_reactive_power(
+        prm, all_methods_to_plot, folder_run):
+    """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
+    plt.rcParams['font.size'] = '16'
+    for repeat in range(prm['RL']['n_repeats']):
+        last, _, methods_to_plot = _get_repeat_data(
+            repeat, all_methods_to_plot, folder_run)
+        for t in methods_to_plot:
+            fig, ax1 = plt.subplots(figsize=(8, 6))
+            ax2 = ax1.twinx()
+            netq = last['netq_flex'][t]  # [step][a]
+            flex_reactive_power = [sum(netq[step]) for step in range(prm['syst']['N'])]
+            break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
+            i_total_costs = prm['syst']['break_down_rewards_entries'].index(
+                'total_costs'
+            )
+            total_costs = [
+                break_down_rewards[step][i_total_costs]
+                for step in range(prm['syst']['N'])
+            ]
+            ax1.plot(flex_reactive_power, label='Reactive power', color='coral')
+            ax2.bar(
+                range(prm['syst']['N']),
+                total_costs,
+                label='Penalty import export',
+                color='olive'
+            )
+            ax1.set_ylabel('Sum reactive power [kWh]')
+            ax2.set_ylabel('System total costs [£]')
+            ax2.set_ylim([0, 1.1 * max(total_costs)])
+            ax1.spines['right'].set_color('coral')
+            ax1.spines['left'].set_color('coral')
+            ax1.spines['right'].set_color('olive')
+            ax1.spines['left'].set_color('olive')
+            ax1.yaxis.label.set_color('coral')
+            ax2.yaxis.label.set_color('olive')
+            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
+            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+            plt.tight_layout()
+            title = f'Reactive power and total costs, repeat{repeat}, {t}'
+            title_and_save(title, fig, prm)
 
 def plot_voltage_violations(
         prm, all_methods_to_plot, folder_run):
