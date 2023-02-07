@@ -951,7 +951,7 @@ class Explorer():
 
         record_output = []
         for entry in [
-            'netp', 'discharge_other', 'store', 'totcons', 'E_heat',
+            'netp', 'netp0', 'discharge_other', 'store', 'totcons', 'E_heat',
             'T', 'T_air', 'voltage_squared'
         ]:
             record_output.append(res[entry][:, time_step])
@@ -1047,7 +1047,7 @@ class Explorer():
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
             home_vars, loads, hourly_line_losses, voltage_squared, \
-                q_ext_grid, constraint_ok = \
+                _, _, constraint_ok = \
                 env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self.env.get_passive_vars(time_step)

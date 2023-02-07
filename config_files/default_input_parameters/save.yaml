@@ -8,7 +8,7 @@ save_run: True
 learner_log_interval: 2000 # Log training stats every {} timesteps
 plot_indiv_repeats_rewards: False
 last_entries: [
-  'netp', 'store_outs', 'store',
+  'netp', 'netp0', 'store_outs', 'store',
   'totcons', 'tot_E_heat', 'T', 'T_air',
   'voltage_squared', 'hourly_line_losses',
   'action','reward',

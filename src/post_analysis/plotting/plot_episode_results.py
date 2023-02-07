@@ -582,7 +582,9 @@ def plot_imp_exp_violations(
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
             netp = last['netp'][t]  # [step][a]
-            grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
+            netp0 = last['netp'][t]  # [step][a]
+            grid_flex = [sum(netp[step]) for step in range(prm['syst']['N'])]
+            grid_passive = [sum(netp0[step]) for step in range(prm['syst']['N'])]
             break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
             i_import_export_costs = prm['syst']['break_down_rewards_entries'].index(
                 'import_export_costs'
@@ -591,7 +593,8 @@ def plot_imp_exp_violations(
                 break_down_rewards[step][i_import_export_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(grid, label='Import/Export', color='coral')
+            ax1.plot(grid_flex, label='Import/Export', color='coral')
+            ax1.plot(grid_passive, label='Import/Export', color='coral', linestyle='dashed')
             ax2.bar(
                 range(prm['syst']['N']),
                 import_export_costs,
@@ -669,14 +672,17 @@ def plot_voltage_violations(
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
             netp = last['netp'][t]  # [step][a]
-            grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
+            netp0 = last['netp0'][t]  # [step][a]
+            grid_flex = [sum(netp[step]) for step in range(prm['syst']['N'])]
+            grid_passive = [sum(netp0[step]) for step in range(prm['syst']['N'])]
             break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
             i_voltage_costs = prm['syst']['break_down_rewards_entries'].index('voltage_costs')
             voltage_costs = [
                 break_down_rewards[step][i_voltage_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(grid, label='Import/Export', color='coral')
+            ax1.plot(grid_flex, label='Import/Export', color='coral')
+            ax1.plot(grid_passive, label='Import/Export', color='coral', linestyle='dashed')
             ax2.bar(
                 range(prm['syst']['N']),
                 voltage_costs,

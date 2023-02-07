@@ -294,7 +294,7 @@ class LocalElecEnv():
         if h == 2:
             self.slid_day = False
         home_vars, loads, hourly_line_losses, voltage_squared, \
-            q_ext_grid, constraint_ok = self.policy_to_rewardvar(
+            q_ext_grid, netp0, constraint_ok = self.policy_to_rewardvar(
                 action, E_req_only=E_req_only)
         if not constraint_ok:
             print('constraint false not returning to original values')
@@ -341,6 +341,7 @@ class LocalElecEnv():
                     loaded_buses, sgen_buses = None, None
                 record_output = [
                     home_vars['netp'],
+                    netp0,
                     self.car.discharge,
                     self.car.store,
                     home_vars['tot_cons'].copy(),
@@ -547,16 +548,18 @@ class LocalElecEnv():
         self.heat.next_T(update=True)
         self._check_constraints(
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
-
+        
+        if self.prm['syst']['n_homesP'] > 0:
+            netp0 = self.prm['loads']['netp0'][:, h]
+        else:
+            netp0 = []
         if self.prm['grd']['manage_voltage']:
             if self.prm['syst']['n_homesP'] > 0:
-                netp0 = self.prm['loads']['netp0'][:, h]
                 q_heat_home_car_non_flex = self._calculate_reactive_power(
                     netp0,
                     self.prm['grd']['pf_non_flex_heat_home_car']
                     )
             else:
-                netp0 = []
                 q_heat_home_car_non_flex = []
                 q_heat_home_flex = self._calculate_reactive_power(
                     home_vars['tot_cons'], self.prm['grd']['pf_flexible_heat_home'])
@@ -582,11 +585,12 @@ class LocalElecEnv():
             hourly_line_losses = 0
             q_ext_grid = 0
 
+
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
-                q_ext_grid, constraint_ok)
+                q_ext_grid, netp0, constraint_ok)
 
     def _calculate_reactive_power(self, active_power, power_factor):
         reactive_power = active_power * math.tan(math.acos(power_factor))
