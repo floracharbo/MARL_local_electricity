@@ -558,10 +558,11 @@ class LocalElecEnv():
                 q_heat_home_flex = self._calculate_reactive_power(home_vars['tot_cons'],
                     self.prm['grd']['pf_flexible_heat_home'])
                 # q_car_flex will be a decision variable
-                q_car_flex = 0
-                # p_car_flex is needed to set apparent power limits
                 p_car_flex = - (self.car.loss_ch[home] + self.car.charge[home]) \
                     + self.car.discharge[home]
+                q_car_flex = self._calculate_reactive_power(p_car_flex,
+                    self.prm['grd']['pf_flexible_heat_home'])
+                # p_car_flex is needed to set apparent power limits
                 netq_flex = q_car_flex + q_heat_home_flex
                 netq_non_flex = q_heat_home_car_non_flex
                 # import/export external grid

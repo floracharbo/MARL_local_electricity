@@ -231,16 +231,14 @@ class Network:
             for home in self.homes:
                 self._assign_power_to_load_or_sgen(
                     netp, home, type='p_mw')
-                if self.reactive_power_for_voltage_control:
-                    self._assign_power_to_load_or_sgen(
+                self._assign_power_to_load_or_sgen(
                         netq_flex, home, type='q_mvar')
         # assign passive homes
         if self.n_homesP > 0:
             for homeP in self.homesP:
                 self._assign_power_to_load_or_sgen(
                     netp0, self.n_homes + homeP, type='p_mw')
-                if self.reactive_power_for_voltage_control:
-                    self._assign_power_to_load_or_sgen(
+                self._assign_power_to_load_or_sgen(
                         netq_non_flex, self.n_homes + homeP, type='q_mvar')
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw >= 0])
