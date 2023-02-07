@@ -927,7 +927,7 @@ def remove_key_from_columns_names(new_columns):
     return new_columns
 
 
-def remove_server_duplicate(log, columns0):
+def remove_duplicates(log, columns0):
     if 'RL-server' in columns0:
         log['syst-server'] = log.apply(
             lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'],
@@ -935,6 +935,13 @@ def remove_server_duplicate(log, columns0):
         )
         log.drop(columns=['RL-server'], inplace=True)
         columns0.remove('RL-server')
+    if 'syst-timestampe' in columns0:
+        log['syst-timestamp'] = log.apply(
+            lambda row: row['syst-timestampe'] if row['syst-timestamp'] is None else row['syst-timestamp'],
+            axis=1
+        )
+        log.drop(columns=['syst-timestampe'], inplace=True)
+        columns0.remove('syst-timestampe')
 
     return log, columns0
 
@@ -966,7 +973,7 @@ if __name__ == "__main__":
             if row is not None:
                 log.loc[len(log.index)] = row
                 newly_added_runs.append(row[0])
-    log, columns0 = remove_server_duplicate(log, columns0)
+    log, columns0 = remove_duplicates(log, columns0)
     new_columns, log = remove_columns_that_never_change_and_tidy(
         log, columns0, columns_results_methods
     )
