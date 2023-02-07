@@ -684,7 +684,7 @@ def _syst_info(prm):
     syst["dt"] = 1 / syst["n_int_per_hr"]
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
-    syst['timestampe'] = datetime.datetime.now().timestamp()
+    syst['timestamp'] = datetime.datetime.now().timestamp()
 
 
 def _homes_info(loads, syst, gen, heat):
