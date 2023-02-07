@@ -39,16 +39,19 @@ class DataManager():
         """Add relevant information to the properties of the object."""
         self.env = env
         self.prm = prm
-        self.optimiser = Optimiser(prm)
+        compute_import_export_costs = self.env.network.compute_import_export_costs \
+            if self.prm['grd']['manage_agg_power'] or self.prm['grd']['manage_voltage'] \
+            else None
+        self.optimiser = Optimiser(prm, compute_import_export_costs)
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
-        self.rl = prm['RL']
-        self.check_feasibility_with_opt = self.rl['check_feasibility_with_opt']
         self.deterministic_created = False
 
         self.seeds = prm['RL']['seeds']
+        self.rl = prm['RL']
         self.force_optimisation = prm['syst']['force_optimisation']
+        self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
@@ -64,6 +67,11 @@ class DataManager():
 
         self.timer_optimisation = []
         self.timer_feasible_data = []
+
+        # keep track of optimisation consumption constraint violations
+        self.n_optimisations = 0
+        self.n_cons_constraint_violations = 0
+        self.max_cons_slack = -1
 
     def format_grd(self, batch, passive_ext):
         """Format network parameters in preparation for optimisation."""
@@ -145,8 +153,9 @@ class DataManager():
         return seed_data, new_res, data_feasible
 
     def _check_data_computations_required(self, type_actions, feasibility_checked):
-        opt_needed = 'opt' in type_actions \
-                     or (not feasibility_checked and self.check_feasibility_with_opt)
+        opt_needed = \
+            'opt' in type_actions \
+            or (not feasibility_checked and self.rl['check_feasibility_with_opt'])
 
         if opt_needed:
             file_exists = (self.paths['opt_res'] / self.res_name).is_file()
@@ -190,6 +199,7 @@ class DataManager():
                 res = np.load(self.paths['opt_res']
                               / self.res_name,
                               allow_pickle=True).item()
+                pp_simulation_required = False
                 if 'house_cons' not in res:
                     res['house_cons'] = res['totcons'] - res['E_heat']
             # [factors, clusters] = self._load_res()
@@ -207,10 +217,13 @@ class DataManager():
         if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
             try:
                 start = time.time()
-                res = self.optimiser.solve(self.prm)
+                res, pp_simulation_required = self.optimiser.solve(self.prm)
                 end = time.time()
                 duration_opti = end - start
                 self.timer_optimisation.append(duration_opti)
+                self.n_optimisations += 1
+                self.n_cons_constraint_violations += pp_simulation_required
+                self.max_cons_slack = np.max([self.max_cons_slack, res['max_cons_slack']])
             except Exception as ex:  # if infeasible, make new data
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())
@@ -221,7 +234,7 @@ class DataManager():
         if data_feasible and 'opt' in type_actions:  # start with opt
             # exploration through optimisation
             step_vals, data_feasible = self.get_steps_opt(
-                res, step_vals, evaluation, batch, epoch
+                res, pp_simulation_required, step_vals, evaluation, batch, epoch
             )
 
         seed_data = [res, batch]
@@ -501,9 +514,9 @@ class DataManager():
         """Update available flexibility based on optimisation results."""
         n_homes = len(res["E_heat"])
         cons_flex_opt = res["house_cons"][:, time_step] - batchflex_opt[:, time_step, 0]
-        if not (np.all(np.greater(cons_flex_opt, - 1e-3))):
-            print()
-        assert np.all(np.greater(cons_flex_opt, - 1e-3)), f"cons_flex_opt {cons_flex_opt}"
+
+        assert np.all(np.greater(cons_flex_opt, - self.tol_cons_constraints * 2)), \
+            f"cons_flex_opt {cons_flex_opt}"
         cons_flex_opt = np.where(cons_flex_opt > 0, cons_flex_opt, 0)
         inputs_update_flex = [
             time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes

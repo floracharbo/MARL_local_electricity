@@ -926,15 +926,18 @@ def remove_key_from_columns_names(new_columns):
 
     return new_columns
 
+
 def remove_server_duplicate(log, columns0):
     if 'RL-server' in columns0:
         log['syst-server'] = log.apply(
-            lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'], axis=1
+            lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'],
+            axis=1
         )
         log.drop(columns=['RL-server'], inplace=True)
         columns0.remove('RL-server')
 
     return log, columns0
+
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")

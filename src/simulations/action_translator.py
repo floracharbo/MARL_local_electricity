@@ -560,7 +560,7 @@ class Action_translator:
                 flexible_cons_action = np.random.rand()
 
         if loads_bool_flex:
-            cons = res['totcons'][home, time_step] - res['E_heat'][home, time_step]
+            cons = res['house_cons'][home, time_step]
             if cons < 1e-3:
                 cons = 0
 
@@ -570,6 +570,12 @@ class Action_translator:
             elif loads['l_flex'][home] < flex_cons < loads['l_flex'][home] + 1e-3:
                 flex_cons = loads['l_flex'][home]
             flexible_cons_action = flex_cons / loads['l_flex'][home]
+
+        if flexible_cons_action > 1:
+            if abs(flex_cons - loads['l_flex'][home]) < 5e-3:
+                flexible_cons_action = 1
+            else:
+                print(f"flex_cons {flex_cons} loads['l_flex'][home] {loads['l_flex'][home]}")
 
         return flexible_cons_action, loads_bool_flex
 

@@ -684,7 +684,7 @@ def _syst_info(prm):
     syst["dt"] = 1 / syst["n_int_per_hr"]
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
-    syst['timestampe'] = datetime.datetime.now().timestamp()
+    syst['timestamp'] = datetime.datetime.now().timestamp()
 
 
 def _homes_info(loads, syst, gen, heat):
@@ -782,7 +782,11 @@ def _filter_type_learning_facmac(rl):
             if method in valid_types[stage] or "env_r_c" in method:
                 rl[f"{stage}_methods"].append(method)
             else:
-                print(f"Warning: {method} is not a valid method for {stage} stage with facmac and has been removed")
+                print(
+                    f"Warning: {method} is not a valid method for {stage} stage "
+                    f"with facmac and has been removed"
+                )
+
 
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning

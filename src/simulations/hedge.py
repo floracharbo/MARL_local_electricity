@@ -8,6 +8,7 @@ The main method is 'make_next_day', which generates new day of data
 (car, loads, gen profiles), calling other methods as needed.
 """
 
+import copy
 import os
 import pickle
 from datetime import datetime, timedelta
@@ -40,29 +41,31 @@ class HEDGE:
         factors0: Optional[dict] = None,
         clusters0: Optional[dict] = None,
         prm: Optional[dict] = None,
-        other_prm: Optional[dict] = None
+        other_prm: Optional[dict] = None,
     ):
         """Initialise HEDGE object and initial properties."""
         # update object properties
         self.labels_day = ["wd", "we"]
         self.n_homes = n_homes
         self.homes = range(self.n_homes)
-
         # load input data
         self._load_input_data(prm, other_prm, factors0, clusters0)
 
-    def _replace_other_prm(self, prm, other_prm):
-        prm = prm.copy()
+    def _replace_car_prm(self, prm, other_prm):
+        prm = copy.deepcopy(prm)
         if other_prm is not None:
             for key, val in other_prm.items():
                 for subkey, subval in val.items():
-                    prm[key][subkey] = val
+                    prm[key][subkey] = subval
+        # add relevant parameters to object properties
+        self.car = prm["car"]
+        self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
 
         return prm
 
     def _load_input_data(self, prm, other_prm, factors0, clusters0):
         prm = self._load_inputs(prm)
-        prm = self._replace_other_prm(prm, other_prm)
+        prm = self._replace_car_prm(prm, other_prm)
         self._init_factors(factors0)
         self._init_clusters(clusters0)
         self.profs = self._load_profiles(prm)
@@ -186,7 +189,13 @@ class HEDGE:
             with open("inputs/parameters.yaml", "rb") as file:
                 prm = yaml.safe_load(file)
 
-        self._init_params(prm)
+        self.data_types = prm["syst"]["data_types"]
+        self.behaviour_types = [
+            data_type for data_type in self.data_types if data_type != "gen"
+        ]
+        # update date and time information
+        self.date = datetime(*prm["syst"]["date0"])
+        self.save_day_path = Path(prm["paths"]["record_folder"])
 
         # general inputs with all data types
         factors_path = prm["paths"]["hedge_inputs"] / "factors"
@@ -852,15 +861,3 @@ class HEDGE:
 
                 if data_type == "car":
                     self._plot_ev_avail(day, hr_per_t, hours, home)
-
-    def _init_params(self, prm):
-        # add relevant parameters to object properties
-        self.data_types = prm["syst"]["data_types"]
-        self.behaviour_types = [
-            data_type for data_type in self.data_types if data_type != "gen"
-        ]
-        self.car = prm["car"]
-        self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
-        # update date and time information
-        self.date = datetime(*prm["syst"]["date0"])
-        self.save_day_path = Path(prm["paths"]["record_folder"])

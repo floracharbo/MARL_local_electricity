@@ -86,12 +86,12 @@ class Network:
             for attribute in ['count_correction_opti_with_pp', 'n_losses_error']:
                 setattr(self, attribute, 0)
             for attribute in [
-                'timer_pp', 'timer_comparison', 'max_rel_diff_voltage', 'mean_rel_diff_voltage', 'std_rel_diff_voltage'
+                'timer_pp', 'timer_comparison', 'max_rel_diff_voltage',
+                'mean_rel_diff_voltage', 'std_rel_diff_voltage'
             ]:
                 setattr(self, attribute, [])
 
         self.homes = range(self.n_homes)
-
 
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """
@@ -276,6 +276,7 @@ class Network:
         self.max_rel_diff_voltage.append(max_rel_diff_voltage)
         self.mean_rel_diff_voltage.append(np.mean(all_rel_diff_voltage))
         self.std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
+
         if max_rel_diff_voltage > self.tol_rel_voltage_diff:
             print(
                 f"The max diff of voltage between the optimizer and pandapower for hour {time_step}"
@@ -351,7 +352,7 @@ class Network:
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp = self.compute_import_export_costs(grid_pp)
+        import_export_costs_pp, _, _ = self.compute_import_export_costs(grid_pp)
         delta_import_export_costs = \
             import_export_costs_pp - res['hourly_import_export_costs'][time_step]
 
@@ -409,9 +410,9 @@ class Network:
             )
             import_export_costs = import_costs + export_costs
         else:
-            import_export_costs = 0
+            import_export_costs, import_costs, export_costs = 0, 0, 0
 
-        return import_export_costs
+        return import_export_costs, import_costs, export_costs
 
     def compute_voltage_costs(self, voltage_squared):
         over_voltage_costs = self.penalty_overvoltage * np.where(
