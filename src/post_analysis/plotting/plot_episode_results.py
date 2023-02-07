@@ -625,8 +625,7 @@ def plot_reactive_power(
         for t in methods_to_plot:
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
-            netq = last['netq_flex'][t]  # [step][a]
-            flex_reactive_power = [sum(netq[step]) for step in range(prm['syst']['N'])]
+            flex_reactive_power = last['q_ext_grid'][t]
             break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
             i_total_costs = prm['syst']['break_down_rewards_entries'].index(
                 'total_costs'
@@ -639,7 +638,7 @@ def plot_reactive_power(
             ax2.bar(
                 range(prm['syst']['N']),
                 total_costs,
-                label='Penalty import export',
+                label='Total costs',
                 color='olive'
             )
             ax1.set_ylabel('Sum reactive power [kWh]')

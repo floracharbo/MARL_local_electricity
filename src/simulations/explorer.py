@@ -963,6 +963,7 @@ class Explorer():
             break_down_rewards,
             loaded_buses, sgen_buses
         ]
+        record_output.append(res['q_ext_grid'][time_step])
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
 
