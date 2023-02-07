@@ -582,7 +582,7 @@ def plot_imp_exp_violations(
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
             netp = last['netp'][t]  # [step][a]
-            netp0 = last['netp'][t]  # [step][a]
+            netp0 = last['netp0'][t]  # [step][a]
             grid_flex = [sum(netp[step]) for step in range(prm['syst']['N'])]
             grid_passive = [sum(netp0[step]) for step in range(prm['syst']['N'])]
             break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
