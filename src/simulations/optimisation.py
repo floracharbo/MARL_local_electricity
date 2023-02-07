@@ -231,8 +231,11 @@ class Optimiser():
 
         # external grid between bus 1 and 2
         # we ignore the losses of reactive power
-        p.add_constraint(q_ext_grid == sum(q_heat_home_car_non_flex) + sum(q_car_flex) \
-            + sum(q_heat_home_flex))
+        if self.n_homesP > 0:
+            p.add_constraint(q_ext_grid == sum(q_heat_home_car_non_flex) + sum(q_car_flex) \
+                                           + sum(q_heat_home_flex))
+        else:
+            p.add_constraint(q_ext_grid == sum(q_car_flex) + sum(q_heat_home_flex))
 
         p.add_list_of_constraints(
             [pij[0, t] == grid[t] * self.kW_to_per_unit_conversion for t in range(self.N)]
