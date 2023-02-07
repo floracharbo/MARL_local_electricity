@@ -515,7 +515,8 @@ def only_columns_relevant_learning_type_comparison(
         'cnn_out_channels', 'facmac-batch_size', 'facmac-critic_lr',
         'hyper_initialization_nonzeros', 'lr', 'mixer', 'n_hidden_layers',
         'n_hidden_layers_critic', 'nn_type', 'nn_type_critic', 'obs_agent_id',
-        'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha'
+        'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha',
+        'gamma', 'timestamp', 'instant_feedback'
     ]
     only_col_of_interest_changes = all(
         current_col == row_col or (
@@ -576,7 +577,8 @@ def compare_all_runs_for_column_of_interest(
         'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size',
         'facmac-beta_to_alpha', 'facmac-critic_lr', 'facmac-hysteretic', 'learner',
         'mixer', 'n_hidden_layers', 'n_hidden_layers_critic', 'nn_type',
-        'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
+        'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode',
+        'instant_feedback'
     ]
     indexes_columns_ignore_q_learning = [
         other_columns.index(col) for col in columns_irrelevant_to_q_learning if col in other_columns
@@ -674,7 +676,10 @@ def compare_all_runs_for_column_of_interest(
             )
             runs = log.loc[rows_considered[- len(values_of_interest):], 'run'].values
             if all_setups_same_as_0:
-                print(f"runs {runs} equal?")
+                row0 = rows_considered[- len(values_of_interest)]
+                for row in rows_considered[- len(values_of_interest) + 1:]:
+                    if all(log.loc[row, col] == log.loc[row0, col] for col in other_columns + [column_of_interest]):
+                        print(f"runs {runs} equal?")
             else:
                 setups.append(current_setup)
                 i_sorted = np.argsort(values_of_interest)
@@ -859,14 +864,14 @@ def plot_sensitivity_analyses(new_columns, log):
     # each plot being a 2 row subplot with best score / best score env
     columns_of_interest = [
         column for column in new_columns[2:]
-        if column not in ['nn_learned', 'time_end']
+        if column not in ['nn_learned', 'time_end', 'machine_id']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        column_of_interest = 'supervised_loss_weight'
+        column_of_interest = 'type_learning'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
-            if column not in [column_of_interest, 'nn_learned', 'time_end']
+            if column not in [column_of_interest, 'nn_learned', 'time_end', 'machine_id', 'timestamp']
         ]
 
         plotted_something, axs, setups, state_space_vals = compare_all_runs_for_column_of_interest(
@@ -880,10 +885,9 @@ def plot_sensitivity_analyses(new_columns, log):
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
 
-            if column_of_interest == 'state_space':
+            if column_of_interest in ['state_space', 'type_learning']:
                 axs[0].axes.xaxis.set_ticklabels([])
                 axs[1].axes.xaxis.set_ticklabels([])
-
                 plt.xticks(rotation=90)
             elif column_of_interest == 'rnn_hidden_dim':
                 axs[0].set_xscale('log')
