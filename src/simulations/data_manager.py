@@ -205,7 +205,8 @@ class DataManager():
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext],
-                load_data=True, passive=passive)
+                load_data=True, passive=passive
+            )
             new_res = False
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(batch, passive=passive)

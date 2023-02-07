@@ -30,7 +30,7 @@ class Action_translator:
         """Initialise action_translator object and add relevant properties."""
         self.name = 'action translator'
         self.entries = ['dp', 'ds', 'l_ch', 'l_dis', 'c']
-        self.plotting = prm['RL']['plotting_action']
+        self.plotting = prm['save']['plotting_action']
         self.colours = [(0, 0, 0)] + prm['save']['colours']
         self.n_homes = env.n_homes
         self.N = env.N
