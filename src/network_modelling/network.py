@@ -215,7 +215,7 @@ class Network:
     def pf_simulation(
             self,
             netp: list,
-            p_non_flex: list = None,
+            netp0: list = None,
             netq_flex: list = None,
             netq_non_flex: list = None):
         start = time.time()
@@ -239,7 +239,7 @@ class Network:
         if self.n_homesP > 0:
             for homeP in self.homesP:
                 self._assign_power_to_load_or_sgen(
-                    p_non_flex, self.n_homes + homeP, type='p_mw')
+                    netp0, self.n_homes + homeP, type='p_mw')
                 self._assign_power_to_load_or_sgen(
                     netq_non_flex, self.n_homes + homeP, type='q_mvar')
 
@@ -263,12 +263,12 @@ class Network:
                 self.net.sgen[type].iloc[house] = abs(power[house]) / 1000
 
 
-    def _check_voltage_differences(self, res, time_step, p_non_flex, netq_flex, netq_non_flex):
-        do_pp_simulation = False
+    def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_non_flex):
+        replace_with_pp_simulation = False
         # Results from pandapower
         hourly_line_losses_pp, voltage_pp = self.pf_simulation(
             res["netp"][:, time_step],
-            p_non_flex, netq_flex, netq_non_flex)
+            netp0, netq_flex, netq_non_flex)
 
         # Voltage test
         all_abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
@@ -317,7 +317,7 @@ class Network:
             # )
 
     def test_network_comparison_optimiser_pandapower(
-            self, res, time_step, grdCt, p_non_flex, netq_flex, netq_non_flex
+            self, res, time_step, grdCt, netp0, netq_flex, netq_non_flex
         ):
         """Compares hourly results from network modelling in optimizer and pandapower"""
         start = time.time()

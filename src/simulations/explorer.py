@@ -844,8 +844,8 @@ class Explorer():
             feasible = not any(error)
 
             if self.prm["grd"]['compare_pandapower_optimisation']:
-                p_non_flex, _, _ = self.env._get_passive_vars(time_step)
-                netq_non_flex = p_non_flex \
+                netp0, _, _ = self.env._get_passive_vars(time_step)
+                netq_non_flex = netp0 \
                     * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
                 # q_car_flex will be a decision variable
                 q_car_flex = 0
@@ -855,7 +855,7 @@ class Explorer():
                 res, _, _ = self.env.network.test_network_comparison_optimiser_pandapower(
                     res, time_step,
                     self.prm['grd']['C'][time_step],
-                    p_non_flex,
+                    netp0,
                     netq_flex,
                     netq_non_flex
                 )

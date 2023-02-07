@@ -558,9 +558,8 @@ class LocalElecEnv():
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
 
         if self.prm['grd']['manage_voltage']:
-            # p_non_flex, _, _ = self._get_passive_vars(h)
-            p_non_flex = 0
-            q_heat_home_car_non_flex = self._calculate_reactive_power(p_non_flex,
+            netp0 = self.prm['loads']['netp0'][:,h]
+            q_heat_home_car_non_flex = self._calculate_reactive_power(netp0,
                 self.prm['grd']['pf_non_flex_heat_home_car'])
             q_heat_home_flex = self._calculate_reactive_power(home_vars['tot_cons'],
                 self.prm['grd']['pf_flexible_heat_home'])
@@ -574,7 +573,7 @@ class LocalElecEnv():
             # import/export external grid
             q_ext_grid = q_heat_home_car_non_flex + q_car_flex + q_heat_home_flex
             hourly_line_losses, voltage = self.network.pf_simulation(
-                home_vars['netp'], p_non_flex,
+                home_vars['netp'], netp0,
                 netq_flex, netq_non_flex)
             voltage_squared = np.square(voltage)
 
