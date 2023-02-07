@@ -60,6 +60,11 @@ class Optimiser():
             res['hourly_line_losses'] = np.zeros(self.N)
             res['q_ext_grid'] = np.zeros(self.N)
 
+        if self.n_homesP > 0:
+            res['netp0'] = self.loads['netp0']
+        else:
+            res['netp0'] = np.zeros([1, self.N])
+
         res['hourly_grid_energy_costs'] = self.grd['C'][0: self.N] * (
             res["grid"] + self.grd["loss"] * res["grid2"]
         )
