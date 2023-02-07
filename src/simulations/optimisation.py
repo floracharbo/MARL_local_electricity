@@ -201,7 +201,7 @@ class Optimiser():
                     <= self.grd['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
         else:
-            p.add_constraint(q_car_flex = self._calculate_reactive_power(
+            p.add_constraint(q_car_flex == self._calculate_reactive_power(
                 p_car_flex, self.grd['pf_flexible_heat_home']))
 
         if self.n_homesP > 0:
