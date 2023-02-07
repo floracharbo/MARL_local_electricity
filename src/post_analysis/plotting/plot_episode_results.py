@@ -634,22 +634,22 @@ def plot_reactive_power(
                 break_down_rewards[step][i_total_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(flex_reactive_power, label='Reactive power', color='coral')
+            ax1.plot(flex_reactive_power, label='Reactive power', color='salmon')
             ax2.bar(
                 range(prm['syst']['N']),
                 total_costs,
                 label='Total costs',
-                color='olive'
+                color='forestgreen'
             )
             ax1.set_ylabel('Sum reactive power [kWh]')
             ax2.set_ylabel('System total costs [£]')
             ax2.set_ylim([0, 1.1 * max(total_costs)])
-            ax1.spines['right'].set_color('coral')
-            ax1.spines['left'].set_color('coral')
-            ax1.spines['right'].set_color('olive')
-            ax1.spines['left'].set_color('olive')
+            ax1.spines['right'].set_color('salmon')
+            ax1.spines['left'].set_color('salmon')
+            ax1.spines['right'].set_color('forestgreen')
+            ax1.spines['left'].set_color('forestgreen')
             ax1.yaxis.label.set_color('coral')
-            ax2.yaxis.label.set_color('olive')
+            ax2.yaxis.label.set_color('forestgreen')
             ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
             ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
             plt.tight_layout()

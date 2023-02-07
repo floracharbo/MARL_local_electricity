@@ -293,8 +293,8 @@ class LocalElecEnv():
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
-            self.policy_to_rewardvar(
+        home_vars, loads, hourly_line_losses, voltage_squared, \
+            q_ext_grid, constraint_ok = self.policy_to_rewardvar(
                 action, E_req_only=E_req_only)
         if not constraint_ok:
             print('constraint false not returning to original values')
@@ -354,7 +354,8 @@ class LocalElecEnv():
                     self.wholesale[self.time].copy(),
                     self.cintensity[self.time].copy(),
                     break_down_rewards,
-                    loaded_buses, sgen_buses
+                    loaded_buses, sgen_buses,
+                    q_ext_grid
                 ]
 
                 return [next_state, self.done, reward, break_down_rewards,
@@ -581,7 +582,8 @@ class LocalElecEnv():
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
-        return home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok
+        return (home_vars, loads, hourly_line_losses, voltage_squared, 
+            q_ext_grid, constraint_ok)
 
 
     def _calculate_reactive_power(self, active_power, power_factor):
