@@ -52,6 +52,7 @@ class DataManager():
         self.rl = prm['RL']
         self.force_optimisation = prm['syst']['force_optimisation']
         self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
+        self.N = prm["syst"]['N']
         self.n_homesP = prm['syst']['n_homesP']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
@@ -115,7 +116,6 @@ class DataManager():
         # optimisation of power flow
         if grd['manage_voltage']:
             grd['flex_buses'] = self.env.network.flex_buses
-            grd['passive_buses'] = self.env.network.passive_buses
             grd['incidence_matrix'] = self.env.network.incidence_matrix
             grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
             grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
@@ -510,10 +510,21 @@ class DataManager():
         heat['T_out'] = self.env.heat.T_out
 
         # reactive power for passive homes
+        self.prm['loads']['active_power_passive_homes'] = []
+        self.prm['loads']['reactive_power_passive_homes'] = []
         if self.n_homesP > 0:
             self.prm['loads']['q_heat_home_car_passive'] = \
                 _calculate_reactive_power(
                     loads['netp0'], self.prm['grd']['pf_passive_homes'])
+            for t in range(self.N):
+                self.prm['loads']['active_power_passive_homes'].append(
+                    np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
+                self.prm['loads']['reactive_power_passive_homes'].append(
+                    np.matmul(self.env.network.passive_buses,
+                        self.prm['loads']['q_heat_home_car_passive'][:, t]))
+        else:
+            self.prm['loads']['active_power_passive_homes']  = np.zeros([self.N, 1])
+            self.prm['loads']['reactive_power_passive_homes']  = np.zeros([self.N, 1])
 
         return feasible
 

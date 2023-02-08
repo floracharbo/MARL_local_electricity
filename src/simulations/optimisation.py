@@ -193,32 +193,20 @@ class Optimiser():
             p.add_constraint(q_car_flex == _calculate_reactive_power(
                 p_car_flex, self.grd['pf_flexible_homes']))
 
-        if self.n_homesP > 0:
-            p.add_list_of_constraints(
-                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
-                    + np.matmul(self.grd['passive_buses'], self.loads['netp0'][:, t].reshape(4, 1))
-                    * self.kW_to_per_unit_conversion
-                    for t in range(self.N)])
-            p.add_list_of_constraints(
-                [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
-                    * self.kW_to_per_unit_conversion
-                    + self.grd['flex_buses'] * totcons[:, t]
-                    * math.tan(math.acos(self.grd['pf_flexible_homes']))
-                    * self.kW_to_per_unit_conversion
-                    + np.matmul(self.grd['passive_buses'], self.loads['q_heat_home_car_passive'][:, t])
-                    * self.kW_to_per_unit_conversion
-                    for t in range(self.N)])
-        else:
-            p.add_list_of_constraints(
-                [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
-                    for t in range(self.N)])
-            p.add_list_of_constraints(
-                [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
-                    * self.kW_to_per_unit_conversion
-                    + self.grd['flex_buses'] * totcons[:, t]
-                    * math.tan(math.acos(self.grd['pf_flexible_homes']))
-                    * self.kW_to_per_unit_conversion
-                    for t in range(self.N)])
+        p.add_list_of_constraints(
+            [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
+                + self.loads['active_power_passive_homes'][t]
+                * self.kW_to_per_unit_conversion
+                for t in range(self.N)])
+        p.add_list_of_constraints(
+            [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
+                * self.kW_to_per_unit_conversion
+                + self.grd['flex_buses'] * totcons[:, t]
+                * math.tan(math.acos(self.grd['pf_flexible_homes']))
+                * self.kW_to_per_unit_conversion
+                + self.loads['reactive_power_passive_homes'][t]
+                * self.kW_to_per_unit_conversion
+                for t in range(self.N)])
 
         # external grid between bus 1 and 2
         # we ignore the losses of reactive power
