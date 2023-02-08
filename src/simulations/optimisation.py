@@ -181,11 +181,11 @@ class Optimiser():
             p.add_constraint(
                 [q_heat_home_car_non_flex == self._calculate_reactive_power(
                     self.loads['netp0'],
-                    self.grd['pf_non_flex_heat_home_car'])
+                    self.grd['pf_passive_homes'])
                     ])
         # flex houses: heat and home
         p.add_constraint(q_heat_home_flex == self._calculate_reactive_power(
-            totcons, self.grd['pf_flexible_heat_home']))
+            totcons, self.grd['pf_flexible_homes']))
 
         # flex houses: car
         p.add_constraint(p_car_flex == charge / self.car['eta_ch'] + discharge_other)
@@ -209,7 +209,7 @@ class Optimiser():
                 ])
         else:
             p.add_constraint(q_car_flex == self._calculate_reactive_power(
-                p_car_flex, self.grd['pf_flexible_heat_home']))
+                p_car_flex, self.grd['pf_flexible_homes']))
 
         if self.n_homesP > 0:
             p.add_list_of_constraints(

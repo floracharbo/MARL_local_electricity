@@ -833,14 +833,14 @@ class Explorer():
                 if self.prm['syst']['n_homesP'] > 0:
                     netp0, _, _ = self.env._get_passive_vars(time_step)
                     netq_non_flex = netp0 \
-                        * math.tan(math.acos(self.grd['pf_non_flex_heat_home_car']))
+                        * math.tan(math.acos(self.grd['pf_passive_homes']))
                 else:
                     netq_non_flex = []
                 # q_car_flex will be a decision variable
                 p_car_flex = - (np.array(self.env.car.loss_ch) + np.array(self.env.car.charge)) \
                     + np.array(self.env.car.discharge)
                 q_car_flex = self.env._calculate_reactive_power(
-                    p_car_flex, self.prm['grd']['pf_flexible_heat_home'])
+                    p_car_flex, self.prm['grd']['pf_flexible_homes'])
                 q_heat_home_flex = self.env._calculate_reactive_power(
                     home_vars['tot_cons'], self.grd['pf_flex_heat_home'])
                 netq_flex = q_car_flex + q_heat_home_flex

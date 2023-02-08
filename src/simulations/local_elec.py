@@ -557,17 +557,17 @@ class LocalElecEnv():
             if self.prm['syst']['n_homesP'] > 0:
                 q_heat_home_car_non_flex = self._calculate_reactive_power(
                     netp0,
-                    self.prm['grd']['pf_non_flex_heat_home_car']
+                    self.prm['grd']['pf_passive_homes']
                     )
             else:
                 q_heat_home_car_non_flex = []
             q_heat_home_flex = self._calculate_reactive_power(
-                home_vars['tot_cons'], self.prm['grd']['pf_flexible_heat_home'])
+                home_vars['tot_cons'], self.prm['grd']['pf_flexible_homes'])
             # q_car_flex will be a decision variable
             p_car_flex = - (np.array(self.car.loss_ch) + np.array(self.car.charge)) \
                 + np.array(self.car.discharge)
             q_car_flex = self._calculate_reactive_power(
-                p_car_flex, self.prm['grd']['pf_flexible_heat_home'])
+                p_car_flex, self.prm['grd']['pf_flexible_homes'])
             # p_car_flex is needed to set apparent power limits
             netq_flex = q_car_flex + q_heat_home_flex
             netq_non_flex = q_heat_home_car_non_flex
