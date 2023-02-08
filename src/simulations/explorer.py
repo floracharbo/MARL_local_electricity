@@ -10,7 +10,6 @@ Created on Mon Feb 16 10:47:57 2022.
 import copy
 import datetime
 import glob
-import math
 import os
 from datetime import timedelta
 from typing import Tuple
@@ -834,15 +833,15 @@ class Explorer():
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 if self.prm['syst']['n_homesP'] > 0:
                     netp0, _, _ = self.env._get_passive_vars(time_step)
-                    netq_passive = netp0 \
-                        * math.tan(math.acos(self.grd['pf_passive_homes']))
+                    netq_passive = _calculate_reactive_power(
+                        netp0, self.grd ['pf_passive_homes']
+                    )
                 else:
                     netq_passive = []
                 # q_car_flex will be a decision variable
-                p_car_flex = - (np.array(self.env.car.loss_ch) + np.array(self.env.car.charge)) \
-                    + np.array(self.env.car.discharge)
-                q_car_flex = _calculate_reactive_power(
-                    p_car_flex, self.prm['grd']['pf_flexible_homes'])
+                self.env.car._active_reactive_power_car()
+                p_car_flex = self.env.car.p_car_flex
+                q_car_flex = self.env.car.q_car_flex
                 q_heat_home_flex = _calculate_reactive_power(
                     home_vars['tot_cons'], self.grd['pf_flex_heat_home'])
                 netq_flex = q_car_flex + q_heat_home_flex

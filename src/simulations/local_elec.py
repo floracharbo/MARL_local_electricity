@@ -8,7 +8,6 @@ Created on Mon Feb  3 10:47:57 2020.
 """
 
 import copy
-import math
 import pickle
 from datetime import datetime, timedelta
 from typing import List, Tuple
@@ -564,10 +563,9 @@ class LocalElecEnv():
             q_heat_home_flex = _calculate_reactive_power(
                 home_vars['tot_cons'], self.prm['grd']['pf_flexible_homes'])
             # q_car_flex will be a decision variable
-            p_car_flex = - (np.array(self.car.loss_ch) + np.array(self.car.charge)) \
-                + np.array(self.car.discharge)
-            q_car_flex = _calculate_reactive_power(
-                p_car_flex, self.prm['grd']['pf_flexible_homes'])
+            self.car._active_reactive_power_car()
+            p_car_flex = self.car.p_car_flex
+            q_car_flex = self.car.q_car_flex
             # p_car_flex is needed to set apparent power limits
             netq_flex = q_car_flex + q_heat_home_flex
             netq_passive = q_heat_home_car_passive
