@@ -24,7 +24,7 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import initialise_dict
+from src.utilities.userdeftools import (initialise_dict, _calculate_reactive_power)
 
 
 class LocalElecEnv():
@@ -555,18 +555,18 @@ class LocalElecEnv():
             netp0 = []
         if self.prm['grd']['manage_voltage']:
             if self.prm['syst']['n_homesP'] > 0:
-                q_heat_home_car_non_flex = self._calculate_reactive_power(
+                q_heat_home_car_non_flex = _calculate_reactive_power(
                     netp0,
                     self.prm['grd']['pf_passive_homes']
                     )
             else:
                 q_heat_home_car_non_flex = []
-            q_heat_home_flex = self._calculate_reactive_power(
+            q_heat_home_flex = _calculate_reactive_power(
                 home_vars['tot_cons'], self.prm['grd']['pf_flexible_homes'])
             # q_car_flex will be a decision variable
             p_car_flex = - (np.array(self.car.loss_ch) + np.array(self.car.charge)) \
                 + np.array(self.car.discharge)
-            q_car_flex = self._calculate_reactive_power(
+            q_car_flex = _calculate_reactive_power(
                 p_car_flex, self.prm['grd']['pf_flexible_homes'])
             # p_car_flex is needed to set apparent power limits
             netq_flex = q_car_flex + q_heat_home_flex
@@ -591,10 +591,6 @@ class LocalElecEnv():
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
                 q_ext_grid, netp0, constraint_ok)
-
-    def _calculate_reactive_power(self, active_power, power_factor):
-        reactive_power = active_power * math.tan(math.acos(power_factor))
-        return reactive_power
 
     def get_state_vals(
             self,

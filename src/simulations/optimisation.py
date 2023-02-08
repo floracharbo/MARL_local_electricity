@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
 
-from src.utilities.userdeftools import comb
+from src.utilities.userdeftools import (comb, _calculate_reactive_power)
 
 
 class Optimiser():
@@ -179,12 +179,12 @@ class Optimiser():
         # passive homes: heat, home and car
         if self.n_homesP > 0:
             p.add_constraint(
-                [q_heat_home_car_non_flex == self._calculate_reactive_power(
+                [q_heat_home_car_non_flex == _calculate_reactive_power(
                     self.loads['netp0'],
                     self.grd['pf_passive_homes'])
                     ])
         # flex houses: heat and home
-        p.add_constraint(q_heat_home_flex == self._calculate_reactive_power(
+        p.add_constraint(q_heat_home_flex == _calculate_reactive_power(
             totcons, self.grd['pf_flexible_homes']))
 
         # flex houses: car
@@ -208,7 +208,7 @@ class Optimiser():
                     <= self.grd['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
         else:
-            p.add_constraint(q_car_flex == self._calculate_reactive_power(
+            p.add_constraint(q_car_flex == _calculate_reactive_power(
                 p_car_flex, self.grd['pf_flexible_homes']))
 
         if self.n_homesP > 0:
@@ -693,10 +693,6 @@ class Optimiser():
         p.set_objective('min', total_costs)
 
         return p
-
-    def _calculate_reactive_power(self, active_power, power_factor):
-        reactive_power = active_power * math.tan(math.acos(power_factor))
-        return reactive_power
 
     def _import_export_costs(self, p, grid):
         # penalty for import and export violations

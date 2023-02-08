@@ -22,7 +22,8 @@ from src.simulations.learning import LearningManager
 from src.simulations.select_actions import ActionSelector
 from src.utilities.userdeftools import (initialise_dict,
                                         methods_learning_from_exploration,
-                                        reward_type, set_seeds_rdn)
+                                        reward_type, set_seeds_rdn,
+                                        _calculate_reactive_power)
 
 
 # %% Environment exploration
@@ -839,9 +840,9 @@ class Explorer():
                 # q_car_flex will be a decision variable
                 p_car_flex = - (np.array(self.env.car.loss_ch) + np.array(self.env.car.charge)) \
                     + np.array(self.env.car.discharge)
-                q_car_flex = self.env._calculate_reactive_power(
+                q_car_flex = _calculate_reactive_power(
                     p_car_flex, self.prm['grd']['pf_flexible_homes'])
-                q_heat_home_flex = self.env._calculate_reactive_power(
+                q_heat_home_flex = _calculate_reactive_power(
                     home_vars['tot_cons'], self.grd['pf_flex_heat_home'])
                 netq_flex = q_car_flex + q_heat_home_flex
 
