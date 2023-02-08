@@ -322,8 +322,8 @@ def _update_bat_prm(prm):
     car["cap"] = np.array(car["cap"]) if isinstance(car["cap"], list) else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
         for passive_ext in ["", "P"]:
-            car["own_car" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-                if car["own_car" + passive_ext] == 1 else car["own_car" + passive_ext]
+            car["own_car" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
+                if car["own_car" + passive_ext] == 1 else np.array(car["own_car" + passive_ext])
         car["cap"] = np.where(car["own_car"], car["cap"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
@@ -597,6 +597,10 @@ def opt_res_seed_save_paths(prm):
         f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
+    if sum(car['own_car']) != len(car['own_car']):
+        paths["opt_res_file"] += "_no_car"
+        for i_car in np.where(car['own_car'] == 0)[0]:
+            paths["opt_res_file"] += f"{i_car}_"
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
     if rl["deterministic"] == 2:
         for file in ["opt_res_file", "seeds_file"]:
