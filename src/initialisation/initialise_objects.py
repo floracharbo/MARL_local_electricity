@@ -319,17 +319,12 @@ def _update_bat_prm(prm):
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
+    car["cap"] = np.array(car["cap"]) if isinstance(car["cap"], list) else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
-        car["cap"] = car["cap"] if isinstance(car["cap"], list) \
-            else [car["cap"] for _ in range(syst["n_homes"])]
         for passive_ext in ["", "P"]:
             car["own_car" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
                 if car["own_car" + passive_ext] == 1 else car["own_car" + passive_ext]
-        car["cap"] = [c if o == 1 else 0
-                      for c, o in zip(car["cap"], car["own_car"])]
-
-    if isinstance(car["cap"], (int, float)):
-        car["cap"] = [car["cap"] for _ in range(syst["n_homes"])]
+        car["cap"] = np.where(car["own_car"], car["cap"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
 
