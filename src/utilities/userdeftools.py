@@ -6,6 +6,7 @@ Created on Tue Jan  7 16:56:31 2020.
 @author: floracharbonnier
 """
 
+import math
 import os
 import random
 from pathlib import Path
@@ -14,7 +15,6 @@ import numpy as np
 import pandas as pd
 import torch as th
 import yaml
-import math
 
 
 def _is_empty(data):
@@ -256,6 +256,7 @@ def should_optimise_for_supervised_loss(epoch, rl):
         rl['supervised_loss']
         and epoch < rl['n_epochs_supervised_loss']
     )
+
 
 def _calculate_reactive_power(active_power, power_factor):
     """Calculate the reactive power based on the active power and

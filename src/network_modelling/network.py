@@ -52,7 +52,8 @@ class Network:
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
             'manage_agg_power', 'max_grid_import', 'penalty_import',
-            'max_grid_export', 'penalty_export', 'reactive_power_for_voltage_control'
+            'max_grid_export', 'penalty_export', 'reactive_power_for_voltage_control',
+            'pf_passive_homes', 'pf_flexible_homes'
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -265,11 +266,11 @@ class Network:
 
         if self.n_homesP > 0:
             q_heat_home_car_passive = _calculate_reactive_power(
-                netp0, self.prm['grd']['pf_passive_homes'])
+                netp0, self.pf_passive_homes)
         else:
             q_heat_home_car_passive = []
         q_heat_home_flex = _calculate_reactive_power(
-            home_vars['tot_cons'], self.prm['grd']['pf_flexible_homes'])
+            home_vars['tot_cons'], self.pf_flexible_homes)
 
         netq_flex = q_car_flex + q_heat_home_flex
         netq_passive = q_heat_home_car_passive
@@ -340,7 +341,7 @@ class Network:
             # )
 
     def test_network_comparison_optimiser_pandapower(
-        self, res, time_step, grdCt, netp0, netq_flex, netq_passive):
+            self, res, time_step, grdCt, netp0, netq_flex, netq_passive):
         """Compares hourly results from network modelling in optimizer and pandapower"""
         start = time.time()
         # Results from optimization

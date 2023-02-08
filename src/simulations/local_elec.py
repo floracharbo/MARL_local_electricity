@@ -548,7 +548,7 @@ class LocalElecEnv():
         self.heat.next_T(update=True)
         self._check_constraints(
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
-        
+
         if self.prm['syst']['n_homesP'] > 0:
             netp0 = self.prm['loads']['netp0'][:, h]
         else:
@@ -568,7 +568,6 @@ class LocalElecEnv():
             voltage_squared = None
             hourly_line_losses = 0
             q_ext_grid = 0
-
 
         if sum(bool_penalty) > 0:
             constraint_ok = False

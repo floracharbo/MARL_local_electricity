@@ -8,6 +8,7 @@ Created on Tue Dec 8 16:40:04 2021.
 import datetime
 
 import numpy as np
+
 from src.utilities.userdeftools import _calculate_reactive_power
 
 
@@ -684,9 +685,9 @@ class Battery:
             time += 1
 
         return feasible
-    
+
     def _active_reactive_power_car(self):
-        self.p_car_flex =  - (np.array(self.loss_ch) + np.array(self.charge)) \
+        self.p_car_flex = - (np.array(self.loss_ch) + np.array(self.charge)) \
             + np.array(self.discharge)
         self.q_car_flex = _calculate_reactive_power(
             self.p_car_flex, self.pf_flexible_homes)

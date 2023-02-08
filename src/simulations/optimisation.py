@@ -9,7 +9,6 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
-import math
 import os
 
 import matplotlib
@@ -17,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
 
-from src.utilities.userdeftools import (comb, _calculate_reactive_power)
+from src.utilities.userdeftools import _calculate_reactive_power, comb
 
 
 class Optimiser():
@@ -181,8 +180,7 @@ class Optimiser():
             p.add_constraint(
                 [q_heat_home_car_passive == _calculate_reactive_power(
                     self.loads['netp0'],
-                    self.grd['pf_passive_homes'])
-                    ])
+                    self.grd['pf_passive_homes'])])
         # flex houses: heat and home
         p.add_constraint(q_heat_home_flex == _calculate_reactive_power(
             totcons, self.grd['pf_flexible_homes']))

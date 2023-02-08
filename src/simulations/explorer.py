@@ -19,10 +19,10 @@ import numpy as np
 from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
 from src.simulations.select_actions import ActionSelector
-from src.utilities.userdeftools import (initialise_dict,
+from src.utilities.userdeftools import (_calculate_reactive_power,
+                                        initialise_dict,
                                         methods_learning_from_exploration,
-                                        reward_type, set_seeds_rdn,
-                                        _calculate_reactive_power)
+                                        reward_type, set_seeds_rdn)
 
 
 # %% Environment exploration
@@ -694,7 +694,6 @@ class Explorer():
                             f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
                         )
 
-
             assert abs(reward + res['hourly_total_costs'][time_step]) < 5e-3, \
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
@@ -834,7 +833,7 @@ class Explorer():
                 if self.prm['syst']['n_homesP'] > 0:
                     netp0, _, _ = self.env._get_passive_vars(time_step)
                     netq_passive = _calculate_reactive_power(
-                        netp0, self.grd ['pf_passive_homes']
+                        netp0, self.grd['pf_passive_homes']
                     )
                 else:
                     netq_passive = []
