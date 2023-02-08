@@ -604,28 +604,14 @@ class Action_translator:
         """Compute the flexible storage action from the optimisation result."""
         store_bool_flex = True
         flexible_store_action = None
-        max_charge_a, min_charge_a = [
-            self.max_charge[home], self.min_charge[home]
-        ]
-        max_discharge_a, min_discharge_a = [
-            self.max_discharge[home], self.min_discharge[home]
-        ]
+        no_flex_charge = abs(self.max_charge[home] - self.min_charge[home]) < 1e-3
+        no_flex_discharge = abs(self.min_discharge[home] - self.max_discharge[home]) < 1e-3
         if (
-                (
-                    abs(max_charge_a - min_charge_a) < 1e-3  # or
-                    and abs(min_discharge_a - max_discharge_a) < 1e-3
-                )
-                or (
-                    abs(min_discharge_a - max_discharge_a) < 1e-3
-                    and res['discharge_other'][home, time_step] > 1e-3
-                )
-                or (
-                    abs(max_charge_a - min_charge_a) < 1e-3
-                    and res['charge'][home, time_step] > 1e-3
-                )
+            (no_flex_charge and no_flex_discharge)
+            or (no_flex_discharge and res['discharge_other'][home, time_step] > 1e-3)
+            or (no_flex_charge and res['charge'][home, time_step] > 1e-3)
         ):
             store_bool_flex = False
-            # abs(max_charge_a - max_discharge_a) < 1e-3 or
             # no flexibility in charging
             if self.no_flex_action == 'one':
                 flexible_store_action = 1
@@ -636,35 +622,29 @@ class Action_translator:
                 "flexible_store_action is None but " \
                 "self.min_charge[home] != self.max_charge[home]"
         if store_bool_flex:
-            max_charge_a, min_charge_a = [
-                self.max_charge[home], self.min_charge[home]
-            ]
-            max_discharge_a, min_discharge_a = [
-                self.max_discharge[home], self.min_discharge[home]
-            ]
-            assert min_charge_a - 1e-3 <= res['charge'][home, time_step] \
-                   <= max_charge_a + 1e-3, \
+            assert self.min_charge[home] - 1e-3 <= res['charge'][home, time_step] \
+                   <= self.max_charge[home] + 1e-3, \
                    f"res charge {res['charge'][home, time_step]} " \
-                   f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-            assert max_discharge_a - 1e-3 \
+                   f"self.min_charge[home] {self.min_charge[home]} self.max_charge[home] {self.max_charge[home]}"
+            assert self.max_discharge[home] - 1e-3 \
                    <= - res['discharge_other'][home, time_step] / self.car.eta_dis \
-                   <= min_discharge_a + 1e-3, \
+                   <= self.min_discharge[home] + 1e-3, \
                    f"res discharge_other {res['discharge_other'][home, time_step]} " \
-                   f"min_discharge_a {- min_discharge_a} " \
-                   f"max_discharge_a {- max_discharge_a}"
+                   f"self.min_discharge[home] {- self.min_discharge[home]} " \
+                   f"self.max_discharge[home] {- self.max_discharge[home]}"
             if abs(res['discharge_other'][home, time_step]) < 1e-3 \
                     and abs(res['charge'][home, time_step]) < 1e-3:
                 flexible_store_action = 0
             elif res['discharge_other'][home, time_step] > 1e-3:
                 flexible_store_action = \
-                    (min_discharge_a - res['charge'][home, time_step]) \
-                    / (min_discharge_a - max_discharge_a)
+                    (self.min_discharge[home] - res['charge'][home, time_step]) \
+                    / (self.min_discharge[home] - self.max_discharge[home])
             else:
-                if abs(res['charge'][home, time_step] - max_charge_a) < 1e-3:
+                if abs(res['charge'][home, time_step] - self.max_charge[home]) < 1e-3:
                     flexible_store_action = 1
                 else:
-                    flexible_store_action = (res['charge'][home, time_step] - min_charge_a) \
-                        / (max_charge_a - min_charge_a)
+                    flexible_store_action = (res['charge'][home, time_step] - self.min_charge[home]) \
+                        / (self.max_charge[home] - self.min_charge[home])
 
         return flexible_store_action, store_bool_flex
 
