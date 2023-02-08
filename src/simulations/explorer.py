@@ -301,7 +301,8 @@ class Explorer():
             [state, done, reward, break_down_rewards, bool_flex,
              constraint_ok, record_output] = env.step(
                 action, record=record,
-                evaluation=evaluation, E_req_only=method == "baseline")
+                evaluation=evaluation, E_req_only=method == "baseline"
+            )
 
             if record:
                 self.last_epoch(
@@ -343,6 +344,8 @@ class Explorer():
                         for home in self.homes:
                             traj_reward[home] += reward[home]
                 step += 1
+
+        self._check_rewards_match(method, evaluation, step_vals)
 
         return step_vals, traj_reward, sequence_feasible
 
@@ -454,6 +457,7 @@ class Explorer():
         if not evaluation:
             self.t_env += self.prm['syst']['N']
 
+
         return step_vals
 
     def get_steps(self, methods, repeat, epoch, i_explore,
@@ -482,22 +486,24 @@ class Explorer():
             env, repeat, epoch, i_explore, methods, step_vals, evaluation
         )
 
-        self._check_rewards_match(methods, evaluation, step_vals)
-
         if self.rl["type_learning"] != "facmac":
             self.episode_batch = None
 
         return step_vals, self.episode_batch
 
-    def _check_rewards_match(self, methods, evaluation, step_vals):
-        if "opt" in methods and evaluation:
-            for method in [method for method in methods if method != "opt"]:
-                if step_vals[method]["reward"][-1] is not None:
-                    # rewards should not be better than optimal rewards
-                    assert np.mean(step_vals[method]["reward"]) \
-                           < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
-                           f"reward {method} {np.mean(step_vals[method]['reward'])} " \
-                           f"better than opt {np.mean(step_vals['opt']['reward'])}"
+    def _check_rewards_match(self, method, evaluation, step_vals):
+        if "opt" in self.rl['evaluation_methods'] and evaluation:
+            if step_vals[method]["reward"][-1] is not None:
+                # rewards should not be better than optimal rewards
+                if not (
+                    np.mean(step_vals[method]["reward"]) \
+                    < np.mean(step_vals["opt"]["reward"]) + 1e-3
+                ):
+                    print()
+                assert np.mean(step_vals[method]["reward"]) \
+                       < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
+                       f"reward {method} {np.mean(step_vals[method]['reward'])} " \
+                       f"better than opt {np.mean(step_vals['opt']['reward'])}"
 
     def _opt_step_init(
             self, time_step, batchflex_opt, batch_avail_car, res
