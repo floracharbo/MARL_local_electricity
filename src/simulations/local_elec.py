@@ -292,8 +292,7 @@ class LocalElecEnv():
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
-            self.policy_to_rewardvar(
+        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = self.policy_to_rewardvar(
                 action, E_req_only=E_req_only
             )
         if not constraint_ok:
