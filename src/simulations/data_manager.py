@@ -525,7 +525,7 @@ class DataManager():
         else:
             self.prm['loads']['active_power_passive_homes']  = np.zeros([self.N, 1])
             self.prm['loads']['reactive_power_passive_homes']  = np.zeros([self.N, 1])
-            self.loads['q_heat_home_car_passive'] = np.zeros([self.N, 1])
+            self.prm['loads']['q_heat_home_car_passive'] = np.zeros([self.N, 1])
 
         return feasible
 

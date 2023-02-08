@@ -212,7 +212,7 @@ class Optimiser():
         # we ignore the losses of reactive power
         p.add_list_of_constraints([
             q_ext_grid[t] ==
-            + pic.sum(self.loads['q_heat_home_car_passive'][:, t])
+            + sum(self.loads['q_heat_home_car_passive'][:, t])
             + pic.sum(q_car_flex[:, t])
             + pic.sum(totcons[:, t] * math.tan(math.acos(self.grd['pf_flexible_homes'])))
             for t in range(self.N)])
