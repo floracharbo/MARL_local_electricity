@@ -122,7 +122,7 @@ class HEDGE:
             ]
         if "car" in self.data_types:
             day["loads_car"] = np.array([
-                [p * factors["car"][home]
+                [p * factors["car"][home] * self.car['own_car'][home]
                  for p in self.profs["car"]["cons"][day_type][
                      clusters["car"][home]][i_profiles["car"][home]]]
                 for home in homes
