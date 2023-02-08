@@ -23,7 +23,7 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import (initialise_dict, _calculate_reactive_power)
+from src.utilities.userdeftools import initialise_dict
 
 
 class LocalElecEnv():
@@ -554,31 +554,16 @@ class LocalElecEnv():
         else:
             netp0 = []
         if self.prm['grd']['manage_voltage']:
-            if self.prm['syst']['n_homesP'] > 0:
-                q_heat_home_car_passive = _calculate_reactive_power(
-                    netp0,
-                    self.prm['grd']['pf_passive_homes']
-                    )
-            else:
-                q_heat_home_car_passive = []
-            q_heat_home_flex = _calculate_reactive_power(
-                home_vars['tot_cons'], self.prm['grd']['pf_flexible_homes'])
-            # q_car_flex will be a decision variable
+            # retrieve info from battery
             self.car._active_reactive_power_car()
+            # q_car_flex will be a decision variable
+            # p_car_flex is needed to set apparent power limits
             p_car_flex = self.car.p_car_flex
             q_car_flex = self.car.q_car_flex
-            # p_car_flex is needed to set apparent power limits
-            netq_flex = q_car_flex + q_heat_home_flex
-            netq_passive = q_heat_home_car_passive
-            # import/export external grid
-            q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
-                + sum(q_heat_home_flex)
-
-            hourly_line_losses, voltage = self.network.pf_simulation(
-                home_vars['netp'], netp0,
-                netq_flex, netq_passive)
-            voltage_squared = np.square(voltage)
-
+            # run pandapower simulation
+            voltage_squared, hourly_line_losses, q_ext_grid = \
+                self.network._power_flow_res_with_pandapower(
+                    home_vars, netp0, q_car_flex)
         else:
             voltage_squared = None
             hourly_line_losses = 0

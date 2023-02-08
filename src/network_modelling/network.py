@@ -13,6 +13,8 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
+from src.utilities.userdeftools import _calculate_reactive_power
+
 
 class Network:
     """
@@ -256,6 +258,32 @@ class Network:
             self.net.load[type].iloc[house_index] = power / 1000
         else:
             self.net.sgen[type].iloc[house_index] = abs(power) / 1000
+
+    def _power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex):
+        """Using active power, calculates reactive power and solves power flow
+        with pandapower """
+
+        if self.n_homesP > 0:
+            q_heat_home_car_passive = _calculate_reactive_power(
+                netp0, self.prm['grd']['pf_passive_homes'])
+        else:
+            q_heat_home_car_passive = []
+        q_heat_home_flex = _calculate_reactive_power(
+            home_vars['tot_cons'], self.prm['grd']['pf_flexible_homes'])
+
+        netq_flex = q_car_flex + q_heat_home_flex
+        netq_passive = q_heat_home_car_passive
+
+        #  import/export external grid
+        q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
+            + sum(q_heat_home_flex)
+
+        hourly_line_losses, voltage = self.pf_simulation(
+            home_vars['netp'], netp0,
+            netq_flex, netq_passive)
+        voltage_squared = np.square(voltage)
+
+        return voltage_squared, hourly_line_losses, q_ext_grid
 
     def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_passive):
         replace_with_pp_simulation = False
