@@ -293,8 +293,9 @@ class LocalElecEnv():
         if h == 2:
             self.slid_day = False
         home_vars, loads, hourly_line_losses, voltage_squared, \
-            q_ext_grid, netp0, constraint_ok = self.policy_to_rewardvar(
+            q_ext_grid, constraint_ok = self.policy_to_rewardvar(
                 action, E_req_only=E_req_only)
+        netp0 = self.prm['loads']['netp0'][:, h]
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
@@ -588,7 +589,7 @@ class LocalElecEnv():
             constraint_ok = False
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
-                q_ext_grid, netp0, constraint_ok)
+                q_ext_grid, constraint_ok)
 
     def get_state_vals(
             self,

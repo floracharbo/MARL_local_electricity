@@ -962,9 +962,9 @@ class Explorer():
             ldflex, ldfixed, tot_cons_loads,
             self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
             break_down_rewards,
-            loaded_buses, sgen_buses
+            loaded_buses, sgen_buses,
+            res['q_ext_grid'][time_step]
         ]
-        record_output.append(res['q_ext_grid'][time_step])
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
 
@@ -1048,7 +1048,7 @@ class Explorer():
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
             home_vars, loads, hourly_line_losses, voltage_squared, \
-                _, _, constraint_ok = \
+                _, constraint_ok = \
                 env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self.env.get_passive_vars(time_step)
