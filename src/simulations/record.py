@@ -170,7 +170,7 @@ class Record():
             if self.save_qtables:
                 for e in ["q_tables", "counter"]:
                     self.__dict__[e][self.repeat][epoch] = copy.deepcopy(learner.__dict__[e])
-            elif epoch == self.n_epoch - 1:
+            elif epoch == self.n_epochs - 1:
                 for e in ["q_tables", "counter"]:
                     self.__dict__[e][self.repeat] = copy.deepcopy(learner.__dict__[e])
 

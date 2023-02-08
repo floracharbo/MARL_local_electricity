@@ -161,7 +161,9 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
     else:
         plt.title('Monthly average of costs distribution per household')
     plt.savefig(
-        f"{prm['paths']['fig_folder']}/mean_{plot_type}_bar_plots.png", bbox_inches='tight')
+        f"{prm['paths']['fig_folder']}/mean_{plot_type}_bar_plots.png",
+        bbox_inches='tight'
+    )
     plt.close('all')
 
 
