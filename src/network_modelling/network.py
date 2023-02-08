@@ -224,8 +224,6 @@ class Network:
         for power in ['p_mw', 'q_var']:
             self.net.load[power] = 0
             self.net.sgen[power] = 0
-        # pandapower uses MW while the simulations uses kW
-        # add a load if power < 0 or a generation if power > 0
         # assign flexible homes
         if self.n_homes > 0:
             for home in self.homes:
@@ -252,7 +250,8 @@ class Network:
         return hourly_line_losses, voltage
 
     def _assign_power_to_load_or_sgen(self, power, house_index, type):
-        # active power
+        # pandapower uses MW while the simulations uses kW
+        # add a load if power < 0 or a generation if power > 0
         if power >= 0:
             self.net.load[type].iloc[house_index] = power / 1000
         else:
