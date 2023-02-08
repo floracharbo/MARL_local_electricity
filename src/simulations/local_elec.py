@@ -555,12 +555,12 @@ class LocalElecEnv():
             netp0 = []
         if self.prm['grd']['manage_voltage']:
             if self.prm['syst']['n_homesP'] > 0:
-                q_heat_home_car_non_flex = _calculate_reactive_power(
+                q_heat_home_car_passive = _calculate_reactive_power(
                     netp0,
                     self.prm['grd']['pf_passive_homes']
                     )
             else:
-                q_heat_home_car_non_flex = []
+                q_heat_home_car_passive = []
             q_heat_home_flex = _calculate_reactive_power(
                 home_vars['tot_cons'], self.prm['grd']['pf_flexible_homes'])
             # q_car_flex will be a decision variable
@@ -570,14 +570,14 @@ class LocalElecEnv():
                 p_car_flex, self.prm['grd']['pf_flexible_homes'])
             # p_car_flex is needed to set apparent power limits
             netq_flex = q_car_flex + q_heat_home_flex
-            netq_non_flex = q_heat_home_car_non_flex
+            netq_passive = q_heat_home_car_passive
             # import/export external grid
-            q_ext_grid = sum(q_heat_home_car_non_flex) + sum(q_car_flex) \
+            q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
                 + sum(q_heat_home_flex)
 
             hourly_line_losses, voltage = self.network.pf_simulation(
                 home_vars['netp'], netp0,
-                netq_flex, netq_non_flex)
+                netq_flex, netq_passive)
             voltage_squared = np.square(voltage)
 
         else:

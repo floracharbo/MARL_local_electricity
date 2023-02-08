@@ -695,6 +695,7 @@ class Explorer():
                             f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
                         )
 
+
             assert abs(reward + res['hourly_total_costs'][time_step]) < 5e-3, \
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
@@ -833,10 +834,10 @@ class Explorer():
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 if self.prm['syst']['n_homesP'] > 0:
                     netp0, _, _ = self.env._get_passive_vars(time_step)
-                    netq_non_flex = netp0 \
+                    netq_passive = netp0 \
                         * math.tan(math.acos(self.grd['pf_passive_homes']))
                 else:
-                    netq_non_flex = []
+                    netq_passive = []
                 # q_car_flex will be a decision variable
                 p_car_flex = - (np.array(self.env.car.loss_ch) + np.array(self.env.car.charge)) \
                     + np.array(self.env.car.discharge)
@@ -851,7 +852,7 @@ class Explorer():
                     self.prm['grd']['C'][time_step],
                     netp0,
                     netq_flex,
-                    netq_non_flex
+                    netq_passive
                 )
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(

@@ -144,8 +144,8 @@ class Optimiser():
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         # variables only needed for passive homes and reactive power
         if self.n_homesP > 0:
-            q_heat_home_car_non_flex = p.add_variable(
-                'q_heat_home_car_non_flex', (self.n_homesP, self.N), vtype='continuous')
+            q_heat_home_car_passive = p.add_variable(
+                'q_heat_home_car_passive', (self.n_homesP, self.N), vtype='continuous')
         # variables only needed for reactive power
         q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
         q_heat_home_flex = p.add_variable(
@@ -179,7 +179,7 @@ class Optimiser():
         # passive homes: heat, home and car
         if self.n_homesP > 0:
             p.add_constraint(
-                [q_heat_home_car_non_flex == _calculate_reactive_power(
+                [q_heat_home_car_passive == _calculate_reactive_power(
                     self.loads['netp0'],
                     self.grd['pf_passive_homes'])
                     ])
@@ -214,7 +214,7 @@ class Optimiser():
         if self.n_homesP > 0:
             p.add_list_of_constraints(
                 [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
-                    + self.grd['non_flex_buses'] * self.loads['netp0'][:][t]
+                    + self.grd['passive_buses'] * self.loads['netp0'][:][t]
                     * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
             p.add_list_of_constraints(
@@ -222,7 +222,7 @@ class Optimiser():
                     * self.kW_to_per_unit_conversion
                     + self.grd['flex_buses'] * q_heat_home_flex[:, t]
                     * self.kW_to_per_unit_conversion
-                    + self.grd['non_flex_buses'] * q_heat_home_car_non_flex[:, t]
+                    + self.grd['passive_buses'] * q_heat_home_car_passive[:, t]
                     * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
         else:
@@ -241,7 +241,7 @@ class Optimiser():
         if self.n_homesP > 0:
             p.add_list_of_constraints([
                 q_ext_grid[t] ==
-                + sum(q_heat_home_car_non_flex[:, t]) + sum(q_car_flex[:, t])
+                + sum(q_heat_home_car_passive[:, t]) + sum(q_car_flex[:, t])
                 + sum(q_heat_home_flex[:, t]) for t in range(self.N)])
         else:
             p.add_list_of_constraints([
