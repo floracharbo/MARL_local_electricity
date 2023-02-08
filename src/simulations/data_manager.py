@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import set_seeds_rdn
+from src.utilities.userdeftools import set_seeds_rdn, _calculate_reactive_power
 
 
 class DataManager():
@@ -52,6 +52,7 @@ class DataManager():
         self.rl = prm['RL']
         self.force_optimisation = prm['syst']['force_optimisation']
         self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
+        self.n_homesP = prm['syst']['n_homesP']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
@@ -390,7 +391,7 @@ class DataManager():
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
-                batch, passive=passive
+                    batch, passive=passive
             )
             homes = [i for i, ok in enumerate(data_feasibles) if not ok]
             if its > 50:
@@ -507,6 +508,12 @@ class DataManager():
         feasible = self.env.car.check_feasible_bat(self.prm, passive_ext)
 
         heat['T_out'] = self.env.heat.T_out
+
+        # reactive power for passive homes
+        if self.n_homesP > 0:
+            self.prm['loads']['q_heat_home_car_passive'] = \
+                _calculate_reactive_power(
+                    loads['netp0'], self.prm['grd']['pf_passive_homes'])
 
         return feasible
 

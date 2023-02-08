@@ -15,6 +15,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
+import math
 
 from src.utilities.userdeftools import _calculate_reactive_power, comb
 
@@ -141,14 +142,7 @@ class Optimiser():
         # loads on network from agents
         voltage_costs = p.add_variable('voltage_costs', 1)  # daily voltage violation costs
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
-        # variables only needed for passive homes and reactive power
-        if self.n_homesP > 0:
-            q_heat_home_car_passive = p.add_variable(
-                'q_heat_home_car_passive', (self.n_homesP, self.N), vtype='continuous')
-        # variables only needed for reactive power
         q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
-        q_heat_home_flex = p.add_variable(
-            'q_heat_home_flex', (self.n_homes, self.N), vtype='continuous')
         p_car_flex = p.add_variable('p_car_flex', (self.n_homes, self.N), vtype='continuous')
         if self.reactive_power_for_voltage_control:
             q_car_flex2 = p.add_variable('q_car_flex2', (self.n_homes, self.N), vtype='continuous')
@@ -175,16 +169,6 @@ class Optimiser():
         )
 
         # active and reactive loads
-        # passive homes: heat, home and car
-        if self.n_homesP > 0:
-            p.add_constraint(
-                [q_heat_home_car_passive == _calculate_reactive_power(
-                    self.loads['netp0'],
-                    self.grd['pf_passive_homes'])])
-        # flex houses: heat and home
-        p.add_constraint(q_heat_home_flex == _calculate_reactive_power(
-            totcons, self.grd['pf_flexible_homes']))
-
         # flex houses: car
         p.add_constraint(p_car_flex == charge / self.car['eta_ch'] + discharge_other)
         p.add_constraint(p_car_flex <= self.grd['max_active_power_car'])
@@ -212,15 +196,16 @@ class Optimiser():
         if self.n_homesP > 0:
             p.add_list_of_constraints(
                 [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
-                    + self.grd['passive_buses'] * self.loads['netp0'][:][t]
+                    + np.matmul(self.grd['passive_buses'], self.loads['netp0'][:, t].reshape(4, 1))
                     * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
             p.add_list_of_constraints(
                 [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
                     * self.kW_to_per_unit_conversion
-                    + self.grd['flex_buses'] * q_heat_home_flex[:, t]
+                    + self.grd['flex_buses'] * totcons[:, t]
+                    * math.tan(math.acos(self.grd['pf_flexible_homes']))
                     * self.kW_to_per_unit_conversion
-                    + self.grd['passive_buses'] * q_heat_home_car_passive[:, t]
+                    + np.matmul(self.grd['passive_buses'], self.loads['q_heat_home_car_passive'][:, t])
                     * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
         else:
@@ -230,7 +215,8 @@ class Optimiser():
             p.add_list_of_constraints(
                 [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
                     * self.kW_to_per_unit_conversion
-                    + self.grd['flex_buses'] * q_heat_home_flex[:, t]
+                    + self.grd['flex_buses'] * totcons[:, t]
+                    * math.tan(math.acos(self.grd['pf_flexible_homes']))
                     * self.kW_to_per_unit_conversion
                     for t in range(self.N)])
 
@@ -239,12 +225,16 @@ class Optimiser():
         if self.n_homesP > 0:
             p.add_list_of_constraints([
                 q_ext_grid[t] ==
-                + sum(q_heat_home_car_passive[:, t]) + sum(q_car_flex[:, t])
-                + sum(q_heat_home_flex[:, t]) for t in range(self.N)])
+                + sum(self.loads['q_heat_home_car_passive'][:, t])
+                + sum(q_car_flex[:, t])
+                + sum(totcons[:, t] * math.tan(math.acos(self.grd['pf_flexible_homes'])))
+                for t in range(self.N)])
         else:
             p.add_list_of_constraints([
                 q_ext_grid[t] ==
-                + sum(q_car_flex[:, t]) + sum(q_heat_home_flex[:, t]) for t in range(self.N)])
+                + sum(q_car_flex[:, t])
+                + sum(totcons[:, t] * math.tan(math.acos(self.grd['pf_flexible_homes'])))
+                for t in range(self.N)])
 
         p.add_list_of_constraints(
             [pij[0, t] == grid[t] * self.kW_to_per_unit_conversion for t in range(self.N)]
