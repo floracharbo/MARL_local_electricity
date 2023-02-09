@@ -498,16 +498,9 @@ class Optimiser():
             )
 
         else:
-            netp2 = p.add_variable('netp2', (self.n_homes, self.N),
-                                   vtype='continuous')
-            sum_netp2 = np.sum(
-                [
-                    [
-                        self.loads['netp0'][b0][time] ** 2
-                        for b0 in range(self.syst['n_homesP'])
-                    ]
-                    for time in range(self.N)
-                ]
+
+            netp2 = p.add_variable(
+                'netp2', (self.n_homes, self.N), vtype='continuous'
             )
             sum_netp0_squared = np.sum(np.square(self.loads['netp0']))
             for home in range(self.n_homes):
