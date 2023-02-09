@@ -839,8 +839,7 @@ class Explorer():
                     netq_passive = []
                 # q_car_flex will be a decision variable
                 self.env.car._active_reactive_power_car()
-                p_car_flex = self.env.car.p_car_flex
-                q_car_flex = self.env.car.q_car_flex
+                q_car_flex = res['q_car_flex']
                 q_heat_home_flex = _calculate_reactive_power(
                     home_vars['tot_cons'], self.grd['pf_flex_heat_home'])
                 netq_flex = q_car_flex + q_heat_home_flex

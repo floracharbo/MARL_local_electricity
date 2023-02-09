@@ -593,8 +593,8 @@ def plot_imp_exp_violations(
                 break_down_rewards[step][i_import_export_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(grid_flex, label='Import/Export', color='coral')
-            ax1.plot(grid_passive, label='Import/Export', color='coral', linestyle='dashed')
+            ax1.plot(grid_flex, label='Flex Import/Export', color='coral')
+            ax1.plot(grid_passive, label='Passive Import/Export', color='coral', linestyle='dashed')
             ax2.bar(
                 range(prm['syst']['N']),
                 import_export_costs,
@@ -681,8 +681,8 @@ def plot_voltage_violations(
                 break_down_rewards[step][i_voltage_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(grid_flex, label='Import/Export', color='coral')
-            ax1.plot(grid_passive, label='Import/Export', color='coral', linestyle='dashed')
+            ax1.plot(grid_flex, label='Flex Import/Export', color='coral')
+            ax1.plot(grid_passive, label='Passive Import/Export', color='coral', linestyle='dashed')
             ax2.bar(
                 range(prm['syst']['N']),
                 voltage_costs,
