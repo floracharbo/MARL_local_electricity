@@ -88,7 +88,6 @@ class Optimiser():
         for key, val in res.items():
             if key[0: len('hourly')] == 'hourly':
                 assert len(val) == self.N, f"np.shape(res[{key}]) = {np.shape(val)}"
-
         assert np.all(res['consa(1)'] > - self.tol_cons_constraints), \
             f"negative flexible consumptions in the optimisation! " \
             f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
@@ -170,7 +169,7 @@ class Optimiser():
 
         # active and reactive loads
         # flex houses: car
-        p.add_constraint(p_car_flex == charge / self.car['eta_ch'] + discharge_other)
+        p.add_constraint(p_car_flex == charge / self.car['eta_ch'] - discharge_other)
         p.add_constraint(p_car_flex <= self.grd['max_active_power_car'])
 
         # if we don't allow the use of the battery reactive power for control
