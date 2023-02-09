@@ -53,7 +53,7 @@ class Network:
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
             'manage_agg_power', 'max_grid_import', 'penalty_import',
             'max_grid_export', 'penalty_export', 'reactive_power_for_voltage_control',
-            'pf_passive_homes', 'pf_flexible_homes'
+            'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs'
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -291,7 +291,9 @@ class Network:
         # Results from pandapower
         hourly_line_losses_pp, voltage_pp = self.pf_simulation(
             res["netp"][:, time_step],
-            netp0, netq_flex, netq_passive)
+            netp0[:, time_step],
+            netq_flex[:, time_step],
+            netq_passive[:, time_step])
 
         # Voltage test
         all_abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])

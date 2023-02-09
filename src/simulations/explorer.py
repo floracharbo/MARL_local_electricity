@@ -836,15 +836,15 @@ class Explorer():
                         netp0, self.grd['pf_passive_homes']
                     )
                 else:
-                    netq_passive = []
+                    netq_passive = np.zeros([1, self.N])
+                    netp0 = np.zeros([1, self.N])
                 # q_car_flex will be a decision variable
-                self.env.car._active_reactive_power_car()
                 q_car_flex = res['q_car_flex']
                 q_heat_home_flex = _calculate_reactive_power(
-                    home_vars['tot_cons'], self.grd['pf_flex_heat_home'])
+                    res['totcons'], self.prm['grd']['pf_flexible_homes'])
                 netq_flex = q_car_flex + q_heat_home_flex
 
-                res = self.env.network.test_network_comparison_optimiser_pandapower(
+                res, _, _ = self.env.network.test_network_comparison_optimiser_pandapower(
                     res, time_step,
                     self.prm['grd']['C'][time_step],
                     netp0,

@@ -21,8 +21,8 @@ weight_network_costs: 1 # Reward weight of network costs voltage_costs and impor
 base_power : 1000000 # base power for per unit system in W, as defined in pandapower
 base_voltage : 416 # base voltage for per unit system in V, as defined in the IEEE Low Voltage Test Feeder
 subset_line_losses_modelled : 30 # Number of lines accounted for in losses
-tol_rel_voltage_diff: 1e-2
-tol_rel_voltage_costs: 1e-2
+tol_rel_voltage_diff: 0.01
+tol_rel_voltage_costs: 0.01
 reactive_power_for_voltage_control: False
 pf_passive_homes : 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes : 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
