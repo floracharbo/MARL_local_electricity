@@ -9,13 +9,13 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
+import math
 import os
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
-import math
 
 from src.utilities.userdeftools import _calculate_reactive_power, comb
 

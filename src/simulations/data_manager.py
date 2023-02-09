@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import set_seeds_rdn, _calculate_reactive_power
+from src.utilities.userdeftools import _calculate_reactive_power, set_seeds_rdn
 
 
 class DataManager():
@@ -391,7 +391,7 @@ class DataManager():
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
-                    batch, passive=passive
+                batch, passive=passive
             )
             homes = [i for i, ok in enumerate(data_feasibles) if not ok]
             if its > 50:
@@ -521,11 +521,11 @@ class DataManager():
                     np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
                 self.prm['loads']['reactive_power_passive_homes'].append(
                     np.matmul(self.env.network.passive_buses,
-                        self.prm['loads']['q_heat_home_car_passive'][:, t]))
+                              self.prm['loads']['q_heat_home_car_passive'][:, t]))
         else:
-            self.prm['loads']['active_power_passive_homes']  = np.zeros([self.N, 1])
-            self.prm['loads']['reactive_power_passive_homes']  = np.zeros([self.N, 1])
-            self.prm['loads']['q_heat_home_car_passive'] = np.zeros([self.N, 1])
+            self.prm['loads']['active_power_passive_homes'] = np.zeros([1, self.N])
+            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([1, self.N])
+            self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
 
         return feasible
 
