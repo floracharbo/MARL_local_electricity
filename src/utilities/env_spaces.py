@@ -85,7 +85,7 @@ def compute_max_car_cons_gen_values(env, state_space):
     return max_car_cons, max_normcons, max_normgen, max_bat_dem_agg
 
 
-class EnvSpaces():
+class EnvSpaces:
     """Manage operations for environment states and actions spaces."""
 
     def __init__(self, env):

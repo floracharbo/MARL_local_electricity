@@ -4,7 +4,7 @@
 import numpy as np
 
 
-class DecayThenFlatSchedule():
+class DecayThenFlatSchedule:
 
     def __init__(self,
                  start,

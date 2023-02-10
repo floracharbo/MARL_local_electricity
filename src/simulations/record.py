@@ -19,7 +19,7 @@ import scipy as sp
 from src.utilities.userdeftools import get_moving_average, initialise_dict
 
 
-class Record():
+class Record:
     """Record - keeping record of learning trajectories."""
 
     def __init__(self, prm: dict, no_run: int = None):

@@ -26,7 +26,7 @@ from src.utilities.env_spaces import EnvSpaces
 from src.utilities.userdeftools import initialise_dict
 
 
-class LocalElecEnv():
+class LocalElecEnv:
     """
     Local electricity environment.
 

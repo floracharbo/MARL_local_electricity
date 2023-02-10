@@ -147,14 +147,14 @@ def _get_required_temperatures(heat, syst):
     heat['T_req'] = np.concatenate((heat['T_req'], day_T_req[:, 0:2]), axis=1)
 
     heat['T_UB'] = heat['T_req'] + heat['dT']
-    for e in range(syst['n_homes']):
+    for home in range(syst['n_homes']):
         # allow for heating one hour before when specified
         # temperature increases
         for t in range(syst['N']):
             for dt in range(1, 6):
                 if t < syst['N'] - 1 - dt \
-                        and heat['T_UB'][e][t + dt] > heat['T_UB'][e][t]:
-                    heat['T_UB'][e][t] = heat['T_UB'][e][t + dt]
+                        and heat['T_UB'][home][t + dt] > heat['T_UB'][home][t]:
+                    heat['T_UB'][home][t] = heat['T_UB'][home][t + dt]
 
     heat['T_LB'] = heat['T_req'] - heat['dT']
 

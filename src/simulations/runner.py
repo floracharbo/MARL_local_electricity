@@ -39,7 +39,7 @@ from src.utilities.userdeftools import (data_source, initialise_dict,
                                         should_optimise_for_supervised_loss)
 
 
-class Runner():
+class Runner:
     """Run experiments for all repeats and epochs."""
 
     def __init__(self, env, prm, record):

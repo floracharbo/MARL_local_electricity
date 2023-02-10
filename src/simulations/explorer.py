@@ -25,7 +25,7 @@ from src.utilities.userdeftools import (initialise_dict,
 
 
 # %% Environment exploration
-class Explorer():
+class Explorer:
     """Explore environment to get data."""
 
     def __init__(self, env, prm, learner, record, mac):

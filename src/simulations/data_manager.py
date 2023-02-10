@@ -32,7 +32,7 @@ from src.simulations.optimisation import Optimiser
 from src.utilities.userdeftools import set_seeds_rdn
 
 
-class DataManager():
+class DataManager:
     """Generating, checking, formatting data for explorations."""
 
     def __init__(self, env: object, prm: dict, explorer: object):
