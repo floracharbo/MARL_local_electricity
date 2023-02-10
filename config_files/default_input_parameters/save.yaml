@@ -11,7 +11,7 @@ last_entries: [
   'netp', 'store_outs', 'store',
   'totcons', 'tot_E_heat', 'T', 'T_air',
   'voltage_squared', 'hourly_line_losses',
-  'action','reward',
+  'action','reward', 'flex_cons',
   'ldflex', 'ldfixed','tot_cons_loads',
   'grdC','wholesale',
   'cintensity',
