@@ -1014,12 +1014,8 @@ class LocalElecEnv():
                     consumed_so_far_ok = abs(consumed_so_far - ub) < 1e-3
                 else:
                     consumed_so_far_ok = lb - 1e-3 < consumed_so_far < ub + 1e-3
-                if not consumed_so_far_ok:
-                    print()
                 assert consumed_so_far_ok, f"home {home} self.time {self.time}"
                 left_to_consume = np.sum(self.batch_flex[home, self.time: self.N])
                 total_to_consume = np.sum(self.prm['grd']['loads'][:, home, 0: self.N])
                 cons_adds_up = abs(left_to_consume + consumed_so_far - total_to_consume) < 1e-3
-                if not cons_adds_up:
-                    print()
                 assert cons_adds_up, f"home {home} self.time {self.time}"

@@ -303,10 +303,8 @@ class Explorer():
                 action, record=record,
                 evaluation=evaluation, E_req_only=method == "baseline"
             )
-
             if record:
-                self.last_epoch(
-                    evaluation, method, record_output, batch, done)
+                self.last_epoch(evaluation, method, record_output, batch, done)
             if not constraint_ok:
                 sequence_feasible = False
                 reward, _ = self._apply_reward_penalty(evaluation, reward)
@@ -495,11 +493,6 @@ class Explorer():
         if "opt" in self.rl['evaluation_methods'] and evaluation:
             if step_vals[method]["reward"][-1] is not None:
                 # rewards should not be better than optimal rewards
-                if not (
-                    np.mean(step_vals[method]["reward"]) \
-                    < np.mean(step_vals["opt"]["reward"]) + 1e-3
-                ):
-                    print()
                 assert np.mean(step_vals[method]["reward"]) \
                        < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
                        f"reward {method} {np.mean(step_vals[method]['reward'])} " \
