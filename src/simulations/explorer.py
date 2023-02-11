@@ -300,8 +300,7 @@ class Explorer:
             )
             [state, done, reward, break_down_rewards, bool_flex,
              constraint_ok, record_output] = env.step(
-                action, record=record,
-                evaluation=evaluation, E_req_only=method == "baseline"
+                action, record=record, evaluation=evaluation, E_req_only=method == "baseline"
             )
             if record:
                 self.last_epoch(evaluation, method, record_output, batch, done)

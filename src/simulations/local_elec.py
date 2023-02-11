@@ -515,7 +515,6 @@ class LocalElecEnv:
                     print(f'action[{home}] is None, action = {action[home]}')
 
             self.heat.current_temperature_bounds(h)
-
         else:
             date, action, gens, loads = other_input
             gens = np.array(gens)

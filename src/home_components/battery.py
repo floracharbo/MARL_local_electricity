@@ -655,7 +655,6 @@ class Battery:
         for home in range(prm['syst']['n_homes' + passive_ext]):
             if prm['car']['d_max'] < np.max(prm['car']['batch_loads_car'][home]):
                 feasible[home] = False
-                print("car['d_max'] < np.max(car['batch_loads_car'][home])")
                 for time in range(len(prm['car']['batch_loads_car'][home])):
                     if prm['car']['batch_loads_car'][home, time] > prm['car']['d_max']:
                         prm['car']['batch_loads_car'][home, time] = prm['car']['d_max']
