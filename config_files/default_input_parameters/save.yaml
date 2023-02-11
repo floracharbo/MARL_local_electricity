@@ -41,3 +41,4 @@ discrete_states_info_entries : [
 save_nns: True
 plotting_batch: False
 plotting_action: False  # used for plotting mu position on graph
+plot_imp_exp_check: False
