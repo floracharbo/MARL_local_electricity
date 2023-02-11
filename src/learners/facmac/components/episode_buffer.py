@@ -460,7 +460,6 @@ class CompressibleEpisodeBatch(EpisodeBatch):
             scheme, groups, batch_size=1, max_seq_length=1,
             preprocess=preprocess)
 
-        # assert "filled" not in scheme, '
         # "filled" is a reserved key for masking.'
         scheme.update({
             "filled": {"vshape": (1,), "dtype": th.long},
