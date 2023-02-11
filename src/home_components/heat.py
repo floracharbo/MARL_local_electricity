@@ -373,10 +373,9 @@ class Heat:
         """Get fixed/flexible heat consumption from current actions."""
         if E_flex is None:
             res_c = np.array([res[home]['c'] for home in range(self.n_homes)])
-            self.E_flex = np.where(
-                self.own_heat and res_c > l_flex + tot_l_fixed,
-                res_c - tot_l_fixed - l_flex,
-                0
+            self.E_flex = np.multiply(
+                np.where(res_c > l_flex + tot_l_fixed, res_c - tot_l_fixed - l_flex, 0),
+                self.own_heat
             )
         else:
             self.E_flex = E_flex
@@ -409,7 +408,7 @@ class Heat:
         else:
             K = self.T_coeff[homes, 0: 3]
             p_heat = np.divide(T_air_target - np.sum(np.multiply(K, M), axis=1), self.T_coeff[homes, 4])
-        E_heat = np.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0) * self.own_heat[homes]
+        E_heat = np.multiply(np.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0), self.own_heat[homes])
 
         return E_heat
 
