@@ -13,7 +13,7 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.utilities.userdeftools import _calculate_reactive_power
+from src.utilities.userdeftools import calculate_reactive_power
 
 
 class Network:
@@ -266,11 +266,11 @@ class Network:
         with pandapower """
 
         if self.n_homesP > 0:
-            q_heat_home_car_passive = _calculate_reactive_power(
+            q_heat_home_car_passive = calculate_reactive_power(
                 netp0, self.pf_passive_homes)
         else:
             q_heat_home_car_passive = []
-        q_heat_home_flex = _calculate_reactive_power(
+        q_heat_home_flex = calculate_reactive_power(
             home_vars['tot_cons'], self.pf_flexible_homes)
 
         netq_flex = q_car_flex + q_heat_home_flex
@@ -324,7 +324,7 @@ class Network:
                 f" is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
                 f"at bus {np.argmax(all_rel_diff_voltage)}. "
                 f"The absolute difference of hourly voltage costs is {abs_rel_voltage_error * 100}% "
-                f"of the daily optimisation costs"
+                f"of the daily optimisation costs. "
                 f"The network will be simulated with pandapower to correct the voltages"
             )
 
@@ -391,8 +391,6 @@ class Network:
 
         delta_total_costs = \
             delta_voltage_costs + delta_grid_energy_costs + delta_import_export_costs
-
-        # corrected export cost
 
         # update variable values given updated losses and voltages
         res["grid"][time_step] = grid_pp

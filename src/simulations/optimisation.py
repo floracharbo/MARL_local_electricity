@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
 
-from src.utilities.userdeftools import _calculate_reactive_power, comb
+from src.utilities.userdeftools import calculate_reactive_power, comb
 
 
 class Optimiser():
@@ -170,7 +170,7 @@ class Optimiser():
         # active and reactive loads
         # flex houses: car
         p.add_constraint(p_car_flex == charge / self.car['eta_ch'] - discharge_other)
-        p.add_constraint(p_car_flex <= self.grd['max_active_power_car'])
+        p.add_constraint(p_car_flex <= self.car['max_active_power_car'])
 
         # if we don't allow the use of the battery reactive power for control
         # then we restain it by using the power factor
@@ -186,10 +186,10 @@ class Optimiser():
                 ])
                 p.add_list_of_constraints([
                     p_car_flex2[home, time] + p_car_flex2[home, time]
-                    <= self.grd['max_apparent_power_car']**2 for home in range(self.n_homes)
+                    <= self.car['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
         else:
-            p.add_constraint(q_car_flex == _calculate_reactive_power(
+            p.add_constraint(q_car_flex == calculate_reactive_power(
                 p_car_flex, self.grd['pf_flexible_homes']))
 
         p.add_list_of_constraints(

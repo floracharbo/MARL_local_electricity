@@ -1,7 +1,7 @@
 # local network
 #ntw = {'C'          : 0.0517090557715045,
 #ntw = {'C'          : 0.029542462146148776,     # GBP/kWh distribution costs
-export_C: 0.01 # GBP/kWh distribution costs for exports
+export_C: 0.00 # GBP/kWh distribution costs for exports
 charge_type: 0  # 0 linear, 1 quadratic on quantity imported/exported
 V: 415 # V nominal voltage from Mortsyn 2019 multiclass
 R: 0.084 # Ohm average resistance between the prosumers and main grid from Mortsyn 2019 multiclass
@@ -13,8 +13,8 @@ penalty_export: 0.01 # Coefficient multiplied with export values to determine pe
 small_coefficient: 0.00001 # Small coefficient used in the import and export constraints
 manage_voltage: False # Add constraints and penalty to limit voltage violations with relaxed optimisation
 compare_pandapower_optimisation: False # Compares the power flows and losses results from relaxed opti and pandapower
-max_voltage: 1.1 # Upper limit for voltage on buses in V
-min_voltage: 0.96 # Lower limit for voltage on buses in V
+max_voltage: 1.1 # Upper limit for voltage on buses in per unit
+min_voltage: 0.96 # Lower limit for voltage on buses in per unit
 penalty_overvoltage: 0.00001 # Coefficient multiplied with overvoltage values to determine penalty
 penalty_undervoltage: 0.00001 # Coefficient multiplied with undervoltage values to determine penalty
 weight_network_costs: 1 # Reward weight of network costs voltage_costs and import_export_costs
@@ -27,9 +27,3 @@ tol_abs_line_losses: 0.0001
 reactive_power_for_voltage_control: False
 pf_passive_homes : 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes : 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
-max_active_power_car : 6.6 # Max active power delivered by and to the car battery by a convetional charger in kW
-# from 'Reactive power support in residential LV distribution grids through electric vehicle charging', 2015
-# for a supercharger, max_active_power_car = 150 kW (Tesla V2)
-max_apparent_power_car: 7.0 # Max apparent power delivered by and to the car battery by a convetional charger in kVA
-# considering a power factor of 0.95 (see IEEE Low Voltage Test Feeder): apparent power = active power / 0.95
-# for a supercharger, max_apparent_power_car = 150 / 0.95 = 158 kVA (Tesla V2)

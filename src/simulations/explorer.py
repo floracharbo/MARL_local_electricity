@@ -19,7 +19,7 @@ import numpy as np
 from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
 from src.simulations.select_actions import ActionSelector
-from src.utilities.userdeftools import (_calculate_reactive_power,
+from src.utilities.userdeftools import (calculate_reactive_power,
                                         initialise_dict,
                                         methods_learning_from_exploration,
                                         reward_type, set_seeds_rdn)
@@ -832,7 +832,7 @@ class Explorer():
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 if self.prm['syst']['n_homesP'] > 0:
                     netp0, _, _ = self.env._get_passive_vars(time_step)
-                    netq_passive = _calculate_reactive_power(
+                    netq_passive = calculate_reactive_power(
                         netp0, self.grd['pf_passive_homes']
                     )
                 else:
@@ -840,7 +840,7 @@ class Explorer():
                     netp0 = np.zeros([1, self.N])
                 # q_car_flex will be a decision variable
                 q_car_flex = res['q_car_flex']
-                q_heat_home_flex = _calculate_reactive_power(
+                q_heat_home_flex = calculate_reactive_power(
                     res['totcons'], self.prm['grd']['pf_flexible_homes'])
                 netq_flex = q_car_flex + q_heat_home_flex
 

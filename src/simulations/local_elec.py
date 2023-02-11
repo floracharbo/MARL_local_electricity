@@ -555,7 +555,7 @@ class LocalElecEnv():
             netp0 = []
         if self.prm['grd']['manage_voltage']:
             # retrieve info from battery
-            self.car._active_reactive_power_car()
+            self.car.active_reactive_power_car()
             # q_car_flex will be a decision variable
             # p_car_flex is needed to set apparent power limits
             p_car_flex = self.car.p_car_flex
