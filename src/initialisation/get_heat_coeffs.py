@@ -159,7 +159,7 @@ def _get_required_temperatures(heat, syst):
     heat['T_LB'] = heat['T_req'] - heat['dT']
 
     for e in ['T_req', 'T_LB', 'T_UB']:
-        heat[e + 'P'] = [heat[e][0] for _ in range(syst['n_homesP'])]
+        heat[e + 'P'] = np.full((syst['n_homesP'], syst['N'] + 2), heat[e][0])
 
     return heat
 
@@ -202,8 +202,8 @@ def get_heat_coeffs(heat, syst, paths):
     a_t = d / a
     b_t = (Cm / tau - 1 / 2 * (H[3] + H['em'])) / a
     c_t = e / a
-    d_t = (H[3] / H[2] * b + A['m'] / A['tot']) / a * heat['COP']
-    e_t = H[3] * H[1] / (H[2] * H['ve'] * a)
+    d_t = (H[3] / H[2] * b + A['m'] / A['tot']) / a
+    e_t = H[3] * H[1] / (H[2] * H['ve'] * a) * heat['COP']
 
     f = H['ms'] + H['twd'] + H[1]
     g = 1 / f * (H['ms'] * a_t / 2 + c + H[1] / H['ve'] * psi['ia'])
@@ -216,7 +216,7 @@ def get_heat_coeffs(heat, syst, paths):
     b_t_air = (H['is'] * h) / (H['is'] + H['ve'])
     c_t_air = (H['is'] * i + H['ve']) / (H['is'] + H['ve'])
     d_t_air = (H['is'] * j) / (H['is'] + H['ve']) * heat['COP']
-    e_t_air = (1 + H['is'] * k) / (H['is'] + H['ve'])
+    e_t_air = (1 + H['is'] * k) / (H['is'] + H['ve']) * heat['COP']
 
     t_coeff_0 = np.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
     t_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
