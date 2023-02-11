@@ -691,8 +691,8 @@ def _homes_info(loads, syst, gen, heat):
     for passive_ext in ["", "P"]:
         gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
-        heat["own_heat" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-            if heat["own_heat" + passive_ext] == 1 else heat["own_heat" + passive_ext]
+        heat["own_heat" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
+            if heat["own_heat" + passive_ext] == 1 else np.array(heat["own_heat" + passive_ext])
         for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
             if ownership in loads:
                 loads[ownership] = np.ones(syst["n_homes" + passive_ext]) * loads[ownership] \
