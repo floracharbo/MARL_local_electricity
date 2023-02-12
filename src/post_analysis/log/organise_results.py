@@ -678,7 +678,10 @@ def compare_all_runs_for_column_of_interest(
             if all_setups_same_as_0:
                 row0 = rows_considered[- len(values_of_interest)]
                 for row in rows_considered[- len(values_of_interest) + 1:]:
-                    if all(log.loc[row, col] == log.loc[row0, col] for col in other_columns + [column_of_interest]):
+                    if all(
+                        log.loc[row, col] == log.loc[row0, col]
+                        for col in other_columns + [column_of_interest]
+                    ):
                         print(f"runs {runs} equal?")
             else:
                 setups.append(current_setup)
@@ -871,7 +874,9 @@ def plot_sensitivity_analyses(new_columns, log):
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
-            if column not in [column_of_interest, 'nn_learned', 'time_end', 'machine_id', 'timestamp']
+            if column not in [
+                column_of_interest, 'nn_learned', 'time_end', 'machine_id', 'timestamp'
+            ]
         ]
 
         plotted_something, axs, setups, state_space_vals = compare_all_runs_for_column_of_interest(
@@ -941,7 +946,8 @@ def remove_duplicates(log, columns0):
         columns0.remove('RL-server')
     if 'syst-timestampe' in columns0:
         log['syst-timestamp'] = log.apply(
-            lambda row: row['syst-timestampe'] if row['syst-timestamp'] is None else row['syst-timestamp'],
+            lambda row:
+            row['syst-timestampe'] if row['syst-timestamp'] is None else row['syst-timestamp'],
             axis=1
         )
         log.drop(columns=['syst-timestampe'], inplace=True)

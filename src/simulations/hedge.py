@@ -321,7 +321,8 @@ class HEDGE:
                     probabilities = self.p_zero2pos['all']
                 else:
                     probabilities = self.p_pos['all'][current_interval]
-                assert abs(np.sum(probabilities) - 1) < 1e-2, f"sum(probabilities) {sum(probabilities)}"
+                assert abs(np.sum(probabilities) - 1) < 1e-2, \
+                    f"sum(probabilities) {sum(probabilities)}"
                 interval_f_ev.append(
                     self._ps_rand_to_choice(
                         probabilities,
