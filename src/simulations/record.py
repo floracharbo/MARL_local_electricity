@@ -173,7 +173,9 @@ class Record:
         if rl["type_learning"] == "q_learning" and not end_test:
             if self.save_qtables:
                 for table in ["q_tables", "counter"]:
-                    self.__dict__[table][self.repeat][epoch] = copy.deepcopy(learner.__dict__[table])
+                    self.__dict__[table][self.repeat][epoch] = copy.deepcopy(
+                        learner.__dict__[table]
+                    )
             elif epoch == self.n_epochs - 1:
                 for table in ["q_tables", "counter"]:
                     self.__dict__[table][self.repeat] = copy.deepcopy(learner.__dict__[table])
@@ -247,7 +249,8 @@ class Record:
 
     def load(self, prm: dict):
         """List files to load for record object & call loading_file method."""
-        repeat_labels = [info for info in self.repeat_entries if info not in ["q_tables", "counter"]] \
+        repeat_labels = \
+            [info for info in self.repeat_entries if info not in ["q_tables", "counter"]] \
             if not self.save_qtables \
             else self.repeat_entries
         run_labels = self.run_entries
@@ -292,7 +295,7 @@ class Record:
             epoch_rewards = self.mean_eval_rewards_per_hh[method][:, epoch]
             epoch_baseline_rewards = self.mean_eval_rewards_per_hh[baseline][:, epoch]
             diff_repeats = [
-                epoch_rewards[repeat] - epoch_baseline_rewards[repeat] for repeat in range(n_repeats)
+                epoch_rewards[repeat] - epoch_baseline_rewards[repeat]for repeat in range(n_repeats)
                 if epoch_rewards[repeat] is not None and epoch_baseline_rewards[repeat] is not None
             ]
             for p in [25, 50, 75]:
@@ -333,7 +336,8 @@ class Record:
             from n_epochs onwards during the fixed policy, test only period.
         """
         self.mean_eval_rewards_per_hh = {
-            method: np.zeros((self.n_repeats, self.n_all_epochs)) for method in self.evaluation_methods
+            method: np.zeros((self.n_repeats, self.n_all_epochs))
+            for method in self.evaluation_methods
         }
         for reward in ['mean_end_rewards', 'mean_end_test_rewards']:
             self.__dict__[reward] = {
@@ -496,7 +500,6 @@ class Record:
         ]
 
         for eval_entry in evaluation_methods_plot:
-            print(F"np.shape(self.mean_end_rewards[eval_entry][0]) {self.mean_end_rewards[eval_entry][0]}")
             mean_end_rewards_month = self.mean_end_rewards[eval_entry] * self.monthly_multiplier
             end_test_rewards_e = [
                 self.mean_end_test_rewards[eval_entry][repeat] * self.monthly_multiplier
@@ -548,7 +551,11 @@ class Record:
             metrics["DR"]["ave"][eval_entry] = sp.stats.iqr(mean_end_rewards_month)
             metrics["DR"]["std"][eval_entry] = None
             print(F"np.shape(mean_end_rewards_month) {mean_end_rewards_month}")
-            metrics["RR"]["ave"][eval_entry] = np.mean(mean_end_rewards_month[mean_end_rewards_month <= np.percentile(mean_end_rewards_month, 5)])
+            metrics["RR"]["ave"][eval_entry] = np.mean(
+                mean_end_rewards_month[
+                    mean_end_rewards_month <= np.percentile(mean_end_rewards_month, 5)
+                ]
+            )
             metrics["RR"]["std"][eval_entry] = None
 
         return metrics, metric_entries

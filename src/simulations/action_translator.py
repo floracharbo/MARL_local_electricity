@@ -38,7 +38,9 @@ class Action_translator:
         self.z_orders = [1, 3, 2, 0, 4]
         self.H = prm['syst']['H']
 
-        type_action = env.spaces.space_info['name'].map(lambda x: x[- min(len(x), len('action')):] == 'action')
+        type_action = env.spaces.space_info['name'].map(
+            lambda x: x[- min(len(x), len('action')):] == 'action'
+        )
         self.action_info = env.spaces.space_info[type_action]
         for info in [
             'aggregate_actions', 'dim_actions_1', 'low_action',
@@ -47,6 +49,18 @@ class Action_translator:
             setattr(self, info, prm['RL'][info])
         self.bat_dep = prm['car']['dep']
         self.export_C = prm['grd']['export_C']
+
+    def _get_disaggregated_actions_all(self, actions, bool_flex, res, loads, time_step):
+        flexible_cons_action, loads_bool_flex = self._flex_loads_action_all(loads, res, time_step)
+        flexible_heat_action, heat_bool_flex = self._flex_heat_action_all(res, time_step)
+        flexible_store_action, store_bool_flex = self._flex_store_action_all(res, time_step)
+
+        actions = [flexible_cons_action, flexible_heat_action, flexible_store_action]
+        bool_flex.append(
+            not sum(action is None for action in actions) == 3
+        )
+
+        return actions, bool_flex
 
     def optimisation_to_rl_env_action(self, time_step, date, netp, loads, home_vars, res):
         """
@@ -563,7 +577,8 @@ class Action_translator:
             action = None
 
         min_action, max_action = [
-            self.action_info.loc[self.action_info["name"] == action_type, col].values[0] for col in ['min', 'max']
+            self.action_info.loc[self.action_info["name"] == action_type, col].values[0]
+            for col in ['min', 'max']
         ]
 
         action = action * (max_action - min_action) + min_action
