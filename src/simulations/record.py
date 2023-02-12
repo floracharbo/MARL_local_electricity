@@ -561,11 +561,8 @@ class Record:
             else:
                 epoch_mean_eval_t = None
             for info in ["reward", "action"]:
-                try:
-                    self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
-                        = eval_steps[method][info]
-                except Exception as ex:
-                    print(ex)
+                self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
+                    = eval_steps[method][info]
         else:
             for info in ["eval_rewards", "eval_actions"]:
                 self.__dict__[info][self.repeat][method][epoch] = None
