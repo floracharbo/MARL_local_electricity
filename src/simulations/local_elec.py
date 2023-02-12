@@ -61,7 +61,6 @@ class LocalElecEnv:
             setattr(self, info, prm['syst'][info])
 
         self.server = prm['syst']['server']
-        self.action_translator = Action_translator(prm, self)
         self.i0_costs = 0
         self.car = Battery(prm)
         self.hedge = HEDGE(
@@ -72,6 +71,9 @@ class LocalElecEnv:
         )
         self.spaces = EnvSpaces(self)
         self.spaces.new_state_space(self.rl['state_space'])
+        self.action_translator = Action_translator(prm, self)
+        self.spaces.action_translator = self.action_translator
+
         self.add_noise = 1 if self.rl['deterministic'] == 2 else 0
         for data in [
             "competitive", "n_grdC_level", "offset_reward", "delta_reward"
