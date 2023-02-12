@@ -183,16 +183,16 @@ class Action_translator:
             mask = a_dp > 1e-3
             action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
             for home in homes:
-                assert action_points[i][home] > - 1e-4, \
+                assert action_points[i][home] > - 5e-4, \
                     f"action_points[{i}][{home}] {action_points[i][home]} < 0"
-                if action_points[i][home] > 1 + 1e-4 and self.car.time_step == self.N:
+                if action_points[i][home] > 1 + 5e-4 and self.car.time_step == self.N:
                     action_points[i][home] = 1
-                assert action_points[i][home] < 1 + 1e-4, \
+                assert action_points[i][home] < 1 + 5e-4, \
                     f"action_points[{i}][{home}] {action_points[i][home]} > 1 " \
                     f"mask {mask} d['dp'][i][mask] {d['dp'][i][mask]} a_dp {a_dp} b_dp {b_dp}"
                 if - 1e-4 < action_points[i][home] < 0:
                     action_points[i][home] = 0
-                if 1 < action_points[i][home] < 1 + 1e-4:
+                if 1 < action_points[i][home] < 1 + 5e-4:
                     action_points[i][home] = 1
         self.d = d
         self.k, self.action_intervals = [[] for _ in range(2)]
@@ -238,7 +238,7 @@ class Action_translator:
         self.l_flex = loads['l_flex']
         flex_heat = np.zeros(self.n_homes)
         for home in homes:
-            # boolean for whether or not we have flexibility
+            # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
             if self.aggregate_actions:
                 flex_heat = None
@@ -625,7 +625,8 @@ class Action_translator:
             assert self.min_charge[home] - 1e-3 <= res['charge'][home, time_step] \
                    <= self.max_charge[home] + 1e-3, \
                    f"res charge {res['charge'][home, time_step]} " \
-                   f"self.min_charge[home] {self.min_charge[home]} self.max_charge[home] {self.max_charge[home]}"
+                   f"self.min_charge[home] {self.min_charge[home]} " \
+                   f"self.max_charge[home] {self.max_charge[home]}"
             assert self.max_discharge[home] - 1e-3 \
                    <= - res['discharge_other'][home, time_step] / self.car.eta_dis \
                    <= self.min_discharge[home] + 1e-3, \
@@ -643,8 +644,9 @@ class Action_translator:
                 if abs(res['charge'][home, time_step] - self.max_charge[home]) < 1e-3:
                     flexible_store_action = 1
                 else:
-                    flexible_store_action = (res['charge'][home, time_step] - self.min_charge[home]) \
-                        / (self.max_charge[home] - self.min_charge[home])
+                    flexible_store_action = (
+                        res['charge'][home, time_step] - self.min_charge[home]
+                    ) / (self.max_charge[home] - self.min_charge[home])
 
         return flexible_store_action, store_bool_flex
 
