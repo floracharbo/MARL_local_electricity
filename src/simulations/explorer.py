@@ -67,7 +67,7 @@ class Explorer:
             "reward", "diff_rewards", "next_state",
             "ind_next_global_state", "done", "bool_flex", "constraint_ok"
         ] + prm['syst']['break_down_rewards_entries']
-        self.method_vals_entries = ["seeds", "n_not_feas", "not_feas_vars"]
+        self.method_vals_entries = ["seeds", "n_not_feas"]
 
         self.env.update_date(0)
 
@@ -371,7 +371,7 @@ class Explorer:
             seed_ind, methods, step_vals, evaluation, epoch
         )
 
-        n_not_feas, not_feas_vars = 0, []
+        n_not_feas = 0
 
         # loop through types of actions specified to interact with environment
         # start assuming data is infeasible until proven otherwise
@@ -436,7 +436,6 @@ class Explorer:
 
             if not sequence_feasible:  # if data is not feasible, make new data
                 n_not_feas += 1
-                not_feas_vars.append([env.car.store0, method])
                 seed_ind = self.data.infeasible_tidy_files_seeds(seed_ind)
 
                 print("infeasible in loop active")
@@ -449,11 +448,9 @@ class Explorer:
                 )
 
         step_vals["seed"] = self.data.seed[self.data.passive_ext]
-        step_vals["not_feas_vars"] = not_feas_vars
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
             self.t_env += self.prm['syst']['N']
-
 
         return step_vals
 
@@ -904,21 +901,16 @@ class Explorer:
     ):
         if not last_epoch:
             return
-
         done = time_step == self.prm["syst"]["N"] - 1
-        ldflex = [0 for _ in self.homes] \
+        ldflex = np.zeros(self.n_homes) \
             if done \
-            else [sum(batchflex_opt[home][time_step][1:])
-                  for home in self.homes]
+            else np.sum(batchflex_opt[:, time_step, 1:])
         if done:
-            ldfixed = [sum(batchflex_opt[home][time_step][:])
-                       for home in self.homes]
+            ldfixed = np.sum(batchflex_opt[:, time_step])
         else:
-            ldfixed = [batchflex_opt[home][time_step][0] for home in self.homes]
-        tot_cons_loads = [
-            res["totcons"][home][time_step] - res["E_heat"][home][time_step]
-            for home in self.homes
-        ]
+            ldfixed = batchflex_opt[:, time_step, 0]
+        tot_cons_loads = res["totcons"][:, time_step] - res["E_heat"][:, time_step]
+        flex_cons = tot_cons_loads - ldfixed
         wholesalet, cintensityt = [
             self.prm["grd"][e][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
@@ -936,7 +928,7 @@ class Explorer:
             record_output.append(res[entry][:, time_step])
         record_output.append(res['hourly_line_losses'][time_step])
         record_output += [
-            step_vals_i["action"], step_vals_i["reward"],
+            step_vals_i["action"], step_vals_i["reward"], flex_cons,
             ldflex, ldfixed, tot_cons_loads,
             self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
             break_down_rewards,
