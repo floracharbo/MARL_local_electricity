@@ -590,18 +590,22 @@ def opt_res_seed_save_paths(prm):
     rl, paths with updated entries
 
     """
-    rl, heat, syst, grd, paths, car = \
-        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car"]]
+    rl, heat, syst, grd, paths, car, loads = \
+        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
         f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
-    if sum(car['own_car']) != len(car['own_car']):
-        paths["opt_res_file"] += "_no_car"
-        for i_car in np.where(car['own_car'] == 0)[0]:
-            paths["opt_res_file"] += f"_{i_car}"
+
+    for obj, label in zip([car, heat, loads], ['car', 'heat', 'loads']):
+        ownership = obj[f'own_{label}']
+        if sum(ownership) != len(ownership):
+            paths["opt_res_file"] += f"_no_{label}"
+            for home in np.where(ownership == 0)[0]:
+                paths["opt_res_file"] += f"_{home}"
+
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
     if rl["deterministic"] == 2:
         for file in ["opt_res_file", "seeds_file"]:
