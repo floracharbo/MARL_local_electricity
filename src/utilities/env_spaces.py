@@ -90,24 +90,24 @@ class EnvSpaces:
 
     def __init__(self, env):
         """Initialise EnvSpaces class, add properties."""
-        self.n_homes = env.n_homes
-        self.current_date0 = env.prm['syst']['date0_dtm']
-        self.get_state_vals = env.get_state_vals
-        self.c_max = env.prm["car"]["c_max"]
-        self.N = env.N
-        self.i0_costs = env.i0_costs
-        self.car = env.car
-        self.action_translator = env.action_translator
-        self._get_space_info(env)
-        prm = env.prm
-        self._init_factors_profiles_parameters(prm)
-        for info in [
-            "dim_actions", "aggregate_actions", "type_env",
+        for property in ['n_homes', 'N', 'i0_costs']:
+            setattr(self, property, env.__dict__[property])
+
+        for property in [
+            "dim_actions", "aggregate_actions", "type_env", "normalise_states",
             "n_discrete_actions", "evaluation_methods", "flexibility_states",
         ]:
-            setattr(self, info, prm["RL"][info])
-        self.normalise_states_bool = prm["RL"]["normalise_states"]
-        self.i0_costs = env.i0_costs
+            setattr(self, property, env.prm["RL"][property])
+        self.current_date0 = env.prm['syst']['date0_dtm']
+        self.c_max = env.prm["car"]["c_max"]
+
+        self.get_state_vals = env.get_state_vals
+
+        self.car = env.car
+
+        self._get_space_info(env)
+        self._init_factors_profiles_parameters(env.prm)
+
         self.state_funcs = {
             "store0": self._get_store,
             "grdC_level": self._get_grdC_level,
@@ -118,6 +118,7 @@ class EnvSpaces:
             "flexibility": self.get_flexibility,
             "store_bool_flex": self.get_store_bool_flex
         }
+
         self.cluss, self.factors = env.hedge.clusters, env.hedge.factors
 
     def _init_factors_profiles_parameters(self, prm):
@@ -668,7 +669,7 @@ class EnvSpaces:
 
     def normalise_state(self, descriptor, val, home):
         """Normalise state value between 0 and 1."""
-        if self.normalise_states_bool:
+        if self.normalise_states:
             descriptor_info = self.space_info.loc[
                 self.space_info['name'] == self.descriptor_for_info_lookup(descriptor)
             ]
