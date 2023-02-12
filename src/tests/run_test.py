@@ -174,7 +174,7 @@ def test_all(mocker):
         },
         'syst': {
             'test_on_run': True,
-            'n_homes': 3
+            'n_homes': 4
         },
         'grd': {
             'max_grid_in': 5,
@@ -193,7 +193,16 @@ def test_all(mocker):
             'min_voltage': 0.999,
             'weight_network_costs': 1,
             'subset_line_losses_modelled': 30
-        }
+        },
+        'heat': {
+            'own_heat': [[1, 0, 1, 1]],
+        },
+        'loads': {
+            'own_loads': [[1, 1, 0, 1]],
+        },
+        'car': {
+            'own_car': [[1, 1, 1, 0]],
+        },
     }
     run_mode = 1
 
