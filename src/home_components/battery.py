@@ -266,7 +266,7 @@ class Battery:
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time
             n_avail_until_end = sum(self.batch['avail_car'][home][final_i_endtrip: self.N])
             if len(trips) == 0:
-                 n_avail_until_end -= 1
+                n_avail_until_end -= 1
 
             min_charge_for_final_step = self.store0[home] - self.c_max * n_avail_until_end
             max_charge_for_final_step[home] = \
@@ -276,7 +276,11 @@ class Battery:
             min_charge_for_reaching_min_charge_next = \
                 self.min_charge[home] * self.batch['avail_car'][home][final_i_endtrip + 1] \
                 - self.c_max
-            min_charge_required[home] = max(min_charge_for_final_step, min_charge_for_reaching_min_charge_next, 0)
+            min_charge_required[home] = max(
+                min_charge_for_final_step,
+                min_charge_for_reaching_min_charge_next,
+                0
+            )
 
             for it in range(len(trips)):
                 loads_T, deltaT = trips[- (it + 1)][0:2]

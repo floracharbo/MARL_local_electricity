@@ -231,7 +231,10 @@ class Heat:
                         ) / self.T_air_coeff[home][1]
                         # find how much to heat to reach that T1_corrected
                         e_max0_corrected = self._next_E_heat(
-                            [self.T_UB[home][time_step + 1]], [self.T[home]], self.T_out[time_step], home=home
+                            [self.T_UB[home][time_step + 1]],
+                            [self.T[home]],
+                            self.T_out[time_step],
+                            home=home
                         )[0]
 
                         # check current time step
@@ -262,7 +265,7 @@ class Heat:
                                 T2_corrected
                                 - self.T_coeff[home][0]
                                 - self.T_coeff[home][2] * self.T_out[time_step + 1]
-                                ) / self.T_coeff[home][1]
+                            ) / self.T_coeff[home][1]
 
                             # find how much to heat to reach that T2_corrected
                             e_max0_corrected = self._next_E_heat(
@@ -296,12 +299,6 @@ class Heat:
             np.where(self.own_heat, heat0, 0)
             for heat0 in [E_heat_min0, E_heat_max0]
         ]
-
-        if not np.all(self.T_LB_t == self.T_UB_t):
-            next_Tairs_max = self.next_T(
-                self.T, self.E_heat_max, self.T_out[time_step]
-            )[1]
-
 
     def potential_E_flex(self):
         """Obtain the amount of energy that can be flexibly consumed."""
@@ -404,11 +401,20 @@ class Heat:
         M = np.transpose(np.array([np.ones(na), T_start, np.ones(na) * T_out_t]))
         if target == 'air_temp':
             K = self.T_air_coeff[homes, 0: 3]
-            p_heat = np.divide(T_air_target - np.sum(np.multiply(K, M), axis=1), self.T_air_coeff[homes, 4])
+            p_heat = np.divide(
+                T_air_target - np.sum(np.multiply(K, M), axis=1),
+                self.T_air_coeff[homes, 4]
+            )
         else:
             K = self.T_coeff[homes, 0: 3]
-            p_heat = np.divide(T_air_target - np.sum(np.multiply(K, M), axis=1), self.T_coeff[homes, 4])
-        E_heat = np.multiply(np.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0), self.own_heat[homes])
+            p_heat = np.divide(
+                T_air_target - np.sum(np.multiply(K, M), axis=1),
+                self.T_coeff[homes, 4]
+            )
+        E_heat = np.multiply(
+            np.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0),
+            self.own_heat[homes]
+        )
 
         return E_heat
 
