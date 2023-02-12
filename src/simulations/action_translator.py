@@ -50,18 +50,6 @@ class Action_translator:
         self.bat_dep = prm['car']['dep']
         self.export_C = prm['grd']['export_C']
 
-    def _get_disaggregated_actions_all(self, actions, bool_flex, res, loads, time_step):
-        flexible_cons_action, loads_bool_flex = self._flex_loads_action_all(loads, res, time_step)
-        flexible_heat_action, heat_bool_flex = self._flex_heat_action_all(res, time_step)
-        flexible_store_action, store_bool_flex = self._flex_store_action_all(res, time_step)
-
-        actions = [flexible_cons_action, flexible_heat_action, flexible_store_action]
-        bool_flex.append(
-            not sum(action is None for action in actions) == 3
-        )
-
-        return actions, bool_flex
-
     def optimisation_to_rl_env_action(self, time_step, date, netp, loads, home_vars, res):
         """
         From home energy values, get equivalent RL flexibility actions.
