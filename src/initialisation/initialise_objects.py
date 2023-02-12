@@ -319,11 +319,14 @@ def _update_bat_prm(prm):
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
-    car["cap"] = np.array(car["cap"]) if isinstance(car["cap"], list) else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
+    car["cap"] = np.array(
+        car["cap"]) if isinstance(car["cap"], list)\
+        else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
         for passive_ext in ["", "P"]:
             car["own_car" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
-                if isinstance(car["own_car" + passive_ext], (int, float)) and car["own_car" + passive_ext] == 1 \
+                if isinstance(car["own_car" + passive_ext], (int, float))\
+                and car["own_car" + passive_ext] == 1 \
                 else np.array(car["own_car" + passive_ext])
         car["cap"] = np.where(car["own_car"], car["cap"], 0)
 
@@ -334,12 +337,9 @@ def _update_bat_prm(prm):
                          for home in range(syst["n_homes"])]
     car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
     if "capP" not in car:
-        car["capP"] = [car["cap"][0] for _ in range(syst["n_homesP"])]
-    car["store0P"] = [car["SoC0"] * car["capP"][home] for home in range(syst["n_homesP"])]
-    car["min_chargeP"] = [
-        car["capP"][home] * max(car["SoCmin"], car["baseld"])
-        for home in range(syst["n_homesP"])
-    ]
+        car["capP"] = np.full(syst["n_homesP"], car["cap"][0])
+    car["store0P"] = car["SoC0"] * car["capP"]
+    car["min_chargeP"] = car["capP"] * max(car["SoCmin"], car["baseld"])
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -685,6 +685,7 @@ def _syst_info(prm):
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['timestampe'] = datetime.datetime.now().timestamp()
+    syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
 
 
 def _homes_info(loads, syst, gen, heat):
