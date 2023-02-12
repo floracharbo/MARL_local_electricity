@@ -11,11 +11,11 @@ def distribution_savings(prm, aggregate='daily'):
     rl = prm["RL"]
     fig = plt.figure()
     test_savings = {}
-    for method in [method for method in rl["mean_eval_rewards_per_hh"][0] if method != 'baseline']:
+    for method in [method for method in rl["mean_eval_rewards_per_hh"] if method != 'baseline']:
         test_savings[method] = []
         for repeat in range(prm['RL']['n_repeats']):
             rewards_t, rewards_bsl = \
-                [rl["mean_eval_rewards_per_hh"][repeat][evaluation_method][
+                [rl["mean_eval_rewards_per_hh"][evaluation_method][repeat][
                  prm['RL']['n_epochs']:]
                  for evaluation_method in [method, 'baseline']]
             savings_rel_baseline = \
@@ -49,8 +49,8 @@ def heatmap_savings_per_method(prm):
     M = {}
     rewards = ['r', 'd', 'A', 'n']
     distrs = ['c', 'd', 'Cc', 'Cd']
-    M['opt'] = [[np.nan for r in rewards] for d in distrs]
-    M['env'] = [[np.nan for r in rewards] for d in distrs]
+    M['opt'] = np.full((len(distrs), len(rewards)), np.nan)
+    M['env'] = np.full((len(distrs), len(rewards)), np.nan)
     all_vals = []
     for e in metrics['end']['ave'].keys():
         if e not in ['opt', 'baseline', 'random']:
@@ -107,7 +107,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                     bars[i].append(
                         np.mean([[(record_obj[repeat]['baseline'][epoch]
                                 - record_obj[repeat][method][epoch])
-                                * mult / (prm['syst']['n_homes'] + prm['syst']['n_homesP'])
+                                * mult / prm['syst']['n_homes_all']
                                 * 24 * 365 / 12
                                 for epoch in range(prm['RL']['start_end_eval'],
                                                    len(record_obj[repeat][method]))]
@@ -116,7 +116,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                     bars[i].append(
                         np.mean([[(record_obj[repeat][method][epoch])
                                 * 24 * 365 / 12
-                                * mult / (prm['syst']['n_homes'] + prm['syst']['n_homesP'])
+                                * mult / prm['syst']['n_homes_all']
                                 for epoch in range(prm['RL']['start_end_eval'],
                                                    len(record_obj[repeat][method]))]
                                 for repeat in range(prm['RL']['n_repeats'])]))
@@ -190,14 +190,14 @@ def barplot_grid_energy_costs(record, prm, plot_type='savings'):
                 bars[i].append(
                     np.mean([[(record_obj[repeat]['baseline'][epoch]
                                - record_obj[repeat][method][epoch])
-                              * mult / (prm['syst']['n_homes'] + prm['syst']['n_homesP'])
+                              * mult / prm['syst']['n_homes_all']
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  len(record_obj[repeat][method]))]
                              for repeat in range(prm['RL']['n_repeats'])]))
             else:
                 bars[i].append(
                     np.mean([[(record_obj[repeat][method][epoch])
-                              * mult / (prm['syst']['n_homes'] + prm['syst']['n_homesP'])
+                              * mult / prm['syst']['n_homes_all']
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  len(record_obj[repeat][method]))]
                              for repeat in range(prm['RL']['n_repeats'])]))
