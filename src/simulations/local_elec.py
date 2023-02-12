@@ -295,7 +295,8 @@ class LocalElecEnv:
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = self.policy_to_rewardvar(
+        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok \
+            = self.policy_to_rewardvar(
                 action, E_req_only=E_req_only
             )
         if not constraint_ok:
@@ -677,13 +678,6 @@ class LocalElecEnv:
                             allow_pickle=True
                         ).item()
                     )
-                    if info == 'batch':
-                        path_ = self.res_path / f"{info}{self._file_id()}"
-                        sum_loads = np.sum(
-                            [
-                                self.batch[home]['loads'][0:24] for home in range(self.n_homes)
-                            ]
-                        )
 
             self.update_i0_costs()
             self._correct_len_batch()
@@ -876,12 +870,10 @@ class LocalElecEnv:
     def _batch_tests(self, h):
         if self.test:
             for home in self.homes:
-                assert sum(self.batch_flex[home][h][1: 5]) <= \
-                    sum(
-                        self.batch_flex[home][ih][0] / (1 - self.share_flexs[home])
-                        * self.share_flexs[home]
-                        for ih in range(0, h + 1)
-                    ), "batch_flex too large h"
+                fixed_to_flex = self.share_flexs[home] / (1 - self.share_flexs[home])
+                assert sum(self.batch_flex[home][h][1: 5]) \
+                    <= sum(self.batch_flex[home][0: h + 1, 0]) * fixed_to_flex, \
+                    "batch_flex too large h"
 
                 assert sum(self.batch_flex[home][h + 1][1: 5]) <= sum(
                     self.batch_flex[home][ih][0]

@@ -182,7 +182,7 @@ class Record:
 
         self.duration_epoch[self.repeat][epoch] = duration_epoch
 
-    def last_epoch(self, evaluation, method, record_output, batch, done, time_step):
+    def last_epoch(self, evaluation, method, record_output, batch, done):
         """Record more information for the final epoch in self.last."""
         type_step = "eval" if evaluation else "train"
         if type_step == "eval":
