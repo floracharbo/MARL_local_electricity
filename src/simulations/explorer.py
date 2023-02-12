@@ -25,7 +25,7 @@ from src.utilities.userdeftools import (initialise_dict,
 
 
 # %% Environment exploration
-class Explorer():
+class Explorer:
     """Explore environment to get data."""
 
     def __init__(self, env, prm, learner, record, mac):
@@ -67,7 +67,7 @@ class Explorer():
             "reward", "diff_rewards", "next_state",
             "ind_next_global_state", "done", "bool_flex", "constraint_ok"
         ] + prm['syst']['break_down_rewards_entries']
-        self.method_vals_entries = ["seeds", "n_not_feas", "not_feas_vars"]
+        self.method_vals_entries = ["seeds", "n_not_feas"]
 
         self.env.update_date(0)
 
@@ -300,12 +300,10 @@ class Explorer():
             )
             [state, done, reward, break_down_rewards, bool_flex,
              constraint_ok, record_output] = env.step(
-                action, record=record,
-                evaluation=evaluation, E_req_only=method == "baseline")
-
+                action, record=record, evaluation=evaluation, E_req_only=method == "baseline"
+            )
             if record:
-                self.last_epoch(
-                    evaluation, method, record_output, batch, done)
+                self.last_epoch(evaluation, method, record_output, batch, done)
             if not constraint_ok:
                 sequence_feasible = False
                 reward, _ = self._apply_reward_penalty(evaluation, reward)
@@ -344,6 +342,8 @@ class Explorer():
                             traj_reward[home] += reward[home]
                 step += 1
 
+        self._check_rewards_match(method, evaluation, step_vals)
+
         return step_vals, traj_reward, sequence_feasible
 
     def _active_get_steps(
@@ -371,7 +371,7 @@ class Explorer():
             seed_ind, methods, step_vals, evaluation, epoch
         )
 
-        n_not_feas, not_feas_vars = 0, []
+        n_not_feas = 0
 
         # loop through types of actions specified to interact with environment
         # start assuming data is infeasible until proven otherwise
@@ -436,7 +436,6 @@ class Explorer():
 
             if not sequence_feasible:  # if data is not feasible, make new data
                 n_not_feas += 1
-                not_feas_vars.append([env.car.store0, method])
                 seed_ind = self.data.infeasible_tidy_files_seeds(seed_ind)
 
                 print("infeasible in loop active")
@@ -449,7 +448,6 @@ class Explorer():
                 )
 
         step_vals["seed"] = self.data.seed[self.data.passive_ext]
-        step_vals["not_feas_vars"] = not_feas_vars
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
             self.t_env += self.prm['syst']['N']
@@ -482,22 +480,19 @@ class Explorer():
             env, repeat, epoch, i_explore, methods, step_vals, evaluation
         )
 
-        self._check_rewards_match(methods, evaluation, step_vals)
-
         if self.rl["type_learning"] != "facmac":
             self.episode_batch = None
 
         return step_vals, self.episode_batch
 
-    def _check_rewards_match(self, methods, evaluation, step_vals):
-        if "opt" in methods and evaluation:
-            for method in [method for method in methods if method != "opt"]:
-                if step_vals[method]["reward"][-1] is not None:
-                    # rewards should not be better than optimal rewards
-                    assert np.mean(step_vals[method]["reward"]) \
-                           < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
-                           f"reward {method} {np.mean(step_vals[method]['reward'])} " \
-                           f"better than opt {np.mean(step_vals['opt']['reward'])}"
+    def _check_rewards_match(self, method, evaluation, step_vals):
+        if "opt" in self.rl['evaluation_methods'] and evaluation:
+            if step_vals[method]["reward"][-1] is not None:
+                # rewards should not be better than optimal rewards
+                assert np.mean(step_vals[method]["reward"]) \
+                       < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
+                       f"reward {method} {np.mean(step_vals[method]['reward'])} " \
+                       f"better than opt {np.mean(step_vals['opt']['reward'])}"
 
     def _opt_step_init(
             self, time_step, batchflex_opt, batch_avail_car, res
@@ -906,21 +901,16 @@ class Explorer():
     ):
         if not last_epoch:
             return
-
         done = time_step == self.prm["syst"]["N"] - 1
-        ldflex = [0 for _ in self.homes] \
+        ldflex = np.zeros(self.n_homes) \
             if done \
-            else [sum(batchflex_opt[home][time_step][1:])
-                  for home in self.homes]
+            else np.sum(batchflex_opt[:, time_step, 1:])
         if done:
-            ldfixed = [sum(batchflex_opt[home][time_step][:])
-                       for home in self.homes]
+            ldfixed = np.sum(batchflex_opt[:, time_step])
         else:
-            ldfixed = [batchflex_opt[home][time_step][0] for home in self.homes]
-        tot_cons_loads = [
-            res["totcons"][home][time_step] - res["E_heat"][home][time_step]
-            for home in self.homes
-        ]
+            ldfixed = batchflex_opt[:, time_step, 0]
+        tot_cons_loads = res["totcons"][:, time_step] - res["E_heat"][:, time_step]
+        flex_cons = tot_cons_loads - ldfixed
         wholesalet, cintensityt = [
             self.prm["grd"][e][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
@@ -938,7 +928,7 @@ class Explorer():
             record_output.append(res[entry][:, time_step])
         record_output.append(res['hourly_line_losses'][time_step])
         record_output += [
-            step_vals_i["action"], step_vals_i["reward"],
+            step_vals_i["action"], step_vals_i["reward"], flex_cons,
             ldflex, ldfixed, tot_cons_loads,
             self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
             break_down_rewards,

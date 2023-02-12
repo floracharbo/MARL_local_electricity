@@ -319,17 +319,16 @@ def _update_bat_prm(prm):
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
+    car["cap"] = np.array(
+        car["cap"]) if isinstance(car["cap"], list)\
+        else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
-        car["cap"] = car["cap"] if isinstance(car["cap"], list) \
-            else [car["cap"] for _ in range(syst["n_homes"])]
         for passive_ext in ["", "P"]:
-            car["own_car" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-                if car["own_car" + passive_ext] == 1 else car["own_car" + passive_ext]
-        car["cap"] = [c if o == 1 else 0
-                      for c, o in zip(car["cap"], car["own_car"])]
-
-    if isinstance(car["cap"], (int, float)):
-        car["cap"] = [car["cap"] for _ in range(syst["n_homes"])]
+            car["own_car" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
+                if isinstance(car["own_car" + passive_ext], (int, float))\
+                and car["own_car" + passive_ext] == 1 \
+                else np.array(car["own_car" + passive_ext])
+        car["cap"] = np.where(car["own_car"], car["cap"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
 
@@ -338,12 +337,9 @@ def _update_bat_prm(prm):
                          for home in range(syst["n_homes"])]
     car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
     if "capP" not in car:
-        car["capP"] = [car["cap"][0] for _ in range(syst["n_homesP"])]
-    car["store0P"] = [car["SoC0"] * car["capP"][home] for home in range(syst["n_homesP"])]
-    car["min_chargeP"] = [
-        car["capP"][home] * max(car["SoCmin"], car["baseld"])
-        for home in range(syst["n_homesP"])
-    ]
+        car["capP"] = np.full(syst["n_homesP"], car["cap"][0])
+    car["store0P"] = car["SoC0"] * car["capP"]
+    car["min_chargeP"] = car["capP"] * max(car["SoCmin"], car["baseld"])
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -594,14 +590,22 @@ def opt_res_seed_save_paths(prm):
     rl, paths with updated entries
 
     """
-    rl, heat, syst, grd, paths, car = \
-        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car"]]
+    rl, heat, syst, grd, paths, car, loads = \
+        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
         f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
+
+    for obj, label in zip([car, heat, loads], ['car', 'heat', 'loads']):
+        ownership = obj[f'own_{label}']
+        if sum(ownership) != len(ownership):
+            paths["opt_res_file"] += f"_no_{label}"
+            for home in np.where(ownership == 0)[0]:
+                paths["opt_res_file"] += f"_{home}"
+
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
     if rl["deterministic"] == 2:
         for file in ["opt_res_file", "seeds_file"]:
@@ -684,6 +688,7 @@ def _syst_info(prm):
     syst["dt"] = 1 / syst["n_int_per_hr"]
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
+    syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
     syst['timestamp'] = datetime.datetime.now().timestamp()
 
 
@@ -691,8 +696,8 @@ def _homes_info(loads, syst, gen, heat):
     for passive_ext in ["", "P"]:
         gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
-        heat["own_heat" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-            if heat["own_heat" + passive_ext] == 1 else heat["own_heat" + passive_ext]
+        heat["own_heat" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
+            if heat["own_heat" + passive_ext] == 1 else np.array(heat["own_heat" + passive_ext])
         for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
             if ownership in loads:
                 loads[ownership] = np.ones(syst["n_homes" + passive_ext]) * loads[ownership] \

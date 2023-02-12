@@ -138,8 +138,8 @@ class FACMACLearner(Learner):
         self.critic.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
             agent_outs = self.mac.forward(
-                batch, t=t, select_actions=True)["actions"]. \
-                view(batch.batch_size, self.n_agents, self.n_actions)
+                batch, t=t, select_actions=True
+            )["actions"].view(batch.batch_size, self.n_agents, self.n_actions)
             q, self.critic.hidden_states = self.critic(
                 self._build_inputs(batch, t=t), agent_outs,
                 self.critic.hidden_states)

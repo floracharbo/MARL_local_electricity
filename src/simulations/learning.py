@@ -15,7 +15,7 @@ from src.utilities.userdeftools import (data_source,
                                         should_optimise_for_supervised_loss)
 
 
-class LearningManager():
+class LearningManager:
     """Learn from collected experience."""
 
     def __init__(self, env, prm, learner, episode_batch):

@@ -79,7 +79,6 @@ class BasicMAC:
         inputs = []
         inputs.append(batch["obs"][:, t])  # b1av
         if self.rl['obs_last_action']:
-
             if t == 0:
                 inputs.append(th.zeros_like(batch["actions_onehot"][:, t]))
             else:
