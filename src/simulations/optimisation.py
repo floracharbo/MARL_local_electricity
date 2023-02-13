@@ -649,7 +649,7 @@ class Optimiser:
         if self.penalise_individual_exports:
             p, distribution_network_export_costs = self._distribution_costs(p, netp)
         else:
-            distribution_network_export_costs = np.zeros(self.N)
+            distribution_network_export_costs = 0
 
         p.add_constraint(
             total_costs
