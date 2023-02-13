@@ -359,6 +359,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                 if subkey == 'start_steps':
                     assert isinstance(val, int), f"start_steps is not an int: {val}"
                 row.append(val)
+
     else:
         row = None
 
@@ -396,6 +397,7 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_methods):
     new_columns = []
+
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
         if not column == "RL-state_space" and unique_value:
@@ -870,7 +872,6 @@ def plot_sensitivity_analyses(new_columns, log):
         if column not in ['nn_learned', 'time_end', 'machine_id']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        column_of_interest = 'type_learning'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
@@ -983,6 +984,7 @@ if __name__ == "__main__":
             if row is not None:
                 log.loc[len(log.index)] = row
                 newly_added_runs.append(row[0])
+
     log, columns0 = remove_duplicates(log, columns0)
     new_columns, log = remove_columns_that_never_change_and_tidy(
         log, columns0, columns_results_methods
@@ -990,13 +992,8 @@ if __name__ == "__main__":
     log = add_default_values(log)
     log = fix_learning_specific_values(log)
     new_columns = remove_key_from_columns_names(new_columns)
-
     log.columns = new_columns + columns_results_methods
-    log['share_active'] = log.apply(lambda x: x.n_homes / (x.n_homes + x.n_homesP), axis=1)
-    new_columns.append('share_active')
-
     log = compute_best_score_per_run(keys_methods, log)
-
     log.to_csv(log_path)
 
     plot_sensitivity_analyses(new_columns, log)
