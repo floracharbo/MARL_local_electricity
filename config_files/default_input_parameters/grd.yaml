@@ -12,6 +12,7 @@ penalty_import: 0.01 # Coefficient multiplied with import values to determine pe
 penalty_export: 0.01 # Coefficient multiplied with export values to determine penalty
 small_coefficient: 0.00001 # Small coefficient used in the import and export constraints
 manage_voltage: False # Add constraints and penalty to limit voltage violations with relaxed optimisation
+penalise_individual_exports: True # Penalises the export to the external grid
 compare_pandapower_optimisation: False # Compares the power flows and losses results from relaxed opti and pandapower
 max_voltage: 1.1 # Upper limit for voltage on buses in per unit
 min_voltage: 0.96 # Lower limit for voltage on buses in per unit
@@ -23,7 +24,7 @@ base_voltage : 416 # base voltage for per unit system in V, as defined in the IE
 subset_line_losses_modelled : 30 # Number of lines accounted for in losses
 tol_rel_voltage_diff: 0.001
 tol_rel_voltage_costs: 0.0001
-tol_abs_line_losses: 0.0001
+tol_abs_line_losses: 0.01
 reactive_power_for_voltage_control: False
 pf_passive_homes : 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes : 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
