@@ -37,9 +37,6 @@ deterministic: 0  # 0 is indaeterministic, 1 is deterministic, 2 is deterministi
 n_init_same_env: 2  # if deterministic
 ind_seed_deterministic: 0
 
-# plotting
-plotting_action: False  # used for plotting mu position on graph
-
 # reward
 penalty: 10 # if avail_car :: 0 and l_car > store:apply penalty to reward (for training, not evaluation)
 apply_penalty: False # if penalty :: 1 and evaluation :: False: step_vals_i['reward'] -: 'learn_prm.penalty

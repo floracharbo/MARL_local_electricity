@@ -160,9 +160,10 @@ def plotting(record, spaces, prm, f):
         if not prm['grd']['manage_voltage']:
             barplot_breakdown_savings(record, prm, plot_type='costs')
     # 21 - (Sanity Check) plot grid = grid_in - grid_out
-    plot_imp_exp_check(
-        prm, all_methods_to_plot, folder_run)
-    plot_reactive_power(prm, all_methods_to_plot, folder_run)
+    if prm['save']['plot_imp_exp_check']:
+        plot_imp_exp_check(
+            prm, all_methods_to_plot, folder_run)
+        plot_reactive_power(prm, all_methods_to_plot, folder_run)
 
     # 21 - over- and undervoltage
     if prm['grd']['manage_voltage']:

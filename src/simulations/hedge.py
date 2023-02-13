@@ -122,7 +122,7 @@ class HEDGE:
             ]
         if "car" in self.data_types:
             day["loads_car"] = np.array([
-                [p * factors["car"][home]
+                [p * factors["car"][home] * self.car['own_car'][home]
                  for p in self.profs["car"]["cons"][day_type][
                      clusters["car"][home]][i_profiles["car"][home]]]
                 for home in homes
@@ -318,9 +318,11 @@ class HEDGE:
                        <= prev_factors["car"][home]][-1]
                 if prev_clusters["car"][home] == self.n_all_clusters_ev - 1:
                     # no trip day
-                    probabilities = self.p_zero2pos[transition]
+                    probabilities = self.p_zero2pos['all']
                 else:
-                    probabilities = self.p_pos[transition][current_interval]
+                    probabilities = self.p_pos['all'][current_interval]
+                assert abs(np.sum(probabilities) - 1) < 1e-2, \
+                    f"sum(probabilities) {sum(probabilities)}"
                 interval_f_ev.append(
                     self._ps_rand_to_choice(
                         probabilities,

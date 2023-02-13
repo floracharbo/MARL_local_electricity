@@ -66,7 +66,7 @@ def onehot_from_logits(logits, avail_logits, eps=0.0):
 REGISTRY = {}
 
 
-class GumbelSoftmaxMultinomialActionSelector():
+class GumbelSoftmaxMultinomialActionSelector:
 
     def __init__(self, args):
         self.args = args
@@ -118,7 +118,7 @@ class GumbelSoftmaxMultinomialActionSelector():
 REGISTRY["gumbel"] = GumbelSoftmaxMultinomialActionSelector
 
 
-class MultinomialActionSelector():
+class MultinomialActionSelector:
 
     def __init__(self, args):
         self.args = args
@@ -147,7 +147,7 @@ class MultinomialActionSelector():
 REGISTRY["multinomial"] = MultinomialActionSelector
 
 
-class GaussianActionSelector():
+class GaussianActionSelector:
 
     def __init__(self, args):
         self.args = args
@@ -181,7 +181,7 @@ class GaussianActionSelector():
 REGISTRY["gaussian"] = GaussianActionSelector
 
 
-class EpsilonGreedyActionSelector():
+class EpsilonGreedyActionSelector:
 
     def __init__(self, args):
         self.args = args

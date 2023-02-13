@@ -579,12 +579,13 @@ def plot_imp_exp_violations(
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
         for t in methods_to_plot:
+            print(t)
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
             netp = last['netp'][t]  # [step][a]
             netp0 = last['netp0'][t]  # [step][a]
-            grid_flex = [sum(netp[step]) for step in range(prm['syst']['N'])]
-            grid_passive = [sum(netp0[step]) for step in range(prm['syst']['N'])]
+            grid_flex = np.sum(netp, axis=1)
+            grid_passive = np.sum(netp0, axis=1)
             break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
             i_import_export_costs = prm['syst']['break_down_rewards_entries'].index(
                 'import_export_costs'

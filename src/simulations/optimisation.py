@@ -20,7 +20,7 @@ import picos as pic
 from src.utilities.userdeftools import calculate_reactive_power, comb
 
 
-class Optimiser():
+class Optimiser:
     """The Optimiser object manages convex optimisations."""
 
     def __init__(self, prm, compute_import_export_costs):
@@ -603,26 +603,27 @@ class Optimiser():
                 )
 
                 p.add_list_of_constraints(
-                    [T_air[home, time] <= heat['T_UB'][home][time]
-                        for time in range(self.N)]
+                    [T_air[home, time] <= heat['T_UB'][home][time] for time in range(self.N)]
                 )
                 p.add_list_of_constraints(
-                    [T_air[home, time] >= heat['T_LB'][home][time]
-                        for time in range(self.N)]
+                    [T_air[home, time] >= heat['T_LB'][home][time] for time in range(self.N)]
                 )
             else:
                 p.add_list_of_constraints(
-                    [E_heat[home, time] == 0 for time in
-                     range(self.N)]
+                    [E_heat[home, time] == 0 for time in range(self.N)]
                 )
                 p.add_list_of_constraints(
-                    [T_air[home, time]
-                     == (heat['T_LB'][home][time] + heat['T_UB'][home][time]) / 2
-                     for time in range(self.N)]
+                    [
+                        T_air[home, time]
+                        == (heat['T_LB'][home][time] + heat['T_UB'][home][time]) / 2
+                        for time in range(self.N)
+                    ]
                 )
                 p.add_list_of_constraints(
-                    [T[home, time] == (heat['T_LB'][home][time] + heat['T_UB'][home][time]) / 2
-                     for time in range(self.N)]
+                    [
+                        T[home, time] == (heat['T_LB'][home][time] + heat['T_UB'][home][time]) / 2
+                        for time in range(self.N)
+                    ]
                 )
 
         p.add_constraint(E_heat >= 0)

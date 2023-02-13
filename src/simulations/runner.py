@@ -39,7 +39,7 @@ from src.utilities.userdeftools import (data_source, initialise_dict,
                                         should_optimise_for_supervised_loss)
 
 
-class Runner():
+class Runner:
     """Run experiments for all repeats and epochs."""
 
     def __init__(self, env, prm, record):
@@ -93,8 +93,8 @@ class Runner():
                         self._facmac_episode_batch_insert_and_sample(epoch)
 
                     # append record
-                    for e in ['seed', 'n_not_feas', 'not_feas_vars']:
-                        self.record.__dict__[e][repeat].append(train_steps_vals[-1][e])
+                    for e in ['seed', 'n_not_feas']:
+                        self.record.__dict__[e][repeat][epoch] = train_steps_vals[-1][e]
 
                     model_save_time = self._save_nn_model(model_save_time)
 
@@ -111,8 +111,8 @@ class Runner():
                     evaluation=True, new_episode_batch=self.new_episode_batch)
 
                 # record
-                for e in ['seed', 'n_not_feas', 'not_feas_vars']:
-                    self.record.__dict__[e][repeat].append(eval_steps[e])
+                for e in ['seed', 'n_not_feas']:
+                    self.record.__dict__[e][repeat][epoch] = eval_steps[e]
                 duration_epoch = time.time() - t_start
 
                 # make a list, one exploration after the other
@@ -322,7 +322,7 @@ class Runner():
 
         for method in self.rl["exploration_methods"]:
             for e in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
-                if e not in ['seeds', 'n_not_feas', 'not_feas_vars'] \
+                if e not in ['seeds', 'n_not_feas'] \
                         and e in train_steps_vals[0][exploration_methods[0]].keys():
                     list_train_stepvals[method][e] = []
                     for i_explore in range(self.rl['n_explore']):

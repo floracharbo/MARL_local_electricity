@@ -280,7 +280,7 @@ class EpisodeBatch:
         return transition_pds, episode_pds
 
 
-class CompressibleBatchTensor():
+class CompressibleBatchTensor:
 
     def __init__(self, batch_size, shape, dtype, device,
                  out_device, chunk_size=10, algo="zstd"):
@@ -460,7 +460,6 @@ class CompressibleEpisodeBatch(EpisodeBatch):
             scheme, groups, batch_size=1, max_seq_length=1,
             preprocess=preprocess)
 
-        # assert "filled" not in scheme, '
         # "filled" is a reserved key for masking.'
         scheme.update({
             "filled": {"vshape": (1,), "dtype": th.long},

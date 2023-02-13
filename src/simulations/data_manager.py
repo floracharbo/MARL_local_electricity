@@ -32,7 +32,7 @@ from src.simulations.optimisation import Optimiser
 from src.utilities.userdeftools import calculate_reactive_power, set_seeds_rdn
 
 
-class DataManager():
+class DataManager:
     """Generating, checking, formatting data for explorations."""
 
     def __init__(self, env: object, prm: dict, explorer: object):
@@ -206,11 +206,11 @@ class DataManager():
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext],
-                load_data=True, passive=passive)
+                load_data=True, passive=passive
+            )
             new_res = False
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(batch, passive=passive)
-
         if not all(data_feasibles):
             batch, data_feasibles = self._loop_replace_data(data_feasibles, passive)
             feasibility_checked = False
@@ -240,7 +240,7 @@ class DataManager():
 
         seed_data = [res, batch]
 
-        return (seed_data, new_res, data_feasible, step_vals, feasibility_checked)
+        return seed_data, new_res, data_feasible, step_vals, feasibility_checked
 
     def find_feasible_data(
             self,
@@ -295,10 +295,12 @@ class DataManager():
 
         if not feasibility_checked:
             self.seeds[self.passive_ext] = np.append(
-                self.seeds[self.passive_ext], self.seed[self.passive_ext])
+                self.seeds[self.passive_ext], self.seed[self.passive_ext]
+            )
 
         if new_res:
             np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
+
         end = time.time()
         duration_feasible_data = end - start
         self.timer_feasible_data.append(duration_feasible_data)
@@ -532,18 +534,19 @@ class DataManager():
     def update_flexibility_opt(self, batchflex_opt, res, time_step):
         """Update available flexibility based on optimisation results."""
         n_homes = len(res["E_heat"])
-        cons_flex_opt = res["house_cons"][:, time_step] - batchflex_opt[:, time_step, 0]
-
-        assert np.all(np.greater(cons_flex_opt, - self.tol_cons_constraints * 2)), \
-            f"cons_flex_opt {cons_flex_opt}"
-        cons_flex_opt = np.where(cons_flex_opt > 0, cons_flex_opt, 0)
+        fixed_cons_opt = batchflex_opt[:, time_step, 0]
+        flex_cons_opt = res["house_cons"][:, time_step] - fixed_cons_opt
+        assert np.all(np.greater(flex_cons_opt, - self.tol_cons_constraints * 2)), \
+            f"flex_cons_opt {flex_cons_opt}"
+        flex_cons_opt = np.where(flex_cons_opt > 0, flex_cons_opt, 0)
         inputs_update_flex = [
             time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes
         ]
-        new_batch_flex = self.env.update_flex(cons_flex_opt, opts=inputs_update_flex)
+        new_batch_flex = self.env.update_flex(flex_cons_opt, opts=inputs_update_flex)
         for home in range(n_homes):
             batchflex_opt[home][time_step: time_step + 2] = new_batch_flex[home]
 
         assert batchflex_opt is not None, "batchflex_opt is None"
+        self.env.batch_flex = batchflex_opt
 
         return batchflex_opt
