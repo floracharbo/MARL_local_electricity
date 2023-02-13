@@ -343,7 +343,7 @@ class Network:
             print(
                 f"The difference in hourly line losses "
                 f"between pandapower and the optimiser for hour {time_step} "
-                f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)}. "
+                f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)} kW. "
                 f"To increase accuracy, the user could increase the subset_line_losses_modelled "
                 f"(currently: {self.subset_line_losses_modelled} lines)"
             )
