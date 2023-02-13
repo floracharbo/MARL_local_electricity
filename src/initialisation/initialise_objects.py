@@ -676,6 +676,8 @@ def _update_grd_prm(prm):
         # comparison between optimisation and pandapower is only relevant if simulating voltage.
         grd['compare_pandapower_optimisation'] = False
 
+    if grd['manage_voltage']:
+        grd['penalise_individual_exports'] = False
 
 def _syst_info(prm):
     syst, paths = prm["syst"], prm['paths']

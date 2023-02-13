@@ -30,6 +30,7 @@ class Optimiser:
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.manage_agg_power = prm["grd"]["manage_agg_power"]
+        self.penalise_individual_exports = prm["grd"]["penalise_individual_exports"]
         self.kW_to_per_unit_conversion = 1000 / prm['grd']['base_power']
         self.per_unit_to_kW_conversion = prm['grd']['base_power'] / 1000
         self.reactive_power_for_voltage_control = \
@@ -73,10 +74,13 @@ class Optimiser:
             + np.sum(self.loads['discharge_tot0'], axis=0)
             + np.sum(self.loads['charge0'], axis=0)
         )
-        res['hourly_distribution_network_export_costs'] = self.grd["export_C"] * (
-            np.sum(res["netp_export"], axis=0)
-            + np.sum(self.netp0_export, axis=0)
-        )
+        if self.penalise_individual_exports:
+            res['hourly_distribution_network_export_costs'] = self.grd["export_C"] * (
+                np.sum(res["netp_export"], axis=0)
+                + np.sum(self.netp0_export, axis=0)
+            )
+        else:
+            res['hourly_distribution_network_export_costs'] = np.zeros(self.N)
 
         res['hourly_total_costs'] = \
             (res['hourly_import_export_costs'] + res['hourly_voltage_costs']) \
@@ -642,7 +646,10 @@ class Optimiser:
             network_costs
             == self.grd['weight_network_costs'] * (import_export_costs + voltage_costs)
         )
-        p, distribution_network_export_costs = self._distribution_costs(p, netp)
+        if self.penalise_individual_exports:
+            p, distribution_network_export_costs = self._distribution_costs(p, netp)
+        else:
+            distribution_network_export_costs = np.zeros(self.N)
 
         p.add_constraint(
             total_costs
@@ -792,9 +799,12 @@ class Optimiser:
             res['grid_energy_costs'] = np.sum(
                 np.multiply(self.grd['C'][0: self.N], res['grid'] + self.grd['loss'] * res['grid2'])
             )
-            res['distribution_network_export_costs'] = self.grd['export_C'] * (
-                np.sum(res['netp_export']) + self.sum_netp0_export
-            )
+            if self.penalise_individual_exports:
+                res['distribution_network_export_costs'] = self.grd['export_C'] * (
+                    np.sum(res['netp_export']) + self.sum_netp0_export
+                )
+            else:
+                res['distribution_network_export_costs'] = np.zeros(self.N)
 
             if self.grd['manage_agg_power']:
                 res['import_export_costs'] = np.sum(
