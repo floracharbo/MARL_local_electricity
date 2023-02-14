@@ -23,7 +23,6 @@ settings = {
        'type_learning': ['facmac'] * 2,
        'evaluation_methods': [['env_r_c', 'opt_r_c']] * 2,
        'facmac': {
-           'hysteretic': True,
            'beta_to_alpha': 0.11,
         },
     },

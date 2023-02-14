@@ -550,7 +550,6 @@ class Record:
                     metrics[m]["p" + str(p)][eval_entry] = np.percentile(metric, p)
             metrics["DR"]["ave"][eval_entry] = sp.stats.iqr(mean_end_rewards_month)
             metrics["DR"]["std"][eval_entry] = None
-            print(F"np.shape(mean_end_rewards_month) {mean_end_rewards_month}")
             metrics["RR"]["ave"][eval_entry] = np.mean(
                 mean_end_rewards_month[
                     mean_end_rewards_month <= np.percentile(mean_end_rewards_month, 5)
