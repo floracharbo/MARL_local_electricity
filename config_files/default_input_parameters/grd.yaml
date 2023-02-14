@@ -10,16 +10,16 @@ max_grid_import : 6 # Limit to grid import
 max_grid_export : 6 # Limit to grid export
 penalty_import: 0.01 # Coefficient multiplied with import values to determine penalty
 penalty_export: 0.01 # Coefficient multiplied with export values to determine penalty
-small_coefficient: 0.00001 # Small coefficient used in the import and export constraints
+small_coefficient: 1.e-5 # Small coefficient used in the import and export constraints
 manage_voltage: False # Add constraints and penalty to limit voltage violations with relaxed optimisation
 compare_pandapower_optimisation: False # Compares the power flows and losses results from relaxed opti and pandapower
 max_voltage: 1.1 # Upper limit for voltage on buses in [-]
 min_voltage: 0.96 # Lower limit for voltage on buses in [-]
-penalty_overvoltage: 0.00001 # Coefficient multiplied with overvoltage values to determine penalty
-penalty_undervoltage: 0.00001 # Coefficient multiplied with undervoltage values to determine penalty
+penalty_overvoltage: 1.e-5 # Coefficient multiplied with overvoltage values to determine penalty
+penalty_undervoltage: 1.e-5 # Coefficient multiplied with undervoltage values to determine penalty
 weight_network_costs: 1 # Reward weight of network costs voltage_costs and import_export_costs
 base_power : 1000000 # base power for per unit system in W, as defined in pandapower
 base_voltage : 416 # base voltage for per unit system in V
 subset_line_losses_modelled : 30 # Number of lines accounted for in losses
-tol_rel_voltage_diff: 1e-2
-tol_rel_voltage_costs: 1e-2
+tol_rel_voltage_diff: 1.e-2
+tol_rel_voltage_costs: 1.e-2
