@@ -826,14 +826,14 @@ class LocalElecEnv:
         }
         dict_functions_home = {
             "bool_flex": self.action_translator.aggregate_action_bool_flex,
-            "store_bool_flex": self.action_translator.store_bool_flex,
+            "store_bool_flex": self.action_translator.get_store_bool_flex,
             "flexibility": self.action_translator.get_flexibility
         }
 
         if descriptor in dict_vals:
             val = dict_vals[descriptor]
         elif descriptor in dict_functions_home:
-            val = dict_functions_home[descriptor](home)
+            val = dict_functions_home[descriptor]()[home]
         elif descriptor[0: len('grdC_t')] == 'grdC_t':
             t_ = int(descriptor[len('grdC_t'):])
             val = self.prm['grd']['C'][t + t_] if t + t_ < self.N \
