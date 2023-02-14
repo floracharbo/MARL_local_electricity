@@ -151,7 +151,7 @@ class Optimiser:
         )
 
         # active and reactive loads: netp and netq from kW to W (*1000) to per unit system (/Ab)
-        p.add_constraint(
+        p.add_list_of_constraints(
             [
                 pi[:, time_step] == self.grd['flex_buses'] * netp[:, time_step] * 1000 / self.grd['base_power']
                 for time_step in range(self.N)
@@ -288,7 +288,6 @@ class Optimiser:
 
         # constraints
         # substation energy balance
-        self.loads['netp0'] = np.array(self.loads['netp0'])
         self.hourly_tot_netp0 = \
             np.sum(self.loads['netp0'], axis=0) if len(self.loads['netp0']) > 0 \
             else np.zeros(self.N)
@@ -734,7 +733,7 @@ class Optimiser:
                 np.multiply(self.grd['C'][0: self.N], res['grid'] + self.grd['loss'] * res['grid2'])
             )
             res['distribution_network_export_costs'] = self.grd['export_C'] * (
-                np.sum(res['netp_export']) + self.sum_netp0_export
+                np.sum(res['netp_export']) + np.sum(self.netp0_export)
             )
 
             if self.grd['manage_agg_power']:
