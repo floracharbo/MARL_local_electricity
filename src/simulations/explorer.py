@@ -440,7 +440,7 @@ class Explorer:
         step_vals["seed"] = self.data.seed[self.data.passive_ext]
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
-            self.t_env += self.self.N
+            self.t_env += self.N
 
         return step_vals
 
