@@ -129,7 +129,7 @@ class Explorer:
                         ["netp0", "discharge_tot0", "charge0"],
                         [netp, discharge_tot, charge]
                 ):
-                    self.prm["loads"][info][:, env.time] = val
+                    self.prm["loads"][info][:, env.time_step] = val
             if not sequence_feasible:
                 # if data is not feasible, make new data
                 if seed_ind < len(self.data.seeds[self.data.passive_ext]):
