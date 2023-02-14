@@ -314,10 +314,10 @@ class TabularQLearner:
         ]
 
         ind_indiv_ac = self.get_space_indexes(
-            done=done, all_vals=indiv_ac, type_='action')
+            done=done, all_vals=indiv_ac, value_type='action')
         ind_indiv_s, ind_next_indiv_s = \
             [self.get_space_indexes(
-                done=done, all_vals=vals, type_=types)
+                done=done, all_vals=vals, value_type=types)
                 for vals, types in zip([indiv_s, next_indiv_s],
                                        ['state', 'next_state'])]
 
