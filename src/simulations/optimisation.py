@@ -153,109 +153,109 @@ class Optimiser:
         # active and reactive loads: netp and netq from kW to W (*1000) to per unit system (/Ab)
         p.add_list_of_constraints(
             [
-                pi[:, t] == self.grd['flex_buses'] * netp[:, t] * 1000 / self.grd['base_power']
-                for t in range(self.N)
+                pi[:, time_step] == self.grd['flex_buses'] * netp[:, time_step] * 1000 / self.grd['base_power']
+                for time_step in range(self.N)
             ]
         )
         p.add_list_of_constraints(
-            qi[:, t] == self.grd['flex_buses'] * netq[:, t] * 1000 / self.grd['base_power']
-            for t in range(self.N)
+            qi[:, time_step] == self.grd['flex_buses'] * netq[:, time_step] * 1000 / self.grd['base_power']
+            for time_step in range(self.N)
         )
 
         # external grid between bus 1 and 2
         p.add_list_of_constraints(
-            [pij[0, t] == grid[t] * 1000 / self.grd['base_power'] for t in range(self.N)]
+            [pij[0, time_step] == grid[time_step] * 1000 / self.grd['base_power'] for time_step in range(self.N)]
         )
         p.add_list_of_constraints(
-            [qij[0, t] == q_ext_grid[t] * 1000 / self.grd['base_power'] for t in range(self.N)]
+            [qij[0, time_step] == q_ext_grid[time_step] * 1000 / self.grd['base_power'] for time_step in range(self.N)]
         )
 
         # active power flow
         p.add_list_of_constraints(
             [
-                pi[1:, t]
-                == - self.grd['incidence_matrix'][1:, :] * pij[:, t]
+                pi[1:, time_step]
+                == - self.grd['incidence_matrix'][1:, :] * pij[:, time_step]
                 + np.matmul(
                     self.grd['in_incidence_matrix'][1:, :],
                     np.diag(self.grd['line_resistance'], k=0)
-                ) * lij[:, t]
-                for t in range(self.N)
+                ) * lij[:, time_step]
+                for time_step in range(self.N)
             ]
         )
 
         # reactive power flow
         p.add_list_of_constraints(
             [
-                qi[1:, t] == - self.grd['incidence_matrix'][1:, :] * qij[:, t]
+                qi[1:, time_step] == - self.grd['incidence_matrix'][1:, :] * qij[:, time_step]
                 + np.matmul(
                     self.grd['in_incidence_matrix'][1:, :],
                     np.diag(self.grd['line_reactance'], k=0)
                 )
-                * lij[:, t]
-                for t in range(self.N)
+                * lij[:, time_step]
+                for time_step in range(self.N)
             ]
         )
 
         # bus voltage
-        p.add_list_of_constraints([voltage_squared[0, t] == 1.0 for t in range(self.N)])
+        p.add_list_of_constraints([voltage_squared[0, time_step] == 1.0 for time_step in range(self.N)])
 
         p.add_list_of_constraints(
             [
-                voltage_squared[1:, t] == self.grd['bus_connection_matrix'][1:, :]
-                * voltage_squared[:, t]
+                voltage_squared[1:, time_step] == self.grd['bus_connection_matrix'][1:, :]
+                * voltage_squared[:, time_step]
                 + 2 * (
                     np.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
                         np.diag(self.grd['line_resistance'], k=0)
                     )
-                    * pij[:, t]
+                    * pij[:, time_step]
                     + np.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
                         np.diag(self.grd['line_reactance'], k=0)
-                    ) * qij[:, t]
+                    ) * qij[:, time_step]
                 ) - np.matmul(
                     self.grd['in_incidence_matrix'][1:, :],
                     np.diag(np.square(self.grd['line_resistance']))
                     + np.diag(np.square(self.grd['line_reactance']))
-                ) * lij[:, t]
-                for t in range(self.N)
+                ) * lij[:, time_step]
+                for time_step in range(self.N)
             ]
         )
 
         # auxiliary constraint
         p.add_list_of_constraints(
             [
-                v_line[:, t] == self.grd['out_incidence_matrix'].T * voltage_squared[:, t]
-                for t in range(self.N)
+                v_line[:, time_step] == self.grd['out_incidence_matrix'].T * voltage_squared[:, time_step]
+                for time_step in range(self.N)
             ]
         )
 
         # relaxed constraint
-        for t in range(self.N):
+        for time_step in range(self.N):
             p.add_list_of_constraints(
                 [
-                    v_line[line, t] * lij[line, t] >= pij[line, t]
-                    * pij[line, t] + qij[line, t] * qij[line, t]
+                    v_line[line, time_step] * lij[line, time_step] >= pij[line, time_step]
+                    * pij[line, time_step] + qij[line, time_step] * qij[line, time_step]
                     for line in range(self.grd['subset_line_losses_modelled'])
                 ]
             )
         # lij == 0 for remaining lines
         p.add_list_of_constraints(
             [
-                lij[self.grd['subset_line_losses_modelled']:self.grd['n_lines'], t] == 0
-                for t in range(self.N)
+                lij[self.grd['subset_line_losses_modelled']:self.grd['n_lines'], time_step] == 0
+                for time_step in range(self.N)
             ]
         )
 
         # hourly line losses
         p.add_list_of_constraints(
             [
-                line_losses_pu[:, t]
-                == np.diag(self.grd['line_resistance']) * lij[:, t] for t in range(self.N)
+                line_losses_pu[:, time_step]
+                == np.diag(self.grd['line_resistance']) * lij[:, time_step] for time_step in range(self.N)
             ]
         )
         p.add_list_of_constraints(
-            [hourly_line_losses_pu[t] == pic.sum(line_losses_pu[:, t]) for t in range(self.N)]
+            [hourly_line_losses_pu[time_step] == pic.sum(line_losses_pu[:, time_step]) for time_step in range(self.N)]
         )
 
         # Voltage limitation penalty
@@ -611,11 +611,11 @@ class Optimiser:
             grid_out = p.add_variable('grid_out', self.N, vtype='continuous')  # hourly grid export
             # import and export definition
             p.add_list_of_constraints(
-                [grid[t] == grid_in[t] - grid_out[t] for t in range(self.N)]
+                [grid[time_step] == grid_in[time_step] - grid_out[time_step] for time_step in range(self.N)]
             )
 
-            p.add_list_of_constraints([grid_in[t] >= 0 for t in range(self.N)])
-            p.add_list_of_constraints([grid_out[t] >= 0 for t in range(self.N)])
+            p.add_list_of_constraints([grid_in[time_step] >= 0 for time_step in range(self.N)])
+            p.add_list_of_constraints([grid_out[time_step] >= 0 for time_step in range(self.N)])
             p.add_constraint(hourly_import_costs >= 0)
             p.add_constraint(
                 hourly_import_costs

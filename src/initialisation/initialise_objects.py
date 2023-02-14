@@ -797,9 +797,9 @@ def _filter_type_learning_facmac(rl):
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning
         rl["evaluation_methods"] = [
-            t for t in rl["evaluation_methods"]
-            if t in ["opt", "baseline"]
-            or (reward_type(t) != "A" and distr_learning(t) != "c")
+            method for method in rl["evaluation_methods"]
+            if method in ["opt", "baseline"]
+            or (reward_type(method) != "A" and distr_learning(method) != "c")
         ]
 
 
@@ -864,7 +864,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
         rl["exploration_methods"] += ['opt']
 
     rl["eval_action_choice"] = [
-        t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
+        method for method in rl["evaluation_methods"] if method not in ["baseline", "opt"]
     ]
     assert len(rl["eval_action_choice"]) > 0, \
         "not valid eval_type with action_choice"
