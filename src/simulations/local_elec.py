@@ -660,10 +660,7 @@ class LocalElecEnv:
             else:
                 day = self.passive_hedge.make_next_day(homes)
             for e in day.keys():
-                try:
-                    self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
-                except Exception as ex:
-                    print()
+                self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
             self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
