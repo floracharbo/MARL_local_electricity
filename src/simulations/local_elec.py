@@ -197,7 +197,6 @@ class LocalElecEnv:
     def fix_data_a(self, homes, file_id, its=0, passive=False):
         """Recompute data for home a that is infeasible."""
         self._seed(self.envseed[0] + its)
-        self._initialise_batch_entries(homes)
         self.dloaded = 0
         for i in range(2):
             self._load_next_day(homes=homes, i_load=i)
@@ -680,18 +679,11 @@ class LocalElecEnv:
                     )
 
             self.update_i0_costs()
-            self._correct_len_batch()
+            assert len(self.batch['loads'][0]) <= 2 * self.N, "there used to be _correct_len_batch here"
             self.dloaded += self.prm['syst']['D']
 
         assert len(self.batch) > 0, "empty batch"
         assert len(self.batch['avail_car'][0]) > 0, "empty avail_car batch"
-
-    def _correct_len_batch(self):
-        if len(self.batch['loads'][0]) > 2 * self.N:
-            for e in self.batch.keys():
-                for home in self.homes:
-                    self.batch[e][home] = self.batch[e][home, 0: 2 * self.N]
-            np.save(self.res_path / f"batch{self._file_id()}", self.batch)
 
     def _loads_to_flex(self, homes: list = None, i_load: int = 0):
         """Apply share of flexible loads to new day loads data."""
@@ -970,14 +962,11 @@ class LocalElecEnv:
         self.dloaded = 0
         self.add_noise = False
 
-    def _initialise_batch_entries(self, homes=[]):
-        if len(homes) == 0:
-            self.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.batch_entries}
-            self.car.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.car.batch_entries}
-            self.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
-            self.car.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
-        else:
-            print('not doing anything for _initialise_batch_entries')
+    def _initialise_batch_entries(self):
+        self.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.batch_entries}
+        self.car.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.car.batch_entries}
+        self.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
+        self.car.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
 
     def _get_factor_or_cluster_state(self, descriptor, home):
         module = descriptor.split('_')[0]  # car, loads or gen
