@@ -52,8 +52,8 @@ class Optimiser:
             res['hourly_voltage_costs'] = np.sum(
                 res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
             )
-            if self.grd['line_losses_as_input']:
-                res['hourly_line_losses'] = self.input_hourly_line_losses_pu
+            if self.grd['line_losses_method'] in ['iteration', 'fixed_input']:
+                res['hourly_line_losses'] = self.input_hourly_line_losses
             else:
                 res['hourly_line_losses'] = \
                     res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
@@ -104,22 +104,46 @@ class Optimiser:
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        #if prm['grd']['loss_iterations']:
-        #    it = 0
-        #    while delta_losses > 0.01 and it < 10:
-        #        it += 1
-        if self.grd['line_losses_as_input']:
-            self.input_hourly_line_losses_pu = np.zeros(self.N)
+        if self.grd['line_losses_method'] == 'iteration':
+            it = 0
+            self.input_hourly_line_losses = np.zeros(self.N)
             res, pp_simulation_required = self._problem()
-        else:
+            res = self.res_post_processing(res)
+            new_hourly_line_losses = self.calculate_line_losses(res)
+            delta_losses = res['hourly_line_losses'] - new_hourly_line_losses
+            while sum(abs(delta_losses)) > 0.5 and it < 10:
+                print(f"iteration number: {it}")
+                self.input_hourly_line_losses = np.array(new_hourly_line_losses)
+                res, pp_simulation_required = self._problem()
+                res = self.res_post_processing(res)
+                new_hourly_line_losses = self.calculate_line_losses(res)
+                delta_losses = res['hourly_line_losses'] - new_hourly_line_losses
+                print(f"daily delta losses current iteration: {sum(abs(delta_losses))} kWh")
+                it += 1
+        elif self.grd['line_losses_method'] == 'fixed_input':
+            self.input_hourly_line_losses = np.zeros(self.N)
             res, pp_simulation_required = self._problem()
+            res = self.res_post_processing(res)
+        elif self.grd['line_losses_method'] == 'subset_of_lines':
+            res, pp_simulation_required = self._problem()
+            res = self.res_post_processing(res)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
-
-        res = self.res_post_processing(res)
+            res = self.res_post_processing(res)
 
         return res, pp_simulation_required
+
+    def calculate_line_losses(self, res):
+        hourly_line_losses = []
+        for t in range(self.N):
+            v_line = res['v_line'][:, t]
+            pij = res['pij'][:, t]
+            qij = res['qij'][:, t]
+            lij = np.divide((np.square(pij) + np.square(qij)), v_line)
+            losses_on_each_line = np.matmul(np.diag(self.grd['line_resistance']), lij)
+            hourly_line_losses.append(sum(losses_on_each_line)* self.per_unit_to_kW_conversion)
+        return hourly_line_losses
 
     def _car_efficiency_iterations(self, prm, res):
         init_eta = prm['car']['etach']
@@ -171,7 +195,7 @@ class Optimiser:
         )
         v_line = p.add_variable('v_line', (self.grd['n_lines'], self.N), vtype='continuous')
         q_ext_grid = p.add_variable('q_ext_grid', self.N, vtype='continuous')
-        if not self.grd['line_losses_as_input']:
+        if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
             line_losses_pu = p.add_variable(
                 'line_losses_pu', (self.grd['n_lines'], self.N), vtype='continuous'
             )
@@ -300,7 +324,7 @@ class Optimiser:
         )
 
         # relaxed constraint
-        if not self.grd['line_losses_as_input']:
+        if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
             for t in range(self.N):
                 p.add_list_of_constraints(
                     [
@@ -328,7 +352,7 @@ class Optimiser:
                 [hourly_line_losses_pu[t] == pic.sum(line_losses_pu[:, t]) for t in range(self.N)]
             )
         else:
-            hourly_line_losses_pu == self.input_hourly_line_losses_pu
+            hourly_line_losses_pu = self.input_hourly_line_losses * self.kW_to_per_unit_conversion
 
         # Voltage limitation penalty
         # for each bus
@@ -355,10 +379,10 @@ class Optimiser:
         grid = p.add_variable('grid', self.N, vtype='continuous')
         grid2 = p.add_variable('grid2', self.N, vtype='continuous')
         netp = p.add_variable('netp', (self.n_homes, self.N), vtype='continuous')
-        if self.grd['line_losses_as_input']:
-            hourly_line_losses_pu = self.input_hourly_line_losses_pu
-        else:
+        if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
             hourly_line_losses_pu = p.add_variable('hourly_line_losses_pu', self.N, vtype='continuous')
+        else:
+            hourly_line_losses_pu = np.array(self.input_hourly_line_losses) * self.kW_to_per_unit_conversion
         grid_energy_costs = p.add_variable('grid_energy_costs', 1)  # grid costs
 
         # constraints
@@ -738,17 +762,17 @@ class Optimiser:
         # solve
         p.solve(verbose=0, solver=self.syst['solver'])
 
-        primal_objective_value = p.obj_value()
-        dual_objective_value = p.get_dual_values()[0].item()
-        duality_gap = primal_objective_value - dual_objective_value
-        print("Duality gap:", duality_gap)
+        #primal_objective_value = p.obj_value()
+        #dual_objective_value = p.get_dual_values()[0].item()
+        #duality_gap = primal_objective_value - dual_objective_value
+        #print("Duality gap:", duality_gap)
 
         # save results
         res = self._save_results(p.variables)
         number_opti_constraints = len(p.constraints)
         if 'n_opti_constraints' not in self.syst:
             self.syst['n_opti_constraints'] = number_opti_constraints
-            self.syst['duality_gap'] = duality_gap
+            #self.syst['duality_gap'] = duality_gap
 
         if self.grd['manage_voltage']:
             res, pp_simulation_required = self._check_and_correct_cons_constraints(
@@ -803,8 +827,9 @@ class Optimiser:
                 - self.grd['gen'][home, time_step] \
                 + res['totcons'][home, time_step]
 
-            if self.grd['line_losses_as_input']:
-                res['hourly_line_losses_pu'][time_step] = self.input_hourly_line_losses_pu[time_step]
+            if self.grd['line_losses_method'] in ['iteration', 'fixed_input']:
+                res['hourly_line_losses_pu'][time_step] = \
+                    self.input_hourly_line_losses[time_step] * self.kW_to_per_unit_conversion
             
             res['grid'][time_step] = \
                 sum(res['netp'][:, time_step]) \
