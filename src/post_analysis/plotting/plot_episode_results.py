@@ -350,11 +350,7 @@ def _plot_indiv_agent_res(
 
         # plot EV availability + EV cons on same plot
         loads_car, availabilities_car = [
-            [
-                last["batch"][home][e]
-                for home in range(prm["syst"]["n_homes"])
-            ]
-            for e in ["loads_car", "avail_car"]
+            last["batch"][e] for e in ["loads_car", "avail_car"]
         ]
 
         for home in range(
@@ -563,7 +559,7 @@ def plot_env_input(repeat, prm, record):
             fig, axs = plt.subplots(n_homes_plot, 1, squeeze=0)
             axs = axs.ravel()
             for home in range(n_homes_plot):
-                axs[home].plot(batch[home][e])
+                axs[home].plot(batch[e][home])
                 axs[home].set_title("{home}")
             title = f"deterministic repeat {repeat} {e}"
             title_and_save(title, fig, prm)

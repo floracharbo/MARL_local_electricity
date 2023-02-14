@@ -164,11 +164,7 @@ class Explorer:
                 env.reset(seed=self.data.seed[self.data.passive_ext],
                           load_data=True, passive=True)
 
-                inputs_state_val = \
-                    [0, env.date, False,
-                     [[env.batch[home]["flex"][ih] for ih in range(0, 2)]
-                      for home in self.homes],
-                     env.car.store]
+                inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
                 env.get_state_vals(inputs=inputs_state_val)
                 sequence_feasible = True
 
@@ -398,13 +394,7 @@ class Explorer:
                     load_data=True, E_req_only=method == "baseline"
                 )
                 # get data from environment
-                inputs_state_val = [
-                    0,
-                    env.date,
-                    False,
-                    [[env.batch[home]["flex"][ih] for ih in range(0, 2)] for home in self.homes],
-                    env.car.store
-                ]
+                inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
 
                 # initialise data for current method
                 if method == method0:
@@ -623,8 +613,7 @@ class Explorer:
             self, res, time_step, batch, reward, break_down_rewards, flex
     ):
         prm = self.prm
-        assert isinstance(batch[0], dict), f"type(batch[0]) {type(batch)}"
-        loads = np.array([batch[home]['loads'] for home in range(len(batch))])
+        assert isinstance(batch, dict), f"type(batch) {type(batch)}"
 
         # check tot cons
         for home in self.homes:
@@ -640,10 +629,10 @@ class Explorer:
         for load_type in range(2):
             sum_consa += np.sum(res[f'consa({load_type})'])
 
-        assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
-        assert abs((np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) / sum_consa) < 1e-2, \
+        assert len(np.shape(batch['loads'])) == 2, f"np.shape(loads) == {np.shape(batch['loads'])}"
+        assert abs((np.sum(batch['loads'][:, 0: prm['syst']['N']]) - sum_consa) / sum_consa) < 1e-2, \
             f"res cons {sum_consa} does not match input demand " \
-            f"{np.sum(loads[:, 0: prm['syst']['N']])}"
+            f"{np.sum(batch['loads'][:, 0: prm['syst']['N']])}"
 
         gc_i = prm["grd"]["C"][time_step] * (
             res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
@@ -797,9 +786,8 @@ class Explorer:
         method = "opt"
         sum_rl_rewards = 0
         step_vals[method] = initialise_dict(self.step_vals_entries)
-        batchflex_opt, batch_avail_car = [
-            np.array([batch[home][e] for home in range(len(batch))]) for e in ["flex", "avail_car"]
-        ]
+        batchflex_opt, batch_avail_car = [copy.deepcopy(batch[e]) for e in ["flex", "avail_car"]]
+
         self._check_i0_costs_res(res)
 
         # copy the initial flexible and non-flexible demand -
