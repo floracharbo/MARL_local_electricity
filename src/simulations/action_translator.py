@@ -513,7 +513,10 @@ class Action_translator:
 
     def get_store_bool_flex(self):
         """Check that there is flexibility over the storage sub-action."""
-        return [abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3 for home in range(self.n_homes)]
+        return [
+            abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3
+            for home in range(self.n_homes)
+        ]
 
     def _get_no_flex_action(self, action_type):
         if self.no_flex_action == 'one':
@@ -572,7 +575,9 @@ class Action_translator:
         flexible_heat_action, heat_bool_flex = self._flex_heat_actions(res, time_step)
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
 
-        actions = np.stack((flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1)
+        actions = np.stack(
+            (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
+        )
         bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
 
         return actions, bool_flex
@@ -591,11 +596,15 @@ class Action_translator:
         )
         loads_bool_flex = loads['l_flex'] > 1e-3
         flexible_cons_action = no_flex_actions
-        flexible_cons_action[loads_bool_flex] = flex_cons[loads_bool_flex] / loads['l_flex'][loads_bool_flex]
+        flexible_cons_action[loads_bool_flex] \
+            = flex_cons[loads_bool_flex] / loads['l_flex'][loads_bool_flex]
         flexible_cons_action[abs(flex_cons - loads['l_flex']) < 5e-3] = 1
 
         if any(flexible_cons_action > 1):
-            print(f"flexible_cons_action {flexible_cons_action} loads['l_flex'][home] {loads['l_flex']}")
+            print(
+                f"flexible_cons_action {flexible_cons_action} "
+                f"loads['l_flex'][home] {loads['l_flex']}"
+            )
 
         return flexible_cons_action, loads_bool_flex
 
@@ -613,8 +622,9 @@ class Action_translator:
         potential_E_flex = self.heat.potential_E_flex()
         heat_bool_flex = potential_E_flex > 1e-3
         heat_actions = no_flex_actions
-        heat_actions[heat_bool_flex] \
-            = (E_heat[heat_bool_flex] - self.heat.E_heat_min[heat_bool_flex]) / potential_E_flex[heat_bool_flex]
+        heat_actions[heat_bool_flex] = (
+            E_heat[heat_bool_flex] - self.heat.E_heat_min[heat_bool_flex]
+        ) / potential_E_flex[heat_bool_flex]
 
         return heat_actions, heat_bool_flex
 

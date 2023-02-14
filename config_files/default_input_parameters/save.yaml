@@ -32,7 +32,7 @@ run_entries0: [
 ]
 pandapower_voltage_entries: [
   'max_rel_diff_voltage', 'mean_rel_diff_voltage',
-  'std_rel_diff_voltage', 'count_correction_opti_with_pp'
+  'std_rel_diff_voltage', 'n_voltage_error'
 ]
 discrete_states_info_entries : [
     'possible_states', 'granularity_state0', 'granularity_state1', 'multipliers_state'

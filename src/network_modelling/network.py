@@ -44,9 +44,8 @@ class Network:
         for info in [
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
-            'manage_agg_power', 'max_grid_import', 'penalty_import',
-            'max_grid_export', 'penalty_export', 'tol_rel_voltage_diff',
-            'tol_rel_voltage_costs',
+            'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
+            'penalty_export', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs',
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -74,7 +73,7 @@ class Network:
             self.max_losses_error = - 1
             self.max_voltage_rel_error = - 1
 
-            for attribute in ['count_correction_opti_with_pp', 'n_losses_error']:
+            for attribute in ['n_voltage_error', 'n_losses_error']:
                 setattr(self, attribute, 0)
             for attribute in [
                 'timer_pp', 'timer_comparison', 'max_rel_diff_voltage',
@@ -235,12 +234,6 @@ class Network:
         self.std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
 
         if max_rel_diff_voltage > self.tol_rel_voltage_diff:
-            print(
-                f"The max diff of voltage between the optimizer and pandapower for hour {time_step}"
-                f" is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
-                f"at bus {np.argmax(all_rel_diff_voltage)}"
-                f"The network will be simulated with pandapower to correct the voltages"
-            )
             replace_with_pp_simulation = True
 
         # Impact of voltage costs on total costs
@@ -265,13 +258,6 @@ class Network:
             self.n_losses_error += 1
             if abs_loss_error > self.max_losses_error:
                 self.max_losses_error = abs_loss_error
-            # print(
-            #     f"Warning: The difference in hourly line losses "
-            #     f"between pandapower and optimizer for hour {time_step} "
-            #     f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)}. "
-            #     f"To increase accuracy, the user could increase the subset_line_losses_modelled "
-            #     f"(currently: {self.subset_line_losses_modelled} lines)"
-            # )
 
     def test_network_comparison_optimiser_pandapower(self, res, time_step, grdCt):
         """Compares hourly results from network modelling in optimizer and pandapower"""
@@ -294,7 +280,7 @@ class Network:
             self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
     ):
         # corrected hourly_line_losses and grid values
-        self.count_correction_opti_with_pp += 1
+        self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
 
         grid_pp = \

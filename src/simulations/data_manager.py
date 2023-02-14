@@ -82,13 +82,15 @@ class DataManager:
         potential_delay = np.zeros((loads['n_types'], syst['N']), dtype=int)
         if loads['flextype'] == 1:
             potential_delay[0] = np.zeros(syst['N'])
-            for t in range(syst['N']):
-                potential_delay[1, t] = max(min(loads['flex'][1], syst['N'] - 1 - t), 0)
+            for time_step in range(syst['N']):
+                potential_delay[1, time_step] = max(
+                    min(loads['flex'][1], syst['N'] - 1 - time_step), 0
+                )
         else:
             for load_type in range(loads['n_types']):
-                for t in range(syst['N']):
-                    potential_delay[load_type][t] = max(
-                        min(loads['flex'][load_type], syst['N'] - 1 - t), 0)
+                for time_step in range(syst['N']):
+                    potential_delay[load_type][time_step] = max(
+                        min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0)
 
         # make ntw matrices
         grd['Bcap'] = np.zeros((syst['n_homes' + passive_ext], syst['N']))
@@ -99,17 +101,18 @@ class DataManager:
         grd['gen'] = np.zeros((syst['n_homes' + passive_ext], syst['N'] + 1))
         share_flexs = loads['share_flexs' + passive_ext]
         for home in range(syst['n_homes' + passive_ext]):
-            grd['gen'][home] = batch[home]['gen'][0: len(grd['gen'][home])]
-            for t in range(syst['N']):
-                grd['Bcap'][home, t] = car['cap' + passive_ext][home]
+            grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
+            for time_step in range(syst['N']):
+                grd['Bcap'][home, time_step] = car['cap' + passive_ext][home]
                 for load_type in range(loads['n_types']):
-                    grd['loads'][0][home][t] \
-                        = batch[home]['loads'][t] * (1 - share_flexs[home])
-                    grd['loads'][1][home][t] \
-                        = batch[home]['loads'][t] * share_flexs[home]
+                    potential_delay_t = int(potential_delay[load_type][time_step])
+                    grd['loads'][0][home][time_step] \
+                        = batch['loads'][home, time_step] * (1 - share_flexs[home])
+                    grd['loads'][1][home][time_step] \
+                        = batch['loads'][home, time_step] * share_flexs[home]
                     for time_cons in range(syst['N']):
-                        if t <= time_cons <= t + int(potential_delay[load_type][t]):
-                            grd['flex'][t, load_type, home, time_cons] = 1
+                        if time_step <= time_cons <= time_step + potential_delay_t:
+                            grd['flex'][time_step, load_type, home, time_cons] = 1
 
         # optimisation of power flow
         if grd['manage_voltage']:
@@ -192,7 +195,7 @@ class DataManager:
                 int(self.seed[self.passive_ext]),
                 passive=passive
             )
-            assert batch[0]['loads'][0] == self.env.batch[0]['loads'][0]
+            assert batch['loads'][0, 0] == self.env.batch['loads'][0, 0]
 
         else:
             if opt_needed:
@@ -387,8 +390,8 @@ class DataManager:
             )
 
             assert all(
-                len(batch[home]['loads']) == len(batch[0]['loads']) for home in homes
-            ), f"len loads= {[len(batch[home]['loads']) for home in homes]}"
+                len(batch['loads'][home]) == len(batch['loads'][0]) for home in homes
+            ), f"len loads= {[len(batch['loads'][home]) for home in homes]}"
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
@@ -500,7 +503,7 @@ class DataManager:
         for home in range(syst["n_homes" + passive_ext]):
             for info in self.env.car.batch_entries:
                 car['batch_' + info][home] = \
-                    batch[home][info][0: len(car['batch_' + info][home])]
+                    batch[info][home, 0: len(car['batch_' + info][home])]
 
         loads['n_types'] = 2
 

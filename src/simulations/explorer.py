@@ -129,7 +129,7 @@ class Explorer:
                         ["netp0", "discharge_tot0", "charge0"],
                         [netp, discharge_tot, charge]
                 ):
-                    self.prm["loads"][info][:, env.time] = val
+                    self.prm["loads"][info][:, env.time_step] = val
             if not sequence_feasible:
                 # if data is not feasible, make new data
                 if seed_ind < len(self.data.seeds[self.data.passive_ext]):
@@ -164,11 +164,7 @@ class Explorer:
                 env.reset(seed=self.data.seed[self.data.passive_ext],
                           load_data=True, passive=True)
 
-                inputs_state_val = \
-                    [0, env.date, False,
-                     [[env.batch[home]["flex"][ih] for ih in range(0, 2)]
-                      for home in self.homes],
-                     env.car.store]
+                inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
                 env.get_state_vals(inputs=inputs_state_val)
                 sequence_feasible = True
 
@@ -398,13 +394,7 @@ class Explorer:
                     load_data=True, E_req_only=method == "baseline"
                 )
                 # get data from environment
-                inputs_state_val = [
-                    0,
-                    env.date,
-                    False,
-                    [[env.batch[home]["flex"][ih] for ih in range(0, 2)] for home in self.homes],
-                    env.car.store
-                ]
+                inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
 
                 # initialise data for current method
                 if method == method0:
@@ -450,7 +440,7 @@ class Explorer:
         step_vals["seed"] = self.data.seed[self.data.passive_ext]
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
-            self.t_env += self.prm['syst']['N']
+            self.t_env += self.N
 
         return step_vals
 
@@ -623,8 +613,7 @@ class Explorer:
             self, res, time_step, batch, reward, break_down_rewards, flex
     ):
         prm = self.prm
-        assert isinstance(batch[0], dict), f"type(batch[0]) {type(batch)}"
-        loads = np.array([batch[home]['loads'] for home in range(len(batch))])
+        assert isinstance(batch, dict), f"type(batch) {type(batch)}"
 
         # check tot cons
         for home in self.homes:
@@ -640,10 +629,10 @@ class Explorer:
         for load_type in range(2):
             sum_consa += np.sum(res[f'consa({load_type})'])
 
-        assert len(np.shape(loads)) == 2, f"np.shape(loads) == {np.shape(loads)}"
-        assert abs((np.sum(loads[:, 0: prm['syst']['N']]) - sum_consa) / sum_consa) < 1e-2, \
+        assert len(np.shape(batch['loads'])) == 2, f"np.shape(loads) == {np.shape(batch['loads'])}"
+        assert abs((np.sum(batch['loads'][:, 0: self.N]) - sum_consa) / sum_consa) < 1e-2, \
             f"res cons {sum_consa} does not match input demand " \
-            f"{np.sum(loads[:, 0: prm['syst']['N']])}"
+            f"{np.sum(batch['loads'][:, 0: self.N])}"
 
         gc_i = prm["grd"]["C"][time_step] * (
             res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
@@ -729,7 +718,7 @@ class Explorer:
                 post_transition_data = {
                     "actions": actions,
                     "reward": [(reward,)],
-                    "terminated": [(time_step == self.prm["syst"]["N"] - 1,)],
+                    "terminated": [(time_step == self.N - 1,)],
                 }
 
                 evaluation_methods = methods_learning_from_exploration(
@@ -797,9 +786,8 @@ class Explorer:
         method = "opt"
         sum_rl_rewards = 0
         step_vals[method] = initialise_dict(self.step_vals_entries)
-        batchflex_opt, batch_avail_car = [
-            np.array([batch[home][e] for home in range(len(batch))]) for e in ["flex", "avail_car"]
-        ]
+        batchflex_opt, batch_avail_car = [copy.deepcopy(batch[e]) for e in ["flex", "avail_car"]]
+
         self._check_i0_costs_res(res)
 
         # copy the initial flexible and non-flexible demand -
@@ -901,7 +889,7 @@ class Explorer:
     ):
         if not last_epoch:
             return
-        done = time_step == self.prm["syst"]["N"] - 1
+        done = time_step == self.N - 1
         ldflex = np.zeros(self.n_homes) \
             if done \
             else np.sum(batchflex_opt[:, time_step, 1:])
@@ -963,7 +951,7 @@ class Explorer:
         # l_fixed = [ntw['loads'][0, home, time_step] for home in range(n_homes)]
         # flex_load = [ntw['loads'][1, home, time_step] for home in range(n_homes)]
 
-        if time_step == self.prm["syst"]["N"] - 1:
+        if time_step == self.N - 1:
             flex_load = np.zeros(self.n_homes)
             l_fixed = np.array(
                 [sum(batchflex_opt[home][time_step][:]) for home in self.homes]

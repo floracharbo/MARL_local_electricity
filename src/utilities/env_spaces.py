@@ -311,7 +311,7 @@ class EnvSpaces:
         return val
 
     def get_space_indexes(self, done=False, all_vals=None,
-                          type_="state", indiv_indexes=False):
+                          value_type="state", indiv_indexes=False):
         """
         Return array of indexes of current agents' states/actions.
 
@@ -323,13 +323,12 @@ class EnvSpaces:
                 input for action or if not testing current environment
                 type_ : "action" or "state" - default "state"
         """
-        t = type_
-        type_ = "state" if type_ in ["state", "next_state"] else "action"
+        space_type = "state" if value_type in ["state", "next_state"] else "action"
 
-        if t == "next_state" and done:
+        if value_type == "next_state" and done:
             # if the sequence is over, return None
             return [None for _ in range(self.n_homes)]
-        if type_ == "state" and self.descriptors["state"] == [None]:
+        if space_type == "state" and self.descriptors["state"] == [None]:
             # if the state space is None, return 0
             return [0 for _ in range(self.n_homes)]
 
@@ -342,14 +341,14 @@ class EnvSpaces:
             for v in range(len(vals_home)):
                 if vals_home[v] is None or np.isnan(vals_home[v]):
                     indexes.append(0)
-                elif self.discrete[type_][v] == 1:
+                elif self.discrete[space_type][v] == 1:
                     indexes.append(int(vals_home[v]))
                 else:
                     # correct if value is smaller than smallest bracket
                     if vals_home[v] is None:
                         indexes.append(None)
                     else:
-                        brackets = self.brackets[type_][v]
+                        brackets = self.brackets[space_type][v]
                         brackets_v = brackets \
                             if len(np.shape(brackets)) == 1 \
                             else brackets[home]
@@ -368,12 +367,12 @@ class EnvSpaces:
                 # global index for all values of current agent home
                 index.append(
                     self.indiv_to_global_index(
-                        type_, indexes=indexes,
-                        multipliers=self.multipliers[type_]
+                        space_type, indexes=indexes,
+                        multipliers=self.multipliers[space_type]
                     )
                 )
                 assert not (
-                    index[-1] is not None and index[-1] >= self.n[type_]
+                    index[-1] is not None and index[-1] >= self.n[space_type]
                 ), f"index larger than total size of space agent {home}"
 
         return index
@@ -386,7 +385,7 @@ class EnvSpaces:
                                       [current_state, state, action]):
             if not (label == "next_state" and done):
                 ind_x = self.get_space_indexes(
-                    done=False, all_vals=x, type_=type_ind)
+                    done=False, all_vals=x, value_type=type_ind)
                 if method[-2] == 'C':
                     global_ind[label] = [
                         self.indiv_to_global_index(
@@ -466,14 +465,12 @@ class EnvSpaces:
                 self.type_env == "discrete"
                 and any(method[-2] == 'C' for method in self.evaluation_methods)
         ):
-            ind_state = self.get_space_indexes(
-                all_vals=step_vals_i["state"])
+            ind_state = self.get_space_indexes(all_vals=step_vals_i["state"])
             step_vals_i["ind_global_state"] = \
                 [self.indiv_to_global_index(
                     "state", indexes=ind_state,
                     multipliers=self.global_multipliers["state"])]
-            ind_action = self.get_space_indexes(
-                all_vals=action, type_="action")
+            ind_action = self.get_space_indexes(all_vals=action, value_type="action")
             for home in range(self.n_homes):
                 assert not (ind_action is None and action[home] is not None), \
                     f"action[{home}] {step_vals_i['action'][home]} " \
