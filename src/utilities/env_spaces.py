@@ -609,19 +609,19 @@ class EnvSpaces:
     def get_bool_flex(self, inputs):
         """Get general bool flex (if any of the three bool flex is True then True)"""
         home = inputs[2]
-        return self.action_translator.aggregate_action_bool_flex(home)
+        return self.action_translator.aggregate_action_bool_flex()[home]
 
     def get_flexibility(self, inputs):
         """Get the flexibility (energy different between min/max import/export) for time step."""
         home = inputs[2]
-        flexibility = self.action_translator.get_flexibility(home)
+        flexibility = self.action_translator.get_flexibility()[home]
         assert flexibility >= 0, f"flexibility {flexibility}"
         return flexibility
 
     def get_store_bool_flex(self, inputs, home=None):
         """Whether there is flexibility in the battery operation"""
         home = inputs[2]
-        return self.action_translator.store_bool_flex(home)
+        return self.action_translator.get_store_bool_flex()[home]
 
     def _get_car_tau(self, inputs):
         """Get the battery requirement tau parameter for the current time step."""
