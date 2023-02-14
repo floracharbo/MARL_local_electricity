@@ -60,6 +60,7 @@ class Network:
 
         if prm['grd']['manage_voltage']:
             self.network_data_path = prm['paths']['network_data']
+            self.folder_run = prm['paths']['folder_run']
 
             # ieee network and corresponding incidence matrix
             self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
@@ -319,14 +320,15 @@ class Network:
             replace_with_pp_simulation = True
         
         if replace_with_pp_simulation:
-                print(
+            with open(f"{self.folder_run}/voltage_comparison.txt", "a") as file:
+                file.write(
                 f"The max diff of voltage between the optimiser and pandapower for hour {time_step}"
                 f" is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
                 f"at bus {np.argmax(all_rel_diff_voltage)}. "
                 f"The absolute difference of hourly voltage costs is {abs_rel_voltage_error * 100}% "
                 f"of the daily optimisation costs. "
                 f"The network will be simulated with pandapower to correct the voltages"
-            )
+                )
 
         return [
             replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp
@@ -340,12 +342,13 @@ class Network:
             if abs_loss_error > self.max_losses_error:
                 self.max_losses_error = abs_loss_error
             replace_with_pp_simulation = True
-            print(
+            with open(f"{self.folder_run}/line_losses.txt", "a") as file:
+                file.write(
                 f"The difference in hourly line losses "
                 f"between pandapower and the optimiser for hour {time_step} "
                 f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)} kW. "
                 f"To increase accuracy, the user could increase the subset_line_losses_modelled "
-                f"(currently: {self.subset_line_losses_modelled} lines)"
+                f"(currently: {self.subset_line_losses_modelled} lines)\n"
             )
         else:
             replace_with_pp_simulation = False
