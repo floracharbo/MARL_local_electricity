@@ -842,7 +842,7 @@ class Action_translator:
     def get_aggregate_actions(self, actions, bool_flex, netp):
         self.k_dp[:, 0][abs(self.k_dp[:, 0]) < 1e-2] = 0
         bool_flex = self.aggregate_action_bool_flex_all()
-        assert bool_flex | (netp - self.k_dp[:, 1] > - 1e-2), \
+        assert all(bool_flex | (netp - self.k_dp[:, 1] > - 1e-2)), \
             "netp smaller than k['dp'][0]"
 
         delta = np.where(
@@ -854,14 +854,16 @@ class Action_translator:
         actions = no_flex_actions
         actions[bool_flex] = delta[bool_flex] / self.k_dp[bool_flex, 0]
         assert all(
-            action is None | ((action >= 0) & (action <= 1))
-            for action in actions), \
-            "action should be between 0 and 1"
+            action is None or ((action >= 0) & (action <= 1))
+            for action in actions
+        ), "action should be between 0 and 1"
+
+        actions = np.reshape(actions, (self.n_homes, 1))
 
         return actions, bool_flex
 
 # figs1
-# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.mincharge=[7.5, 7.5]
 # env.action_translator.maxcharge=[75,75]
 # env.action_translator.initial_processing(
 # [45,45], [10, 10], [10,10], [1,1], [5,5],[20, 20],[5, 5],[0, 1])

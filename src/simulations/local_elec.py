@@ -336,8 +336,6 @@ class LocalElecEnv:
                 self.heat.update_step()
                 self.car.update_step(time_step=self.time)
 
-            record = True
-
             if record:
                 loads_flex = np.zeros(self.n_homes) if next_done \
                     else [sum(self.batch_flex[home][h][1:]) for home in homes]
