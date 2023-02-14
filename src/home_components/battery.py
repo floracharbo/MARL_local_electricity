@@ -474,20 +474,11 @@ class Battery:
             self.avail_car,
             np.minimum(self.c_max, np.maximum(self.max_charge_t - self.start_store, 0))
         )
-        if not (
-                all(add <= potential + 1e-3 for add, potential in zip(s_add_0, potential_charge)
-                    if potential > 0)
-        ):
-            print()
         assert all(add <= potential + 1e-3 for add, potential in zip(s_add_0, potential_charge)
                    if potential > 0), f"s_add_0 {s_add_0} > potential_charge {potential_charge}"
         assert all(remove <= avail + 1e-3 for remove, avail in zip(s_remove_0, s_avail_dis)
                    if avail > 0), f"s_remove_0 {s_remove_0} > s_avail_dis {s_avail_dis}"
         if self.time_step == self.N - 1:
-            if not (
-                all((~self.avail_car) | (self.min_charge_t == self.store0))
-            ):
-                print()
             assert all((~self.avail_car) | (self.min_charge_t == self.store0)), \
                 "end time but min_charge_t != store0"
         return s_avail_dis, s_add_0, s_remove_0, potential_charge
