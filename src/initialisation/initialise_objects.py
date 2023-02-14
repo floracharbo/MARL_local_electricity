@@ -690,6 +690,7 @@ def _syst_info(prm):
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
     syst['timestamp'] = datetime.datetime.now().timestamp()
+    syst['share_active'] = syst['n_homes'] / syst['n_homes_all']
 
 
 def _homes_info(loads, syst, gen, heat):
