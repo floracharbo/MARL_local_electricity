@@ -738,11 +738,17 @@ class Optimiser:
         # solve
         p.solve(verbose=0, solver=self.syst['solver'])
 
+        primal_objective_value = p.obj_value()
+        dual_objective_value = p.get_dual_values()[0].item()
+        duality_gap = primal_objective_value - dual_objective_value
+        print("Duality gap:", duality_gap)
+
         # save results
         res = self._save_results(p.variables)
         number_opti_constraints = len(p.constraints)
         if 'n_opti_constraints' not in self.syst:
             self.syst['n_opti_constraints'] = number_opti_constraints
+            self.syst['duality_gap'] = duality_gap
 
         if self.grd['manage_voltage']:
             res, pp_simulation_required = self._check_and_correct_cons_constraints(
