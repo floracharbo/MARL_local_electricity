@@ -304,7 +304,7 @@ class HEDGE:
 
     def _next_factors(self, transition, prev_clusters):
         prev_factors = self.factors.copy()
-        factors = initialise_dict(self.data_types)
+        factors = {data_type: np.zeros(self.n_homes) for data_type in self.data_types}
         random_f = {}
         for data_type in self.data_types:
             random_f[data_type] = [np.random.rand() for _ in self.homes]
@@ -329,9 +329,7 @@ class HEDGE:
                         random_f["car"][home],
                     )
                 )
-                factors["car"].append(
-                    self.mid_fs_brackets[transition][int(interval_f_ev[home])]
-                )
+                factors["car"][home] = self.mid_fs_brackets[transition][int(interval_f_ev[home])]
 
             if "gen" in self.data_types:
                 i_month = self.date.month - 1
@@ -341,11 +339,7 @@ class HEDGE:
                     random_f["gen"][home],
                     *self.residual_distribution_prms["gen"]
                 )
-                factors["gen"].append(
-                    prev_factors["gen"][home]
-                    + delta_f
-                    - self.mean_residual["gen"]
-                )
+                factors["gen"][home] = prev_factors["gen"][home] + delta_f - self.mean_residual["gen"]
                 factors["gen"][home] = min(
                     max(self.f_min["gen"][i_month], factors["gen"][home]),
                     self.f_max["gen"][i_month]
@@ -357,11 +351,10 @@ class HEDGE:
                     random_f["loads"][home],
                     *list(self.residual_distribution_prms["loads"][transition])
                 )
-                factors["loads"].append(
-                    prev_factors["loads"][home]
-                    + delta_f
+                factors["loads"][home] = \
+                    prev_factors["loads"][home] \
+                    + delta_f \
                     - self.mean_residual["loads"][transition]
-                )
 
             for data_type in self.behaviour_types:
                 factors[data_type][home] = min(
