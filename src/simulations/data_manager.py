@@ -83,7 +83,9 @@ class DataManager:
         if loads['flextype'] == 1:
             potential_delay[0] = np.zeros(syst['N'])
             for time_step in range(syst['N']):
-                potential_delay[1, time_step] = max(min(loads['flex'][1], syst['N'] - 1 - time_step), 0)
+                potential_delay[1, time_step] = max(
+                    min(loads['flex'][1], syst['N'] - 1 - time_step), 0
+                )
         else:
             for load_type in range(loads['n_types']):
                 for time_step in range(syst['N']):
@@ -101,6 +103,7 @@ class DataManager:
         for home in range(syst['n_homes' + passive_ext]):
             grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
             for time_step in range(syst['N']):
+                potential_delay_t = int(potential_delay[load_type][time_step])
                 grd['Bcap'][home, time_step] = car['cap' + passive_ext][home]
                 for load_type in range(loads['n_types']):
                     grd['loads'][0][home][time_step] \
@@ -108,7 +111,7 @@ class DataManager:
                     grd['loads'][1][home][time_step] \
                         = batch['loads'][home, time_step] * share_flexs[home]
                     for time_cons in range(syst['N']):
-                        if time_step <= time_cons <= time_step + int(potential_delay[load_type][time_step]):
+                        if time_step <= time_cons <= time_step + potential_delay_t:
                             grd['flex'][time_step, load_type, home, time_cons] = 1
 
         # optimisation of power flow

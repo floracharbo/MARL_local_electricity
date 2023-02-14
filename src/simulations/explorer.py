@@ -440,7 +440,7 @@ class Explorer:
         step_vals["seed"] = self.data.seed[self.data.passive_ext]
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
-            self.t_env += self.prm['syst']['N']
+            self.t_env += self.self.N
 
         return step_vals
 
@@ -630,9 +630,9 @@ class Explorer:
             sum_consa += np.sum(res[f'consa({load_type})'])
 
         assert len(np.shape(batch['loads'])) == 2, f"np.shape(loads) == {np.shape(batch['loads'])}"
-        assert abs((np.sum(batch['loads'][:, 0: prm['syst']['N']]) - sum_consa) / sum_consa) < 1e-2, \
+        assert abs((np.sum(batch['loads'][:, 0: self.N]) - sum_consa) / sum_consa) < 1e-2, \
             f"res cons {sum_consa} does not match input demand " \
-            f"{np.sum(batch['loads'][:, 0: prm['syst']['N']])}"
+            f"{np.sum(batch['loads'][:, 0: self.N])}"
 
         gc_i = prm["grd"]["C"][time_step] * (
             res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
@@ -718,7 +718,7 @@ class Explorer:
                 post_transition_data = {
                     "actions": actions,
                     "reward": [(reward,)],
-                    "terminated": [(time_step == self.prm["syst"]["N"] - 1,)],
+                    "terminated": [(time_step == self.N - 1,)],
                 }
 
                 evaluation_methods = methods_learning_from_exploration(
@@ -889,7 +889,7 @@ class Explorer:
     ):
         if not last_epoch:
             return
-        done = time_step == self.prm["syst"]["N"] - 1
+        done = time_step == self.N - 1
         ldflex = np.zeros(self.n_homes) \
             if done \
             else np.sum(batchflex_opt[:, time_step, 1:])
@@ -951,7 +951,7 @@ class Explorer:
         # l_fixed = [ntw['loads'][0, home, time_step] for home in range(n_homes)]
         # flex_load = [ntw['loads'][1, home, time_step] for home in range(n_homes)]
 
-        if time_step == self.prm["syst"]["N"] - 1:
+        if time_step == self.N - 1:
             flex_load = np.zeros(self.n_homes)
             l_fixed = np.array(
                 [sum(batchflex_opt[home][time_step][:]) for home in self.homes]

@@ -151,7 +151,7 @@ class Optimiser:
         )
 
         # active and reactive loads: netp and netq from kW to W (*1000) to per unit system (/Ab)
-        p.add_list_of_constraints(
+        p.add_constraint(
             [
                 pi[:, time_step] == self.grd['flex_buses'] * netp[:, time_step] * 1000 / self.grd['base_power']
                 for time_step in range(self.N)
@@ -610,12 +610,9 @@ class Optimiser:
             grid_in = p.add_variable('grid_in', self.N, vtype='continuous')  # hourly grid import
             grid_out = p.add_variable('grid_out', self.N, vtype='continuous')  # hourly grid export
             # import and export definition
-            p.add_list_of_constraints(
-                [grid[time_step] == grid_in[time_step] - grid_out[time_step] for time_step in range(self.N)]
-            )
-
-            p.add_list_of_constraints([grid_in[time_step] >= 0 for time_step in range(self.N)])
-            p.add_list_of_constraints([grid_out[time_step] >= 0 for time_step in range(self.N)])
+            p.add_constraint(grid == grid_in - grid_out)
+            p.add_constraint(grid_in >= 0)
+            p.add_constraint(grid_out >= 0)
             p.add_constraint(hourly_import_costs >= 0)
             p.add_constraint(
                 hourly_import_costs
@@ -816,7 +813,8 @@ class Optimiser:
             for time_step in range(prm['N']):
                 s = solve(
                     P[home, time_step]
-                    + (x ** 2 - x * (Voc[home, time_step] / Rt[home, time_step])) * kappa * Rt[home, time_step],
+                    + (x ** 2 - x * (Voc[home, time_step] / Rt[home, time_step]))
+                    * kappa * Rt[home, time_step],
                     x)
                 A = Rt[home, time_step] * kappa
                 B = - Voc[home, time_step] * kappa
