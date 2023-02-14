@@ -121,7 +121,8 @@ def get_list_all_fields(results_path):
                 if key not in ignore:
                     for subkey, subval in val.items():
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
-
+        else:
+            shutil.rmtree(results_path / f"run{result_no}")
     columns0 = ["run", "date"] + sorted(columns0)
     if 'RL-batch_size' in columns0:
         columns0.pop(columns0.index('RL-batch_size'))
@@ -135,13 +136,10 @@ def get_names_evaluation_methods(results_path, result_nos):
     while not evaluation_methods_found and it < 100:
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
-        if path_metrics0.is_file():
-            metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-            keys_methods = list(metrics0['end_test_bl']['ave'].keys())
-            if len(keys_methods) == 16:
-                evaluation_methods_found = True
-        else:
-            shutil.rmtree(results_path / f"run{result_nos[-it]}")
+        metrics0 = np.load(path_metrics0, allow_pickle=True).item()
+        keys_methods = list(metrics0['end_test_bl']['ave'].keys())
+        if len(keys_methods) == 16:
+            evaluation_methods_found = True
 
     keys_methods.remove("baseline")
 
@@ -217,6 +215,10 @@ def add_default_values(log):
                 if log.loc[row, column] is None and column != 'syst-time_end':
                     log = fill_in_log_value_with_run_data(log, row, column, prm_default)
 
+    share_active_none = log['syst-share_active'].isnull()
+    log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
+        lambda x: x['syst-n_homes']/x['syst-n_homes_all'], axis=1
+    )
     # then replace column by column the missing data with current defaults
     for column in log.columns:
         key, subkey, subsubkey = get_key_subkeys_column(column)
@@ -234,6 +236,7 @@ def add_default_values(log):
             log[column] = log[column].apply(
                 lambda x: replace_single_default_value(x, default_data, subkey, subsubkey)
             )
+
 
     # save all defaults in prm_default row by row
     save_default_values_to_run_data(log)
@@ -397,10 +400,10 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_methods):
     new_columns = []
-
+    do_not_remove = ['syst-server', "RL-state_space", 'RL-trajectory']
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
-        if not column == "RL-state_space" and unique_value:
+        if column not in do_not_remove and unique_value:
             log.drop([column], axis=1, inplace=True)
         else:
             new_columns.append(column)
@@ -869,9 +872,10 @@ def plot_sensitivity_analyses(new_columns, log):
     # each plot being a 2 row subplot with best score / best score env
     columns_of_interest = [
         column for column in new_columns[2:]
-        if column not in ['nn_learned', 'time_end', 'machine_id']
+        if column not in ['nn_learned', 'time_end', 'machine_id', 'timestamp', 'n_opti_constraints']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
+        column_of_interest = 'share_active'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
