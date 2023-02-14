@@ -339,7 +339,8 @@ class HEDGE:
                     random_f["gen"][home],
                     *self.residual_distribution_prms["gen"]
                 )
-                factors["gen"][home] = prev_factors["gen"][home] + delta_f - self.mean_residual["gen"]
+                factors["gen"][home] = \
+                    prev_factors["gen"][home] + delta_f - self.mean_residual["gen"]
                 factors["gen"][home] = min(
                     max(self.f_min["gen"][i_month], factors["gen"][home]),
                     self.f_max["gen"][i_month]

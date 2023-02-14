@@ -23,7 +23,6 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import initialise_dict
 
 
 class LocalElecEnv:
@@ -676,7 +675,8 @@ class LocalElecEnv:
                     )
 
             self.update_i0_costs()
-            assert len(self.batch['loads'][0]) <= 2 * self.N, "there used to be _correct_len_batch here"
+            assert len(self.batch['loads'][0]) <= 2 * self.N, \
+                "there used to be _correct_len_batch here"
             self.dloaded += self.prm['syst']['D']
 
         assert len(self.batch) > 0, "empty batch"
@@ -689,10 +689,7 @@ class LocalElecEnv:
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for time_step in range(self.N):
-                try:
-                    loads_t = self.batch["loads"][home, i_load * self.N + time_step]
-                except Exception as ex:
-                    print()
+                loads_t = self.batch["loads"][home, i_load * self.N + time_step]
                 dayflex_a[time_step, 0] = (1 - share_flexs[home]) * loads_t
                 dayflex_a[time_step, self.max_delay] = share_flexs[home] * loads_t
             self.batch['flex'][home, i_load * self.N: (i_load + 1) * self.N] = dayflex_a
@@ -784,7 +781,9 @@ class LocalElecEnv:
 
     def _compute_dT_next(self, home, hour):
         T_req = self.prm['heat']['T_req' + self.passive_ext][home]
-        t_change_T_req = [time_step for time_step in range(hour + 1, self.N) if T_req[time_step] != T_req[hour]]
+        t_change_T_req = [
+            time_step for time_step in range(hour + 1, self.N) if T_req[time_step] != T_req[hour]
+        ]
         if len(t_change_T_req) > 0:
             current_T_req = T_req[hour]
             next_T_req = T_req[t_change_T_req[0]]
@@ -961,7 +960,9 @@ class LocalElecEnv:
 
     def _initialise_batch_entries(self):
         self.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.batch_entries}
-        self.car.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.car.batch_entries}
+        self.car.batch = {
+            entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.car.batch_entries
+        }
         self.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
         self.car.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
 

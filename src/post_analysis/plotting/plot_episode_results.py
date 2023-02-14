@@ -580,7 +580,7 @@ def plot_imp_exp_violations(
             ax2 = ax1.twinx()
             netp = last['netp'][method]  # [step][a]
             grid = np.sum(netp, axis=1)
-            break_down_rewards = last['break_down_rewards'][method]  # [step][break_down_rewards_entry]
+            break_down_rewards = last['break_down_rewards'][method]
             i_import_export_costs = prm['syst']['break_down_rewards_entries'].index(
                 'import_export_costs'
             )
@@ -625,7 +625,7 @@ def plot_voltage_violations(
             ax2 = ax1.twinx()
             netp = last['netp'][method]  # [step][a]
             grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
-            break_down_rewards = last['break_down_rewards'][method]  # [step][break_down_rewards_entry]
+            break_down_rewards = last['break_down_rewards'][method]
             i_voltage_costs = prm['syst']['break_down_rewards_entries'].index('voltage_costs')
             voltage_costs = [
                 break_down_rewards[step][i_voltage_costs]
@@ -775,10 +775,14 @@ def map_over_undervoltage(
                                                 size=.7, color="grey", zorder=11)
 
                 # Plot all the loads
-                ldA = plot.create_bus_collection(net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
-                                                 patch_type="poly3", size=1.4, color="r", zorder=11)
-                ldB = plot.create_bus_collection(net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
-                                                 patch_type="poly3", size=1.4, color="g", zorder=11)
+                ldA = plot.create_bus_collection(
+                    net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
+                    patch_type="poly3", size=1.4, color="r", zorder=11
+                )
+                ldB = plot.create_bus_collection(
+                    net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
+                    patch_type="poly3", size=1.4, color="g", zorder=11
+                )
 
                 # Plot over and under voltages
                 overvoltage_bus_index, undervoltage_bus_index = \

@@ -9,10 +9,7 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
-import os
 
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import picos as pic
 
@@ -153,21 +150,29 @@ class Optimiser:
         # active and reactive loads: netp and netq from kW to W (*1000) to per unit system (/Ab)
         p.add_list_of_constraints(
             [
-                pi[:, time_step] == self.grd['flex_buses'] * netp[:, time_step] * 1000 / self.grd['base_power']
+                pi[:, time_step]
+                == self.grd['flex_buses'] * netp[:, time_step] * 1000 / self.grd['base_power']
                 for time_step in range(self.N)
             ]
         )
         p.add_list_of_constraints(
-            qi[:, time_step] == self.grd['flex_buses'] * netq[:, time_step] * 1000 / self.grd['base_power']
+            qi[:, time_step]
+            == self.grd['flex_buses'] * netq[:, time_step] * 1000 / self.grd['base_power']
             for time_step in range(self.N)
         )
 
         # external grid between bus 1 and 2
         p.add_list_of_constraints(
-            [pij[0, time_step] == grid[time_step] * 1000 / self.grd['base_power'] for time_step in range(self.N)]
+            [
+                pij[0, time_step] == grid[time_step] * 1000 / self.grd['base_power']
+                for time_step in range(self.N)
+            ]
         )
         p.add_list_of_constraints(
-            [qij[0, time_step] == q_ext_grid[time_step] * 1000 / self.grd['base_power'] for time_step in range(self.N)]
+            [
+                qij[0, time_step] == q_ext_grid[time_step] * 1000 / self.grd['base_power']
+                for time_step in range(self.N)
+            ]
         )
 
         # active power flow
@@ -197,7 +202,9 @@ class Optimiser:
         )
 
         # bus voltage
-        p.add_list_of_constraints([voltage_squared[0, time_step] == 1.0 for time_step in range(self.N)])
+        p.add_list_of_constraints(
+            [voltage_squared[0, time_step] == 1.0 for time_step in range(self.N)]
+        )
 
         p.add_list_of_constraints(
             [
@@ -225,7 +232,8 @@ class Optimiser:
         # auxiliary constraint
         p.add_list_of_constraints(
             [
-                v_line[:, time_step] == self.grd['out_incidence_matrix'].T * voltage_squared[:, time_step]
+                v_line[:, time_step]
+                == self.grd['out_incidence_matrix'].T * voltage_squared[:, time_step]
                 for time_step in range(self.N)
             ]
         )
@@ -251,11 +259,15 @@ class Optimiser:
         p.add_list_of_constraints(
             [
                 line_losses_pu[:, time_step]
-                == np.diag(self.grd['line_resistance']) * lij[:, time_step] for time_step in range(self.N)
+                == np.diag(self.grd['line_resistance']) * lij[:, time_step]
+                for time_step in range(self.N)
             ]
         )
         p.add_list_of_constraints(
-            [hourly_line_losses_pu[time_step] == pic.sum(line_losses_pu[:, time_step]) for time_step in range(self.N)]
+            [
+                hourly_line_losses_pu[time_step] == pic.sum(line_losses_pu[:, time_step])
+                for time_step in range(self.N)
+            ]
         )
 
         # Voltage limitation penalty
@@ -547,10 +559,16 @@ class Optimiser:
                 )
 
                 p.add_list_of_constraints(
-                    [T_air[home, time_step] <= heat['T_UB'][home][time_step] for time_step in range(self.N)]
+                    [
+                        T_air[home, time_step] <= heat['T_UB'][home][time_step]
+                        for time_step in range(self.N)
+                    ]
                 )
                 p.add_list_of_constraints(
-                    [T_air[home, time_step] >= heat['T_LB'][home][time_step] for time_step in range(self.N)]
+                    [
+                        T_air[home, time_step] >= heat['T_LB'][home][time_step]
+                        for time_step in range(self.N)
+                    ]
                 )
             else:
                 p.add_list_of_constraints(
@@ -565,7 +583,8 @@ class Optimiser:
                 )
                 p.add_list_of_constraints(
                     [
-                        T[home, time_step] == (heat['T_LB'][home][time_step] + heat['T_UB'][home][time_step]) / 2
+                        T[home, time_step]
+                        == (heat['T_LB'][home][time_step] + heat['T_UB'][home][time_step]) / 2
                         for time_step in range(self.N)
                     ]
                 )
