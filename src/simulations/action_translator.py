@@ -57,29 +57,17 @@ class Action_translator:
         Given home consumption and import variables,
         compute equiavalent RL flexibility action values.
         """
-        # loads: l_flex, l_fixed
-
-        homes = range(self.n_homes)
-
         self.car.min_max_charge_t(time_step, date)
         self.initial_processing(loads, home_vars)
         error = np.zeros(self.n_homes, dtype=bool)
         bool_flex, actions = [], []
 
         if self.aggregate_actions:
-            actions, bool_flex = self.get_aggregate_action_all(actions, bool_flex, netp)
+            actions, bool_flex = self.get_aggregate_actions(actions, bool_flex, netp)
         else:
             actions, bool_flex = self._get_disaggregated_actions_all(res, loads, time_step)
 
-        for home in homes:
-            if self.aggregate_actions:
-                actions, bool_flex = self.get_aggregate_action(
-                    actions, bool_flex, netp, home
-                )
-            # else:
-            #     actions, bool_flex = self._get_disaggregated_actions(
-            #         actions, bool_flex, res, loads, home, time_step
-            #     )
+        for home in range(self.n_homes):
             error = self._check_action_errors(
                 actions, error, res, loads, home, time_step, bool_flex
             )
@@ -213,6 +201,7 @@ class Action_translator:
             assert self.heat.E_heat_min[home] + loads['l_fixed'][home] \
                    <= self.k[home]['c'][0][1] + 1e-3,\
                    "min c smaller than min required"
+        self.k_dp = np.array([self.k[home]['dp'][0] for home in range(self.n_homes)])
 
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
@@ -521,7 +510,7 @@ class Action_translator:
 
     def aggregate_action_bool_flex(self, home):
         """Check that there is flexibility over all three sub-actions."""
-        return self.k[home]['dp'][0][0] > 0
+        return self.k_dp[home][0] > 0
 
     def get_flexibility(self, home):
         """Compute total flexibility between minimum and maximum possible imports/exports."""
@@ -554,11 +543,8 @@ class Action_translator:
                 ]
             )
         if actions[home] is not None:
-            try:
-                assert - 1e-2 < actions[home][0] < 1 + 1e-2, \
-                    "action should be between 0 and 1"
-            except Exception as ex:
-                print(ex)
+            assert - 1e-2 < actions[home][0] < 1 + 1e-2, \
+                "action should be between 0 and 1"
 
         return actions, bool_flex
 
@@ -849,6 +835,30 @@ class Action_translator:
         action = action * (max_action - min_action) + min_action
 
         return action
+
+    def aggregate_action_bool_flex_all(self):
+        return self.k_dp[:, 0] > 0
+
+    def get_aggregate_actions(self, actions, bool_flex, netp):
+        self.k_dp[:, 0][abs(self.k_dp[:, 0]) < 1e-2] = 0
+        bool_flex = self.aggregate_action_bool_flex_all()
+        assert bool_flex | (netp - self.k_dp[:, 1] > - 1e-2), \
+            "netp smaller than k['dp'][0]"
+
+        delta = np.where(
+            abs(netp - self.k_dp[:, 1]) < 1e-2,
+            0,
+            netp - self.k_dp[:, 1]
+        )
+        no_flex_actions = self._get_no_flex_actions('action')
+        actions = no_flex_actions
+        actions[bool_flex] = delta[bool_flex] / self.k_dp[bool_flex, 0]
+        assert all(
+            action is None | ((action >= 0) & (action <= 1))
+            for action in actions), \
+            "action should be between 0 and 1"
+
+        return actions, bool_flex
 
 # figs1
 # env.action_translator.mincharge=[7.5,7.5]
