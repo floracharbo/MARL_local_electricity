@@ -159,7 +159,7 @@ class LocalElecEnv:
             self._initialise_new_data(passive=passive)
 
         for i in range(2):
-            self._load_next_day(passive=passive, i_load=i)
+            self._load_next_day(i_load=i)
 
         self.car.add_batch(self.batch)
         self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
@@ -665,7 +665,7 @@ class LocalElecEnv:
                     self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
                 except Exception as ex:
                     print()
-            self._loads_to_flex(homes)
+            self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
             for info in ['batch', 'i0_costs']:
@@ -693,21 +693,22 @@ class LocalElecEnv:
                     self.batch[e][home] = self.batch[e][home, 0: 2 * self.N]
             np.save(self.res_path / f"batch{self._file_id()}", self.batch)
 
-    def _loads_to_flex(self, homes: list = None):
+    def _loads_to_flex(self, homes: list = None, i_load: int = 0):
         """Apply share of flexible loads to new day loads data."""
         homes = self.homes if len(homes) == 0 else homes
         share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for time_step in range(self.N):
-                tot_t = self.dloaded * self.prm["syst"]["N"] + time_step
-                loads_t = self.batch["loads"][home, tot_t]
+                try:
+                    loads_t = self.batch["loads"][home, i_load * self.N + time_step]
+                except Exception as ex:
+                    print()
                 dayflex_a[time_step, 0] = (1 - share_flexs[home]) * loads_t
                 dayflex_a[time_step, self.max_delay] = share_flexs[home] * loads_t
-            self.batch['flex'][home, time_step] = dayflex_a
-            )
+            self.batch['flex'][home, i_load * self.N: (i_load + 1) * self.N] = dayflex_a
 
-            assert np.shape(self.batch["flex"])[home, 1] == self.max_delay + 1, \
+            assert np.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
                 f"shape batch['flex'][{home}] {np.shape(self.batch['flex'][home])} " \
                 f"self.max_delay {self.max_delay}"
 
@@ -950,13 +951,11 @@ class LocalElecEnv:
 
     def _initialise_new_data(self, passive: bool = False):
         # we have not loaded data from file -> save new data
-        date_load = self.date0
 
         # date_end is not max date end but date end based on
         # current date0 and duration as specified in learning.py
-        while date_load < self.date_end + timedelta(days=2):
-            self._load_next_day()
-            date_load += timedelta(days=1)
+        for i in range(2):
+            self._load_next_day(i_load=i)
         if not passive:
             self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
 

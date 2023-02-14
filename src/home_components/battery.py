@@ -124,7 +124,7 @@ class Battery:
             self,
             batch: dict
     ) -> dict:
-        batch['bat_dem_agg'] = np.zeros(self.n_homes, len(batch['avail_car'][0]))
+        batch['bat_dem_agg'] = np.zeros((self.n_homes, len(batch['avail_car'][0])))
         for home in range(self.n_homes):
             if self.own_car[home]:
                 start_trip, end_trip = [], []
