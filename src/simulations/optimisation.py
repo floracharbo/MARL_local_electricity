@@ -52,8 +52,11 @@ class Optimiser:
             res['hourly_voltage_costs'] = np.sum(
                 res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
             )
-            res['hourly_line_losses'] = \
-                res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
+            if self.grd['line_losses_as_input']:
+                res['hourly_line_losses'] = self.input_hourly_line_losses_pu
+            else:
+                res['hourly_line_losses'] = \
+                    res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
         else:
             res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
@@ -101,7 +104,15 @@ class Optimiser:
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        res, pp_simulation_required = self._problem()
+        #if prm['grd']['loss_iterations']:
+        #    it = 0
+        #    while delta_losses > 0.01 and it < 10:
+        #        it += 1
+        if self.grd['line_losses_as_input']:
+            self.input_hourly_line_losses_pu = np.zeros(self.N)
+            res, pp_simulation_required = self._problem()
+        else:
+            res, pp_simulation_required = self._problem()
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
@@ -160,9 +171,10 @@ class Optimiser:
         )
         v_line = p.add_variable('v_line', (self.grd['n_lines'], self.N), vtype='continuous')
         q_ext_grid = p.add_variable('q_ext_grid', self.N, vtype='continuous')
-        line_losses_pu = p.add_variable(
-            'line_losses_pu', (self.grd['n_lines'], self.N), vtype='continuous'
-        )
+        if not self.grd['line_losses_as_input']:
+            line_losses_pu = p.add_variable(
+                'line_losses_pu', (self.grd['n_lines'], self.N), vtype='continuous'
+            )
         # decision variables: hourly voltage penalties for the whole network
         overvoltage_costs = p.add_variable(
             'overvoltage_costs', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
@@ -288,32 +300,35 @@ class Optimiser:
         )
 
         # relaxed constraint
-        for t in range(self.N):
+        if not self.grd['line_losses_as_input']:
+            for t in range(self.N):
+                p.add_list_of_constraints(
+                    [
+                        v_line[line, t] * lij[line, t] >= pij[line, t]
+                        * pij[line, t] + qij[line, t] * qij[line, t]
+                        for line in range(self.grd['subset_line_losses_modelled'])
+                    ]
+                )
+            # lij == 0 for remaining lines
             p.add_list_of_constraints(
                 [
-                    v_line[line, t] * lij[line, t] >= pij[line, t]
-                    * pij[line, t] + qij[line, t] * qij[line, t]
-                    for line in range(self.grd['subset_line_losses_modelled'])
+                    lij[self.grd['subset_line_losses_modelled']:self.grd['n_lines'], t] == 0
+                    for t in range(self.N)
                 ]
             )
-        # lij == 0 for remaining lines
-        p.add_list_of_constraints(
-            [
-                lij[self.grd['subset_line_losses_modelled']:self.grd['n_lines'], t] == 0
-                for t in range(self.N)
-            ]
-        )
 
-        # hourly line losses
-        p.add_list_of_constraints(
-            [
-                line_losses_pu[:, t]
-                == np.diag(self.grd['line_resistance']) * lij[:, t] for t in range(self.N)
-            ]
-        )
-        p.add_list_of_constraints(
-            [hourly_line_losses_pu[t] == pic.sum(line_losses_pu[:, t]) for t in range(self.N)]
-        )
+            # hourly line losses
+            p.add_list_of_constraints(
+                [
+                    line_losses_pu[:, t]
+                    == np.diag(self.grd['line_resistance']) * lij[:, t] for t in range(self.N)
+            ]   
+            )
+            p.add_list_of_constraints(
+                [hourly_line_losses_pu[t] == pic.sum(line_losses_pu[:, t]) for t in range(self.N)]
+            )
+        else:
+            hourly_line_losses_pu == self.input_hourly_line_losses_pu
 
         # Voltage limitation penalty
         # for each bus
@@ -340,7 +355,10 @@ class Optimiser:
         grid = p.add_variable('grid', self.N, vtype='continuous')
         grid2 = p.add_variable('grid2', self.N, vtype='continuous')
         netp = p.add_variable('netp', (self.n_homes, self.N), vtype='continuous')
-        hourly_line_losses_pu = p.add_variable('hourly_line_losses_pu', self.N, vtype='continuous')
+        if self.grd['line_losses_as_input']:
+            hourly_line_losses_pu = self.input_hourly_line_losses_pu
+        else:
+            hourly_line_losses_pu = p.add_variable('hourly_line_losses_pu', self.N, vtype='continuous')
         grid_energy_costs = p.add_variable('grid_energy_costs', 1)  # grid costs
 
         # constraints
@@ -779,6 +797,9 @@ class Optimiser:
                 - self.grd['gen'][home, time_step] \
                 + res['totcons'][home, time_step]
 
+            if self.grd['line_losses_as_input']:
+                res['hourly_line_losses_pu'][time_step] = self.input_hourly_line_losses_pu[time_step]
+            
             res['grid'][time_step] = \
                 sum(res['netp'][:, time_step]) \
                 + self.hourly_tot_netp0[time_step] \

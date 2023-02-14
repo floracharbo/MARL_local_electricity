@@ -641,7 +641,7 @@ class Action_translator:
                    <= self.max_charge[home] + 1e-3, \
                    f"res charge {res['charge'][home, time_step]} " \
                    f"self.min_charge[home] {self.min_charge[home]} " \
-                   f"self.max_charge[home] {self.max_charge[home]}"
+                   f"self.max_charge[home] {self.max_charge[home]}, {time_step}"
             assert self.max_discharge[home] - 1e-3 \
                    <= - res['discharge_other'][home, time_step] / self.car.eta_dis \
                    <= self.min_discharge[home] + 1e-3, \
