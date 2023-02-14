@@ -691,6 +691,7 @@ def _syst_info(prm):
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
     syst['timestamp'] = datetime.datetime.now().timestamp()
     syst['share_active'] = syst['n_homes'] / syst['n_homes_all']
+    syst['interval_to_month'] = prm['syst']['H'] * 365 / 12
 
 
 def _homes_info(loads, syst, gen, heat):

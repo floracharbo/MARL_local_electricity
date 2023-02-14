@@ -108,14 +108,14 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                         np.mean([[(record_obj[repeat]['baseline'][epoch]
                                 - record_obj[repeat][method][epoch])
                                 * mult / prm['syst']['n_homes_all']
-                                * 24 * 365 / 12
+                                * prm['syst']['interval_to_month']
                                 for epoch in range(prm['RL']['start_end_eval'],
                                                    len(record_obj[repeat][method]))]
                                 for repeat in range(prm['RL']['n_repeats'])]))
                 else:
                     bars[i].append(
                         np.mean([[(record_obj[repeat][method][epoch])
-                                * 24 * 365 / 12
+                                * prm['syst']['interval_to_month']
                                 * mult / prm['syst']['n_homes_all']
                                 for epoch in range(prm['RL']['start_end_eval'],
                                                    len(record_obj[repeat][method]))]
@@ -186,6 +186,7 @@ def barplot_grid_energy_costs(record, prm, plot_type='savings'):
         for i, label in enumerate(labels):
             record_obj = record.__dict__[label]
             mult = prm['syst']['co2tax'] if label == 'emissions' else 1
+            mult *= prm['syst']['interval_to_month']
             if plot_type == 'savings':
                 bars[i].append(
                     np.mean([[(record_obj[repeat]['baseline'][epoch]
