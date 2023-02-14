@@ -102,7 +102,10 @@ class Battery:
             if self.time_step < self.N:
                 self.store = res['store'][:, self.time_step]
             else:
-                self.store = res['store'][:, self.time_step - 1] + res['charge'][:, self.time_step - 1] - res['discharge_tot'][:, self.time_step - 1]
+                self.store = \
+                    res['store'][:, self.time_step - 1] \
+                    + res['charge'][:, self.time_step - 1] \
+                    - res['discharge_tot'][:, self.time_step - 1]
         if implement:
             self.start_store = self.store.copy()
 
@@ -147,7 +150,9 @@ class Battery:
         """Once batch data computed, update in battery data batch."""
         for info in self.batch_entries:
             dtype = bool if info == 'avail_car' else float
-            self.batch[info] = np.array([batch[home][info] for home in range(self.n_homes)], dtype=dtype)
+            self.batch[info] = np.array(
+                [batch[home][info] for home in range(self.n_homes)], dtype=dtype
+            )
         self._current_batch_step()
 
     def next_trip_details(self, start_h, date, home):
@@ -483,7 +488,8 @@ class Battery:
                 all((~self.avail_car) | (self.min_charge_t == self.store0))
             ):
                 print()
-            assert all((~self.avail_car) | (self.min_charge_t == self.store0)), "end time but min_charge_t != store0"
+            assert all((~self.avail_car) | (self.min_charge_t == self.store0)), \
+                "end time but min_charge_t != store0"
         return s_avail_dis, s_add_0, s_remove_0, potential_charge
 
     def k_losses(self, home, k, action_prev, action_next):

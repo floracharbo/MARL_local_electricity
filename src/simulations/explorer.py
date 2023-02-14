@@ -860,7 +860,6 @@ class Explorer:
             if not (rl["competitive"] and not evaluation):
                 sum_rl_rewards += step_vals_i["reward"]
 
-
             # update battery and heat objects
             self.env.car.update_step(res, time_step=time_step + 1)
             self.env.heat.update_step(res)
