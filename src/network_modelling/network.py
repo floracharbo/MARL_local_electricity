@@ -44,8 +44,8 @@ class Network:
         for info in [
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
-            'manage_agg_power', 'max_grid_import', 'penalty_import',
-            'max_grid_export', 'penalty_export'
+            'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
+            'penalty_export', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs'
         ]:
             setattr(self, info, prm['grd'][info])
 
