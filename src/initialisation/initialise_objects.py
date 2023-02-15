@@ -595,7 +595,7 @@ def opt_res_seed_save_paths(prm):
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}"
+        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}_dmax{car['d_max']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
 
