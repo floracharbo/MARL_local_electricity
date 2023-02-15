@@ -15,7 +15,7 @@ if not results_analysis_path.exists():
 candidates_left = True
 settings = {
     'RL': {
-        'type_learning': 'facmac',
+        'type_learning': 'q_learning',
         # 'aggregate_actions': False,
         # 'state_space': [['avail_car_step', 'grdC', 'store_bool_flex']],
         # 'n_epochs': 200,
@@ -85,6 +85,7 @@ def find_previous_run_with_same_settings(settings, log_path):
 
     if candidates_left:
         print(f"run(s) {log['run'].tolist()}")
+        print(log[['run', 'best_score_all']])
 
     return log
 
