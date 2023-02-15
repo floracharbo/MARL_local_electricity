@@ -278,7 +278,9 @@ class Battery:
             min_charge_after_final_trip = max(
                 self.store0[home]
                 - self.c_max * sum(self.batch['avail_car'][home, final_i_endtrip: self.N]),
-                self.min_charge[home]
+                self.min_charge[home] - self.c_max,
+                # this is because we can take one step to recover the minimum charge after a trip
+                0
             )
             min_charge_after_next_trip = min_charge_after_final_trip
             for it in range(len(trips)):
@@ -287,12 +289,13 @@ class Battery:
                     # do not count current time step
                     deltaT -= 1
                 min_charge_ahead_of_trip = max(
-                    self.min_charge[home],
-                    min_charge_after_next_trip + loads_T - deltaT * self.c_max
+                    self.min_charge[home] - self.c_max,
+                    min_charge_after_next_trip + loads_T - deltaT * self.c_max,
+                    0
                 )
                 min_charge_after_next_trip = min_charge_ahead_of_trip
 
-            min_charge_required[home] = min_charge_after_next_trip
+            min_charge_required[home] = max(min_charge_after_next_trip, self.min_charge[home])
 
         min_charge_t = np.maximum(min_charge_t_0, min_charge_required)
         self._check_min_charge_t_feasible(
