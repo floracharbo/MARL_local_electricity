@@ -113,9 +113,11 @@ def get_list_all_fields(results_path):
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
+    remove_nos = []
     for result_no in result_nos:
         path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
-        if path_prm.is_file():
+        there_are_figures = len(os.listdir(results_path / f"run{result_no}" / 'figures')) > 0
+        if path_prm.is_file() and there_are_figures:
             prm = np.load(path_prm, allow_pickle=True).item()
             for key, val in prm.items():
                 if key not in ignore:
@@ -123,6 +125,12 @@ def get_list_all_fields(results_path):
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
         else:
             shutil.rmtree(results_path / f"run{result_no}")
+            remove_nos.append(result_no)
+
+    print(f"delete run(s) {remove_nos}")
+    for results_no in remove_nos:
+        result_nos.pop(result_nos.index(result_no))
+
     columns0 = ["run", "date"] + sorted(columns0)
     if 'RL-batch_size' in columns0:
         columns0.pop(columns0.index('RL-batch_size'))
