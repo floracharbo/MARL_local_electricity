@@ -217,7 +217,7 @@ def add_default_values(log):
 
     share_active_none = log['syst-share_active'].isnull()
     log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
-        lambda x: x['syst-n_homes']/x['syst-n_homes_all'], axis=1
+        lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
     )
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -237,8 +237,6 @@ def add_default_values(log):
                 lambda x: replace_single_default_value(x, default_data, subkey, subsubkey)
             )
 
-
-    # save all defaults in prm_default row by row
     save_default_values_to_run_data(log)
 
     return log

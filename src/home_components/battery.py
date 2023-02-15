@@ -276,7 +276,8 @@ class Battery:
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time_step + 1
             min_charge_after_final_trip = max(
-                self.store0[home] - self.c_max * sum(self.batch['avail_car'][home, final_i_endtrip: self.N]),
+                self.store0[home]
+                - self.c_max * sum(self.batch['avail_car'][home, final_i_endtrip: self.N]),
                 self.min_charge[home]
             )
             min_charge_after_next_trip = min_charge_after_final_trip
@@ -291,7 +292,7 @@ class Battery:
                 )
                 min_charge_after_next_trip = min_charge_ahead_of_trip
 
-            min_charge_required[home] = min_charge_ahead_of_trip if len(trips) > 0 else min_charge_after_final_trip
+            min_charge_required[home] = min_charge_after_next_trip
 
         min_charge_t = np.maximum(min_charge_t_0, min_charge_required)
         self._check_min_charge_t_feasible(
@@ -637,7 +638,8 @@ class Battery:
             if (
                 self.time_step < self.N
                 and simulation
-                and min_charge_t[home] > (self.store[home] + self.c_max) * self.avail_car[home] + 1e-3
+                and min_charge_t[home]
+                > (self.store[home] + self.c_max) * self.avail_car[home] + 1e-3
             ):
                 bool_penalty[home] = True
                 error_message = \

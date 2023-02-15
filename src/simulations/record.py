@@ -341,7 +341,9 @@ class Record:
             method: np.zeros((self.n_repeats, self.n_all_epochs))
             for method in self.evaluation_methods
         }
-        for reward in ['monthly_mean_end_eval_rewards_per_home', 'monthly_mean_test_rewards_per_home']:
+        for reward in [
+            'monthly_mean_end_eval_rewards_per_home', 'monthly_mean_test_rewards_per_home'
+        ]:
             self.__dict__[reward] = {
                 method: np.zeros(self.n_repeats) for method in self.evaluation_methods
             }
@@ -378,7 +380,8 @@ class Record:
                 self.monthly_mean_eval_rewards_per_home[method][repeat] = np.where(
                     self.mean_eval_rewards[repeat][method] is None,
                     None,
-                    self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all'] * self.interval_to_month
+                    self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all']
+                    * self.interval_to_month
                 )
                 self.monthly_mean_end_eval_rewards_per_home[method][repeat] = np.mean(
                     self.monthly_mean_eval_rewards_per_home[method][repeat][
@@ -500,7 +503,7 @@ class Record:
         ]
 
         for eval_entry in evaluation_methods_plot:
-            mean_end_rewards_month = self.monthly_mean_end_eval_rewards_per_home[eval_entry] * self.interval_to_month
+            mean_end_rewards_month = self.monthly_mean_end_eval_rewards_per_home[eval_entry]
             end_test_rewards_e = [
                 self.monthly_mean_test_rewards_per_home[eval_entry][repeat]
                 for repeat in range(n_repeats)
@@ -511,15 +514,13 @@ class Record:
                 else False
 
             ave_rewards = [
-                np.nanmean(
-                    np.array(self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], dtype=np.float)
-                )
+                np.nanmean(self.monthly_mean_eval_rewards_per_home[eval_entry][repeat])
                 if not all_nans else None
                 for repeat in range(n_repeats)
             ]
             IQR, CVaR, LRT = [np.zeros(n_repeats) for _ in range(3)]
             best_eval = [
-                m for m in self.monthly_mean_eval_rewards_per_home[eval_entry][0] * self.interval_to_month
+                m for m in self.monthly_mean_eval_rewards_per_home[eval_entry][0]
                 if m is not None
             ][0] if not all_nans else None
             end_above_bl = [
