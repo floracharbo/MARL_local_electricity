@@ -17,7 +17,6 @@ def _print_str(str_, save_run, f=None):
 def _print_savings(metrics, prm):
     # different ways of expressing savings
     labels = [
-        'savings per hour per agent relative to the baseline',
         'savings per month per agent relative to the baseline',
         'percentage saving relative to the baseline',
         'percentage of optimal savings achieved'
@@ -29,7 +28,6 @@ def _print_savings(metrics, prm):
             for p in ['ave', 'p50']:
                 A = metrics['end'][p][e] - metrics['end'][p]['baseline']
                 values.append(A)
-                values.append(A * prm['syst']['H'] * 365 / 12)
                 values.append(A / (- metrics['end'][p]['baseline']) * 100)
                 if 'opt' in metrics['end'][p]:
                     values.append(

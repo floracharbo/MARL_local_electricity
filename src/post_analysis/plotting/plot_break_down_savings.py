@@ -11,11 +11,11 @@ def distribution_savings(prm, aggregate='daily'):
     rl = prm["RL"]
     fig = plt.figure()
     test_savings = {}
-    for method in [method for method in rl["mean_eval_rewards_per_hh"] if method != 'baseline']:
+    for method in [method for method in rl["monthly_mean_eval_rewards_per_home"] if method != 'baseline']:
         test_savings[method] = []
         for repeat in range(prm['RL']['n_repeats']):
             rewards_t, rewards_bsl = \
-                [rl["mean_eval_rewards_per_hh"][evaluation_method][repeat][
+                [rl["monthly_mean_eval_rewards_per_home"][evaluation_method][repeat][
                  prm['RL']['n_epochs']:]
                  for evaluation_method in [method, 'baseline']]
             savings_rel_baseline = \
