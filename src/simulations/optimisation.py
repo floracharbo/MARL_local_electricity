@@ -111,14 +111,14 @@ class Optimiser:
             res = self.res_post_processing(res)
             new_hourly_line_losses = self.calculate_line_losses(res)
             delta_losses = res['hourly_line_losses'] - new_hourly_line_losses
-            while sum(abs(delta_losses)) > 0.5 and it < 10:
+            while max(abs(delta_losses)) > 0.05 and it < 10:
                 print(f"iteration number: {it}")
                 self.input_hourly_line_losses = np.array(new_hourly_line_losses)
                 res, pp_simulation_required = self._problem()
                 res = self.res_post_processing(res)
                 new_hourly_line_losses = self.calculate_line_losses(res)
                 delta_losses = res['hourly_line_losses'] - new_hourly_line_losses
-                print(f"daily delta losses current iteration: {sum(abs(delta_losses))} kWh")
+                print(f"max hourly delta losses current iteration: {max(abs(delta_losses))} kWh")
                 it += 1
         elif self.grd['line_losses_method'] == 'fixed_input':
             self.input_hourly_line_losses = np.zeros(self.N)
@@ -248,7 +248,6 @@ class Optimiser:
                 for t in range(self.N)])
 
         # external grid between bus 1 and 2
-        # we ignore the losses of reactive power
         p.add_list_of_constraints([
             q_ext_grid[t] ==
             + sum(self.loads['q_heat_home_car_passive'][:, t])
