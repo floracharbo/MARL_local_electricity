@@ -372,6 +372,31 @@ class Network:
 
         return res, hourly_line_losses_pp, hourly_voltage_costs_pp
 
+    def prepare_and_compare_optimiser_pandapower(self, res, time_step, netp0, grdCt):
+        if self.n_homesP > 0:
+            netq_passive = calculate_reactive_power(
+                netp0, self.grd['pf_passive_homes']
+            )
+        else:
+            netq_passive = np.zeros([1, self.N])
+            netp0 = np.zeros([1, self.N])
+    
+        # q_car_flex will be a decision variable
+        q_car_flex = res['q_car_flex']
+        q_heat_home_flex = calculate_reactive_power(
+            res['totcons'], self.pf_flexible_homes)
+        netq_flex = q_car_flex + q_heat_home_flex
+
+        res, _, _ = self.test_network_comparison_optimiser_pandapower(
+            res, time_step,
+            grdCt,
+            netp0,
+            netq_flex,
+            netq_passive
+        )
+    
+        return res
+
     def _replace_res_values_with_pp_simulation(
             self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
     ):
@@ -401,6 +426,8 @@ class Network:
         res['voltage'][:, time_step] = voltage_pp[1:]
         res['voltage_squared'][:, time_step] = np.square(voltage_pp[1:])
         res["hourly_line_losses"][time_step] += delta_hourly_line_losses
+        res["v_line"][:, time_step] = np.matmul(self.out_incidence_matrix.T,
+            res['voltage_squared'][:, time_step])
 
         # update individual cost components
         res['hourly_import_export_costs'][time_step] = import_export_costs_pp

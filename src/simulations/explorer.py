@@ -825,27 +825,10 @@ class Explorer:
             feasible = not any(error)
 
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
-                if self.prm['syst']['n_homesP'] > 0:
-                    netp0, _, _ = self.env._get_passive_vars(time_step)
-                    netq_passive = calculate_reactive_power(
-                        netp0, self.grd['pf_passive_homes']
-                    )
-                else:
-                    netq_passive = np.zeros([1, self.N])
-                    netp0 = np.zeros([1, self.N])
-                # q_car_flex will be a decision variable
-                q_car_flex = res['q_car_flex']
-                q_heat_home_flex = calculate_reactive_power(
-                    res['totcons'], self.prm['grd']['pf_flexible_homes'])
-                netq_flex = q_car_flex + q_heat_home_flex
-
-                res, _, _ = self.env.network.test_network_comparison_optimiser_pandapower(
-                    res, time_step,
-                    self.prm['grd']['C'][time_step],
-                    netp0,
-                    netq_flex,
-                    netq_passive
-                )
+                netp0, _, _ = self.env._get_passive_vars(time_step)
+                grdCt = self.prm['grd']['C'][time_step]
+                res = self.env.network.prepare_and_compare_optimiser_pandapower(
+                    self, res, time_step, netp0, grdCt)
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],

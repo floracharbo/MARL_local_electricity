@@ -42,7 +42,10 @@ class DataManager:
         compute_import_export_costs = self.env.network.compute_import_export_costs \
             if self.prm['grd']['manage_agg_power'] or self.prm['grd']['manage_voltage'] \
             else None
-        self.optimiser = Optimiser(prm, compute_import_export_costs)
+        prepare_and_compare_optimiser_pandapower = self.env.network.prepare_and_compare_optimiser_pandapower \
+        if self.prm['grd']['manage_voltage'] and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']\
+            else None
+        self.optimiser = Optimiser(prm, compute_import_export_costs, prepare_and_compare_optimiser_pandapower)
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
@@ -54,6 +57,7 @@ class DataManager:
         self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
         self.N = prm["syst"]['N']
         self.n_homesP = prm['syst']['n_homesP']
+        self.line_losses_method = prm['grd']['line_losses_method']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
