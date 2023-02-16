@@ -15,7 +15,7 @@ if not results_analysis_path.exists():
 candidates_left = True
 settings = {
     'RL': {
-        'type_learning': 'q_learning',
+        'type_learning': 'facmac',
         # 'aggregate_actions': False,
         # 'state_space': [['avail_car_step', 'grdC', 'store_bool_flex']],
         # 'n_epochs': 200,
@@ -31,6 +31,9 @@ settings = {
     'syst': {
         'n_homes': 10
     },
+    'bat': {
+        'SoC0': 1,
+    }
 }
 SETTINGS_ONLY = True
 
