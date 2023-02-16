@@ -128,7 +128,7 @@ def get_list_all_fields(results_path):
             remove_nos.append(result_no)
 
     print(f"delete run(s) {remove_nos}")
-    for results_no in remove_nos:
+    for result_no in remove_nos:
         result_nos.pop(result_nos.index(result_no))
 
     columns0 = ["run", "date"] + sorted(columns0)
@@ -141,7 +141,7 @@ def get_list_all_fields(results_path):
 def get_names_evaluation_methods(results_path, result_nos):
     evaluation_methods_found = False
     it = 0
-    while not evaluation_methods_found and it < 100:
+    while not evaluation_methods_found and it < len(result_nos):
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
         metrics0 = np.load(path_metrics0, allow_pickle=True).item()
@@ -406,7 +406,7 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_methods):
     new_columns = []
-    do_not_remove = ['syst-server', "RL-state_space", 'RL-trajectory']
+    do_not_remove = ['syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning', 'syst-n_homes', 'syst-share_active']
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
         if column not in do_not_remove and unique_value:
@@ -955,14 +955,6 @@ def remove_duplicates(log, columns0):
         )
         log.drop(columns=['RL-server'], inplace=True)
         columns0.remove('RL-server')
-    if 'syst-timestampe' in columns0:
-        log['syst-timestamp'] = log.apply(
-            lambda row:
-            row['syst-timestampe'] if row['syst-timestamp'] is None else row['syst-timestamp'],
-            axis=1
-        )
-        log.drop(columns=['syst-timestampe'], inplace=True)
-        columns0.remove('syst-timestampe')
 
     return log, columns0
 
