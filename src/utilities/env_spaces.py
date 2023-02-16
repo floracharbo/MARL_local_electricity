@@ -148,7 +148,7 @@ class EnvSpaces:
         max_flexibility = \
             prm['car']['c_max'] / prm['car']['eta_ch'] \
             + prm['car']['d_max'] \
-            + max_normcons * f_max["loads"] * prm['loads']['flex'][0] * 0.5
+            + max_normcons * f_max["loads"] * prm['loads']['flex'][0] * 0.75
         n_clus = prm['n_clus']
         info = [
             ["None", 0, 0, 1, 1],
@@ -684,6 +684,8 @@ class EnvSpaces:
             normalised_val = (val - min_val) / (max_home - min_val)
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
+            if not (0 <= normalised_val <= 1):
+                print( )
             assert 0 <= normalised_val <= 1, \
                 f"val {normalised_val} max_home {max_home} descriptor {descriptor}"
         else:
