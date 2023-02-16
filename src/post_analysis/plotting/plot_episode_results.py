@@ -354,7 +354,7 @@ def _plot_indiv_agent_res(
         ]
 
         for home in range(
-                min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
+            min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
         ):
             xs = range(len(loads_car[home]))
             bands_car_availability = _get_bands_car_availability(
