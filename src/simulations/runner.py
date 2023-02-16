@@ -329,8 +329,11 @@ class Runner:
                     list_train_stepvals[method][e] = np.full(new_shape, np.nan)
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
-                            for x in train_steps_vals[i_explore][method][e]:
-                                list_train_stepvals[method][e][i_explore * self.N: (i_explore + 1) * self.N] = x
+                            try:
+                                list_train_stepvals[method][e][i_explore * self.N: (i_explore + 1) * self.N] = train_steps_vals[i_explore][method][e]
+                            except Exception:
+                                pass
+                                # these may be recorded differently for optimisation, e.g. no grid_energy_costs, etc.
 
         return list_train_stepvals
 
