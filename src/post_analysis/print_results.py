@@ -23,7 +23,7 @@ def _print_savings(metrics, prm):
     ]
     for e in metrics['end']['ave'].keys():
         values = []
-        e = e if prm['syst']['n_homes'] > 1 or e == 'opt' else e[:-1] + 'd'
+        e = e if prm['syst']['n_homes'] > 1 or e in ['opt', 'baseline'] else e[:-1] + 'd'
         for p in ['ave', 'p50']:
             A = metrics['end'][p][e] - metrics['end'][p]['baseline']
             values.append(A)
