@@ -317,23 +317,19 @@ class Runner:
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods):
-        list_train_stepvals = initialise_dict(
-            self.rl["exploration_methods"], type_obj='empty_dict')
+        list_train_stepvals = initialise_dict(self.rl["exploration_methods"], type_obj='empty_dict')
 
         for method in self.rl["exploration_methods"]:
             for e in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
                 if e not in ['seeds', 'n_not_feas'] \
                         and e in train_steps_vals[0][exploration_methods[0]].keys():
-                    list_train_stepvals[method][e] = []
+                    shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][e])
+                    new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
+                    list_train_stepvals[method][e] = np.full(new_shape, np.nan)
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             for x in train_steps_vals[i_explore][method][e]:
-                                list_train_stepvals[method][e].append(x)
-                        else:
-                            vals = \
-                                train_steps_vals[i_explore][exploration_methods[0]][e]
-                            for _ in enumerate(vals):
-                                list_train_stepvals[method][e].append(None)
+                                list_train_stepvals[method][e][i_explore] = x
 
         return list_train_stepvals
 
@@ -369,7 +365,7 @@ class Runner:
 
     def _check_if_opt_env_needed(self, epoch, evaluation=False):
         opts_in_eval = sum(
-            method != 'opt' and method[0:3] == 'opt' for method in self.rl["evaluation_methods"]
+            method != 'opt' and method[0: 3] == 'opt' for method in self.rl["evaluation_methods"]
         ) > 0
         opt_stage = False
         for method in self.rl["evaluation_methods"]:
