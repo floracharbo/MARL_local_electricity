@@ -22,20 +22,19 @@ def _print_savings(metrics, prm):
         'percentage of optimal savings achieved'
     ]
     values = []
-    for e in ['opt_d_d', 'opt_n_c']:
+    for e in metrics['end']['ave'].keys():
         e = e if prm['syst']['n_homes'] > 1 else e[:-1] + 'd'
-        if e in metrics['end']['ave'].keys():
-            for p in ['ave', 'p50']:
-                A = metrics['end'][p][e] - metrics['end'][p]['baseline']
-                values.append(A)
-                values.append(A / (- metrics['end'][p]['baseline']) * 100)
-                if 'opt' in metrics['end'][p]:
-                    values.append(
-                        A / (metrics['end'][p]['opt'] - metrics['end'][p]['baseline']) * 100
-                    )
-                print(f"{e}, {p}")
-                for value, label in zip(values, labels):
-                    print(f"{label}: {value}")
+        for p in ['ave', 'p50']:
+            A = metrics['end'][p][e] - metrics['end'][p]['baseline']
+            values.append(A)
+            values.append(A / (- metrics['end'][p]['baseline']) * 100)
+            if 'opt' in metrics['end'][p]:
+                values.append(
+                    A / (metrics['end'][p]['opt'] - metrics['end'][p]['baseline']) * 100
+                )
+            print(f"{e}, {p}")
+            for value, label in zip(values, labels):
+                print(f"{label}: {value}")
 
 
 def _print_stats(f, prm, record, metrics):
