@@ -406,7 +406,10 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_methods):
     new_columns = []
-    do_not_remove = ['syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning', 'syst-n_homes', 'syst-share_active']
+    do_not_remove = [
+        'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
+        'syst-n_homes', 'syst-share_active', 'syst-force_optimisation'
+    ]
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
         if column not in do_not_remove and unique_value:
