@@ -141,11 +141,15 @@ def get_list_all_fields(results_path):
 def get_names_evaluation_methods(results_path, result_nos):
     evaluation_methods_found = False
     it = 0
+    keys_methods = []
     while not evaluation_methods_found and it < len(result_nos):
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
         metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-        keys_methods = list(metrics0['end_test_bl']['ave'].keys())
+        keys_methods_run = list(metrics0['end_test_bl']['ave'].keys())
+        for method in keys_methods_run:
+            if method not in keys_methods:
+                keys_methods.append(method)
         if len(keys_methods) == 16:
             evaluation_methods_found = True
 
