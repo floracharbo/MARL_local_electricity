@@ -14,6 +14,7 @@ import pickle
 import uuid
 from pathlib import Path
 from typing import Optional, Tuple
+import yaml
 
 import numpy as np
 import torch as th
@@ -561,19 +562,24 @@ def _naming_file_extension_network_parameters(grd):
     penalties_lower = ['undervoltage', 'export']
     managements = ['manage_voltage', 'manage_agg_power']
     file_extension = ''
+    with open("config_files/default_input_parameters/grd.yaml", "rb") as file:
+        default_grd = yaml.safe_load(file)
     for lower_quantity, upper_quantity, penalty_upper, penalty_lower, management in zip(
             lower_quantities, upper_quantities, penalties_upper, penalties_lower, managements
     ):
         if grd[management]:
-            file_extension += f"_{management}_limit" + str(grd[upper_quantity])
-            if grd[upper_quantity] != grd[lower_quantity]:
+            if default_grd[upper_quantity] != grd[upper_quantity]:
+                file_extension += f"_{management}_limit" + str(grd[upper_quantity])
+            if default_grd[lower_quantity] != grd[lower_quantity] and grd[upper_quantity] != grd[lower_quantity]:
                 file_extension += f"_{grd[lower_quantity]}"
-            file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
-            if grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']:
+            if default_grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_upper}']:
+                file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
+            if default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}'] and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']:
                 file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
 
             if management == 'manage_voltage':
-                file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
+                if default_grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
+                    file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
 
     return file_extension
 
@@ -593,10 +599,25 @@ def opt_res_seed_save_paths(prm):
     rl, heat, syst, grd, paths, car, loads = \
         [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
+    car['cap']
+    if np.all(car['cap'] == car['cap'][0]):
+        cap_str = car['cap'][0]
+    else:
+        caps = {}
+        for home, cap in enumerate(car['cap']):
+            if cap not in caps:
+                caps[cap] = []
+            caps[cap].append(home)
+        cap_str = ''
+        for cap, homes in caps.items():
+            cap_str += f"{cap}"
+            for home in homes:
+                cap_str += f"_{home}"
+
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
         f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}_" \
-        f"dmax{car['d_max']}_cap{car['cap']}_SoC0{car['SoC0']}"
+        f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
 
