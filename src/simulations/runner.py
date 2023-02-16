@@ -118,7 +118,8 @@ class Runner:
                 # make a list, one exploration after the other
                 # rather than a list of 'explorations' in 2D
                 list_train_stepvals = self._train_vals_to_list(
-                    train_steps_vals, exploration_methods)
+                    train_steps_vals, exploration_methods
+                )
                 self.record.end_epoch(epoch, eval_steps, list_train_stepvals,
                                       self.rl, self.learner, duration_epoch)
 
@@ -329,7 +330,7 @@ class Runner:
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             for x in train_steps_vals[i_explore][method][e]:
-                                list_train_stepvals[method][e][i_explore] = x
+                                list_train_stepvals[method][e][i_explore * self.N: (i_explore + 1) * self.N] = x
 
         return list_train_stepvals
 

@@ -62,11 +62,13 @@ class Record:
         # all exploration / evaluation methods
         for info in [
             "n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space",
-            "dim_actions", "dim_states", "n_explore", "n_all_epochs", "evaluation_methods"
+            "n_explore", "n_all_epochs", "evaluation_methods", "dim_actions_1", "dim_states_1"
         ]:
             setattr(self, info, rl[info])
-        self.all_methods = rl["evaluation_methods"] + \
-            list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
+        self.all_methods = rl["evaluation_methods"] \
+            + list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
+        if rl['supervised_loss']:
+            self.all_methods.append('opt')
 
         # depending on the dimension of the q tables
         self.save_qtables = True \
@@ -117,31 +119,32 @@ class Record:
             method: np.zeros((self.n_epochs, self.n_explore * self.N))
             for method in rl["exploration_methods"]
         }
-        if rl["type_learning"] == "DQN" \
-                and rl["distr_learning"] == "decentralised":
+        if rl["type_learning"] == "DQN" and rl["distr_learning"] == "decentralised":
             for method in rl["evaluation_methods"]:
                 self.eps[repeat][method] = np.zeros((self.n_all_epochs, self.n_homes))
+
+        all_evaluation_methods = rl["evaluation_methods"] + ['opt'] if rl["supervised_loss"] else rl["evaluation_methods"]
         self.eval_rewards[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N)) for method in rl["evaluation_methods"]
+            method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
             shape = (self.n_all_epochs, self.n_homes) if reward[0: len('indiv')] == 'indiv' \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
-                method: np.zeros(shape) for method in rl["evaluation_methods"]
+                method: np.zeros(shape) for method in all_evaluation_methods
             }
         self.eval_actions[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N, self.n_homes, self.dim_actions))
-            for method in rl["evaluation_methods"]
+            method: np.zeros((self.n_all_epochs, self.N, self.n_homes, self.dim_actions_1))
+            for method in all_evaluation_methods
         }
         self.train_actions[repeat] = {
             method:
-                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions))
+                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions_1))
             for method in rl["exploration_methods"]
         }
         self.train_states[repeat] = {
             method:
-                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_states))
+                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_states_1))
             for method in rl["exploration_methods"]
         }
         self.stability[repeat] = {method: None for method in rl["evaluation_methods"]}
@@ -167,6 +170,7 @@ class Record:
                 self.train_actions[self.repeat][method][epoch] \
                     = list_train_stepvals[method]["action"]
                 self.train_states[self.repeat][method][epoch] = list_train_stepvals[method]["state"]
+
         for method in rl["evaluation_methods"]:
             self._append_eval(eval_steps, method, epoch, end_test)
 
@@ -567,9 +571,10 @@ class Record:
                 epoch_mean_eval_t = np.mean(eval_steps[method]["reward"])
             else:
                 epoch_mean_eval_t = None
-            for info in ["reward", "action"]:
-                self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
-                    = eval_steps[method][info]
+            if method in eval_steps:
+                for info in ["reward", "action"]:
+                    self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
+                        = eval_steps[method][info]
         else:
             for info in ["eval_rewards", "eval_actions"]:
                 self.__dict__[info][self.repeat][method][epoch] = None

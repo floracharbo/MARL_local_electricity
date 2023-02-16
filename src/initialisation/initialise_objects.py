@@ -434,7 +434,9 @@ def _exploration_parameters(rl):
 def _dims_states_actions(rl, syst):
     rl["dim_states"] = len(rl["state_space"])
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
+    rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
+
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
         rl["high_action"] = rl["high_actions"]
