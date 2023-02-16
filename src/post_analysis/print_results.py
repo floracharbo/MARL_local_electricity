@@ -21,8 +21,8 @@ def _print_savings(metrics, prm):
         'percentage saving relative to the baseline',
         'percentage of optimal savings achieved'
     ]
-    values = []
     for e in metrics['end']['ave'].keys():
+        values = []
         e = e if prm['syst']['n_homes'] > 1 else e[:-1] + 'd'
         for p in ['ave', 'p50']:
             A = metrics['end'][p][e] - metrics['end'][p]['baseline']
