@@ -116,7 +116,8 @@ class Optimiser:
                 # net0 = self.loads['netp0'][time_step]
                 netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
-                res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt)
+                res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
+                    self.grd['line_losses_method'])
             new_losses = copy.deepcopy(res['hourly_line_losses'])
             new_lij = copy.deepcopy(res['lij'])
             delta_losses = old_losses - new_losses
@@ -131,7 +132,8 @@ class Optimiser:
                     # net0 = self.loads['netp0'][time_step]
                     netp0 = np.zeros([1, self.N])
                     grdCt = self.grd['C'][time_step]
-                    res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt)
+                    res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
+                        self.grd['line_losses_method'])
                 new_losses = copy.deepcopy(res['hourly_line_losses'])
                 new_lij = copy.deepcopy(res['lij'])
                 delta_losses = old_losses - new_losses

@@ -827,8 +827,9 @@ class Explorer:
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
                 grdCt = self.prm['grd']['C'][time_step]
+                method = 'comparison'
                 res = self.env.network.prepare_and_compare_optimiser_pandapower(
-                    res, time_step, netp0, grdCt)
+                    res, time_step, netp0, grdCt, method)
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
@@ -843,8 +844,7 @@ class Explorer:
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
             self._tests_individual_step_rl_matches_res(
-                res, time_step, batch, step_vals_i["reward"], break_down_rewards, batchflex_opt
-            )
+                res, time_step, batch, step_vals_i["reward"], break_down_rewards, batchflex_opt, method)
 
             # substract baseline rewards to reward -
             # for training, not evaluating
