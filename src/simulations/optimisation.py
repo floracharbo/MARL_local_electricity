@@ -55,7 +55,7 @@ class Optimiser:
             )
             res['hourly_line_losses'] = \
                 res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
-            if self.grd['line_losses_method'] in ['iteration', 'fixed_input']:
+            if self.grd['line_losses_method'] in ['fixed_input']:
                 res['v_line'] = np.matmul(self.grd['out_incidence_matrix'].T, res['voltage_squared'])
                 res['lij'] = np.divide((np.square(res['pij']) \
                     + np.square(res['qij'])), res['v_line'])
