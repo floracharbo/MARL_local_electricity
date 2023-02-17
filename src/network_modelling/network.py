@@ -248,8 +248,8 @@ class Network:
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
         voltage = np.array(self.net.res_bus['vm_pu'])
-        pij_pu = self.net.res_line.p_from_mw * 0.001
-        qij_pu = self.net.res_line.q_from_mvar * 0.001
+        pij_pu = self.net.res_line.p_from_mw
+        qij_pu = self.net.res_line.q_from_mvar
         end = time.time()
         duration_pp = end - start
         self.timer_pp.append(duration_pp)

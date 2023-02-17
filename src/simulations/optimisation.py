@@ -55,10 +55,9 @@ class Optimiser:
             )
             res['hourly_line_losses'] = \
                 res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
-            if self.grd['line_losses_method'] in ['fixed_input']:
+            if self.grd['line_losses_method'] in ['iteration', 'fixed_input']:
+                res['lij'] = self.input_hourly_lij
                 res['v_line'] = np.matmul(self.grd['out_incidence_matrix'].T, res['voltage_squared'])
-                res['lij'] = np.divide((np.square(res['pij']) \
-                    + np.square(res['qij'])), res['v_line'])
         else:
             res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
@@ -111,33 +110,49 @@ class Optimiser:
             self.input_hourly_lij =  np.zeros((self.grd['n_lines'], self.N))
             res, _ = self._problem()
             res = self.res_post_processing(res)
-            old_losses = copy.deepcopy(res['hourly_line_losses'])
+            opti_voltages = copy.deepcopy(res['voltage'])
+            opti_losses = copy.deepcopy(res['hourly_line_losses'])
+            opti_lij = np.zeros((self.grd['n_lines'], self.N))
             for time_step in range(self.N):
                 # net0 = self.loads['netp0'][time_step]
                 netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
                 res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
                     self.grd['line_losses_method'])
-            new_losses = copy.deepcopy(res['hourly_line_losses'])
-            new_lij = copy.deepcopy(res['lij'])
-            delta_losses = old_losses - new_losses
-            print(f"max hourly delta losses first iteration: {max(abs(delta_losses))}")
+            corr_voltages = copy.deepcopy(res['voltage'])
+            corr_losses = copy.deepcopy(res['hourly_line_losses'])
+            corr_lij = copy.deepcopy(res['lij'])
+            delta_losses = opti_losses - corr_losses
+            delta_voltages = opti_voltages - corr_voltages
+            print(f"opti losses {opti_losses}")
+            print(f"corr losses {corr_losses}")
+            print(f"diff lij {abs(opti_lij-corr_lij).max()}")
+            print(f"max hourly delta losses initialization: {max(abs(delta_losses))}")
+            print(f"max hourly delta voltages initialization: {delta_voltages.max()}")
             while max(abs(delta_losses)) > 1 and it < 10:
                 print(f"iteration number: {it}")
-                self.input_hourly_lij = new_lij
+                self.input_hourly_lij = corr_lij
                 res, _ = self._problem()
                 res = self.res_post_processing(res)
-                old_losses = copy.deepcopy(res['hourly_line_losses'])
+                opti_voltages = copy.deepcopy(res['voltage'])
+                opti_losses = copy.deepcopy(res['hourly_line_losses'])
+                opti_lij = copy.deepcopy(res['lij'])
                 for time_step in range(self.N):
                     # net0 = self.loads['netp0'][time_step]
                     netp0 = np.zeros([1, self.N])
                     grdCt = self.grd['C'][time_step]
                     res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
                         self.grd['line_losses_method'])
-                new_losses = copy.deepcopy(res['hourly_line_losses'])
-                new_lij = copy.deepcopy(res['lij'])
-                delta_losses = old_losses - new_losses
-                print(f"max hourly delta losses current iteration: {max(abs(delta_losses))} kWh")
+                corr_voltages = copy.deepcopy(res['voltage'])
+                corr_losses = copy.deepcopy(res['hourly_line_losses'])
+                corr_lij = copy.deepcopy(res['lij'])
+                delta_losses = opti_losses - corr_losses
+                delta_voltages = opti_voltages - corr_voltages
+                print(f"opti losses {opti_losses}")
+                print(f"corr losses {corr_losses}")
+                print(f"max hourly delta losses initialization: {max(abs(delta_losses))}")
+                print(f"max hourly delta losses iteration {it}: {max(abs(delta_losses))}")
+                print(f"max hourly delta voltages iteration {it}: {delta_voltages.max()}")
                 it += 1
             pp_simulation_required = False
 
@@ -415,7 +430,7 @@ class Optimiser:
             p.add_list_of_constraints(
                 [
                     line_losses_pu[:, t]
-                    == np.matmul(np.diag(self.grd['line_resistance']),lij[:, t]) for t in range(self.N)
+                    == np.matmul(np.diag(self.grd['line_resistance']), lij[:, t]) for t in range(self.N)
             ]   
             )
 
