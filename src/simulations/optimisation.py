@@ -55,6 +55,10 @@ class Optimiser:
             )
             res['hourly_line_losses'] = \
                 res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
+            if self.grd['line_losses_method'] in ['iteration', 'fixed_input']:
+                res['v_line'] = np.matmul(self.grd['out_incidence_matrix'].T, res['voltage_squared'])
+                res['lij'] = np.divide((np.square(res['pij']) \
+                    + np.square(res['qij'])), res['v_line'])
         else:
             res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
@@ -104,45 +108,39 @@ class Optimiser:
         self._update_prm(prm)
         if self.grd['line_losses_method'] == 'iteration':
             it = 0
-            self.new_lij = []
-            self.new_voltage_squared = []
-            new_losses = []
-            self.input_hourly_lij = np.zeros([self.grd['n_lines'], self.N])
-            res, pp_simulation_required = self._problem()
+            self.input_hourly_lij =  np.zeros((self.grd['n_lines'], self.N))
+            res, _ = self._problem()
             res = self.res_post_processing(res)
-            old_losses = res['hourly_line_losses']
+            old_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
                 # net0 = self.loads['netp0'][time_step]
                 netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
                 res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt)
-                new_lij_hourly = np.divide((np.square(res['pij'][:, time_step]) \
-                    + np.square(res['qij'][:, time_step])), res['v_line'][:, time_step])
-                self.new_lij.append(new_lij_hourly)
-                self.new_voltage_squared.append(res['voltage_squared'][:, time_step])
-                new_losses.append(res['hourly_line_losses'])
+            new_losses = copy.deepcopy(res['hourly_line_losses'])
+            new_lij = copy.deepcopy(res['lij'])
             delta_losses = old_losses - new_losses
-            while max(abs(delta_losses)) > 0.05 and it < 10:
+            print(f"max hourly delta losses first iteration: {max(abs(delta_losses))}")
+            while max(abs(delta_losses)) > 1 and it < 10:
                 print(f"iteration number: {it}")
-                # find a way to use lij and voltage as input for new opti
-                self.input_hourly_lij = new_lij_hourly
-                res, pp_simulation_required = self._problem()
+                self.input_hourly_lij = new_lij
+                res, _ = self._problem()
                 res = self.res_post_processing(res)
-                for time_step in self.N:
+                old_losses = copy.deepcopy(res['hourly_line_losses'])
+                for time_step in range(self.N):
+                    # net0 = self.loads['netp0'][time_step]
                     netp0 = np.zeros([1, self.N])
-                    res = self.prepare_and_compare_optimiser_pandapower(
-                        self, res, time_step, netp0)
-                    new_lij_hourly = np.divide((np.square(res['pij'][:, time_step]) \
-                        + np.square(res['qij'][:, time_step])), res['v_line'][:, time_step])
-                    self.new_lij.append(new_lij_hourly)
-                    self.new_voltage_squared.append(res['voltage_squared'][:, time_step])
-                    new_losses = res['hourly_line_losses']
+                    grdCt = self.grd['C'][time_step]
+                    res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt)
+                new_losses = copy.deepcopy(res['hourly_line_losses'])
+                new_lij = copy.deepcopy(res['lij'])
                 delta_losses = old_losses - new_losses
                 print(f"max hourly delta losses current iteration: {max(abs(delta_losses))} kWh")
                 it += 1
+            pp_simulation_required = False
 
         elif self.grd['line_losses_method'] == 'fixed_input':
-            self.input_hourly_lij = np.zeros(self.grd['n_lines'], self.N)
+            self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
             res, pp_simulation_required = self._problem()
             res = self.res_post_processing(res)
         elif self.grd['line_losses_method'] == 'subset_of_lines':
@@ -201,12 +199,12 @@ class Optimiser:
         qij = p.add_variable('qij', (self.grd['n_lines'], self.N), vtype='continuous')
         if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
             lij = p.add_variable('lij', (self.grd['n_lines'], self.N), vtype='continuous')
+            v_line = p.add_variable('v_line', (self.grd['n_lines'], self.N), vtype='continuous')
         else:
             lij = self.input_hourly_lij
         voltage_squared = p.add_variable(
             'voltage_squared', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
-        v_line = p.add_variable('v_line', (self.grd['n_lines'], self.N), vtype='continuous')
         q_ext_grid = p.add_variable('q_ext_grid', self.N, vtype='continuous')
         line_losses_pu = p.add_variable(
             'line_losses_pu', (self.grd['n_lines'], self.N), vtype='continuous'
@@ -274,6 +272,14 @@ class Optimiser:
             [qij[0, t] == q_ext_grid[t] * self.kW_to_per_unit_conversion for t in range(self.N)]
         )
 
+        # bus voltage
+        p.add_list_of_constraints([voltage_squared[0, t] == 1.0 for t in range(self.N)])
+
+        # hourly total line losses
+        p.add_list_of_constraints(
+            [hourly_line_losses_pu[t] == pic.sum(line_losses_pu[:, t]) for t in range(self.N)]
+        )
+
         if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
             # active power flow
             p.add_list_of_constraints(
@@ -300,10 +306,14 @@ class Optimiser:
                     for t in range(self.N)
                 ]
             )
-
-            # bus voltage
-            p.add_list_of_constraints([voltage_squared[0, t] == 1.0 for t in range(self.N)])
-
+            # auxiliary constraint
+            p.add_list_of_constraints(
+                [
+                    v_line[:, t] == self.grd['out_incidence_matrix'].T * voltage_squared[:, t]
+                    for t in range(self.N)
+                ]
+            )
+            # voltages
             p.add_list_of_constraints(
                 [
                     voltage_squared[1:, t] == self.grd['bus_connection_matrix'][1:, :]
@@ -327,21 +337,13 @@ class Optimiser:
                 ]
             )
 
-            # auxiliary constraint
-            p.add_list_of_constraints(
-                [
-                    v_line[:, t] == self.grd['out_incidence_matrix'].T * voltage_squared[:, t]
-                    for t in range(self.N)
-                ]
-            )
-
             # relaxed constraint
             for t in range(self.N):
                 p.add_list_of_constraints(
                     [
                         v_line[line, t] * lij[line, t] >= pij[line, t]
                         * pij[line, t] + qij[line, t] * qij[line, t]
-                        for line in range(self.grd['subset_line_losses_modelled'])
+                        for line in range(self.grd['n_lines'])
                     ]
                 )
             # lij == 0 for remaining lines
@@ -358,9 +360,6 @@ class Optimiser:
                     line_losses_pu[:, t]
                     == np.diag(self.grd['line_resistance']) * lij[:, t] for t in range(self.N)
             ]   
-            )
-            p.add_list_of_constraints(
-                [hourly_line_losses_pu[t] == pic.sum(line_losses_pu[:, t]) for t in range(self.N)]
             )
         else:
             # active power flow
@@ -387,13 +386,7 @@ class Optimiser:
                     for t in range(self.N)
                 ]
             )
-            # auxiliary constraint
-            p.add_list_of_constraints(
-                [
-                    v_line[:, t] == self.grd['out_incidence_matrix'].T * voltage_squared[:, t]
-                    for t in range(self.N)
-                ]
-            )
+            # voltages
             p.add_list_of_constraints(
                 [
                     voltage_squared[1:, t] == self.grd['bus_connection_matrix'][1:, :]
@@ -420,11 +413,8 @@ class Optimiser:
             p.add_list_of_constraints(
                 [
                     line_losses_pu[:, t]
-                    == np.matmul(np.diag(self.grd['line_resistance']), lij[:, t]) for t in range(self.N)
+                    == np.matmul(np.diag(self.grd['line_resistance']),lij[:, t]) for t in range(self.N)
             ]   
-            )
-            p.add_list_of_constraints(
-                [hourly_line_losses_pu[t] == pic.sum(line_losses_pu[:, t]) for t in range(self.N)]
             )
 
         # Voltage limitation penalty

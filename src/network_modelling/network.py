@@ -248,11 +248,13 @@ class Network:
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
         voltage = np.array(self.net.res_bus['vm_pu'])
+        pij_pu = self.net.res_line.p_from_mw * 0.001
+        qij_pu = self.net.res_line.q_from_mvar * 0.001
         end = time.time()
         duration_pp = end - start
         self.timer_pp.append(duration_pp)
 
-        return hourly_line_losses, voltage
+        return hourly_line_losses, voltage, pij_pu, qij_pu
 
     def _assign_power_to_load_or_sgen(self, power, house_index, type):
         # pandapower uses MW while the simulations uses kW
@@ -281,7 +283,7 @@ class Network:
         q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
             + sum(q_heat_home_flex)
 
-        hourly_line_losses, voltage = self.pf_simulation(
+        hourly_line_losses, voltage, _, _ = self.pf_simulation(
             home_vars['netp'], netp0,
             netq_flex, netq_passive)
         voltage_squared = np.square(voltage)
@@ -291,7 +293,7 @@ class Network:
     def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_passive):
         replace_with_pp_simulation = False
         # Results from pandapower
-        hourly_line_losses_pp, voltage_pp = self.pf_simulation(
+        hourly_line_losses_pp, voltage_pp, pij_pu_pp, qij_pu_pp = self.pf_simulation(
             res["netp"][:, time_step],
             netp0[:, time_step],
             netq_flex[:, time_step],
@@ -331,7 +333,8 @@ class Network:
                 )
 
         return [
-            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp
+            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
+                pij_pu_pp, qij_pu_pp
         ]
 
     def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
@@ -359,12 +362,13 @@ class Network:
         """Compares hourly results from network modelling in optimizer and pandapower"""
         start = time.time()
         # Results from optimization
-        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp \
-            = self._check_voltage_differences(res, time_step, netp0, netq_flex, netq_passive)
+        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
+            pij_pu_pp, qij_pu_pp = self._check_voltage_differences(res, time_step, netp0, netq_flex, netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(res, hourly_line_losses_pp, time_step)
         if replace_with_pp_simulation:
             res = self._replace_res_values_with_pp_simulation(
-                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
+                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp,
+                pij_pu_pp, qij_pu_pp
             )
         end = time.time()
         duration_comparison = end - start
@@ -398,7 +402,8 @@ class Network:
         return res
 
     def _replace_res_values_with_pp_simulation(
-            self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
+            self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp,
+            pij_pu_pp, qij_pu_pp
     ):
         # corrected hourly_line_losses and grid values
         self.count_correction_opti_with_pp += 1
@@ -427,7 +432,11 @@ class Network:
         res['voltage_squared'][:, time_step] = np.square(voltage_pp[1:])
         res["hourly_line_losses"][time_step] += delta_hourly_line_losses
         res["v_line"][:, time_step] = np.matmul(self.out_incidence_matrix.T,
-            res['voltage_squared'][:, time_step])
+            res["voltage_squared"][:, time_step])
+        res["pij"][:, time_step] = pij_pu_pp
+        res["qij"][:, time_step] = qij_pu_pp
+        res["lij"][:, time_step] = np.divide((np.square(res["pij"][:, time_step]) \
+            + np.square(res["qij"][:, time_step])), res["v_line"][:, time_step])
 
         # update individual cost components
         res['hourly_import_export_costs'][time_step] = import_export_costs_pp

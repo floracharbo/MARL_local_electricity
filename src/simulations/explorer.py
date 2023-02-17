@@ -825,10 +825,10 @@ class Explorer:
             feasible = not any(error)
 
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
-                netp0, _, _ = self.env._get_passive_vars(time_step)
+                netp0, _, _ = self.env.get_passive_vars(time_step)
                 grdCt = self.prm['grd']['C'][time_step]
                 res = self.env.network.prepare_and_compare_optimiser_pandapower(
-                    self, res, time_step, netp0, grdCt)
+                    res, time_step, netp0, grdCt)
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
