@@ -358,14 +358,14 @@ class Network:
         return replace_with_pp_simulation
 
     def test_network_comparison_optimiser_pandapower(
-            self, res, time_step, grdCt, netp0, netq_flex, netq_passive, method):
+            self, res, time_step, grdCt, netp0, netq_flex, netq_passive, line_losses_method):
         """Compares hourly results from network modelling in optimizer and pandapower"""
         start = time.time()
         # Results from optimization
         replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
             pij_pu_pp, qij_pu_pp = self._check_voltage_differences(res, time_step, netp0, netq_flex, netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(res, hourly_line_losses_pp, time_step)
-        if replace_with_pp_simulation or method == 'iteration':
+        if replace_with_pp_simulation or line_losses_method == 'iteration':
             res = self._replace_res_values_with_pp_simulation(
                 res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp,
                 pij_pu_pp, qij_pu_pp
@@ -376,7 +376,7 @@ class Network:
 
         return res, hourly_line_losses_pp, hourly_voltage_costs_pp
 
-    def prepare_and_compare_optimiser_pandapower(self, res, time_step, netp0, grdCt, method):
+    def prepare_and_compare_optimiser_pandapower(self, res, time_step, netp0, grdCt, line_losses_method):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = calculate_reactive_power(
@@ -398,7 +398,7 @@ class Network:
             netp0,
             netq_flex,
             netq_passive,
-            method
+            line_losses_method
         )
     
         return res
