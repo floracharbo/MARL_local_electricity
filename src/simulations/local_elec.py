@@ -165,6 +165,8 @@ class LocalElecEnv:
         self._loads_test()
         self.batch_flex = copy.deepcopy(self.batch['flex'])
 
+        assert not np.all(self.batch['flex'] == 0), "no flex in batch"
+
         return self.save_file, self.batch
 
     def set_passive_active(self, passive: bool = False):
@@ -673,7 +675,6 @@ class LocalElecEnv:
                             allow_pickle=True
                         ).item()
                     )
-
             self.update_i0_costs()
             assert len(self.batch['loads'][0]) <= 2 * self.N, \
                 "there used to be _correct_len_batch here"
@@ -944,6 +945,7 @@ class LocalElecEnv:
         # current date0 and duration as specified in learning.py
         for i in range(2):
             self._load_next_day(i_load=i)
+
         if not passive:
             self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
 

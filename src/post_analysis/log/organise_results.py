@@ -113,9 +113,11 @@ def get_list_all_fields(results_path):
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
+    remove_nos = []
     for result_no in result_nos:
         path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
-        if path_prm.is_file():
+        there_are_figures = len(os.listdir(results_path / f"run{result_no}" / 'figures')) > 0
+        if path_prm.is_file() and there_are_figures:
             prm = np.load(path_prm, allow_pickle=True).item()
             for key, val in prm.items():
                 if key not in ignore:
@@ -123,6 +125,12 @@ def get_list_all_fields(results_path):
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
         else:
             shutil.rmtree(results_path / f"run{result_no}")
+            remove_nos.append(result_no)
+
+    print(f"delete run(s) {remove_nos}")
+    for result_no in remove_nos:
+        result_nos.pop(result_nos.index(result_no))
+
     columns0 = ["run", "date"] + sorted(columns0)
     if 'RL-batch_size' in columns0:
         columns0.pop(columns0.index('RL-batch_size'))
@@ -133,11 +141,15 @@ def get_list_all_fields(results_path):
 def get_names_evaluation_methods(results_path, result_nos):
     evaluation_methods_found = False
     it = 0
-    while not evaluation_methods_found and it < 100:
+    keys_methods = []
+    while not evaluation_methods_found and it < len(result_nos):
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
         metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-        keys_methods = list(metrics0['end_test_bl']['ave'].keys())
+        keys_methods_run = list(metrics0['end_test_bl']['ave'].keys())
+        for method in keys_methods_run:
+            if method not in keys_methods:
+                keys_methods.append(method)
         if len(keys_methods) == 16:
             evaluation_methods_found = True
 
@@ -217,7 +229,7 @@ def add_default_values(log):
 
     share_active_none = log['syst-share_active'].isnull()
     log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
-        lambda x: x['syst-n_homes']/x['syst-n_homes_all'], axis=1
+        lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
     )
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -237,8 +249,6 @@ def add_default_values(log):
                 lambda x: replace_single_default_value(x, default_data, subkey, subsubkey)
             )
 
-
-    # save all defaults in prm_default row by row
     save_default_values_to_run_data(log)
 
     return log
@@ -400,7 +410,10 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_methods):
     new_columns = []
-    do_not_remove = ['syst-server', "RL-state_space", 'RL-trajectory']
+    do_not_remove = [
+        'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
+        'syst-n_homes', 'syst-share_active', 'syst-force_optimisation'
+    ]
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
         if column not in do_not_remove and unique_value:
@@ -875,7 +888,6 @@ def plot_sensitivity_analyses(new_columns, log):
         if column not in ['nn_learned', 'time_end', 'machine_id', 'timestamp', 'n_opti_constraints']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        column_of_interest = 'share_active'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
@@ -949,14 +961,6 @@ def remove_duplicates(log, columns0):
         )
         log.drop(columns=['RL-server'], inplace=True)
         columns0.remove('RL-server')
-    if 'syst-timestampe' in columns0:
-        log['syst-timestamp'] = log.apply(
-            lambda row:
-            row['syst-timestampe'] if row['syst-timestamp'] is None else row['syst-timestamp'],
-            axis=1
-        )
-        log.drop(columns=['syst-timestampe'], inplace=True)
-        columns0.remove('syst-timestampe')
 
     return log, columns0
 

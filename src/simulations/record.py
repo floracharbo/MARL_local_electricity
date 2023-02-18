@@ -25,7 +25,7 @@ class Record:
     def __init__(self, prm: dict, no_run: int = None):
         """Add relevant properties from prm to the object."""
         self.no_run = no_run
-        for attribute in ['n_homes', 'H', 'N']:
+        for attribute in ['n_homes', 'H', 'N', 'interval_to_month']:
             setattr(self, attribute, prm['syst'][attribute])
 
         self._add_rl_info_to_object(prm["RL"])
@@ -62,11 +62,13 @@ class Record:
         # all exploration / evaluation methods
         for info in [
             "n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space",
-            "dim_actions", "dim_states", "n_explore", "n_all_epochs", "evaluation_methods"
+            "n_explore", "n_all_epochs", "evaluation_methods", "dim_actions_1", "dim_states_1"
         ]:
             setattr(self, info, rl[info])
-        self.all_methods = rl["evaluation_methods"] + \
-            list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
+        self.all_methods = rl["evaluation_methods"] \
+            + list(set(rl["exploration_methods"]) - set(rl["evaluation_methods"]))
+        if rl['supervised_loss']:
+            self.all_methods.append('opt')
 
         # depending on the dimension of the q tables
         self.save_qtables = True \
@@ -117,31 +119,32 @@ class Record:
             method: np.zeros((self.n_epochs, self.n_explore * self.N))
             for method in rl["exploration_methods"]
         }
-        if rl["type_learning"] == "DQN" \
-                and rl["distr_learning"] == "decentralised":
+        if rl["type_learning"] == "DQN" and rl["distr_learning"] == "decentralised":
             for method in rl["evaluation_methods"]:
                 self.eps[repeat][method] = np.zeros((self.n_all_epochs, self.n_homes))
+
+        all_evaluation_methods = rl["evaluation_methods"] + ['opt'] if rl["supervised_loss"] else rl["evaluation_methods"]
         self.eval_rewards[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N)) for method in rl["evaluation_methods"]
+            method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
             shape = (self.n_all_epochs, self.n_homes) if reward[0: len('indiv')] == 'indiv' \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
-                method: np.zeros(shape) for method in rl["evaluation_methods"]
+                method: np.zeros(shape) for method in all_evaluation_methods
             }
         self.eval_actions[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N, self.n_homes, self.dim_actions))
-            for method in rl["evaluation_methods"]
+            method: np.zeros((self.n_all_epochs, self.N, self.n_homes, self.dim_actions_1))
+            for method in all_evaluation_methods
         }
         self.train_actions[repeat] = {
             method:
-                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions))
+                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions_1))
             for method in rl["exploration_methods"]
         }
         self.train_states[repeat] = {
             method:
-                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_states))
+                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_states_1))
             for method in rl["exploration_methods"]
         }
         self.stability[repeat] = {method: None for method in rl["evaluation_methods"]}
@@ -167,6 +170,7 @@ class Record:
                 self.train_actions[self.repeat][method][epoch] \
                     = list_train_stepvals[method]["action"]
                 self.train_states[self.repeat][method][epoch] = list_train_stepvals[method]["state"]
+
         for method in rl["evaluation_methods"]:
             self._append_eval(eval_steps, method, epoch, end_test)
 
@@ -292,24 +296,26 @@ class Record:
         percentiles = {p: np.zeros(self.n_all_epochs) for p in p_vals}
         n_repeats = prm["RL"]["n_repeats"]
         for epoch in range(self.n_all_epochs):
-            epoch_rewards = self.mean_eval_rewards_per_hh[method][:, epoch]
-            epoch_baseline_rewards = self.mean_eval_rewards_per_hh[baseline][:, epoch]
+            epoch_rewards = self.monthly_mean_eval_rewards_per_home[method][:, epoch]
+            epoch_baseline_rewards = self.monthly_mean_eval_rewards_per_home[baseline][:, epoch]
             diff_repeats = [
-                epoch_rewards[repeat] - epoch_baseline_rewards[repeat]for repeat in range(n_repeats)
+                epoch_rewards[repeat] - epoch_baseline_rewards[repeat]
+                for repeat in range(n_repeats)
                 if epoch_rewards[repeat] is not None and epoch_baseline_rewards[repeat] is not None
             ]
             for p in [25, 50, 75]:
                 percentiles[p][epoch] = \
-                    None if len(diff_repeats) == 0 else np.percentile(diff_repeats, p)
+                    np.nan if len(diff_repeats) == 0 else np.percentile(diff_repeats, p)
         if mov_average:
             for p in [25, 50, 75]:
                 percentiles[p] = get_moving_average(percentiles[p], n_window, Nones=False)
 
         p25, p50, p75 = [percentiles[p] for p in p_vals]
-        p25_not_None, p75_not_None = [[m for m in mov_p if m is not None] for mov_p in [p25, p75]]
-        epoch_not_None = np.where(p25 is not None)[0]
+        not_nan = ~np.isnan(p25)
+        epoch_not_nan = np.arange(self.n_all_epochs)[not_nan]
+        p25_not_nan, p75_not_nan = p25[not_nan], p75[not_nan]
 
-        return p25, p50, p75, p25_not_None, p75_not_None, epoch_not_None
+        return p25, p50, p75, p25_not_nan, p75_not_nan, epoch_not_nan
 
     def get_mean_rewards(
         self,
@@ -321,25 +327,27 @@ class Record:
         """
         Get mean reward per home over final learning / over the testing period.
 
-        mean_eval_rewards_per_hh[repeat][e][epoch]:
-            for each method, repeat and epoch, the average eval rewards
+        monthly_mean_eval_rewards_per_home[repeat][e][epoch]:
+            for each method, repeat and epoch, the average eval rewards per month
             over the whole evaluation episode
             (mean_eval_rewards[repeat][e][epoch]),
             divided by the number of homes
 
-        mean_end_rewards[repeat][e]:
-            the average mean_eval_rewards_per_hh over the end of the training,
+        monthly_mean_end_eval_rewards_per_home[repeat][e]:
+            the average monthly_mean_eval_rewards_per_home over the end of the training,
             from start_end_eval -> n_epochs
 
-        mean_end_test_rewards:
-            the average mean_eval_rewards_per_hh after the end of the training,
+        monthly_mean_test_rewards_per_home:
+            the average monthly_mean_eval_rewards_per_home after the end of the training,
             from n_epochs onwards during the fixed policy, test only period.
         """
-        self.mean_eval_rewards_per_hh = {
+        self.monthly_mean_eval_rewards_per_home = {
             method: np.zeros((self.n_repeats, self.n_all_epochs))
             for method in self.evaluation_methods
         }
-        for reward in ['mean_end_rewards', 'mean_end_test_rewards']:
+        for reward in [
+            'monthly_mean_end_eval_rewards_per_home', 'monthly_mean_test_rewards_per_home'
+        ]:
             self.__dict__[reward] = {
                 method: np.zeros(self.n_repeats) for method in self.evaluation_methods
             }
@@ -373,26 +381,27 @@ class Record:
                         evaluation_methods_plot.remove(method)
 
             for method in evaluation_methods_plot:
-                self.mean_eval_rewards_per_hh[method][repeat] = np.where(
+                self.monthly_mean_eval_rewards_per_home[method][repeat] = np.where(
                     self.mean_eval_rewards[repeat][method] is None,
                     None,
                     self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all']
+                    * self.interval_to_month
                 )
-                self.mean_end_rewards[method][repeat] = np.mean(
-                    self.mean_eval_rewards_per_hh[method][repeat][
+                self.monthly_mean_end_eval_rewards_per_home[method][repeat] = np.mean(
+                    self.monthly_mean_eval_rewards_per_home[method][repeat][
                         prm["RL"]["start_end_eval"]: self.n_epochs
                     ]
                 )
-                self.mean_end_test_rewards[method][repeat] = np.mean(
-                    self.mean_eval_rewards_per_hh[method][repeat][self.n_epochs:]
+                self.monthly_mean_test_rewards_per_home[method][repeat] = np.mean(
+                    self.monthly_mean_eval_rewards_per_home[method][repeat][self.n_epochs:]
                 )
 
-    def compute_IQR_and_CVaR_repeat(self, mean_eval_rewards_per_hh, all_nans):
+    def compute_IQR_and_CVaR_repeat(self, monthly_mean_eval_rewards_per_home, all_nans):
         detrended_rewards = [
-            mean_eval_rewards_per_hh[epoch] * self.monthly_multiplier
-            - mean_eval_rewards_per_hh[epoch - 1] * self.monthly_multiplier
+            monthly_mean_eval_rewards_per_home[epoch]
+            - monthly_mean_eval_rewards_per_home[epoch - 1]
             if sum(
-                mean_eval_rewards_per_hh[epoch_] is None
+                monthly_mean_eval_rewards_per_home[epoch_] is None
                 for epoch_ in [epoch, epoch - 1]
             ) == 0
             else None
@@ -409,19 +418,19 @@ class Record:
 
         return IQR_repeat, CVaR_repeat
 
-    def compute_largest_drawdown_repeat(self, mean_eval_rewards_per_hh, best_eval):
+    def compute_largest_drawdown_repeat(self, monthly_mean_eval_rewards_per_home, best_eval):
         largest_drawdown = - 1e6
         epochs = [
             epoch for epoch in range(1, self.n_epochs)
-            if mean_eval_rewards_per_hh[epoch] is not None
+            if monthly_mean_eval_rewards_per_home[epoch] is not None
         ]
         for epoch in epochs:
             drawdown \
-                = best_eval - mean_eval_rewards_per_hh[epoch] * self.monthly_multiplier
+                = best_eval - monthly_mean_eval_rewards_per_home[epoch]
             if drawdown > largest_drawdown:
                 largest_drawdown = drawdown
-            if mean_eval_rewards_per_hh[epoch] * self.monthly_multiplier > best_eval:
-                best_eval = mean_eval_rewards_per_hh[epoch] * self.monthly_multiplier
+            if monthly_mean_eval_rewards_per_home[epoch] > best_eval:
+                best_eval = monthly_mean_eval_rewards_per_home[epoch]
             assert largest_drawdown is not None, \
                 "largest_drawdown is None"
 
@@ -488,38 +497,34 @@ class Record:
             metric_entries, "empty_dict",
             second_level_entries=subentries, second_type="empty_dict"
         )
-        self.monthly_multiplier = self.H * 365 / 12
-        # self.monthly_multiplier = 1
         end_bl_rewards = [
-            self.mean_end_rewards["baseline"][repeat] * self.monthly_multiplier
+            self.monthly_mean_end_eval_rewards_per_home["baseline"][repeat]
             for repeat in range(n_repeats)
         ]
         end_test_bl_rewards = [
-            self.mean_end_test_rewards["baseline"][repeat] * self.monthly_multiplier
+            self.monthly_mean_test_rewards_per_home["baseline"][repeat]
             for repeat in range(n_repeats)
         ]
 
         for eval_entry in evaluation_methods_plot:
-            mean_end_rewards_month = self.mean_end_rewards[eval_entry] * self.monthly_multiplier
+            mean_end_rewards_month = self.monthly_mean_end_eval_rewards_per_home[eval_entry]
             end_test_rewards_e = [
-                self.mean_end_test_rewards[eval_entry][repeat] * self.monthly_multiplier
+                self.monthly_mean_test_rewards_per_home[eval_entry][repeat]
                 for repeat in range(n_repeats)
             ]
             all_nans = True \
                 if sum(r is not None
-                       for r in self.mean_eval_rewards_per_hh[eval_entry][0]) == 0 \
+                       for r in self.monthly_mean_eval_rewards_per_home[eval_entry][0]) == 0 \
                 else False
 
             ave_rewards = [
-                np.nanmean(
-                    np.array(self.mean_eval_rewards_per_hh[eval_entry][repeat], dtype=np.float)
-                )
+                np.nanmean(self.monthly_mean_eval_rewards_per_home[eval_entry][repeat])
                 if not all_nans else None
                 for repeat in range(n_repeats)
             ]
             IQR, CVaR, LRT = [np.zeros(n_repeats) for _ in range(3)]
             best_eval = [
-                m for m in self.mean_eval_rewards_per_hh[eval_entry][0] * self.monthly_multiplier
+                m for m in self.monthly_mean_eval_rewards_per_home[eval_entry][0]
                 if m is not None
             ][0] if not all_nans else None
             end_above_bl = [
@@ -530,10 +535,10 @@ class Record:
             ]
             for repeat in range(n_repeats):
                 largest_drawdown = self.compute_largest_drawdown_repeat(
-                    self.mean_eval_rewards_per_hh[eval_entry][repeat], best_eval
+                    self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], best_eval
                 )
                 IQR_repeat, CVaR_repeat = self.compute_IQR_and_CVaR_repeat(
-                    self.mean_eval_rewards_per_hh[eval_entry][repeat], all_nans
+                    self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], all_nans
                 )
 
                 IQR[repeat] = IQR_repeat
@@ -566,9 +571,10 @@ class Record:
                 epoch_mean_eval_t = np.mean(eval_steps[method]["reward"])
             else:
                 epoch_mean_eval_t = None
-            for info in ["reward", "action"]:
-                self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
-                    = eval_steps[method][info]
+            if method in eval_steps:
+                for info in ["reward", "action"]:
+                    self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
+                        = eval_steps[method][info]
         else:
             for info in ["eval_rewards", "eval_actions"]:
                 self.__dict__[info][self.repeat][method][epoch] = None

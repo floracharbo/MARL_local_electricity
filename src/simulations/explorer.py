@@ -493,6 +493,7 @@ class Explorer:
 
         return sequence_feasible
 
+
     def _opt_step_init(
             self, time_step, batchflex_opt, batch_avail_car, res
     ):

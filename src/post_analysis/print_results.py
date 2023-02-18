@@ -17,7 +17,6 @@ def _print_str(str_, save_run, f=None):
 def _print_savings(metrics, prm):
     # different ways of expressing savings
     labels = [
-        'savings per hour per agent relative to the baseline',
         'savings per month per agent relative to the baseline',
         'percentage saving relative to the baseline',
         'percentage of optimal savings achieved'
@@ -41,7 +40,6 @@ def _print_savings(metrics, prm):
                 print(f"{method}, {p}")
                 for value, label in zip(values, labels):
                     print(f"{label}: {value}")
-
 
 def _print_stats(f, prm, record, metrics):
     # 8 - print stats

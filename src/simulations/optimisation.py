@@ -131,6 +131,7 @@ class Optimiser:
         pij = p.add_variable('pij', (self.grd['n_lines'], self.N), vtype='continuous')
         qij = p.add_variable('qij', (self.grd['n_lines'], self.N), vtype='continuous')
         lij = p.add_variable('lij', (self.grd['n_lines'], self.N), vtype='continuous')
+        # lij: square of the complex current
         voltage_squared = p.add_variable(
             'voltage_squared', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
