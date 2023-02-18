@@ -18,6 +18,8 @@
 timestamp_changes:
   1: 1668095345.5865762
   2: 1674755868.2259605
+  3: 1676495809.255052
+  4:  1676707391.542103
 
 'RL-n_hidden_layers': [1, 1]
 'RL-aggregate_actions': [1, True]
@@ -30,3 +32,8 @@ timestamp_changes:
 'RL-hyper_initialization_nonzeros': [2, 0]
 'RL-rnn_hidden_dim': [2, 1.e+2]
 'RL-DDPG-rdn_eps_greedy_indiv': [2, False]
+'car-cap': [3, 75]
+'car-c_max': [3, 22]
+'car-d_max': [3, 100]
+'car-SoC0': [3, 0.5]
+'RL-facmac-hysteretic': [4, False]
