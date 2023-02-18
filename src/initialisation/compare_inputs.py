@@ -72,22 +72,19 @@ def _find_interchangeable_val(current_val):
 
 def _check_shape_array_vals(obj_a, obj_b, label_a, label_b):
     """Check if obj_a and obj_b are the same (shape + values)."""
-    try:
-        if isinstance(obj_a, type) and isinstance(obj_b, type):
-            if not obj_a == obj_b:
-                print(f"{label_a} {obj_a} != {label_b} {obj_b}")
-        elif len(np.shape(obj_a)) > 0:
-            same_shape = np.shape(obj_a) == np.shape(obj_b)
-            if not same_shape:
-                print(
-                    f"np.shape({label_a}) = {np.shape(obj_a)}, "
-                    f"np.shape({label_b}) = {np.shape(obj_b)}")
-            elif not (np.array(obj_a) == np.array(obj_b)).all():
-                print(f"{label_a} {obj_a} != {label_b} {obj_b}")
-        elif obj_a != obj_b:
+    if isinstance(obj_a, type) and isinstance(obj_b, type):
+        if not obj_a == obj_b:
             print(f"{label_a} {obj_a} != {label_b} {obj_b}")
-    except Exception as ex:
-        print(ex)
+    elif len(np.shape(obj_a)) > 0:
+        same_shape = np.shape(obj_a) == np.shape(obj_b)
+        if not same_shape:
+            print(
+                f"np.shape({label_a}) = {np.shape(obj_a)}, "
+                f"np.shape({label_b}) = {np.shape(obj_b)}")
+        elif not (np.array(obj_a) == np.array(obj_b)).all():
+            print(f"{label_a} {obj_a} != {label_b} {obj_b}")
+    elif obj_a != obj_b:
+        print(f"{label_a} {obj_a} != {label_b} {obj_b}")
 
 
 def replace_outdated_labels(k1, objs):

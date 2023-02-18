@@ -64,11 +64,15 @@ def compute_max_car_cons_gen_values(env, state_space):
                 for c in range(env.n_clus["car"])
             ]
         )
-    if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
+    if any(
+            descriptor[0: len("loads_cons_")] == "loads_cons_"
+            or descriptor == 'flexibility'
+            for descriptor in state_space
+    ):
         max_normcons = np.max(
             [
-                [np.max(env.prof["loads"][dt][c]) for dt in weekday_types]
-                for c in range(env.n_clus["loads"])
+                [np.max(env.hedge.profs["loads"][dt][c]) for dt in weekday_types]
+                for c in range(env.prm["loads"]['n_clus'])
             ]
         )
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
@@ -141,7 +145,10 @@ class EnvSpaces:
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         n_other_states = rl["n_other_states"]
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
-        max_flexibility = prm['car']['c_max'] + prm['car']['d_max'] + 1
+        max_flexibility = \
+            prm['car']['c_max'] / prm['car']['eta_ch'] \
+            + prm['car']['d_max'] \
+            + max_normcons * f_max["loads"] * prm['loads']['flex'][0] * 0.75
         n_clus = prm['n_clus']
         info = [
             ["None", 0, 0, 1, 1],
@@ -677,8 +684,10 @@ class EnvSpaces:
             normalised_val = (val - min_val) / (max_home - min_val)
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
+            if not (0 <= normalised_val <= 1):
+                print( )
             assert 0 <= normalised_val <= 1, \
-                f"val {normalised_val} max_home {max_home.values.item()} descriptor {descriptor}"
+                f"val {normalised_val} max_home {max_home} descriptor {descriptor}"
         else:
             normalised_val = val
 

@@ -31,7 +31,6 @@ def patch_find_feasible_data(
     files = ['res', 'batch']
     for file in files:
         names_files[file] = f"{file}_test{self.prm['paths']['opt_res_file']}"
-
     res, batch = [
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
@@ -49,7 +48,7 @@ def patch_find_feasible_data(
 
     self.res_name = names_files['res']
     self.batch_file, batch = self.env.reset(
-            seed=0, load_data=True, passive=False
+        seed=0, load_data=True, passive=False
     )
     data_feasibles = self._format_data_optimiser(
         batch, passive=passive

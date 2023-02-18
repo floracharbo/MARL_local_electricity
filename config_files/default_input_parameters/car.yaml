@@ -1,10 +1,10 @@
 # battery
 dep: 0.0152 # 20.e-3 * 0.76 # 20e-3 * 0.76 GBP/kWh cost of battery depreciation from Mortsyn multiclass 2019 / 3.2p/kWh V2GB
-c_max: 22 # kWh max battery charge per time interval (based on kW charging rate)
-d_max: 100 # kWh max battery discharge per time interval
+c_max: 6.6  # kWh max battery charge per time interval (based on kW charging rate)
+d_max: 7 # kWh max battery discharge per time interval https://cleantechnica.com/2022/08/21/1st-vehicle-to-grid-system-on-nyc-grid-launches/
+cap: 39 # kWh (one number applies to all buses, or one per bus)
 SoCmin: 0.1 # minimum state of charge
-SoC0: 0.5 # initial and final state of charge
-cap: 75 # kWh (one number applies to all buses, or one per bus)
+SoC0: 1 # initial and final state of charge
 baseld: 0 # 6 kWh/day average consumption, so always want x to be charged and ready when the car is on charge
 eta_ch: 0.9327379053088815 # np.sqrt(0.87)
 eta_dis: 0.9327379053088815 # np.sqrt(0.87)

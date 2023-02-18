@@ -195,7 +195,8 @@ def barplot_metrics(prm, lower_bound, upper_bound):
                     prm, fig=fig, title=m,
                     legend=False,
                     display_title=False,
-                    title_display=titles[m_])
+                    title_display=titles[m_]
+                )
 
             elif plot_type == 'subplots':
                 if m in subplots_i_j:

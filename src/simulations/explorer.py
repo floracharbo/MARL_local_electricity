@@ -476,13 +476,12 @@ class Explorer:
         return step_vals, self.episode_batch
 
     def _check_rewards_match(self, method, evaluation, step_vals):
-        if "opt" in self.rl['evaluation_methods'] and evaluation:
-            if step_vals[method]["reward"][-1] is not None:
-                # rewards should not be better than optimal rewards
-                assert np.mean(step_vals[method]["reward"]) \
-                       < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
-                       f"reward {method} {np.mean(step_vals[method]['reward'])} " \
-                       f"better than opt {np.mean(step_vals['opt']['reward'])}"
+        if "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
+            # rewards should not be better than optimal rewards
+            assert np.mean(step_vals[method]["reward"]) \
+                   < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
+                   f"reward {method} {np.mean(step_vals[method]['reward'])} " \
+                   f"better than opt {np.mean(step_vals['opt']['reward'])}"
 
     def _opt_step_init(
             self, time_step, batchflex_opt, batch_avail_car, res
