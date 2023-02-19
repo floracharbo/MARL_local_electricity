@@ -14,8 +14,8 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
-
+ANNOTATE_RUN_NOS = True
+FILTER_N_HOMES = False
 
 def rename_runs(results_path):
     folders = os.listdir(results_path)
@@ -108,7 +108,8 @@ def get_list_all_fields(results_path):
         'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
-        'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all'
+        'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
+        'n_opti_constraints'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -549,7 +550,8 @@ def only_columns_relevant_learning_type_comparison(
 
 
 def annotate_run_nos(
-        axs, values_of_interest_sorted, best_score_sorted, best_env_score_sorted, runs_sorted
+        axs, values_of_interest_sorted, best_score_sorted,
+        best_env_score_sorted, runs_sorted
 ):
     if ANNOTATE_RUN_NOS:
         for i, (x, best_score, best_env_score, run) in enumerate(zip(
@@ -609,7 +611,7 @@ def compare_all_runs_for_column_of_interest(
         x_labels = []
         best_values = []
         env_values = []
-        time_values = []
+    time_values = []
     while len(rows_considered) < len(log):
         initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
         rows_considered.append(initial_setup_row)
@@ -666,11 +668,14 @@ def compare_all_runs_for_column_of_interest(
             n_homes_on_laptop_only = not (
                 column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
             )
-            n_homes_facmac_traj_only = not (
-                column_of_interest == 'n_homes'
-                and current_setup[other_columns.index('type_learning')] == 'facmac'
-                and not current_setup[other_columns.index('trajectory')]
-            )
+            if FILTER_N_HOMES:
+                n_homes_facmac_traj_only = not (
+                    column_of_interest == 'n_homes'
+                    and current_setup[other_columns.index('type_learning')] == 'facmac'
+                    and not current_setup[other_columns.index('trajectory')]
+                )
+            else:
+                n_homes_facmac_traj_only = True
             relevant_data = \
                 relevant_cnn \
                 and relevant_facmac \
@@ -720,7 +725,7 @@ def compare_all_runs_for_column_of_interest(
                 )
                 for ax_i, k in enumerate(['all', 'env']):
                     label = \
-                        current_setup[other_columns.index('type_learning')] \
+                        current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
                         else len(setups)
                     axs[ax_i].plot(
@@ -742,8 +747,10 @@ def compare_all_runs_for_column_of_interest(
                     label=label,
                     linestyle=ls
                 )
-                # axs[2].set_yscale('log')
-
+                for i in range(len(values_of_interest_sorted) - 1):
+                    if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
+                        print(F"we have two values for {column_of_interest} = {values_of_interest_sorted[i]}, "
+                              F"runs {runs_sorted[i]} and {runs_sorted[i+1]}")
                 axs = annotate_run_nos(
                     axs, values_of_interest_sorted, best_scores_sorted['all']['ave'],
                     best_scores_sorted['env']['ave'], runs_sorted
@@ -752,10 +759,15 @@ def compare_all_runs_for_column_of_interest(
                     x_labels.append(values_of_interest_sorted)
                     best_values.append(best_scores_sorted['all']['ave'])
                     env_values.append(best_scores_sorted['env']['ave'])
-                    time_values.append(time_best_score_sorted)
+                time_values.append(time_best_score_sorted)
                 plotted_something = True
 
         setup_no += 1
+
+    if len(time_values) > 1:
+        end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
+        if max(end_time_best_score_sorted)/min(end_time_best_score_sorted) > 30:
+            axs[2].set_yscale('log')
 
     state_space_vals = [x_labels, best_values, env_values, time_values] \
         if column_of_interest == 'state_space' else None
@@ -885,14 +897,14 @@ def plot_sensitivity_analyses(new_columns, log):
     # each plot being a 2 row subplot with best score / best score env
     columns_of_interest = [
         column for column in new_columns[2:]
-        if column not in ['nn_learned', 'time_end', 'machine_id', 'timestamp', 'n_opti_constraints']
+        if column not in ['nn_learned', 'time_end', 'machine_id', 'timestamp']
     ]
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
             if column not in [
-                column_of_interest, 'nn_learned', 'time_end', 'machine_id', 'timestamp'
+                column_of_interest, 'nn_learned', 'time_end', 'machine_id', 'timestamp', 'n_homes_all'
             ]
         ]
 
@@ -901,8 +913,9 @@ def plot_sensitivity_analyses(new_columns, log):
         )
 
         if plotted_something:
-            if column_of_interest == 'state_space':
-                fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
+            if FILTER_N_HOMES:
+                if column_of_interest == 'state_space':
+                    fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
 
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
