@@ -17,28 +17,29 @@ def _print_str(str_, save_run, f=None):
 def _print_savings(metrics, prm):
     # different ways of expressing savings
     labels = [
-        'savings per hour per agent relative to the baseline',
         'savings per month per agent relative to the baseline',
         'percentage saving relative to the baseline',
         'percentage of optimal savings achieved'
     ]
-    values = []
-    for e in ['opt_d_d', 'opt_n_c']:
-        e = e if prm['syst']['n_homes'] > 1 else e[:-1] + 'd'
-        if e in metrics['end']['ave'].keys():
+
+    for method in metrics['end']['ave'].keys():
+        if method != 'baseline':
+            values = []
+            # method = \
+            #     method \
+            #     if prm['syst']['n_homes'] > 1 or method in ['opt', 'baseline'] or prm['RL']['type_learning'] == 'facmac' \
+            #     else method[: -1] + 'd'
             for p in ['ave', 'p50']:
-                A = metrics['end'][p][e] - metrics['end'][p]['baseline']
+                A = metrics['end'][p][method] - metrics['end'][p]['baseline']
                 values.append(A)
-                values.append(A * prm['syst']['H'] * 365 / 12)
                 values.append(A / (- metrics['end'][p]['baseline']) * 100)
                 if 'opt' in metrics['end'][p]:
                     values.append(
                         A / (metrics['end'][p]['opt'] - metrics['end'][p]['baseline']) * 100
                     )
-                print(f"{e}, {p}")
+                print(f"{method}, {p}")
                 for value, label in zip(values, labels):
                     print(f"{label}: {value}")
-
 
 def _print_stats(f, prm, record, metrics):
     # 8 - print stats

@@ -267,39 +267,35 @@ class Battery:
             trips = self._get_list_future_trips(
                 time_step, date, home, bool_penalty, print_error
             )
-            # obtain required charge before each trip, starting with end
-            final_i_endtrip = trips[-1][2] if len(trips) > 0 else time_step
-            n_avail_until_end = sum(self.batch['avail_car'][home, final_i_endtrip: self.N])
-            if len(trips) == 0:
-                n_avail_until_end -= 1
-
-            min_charge_for_final_step = self.store0[home] - self.c_max * n_avail_until_end
             if self.time_step <= self.N - 1:
                 max_charge_for_final_step[home] = \
                     self.store0[home] \
                     + sum(trip[0] for trip in trips) \
                     + self.d_max * sum(self.batch['avail_car'][home, time_step: self.N - 1])
-            min_charge_for_reaching_min_charge_next = \
-                self.min_charge[home] * self.batch['avail_car'][home, final_i_endtrip + 1] \
-                - self.c_max
-            min_charge_required[home] = max(
-                min_charge_for_final_step,
-                min_charge_for_reaching_min_charge_next,
+
+            # obtain required charge before each trip, starting with end
+            final_i_endtrip = trips[-1][2] if len(trips) > 0 else time_step + 1
+            min_charge_after_final_trip = max(
+                self.store0[home]
+                - self.c_max * sum(self.batch['avail_car'][home, final_i_endtrip: self.N]),
+                self.min_charge[home] - self.c_max,
+                # this is because we can take one step to recover the minimum charge after a trip
                 0
             )
-
+            min_charge_after_next_trip = min_charge_after_final_trip
             for it in range(len(trips)):
-                loads_T, deltaT = trips[- (it + 1)][0:2]
+                loads_T, deltaT = trips[- (it + 1)][0: 2]
                 if it == len(trips) - 1:
+                    # do not count current time step
                     deltaT -= 1
-                    min_charge_required[home] += max(0, self.min_charge[home] - self.c_max)
-                # this is the required charge at the current step
-                # if this is the most recent trip, or right after
-                # the previous trip
-                min_charge_required[home] = max(
-                    0,
-                    min_charge_required[home] + loads_T - deltaT * self.c_max
+                min_charge_ahead_of_trip = max(
+                    self.min_charge[home] - self.c_max,
+                    min_charge_after_next_trip + loads_T - deltaT * self.c_max,
+                    0
                 )
+                min_charge_after_next_trip = min_charge_ahead_of_trip
+
+            min_charge_required[home] = max(min_charge_after_next_trip, self.min_charge[home])
 
         min_charge_t = np.maximum(min_charge_t_0, min_charge_required)
         self._check_min_charge_t_feasible(
@@ -466,6 +462,8 @@ class Battery:
             np.maximum(self.start_store - self.max_charge_t, 0),
             self.avail_car
         )
+        same_as_avail_dis = abs(s_avail_dis - s_remove_0) < 1e-2
+        s_remove_0[same_as_avail_dis] = s_avail_dis[same_as_avail_dis]
 
         # how much can I charge it by rel. to current level
         potential_charge = np.multiply(
@@ -474,11 +472,14 @@ class Battery:
         )
         assert all(add <= potential + 1e-3 for add, potential in zip(s_add_0, potential_charge)
                    if potential > 0), f"s_add_0 {s_add_0} > potential_charge {potential_charge}"
-        assert all(remove <= avail + 1e-3 for remove, avail in zip(s_remove_0, s_avail_dis)
+        assert all(remove <= avail + 5e-2 for remove, avail in zip(s_remove_0, s_avail_dis)
                    if avail > 0), f"s_remove_0 {s_remove_0} > s_avail_dis {s_avail_dis}"
         if self.time_step == self.N - 1:
             assert all((~self.avail_car) | (self.min_charge_t == self.store0)), \
                 "end time but min_charge_t != store0"
+
+        assert all(s_avail_dis > s_remove_0 - 1e-3)
+
         return s_avail_dis, s_add_0, s_remove_0, potential_charge
 
     def k_losses(self, home, k, action_prev, action_next):
@@ -637,13 +638,17 @@ class Battery:
                     'larger what car can be charged to'
                 self._print_error(error_message, print_error)
 
-            if self.time_step < self.N and simulation \
-                    and min_charge_t[home] > self.store[home] + self.c_max + 1e-3:
+            if (
+                self.time_step < self.N
+                and simulation
+                and min_charge_t[home]
+                > (self.store[home] + self.c_max) * self.avail_car[home] + 1e-3
+            ):
                 bool_penalty[home] = True
                 error_message = \
                     f"date {date} time_step {time_step} " \
                     f"min_charge_t[{home}] {min_charge_t[home]} " \
-                    f"> self.store[{home}] {self.store[home]} "
+                    f"> self.store[{home}] {self.store[home]} + self.c_max {self.c_max} "
 
                 self._print_error(error_message, print_error)
 

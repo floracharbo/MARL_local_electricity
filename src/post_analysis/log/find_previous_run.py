@@ -31,6 +31,9 @@ settings = {
     'syst': {
         'n_homes': 10
     },
+    'bat': {
+        'SoC0': 1,
+    }
 }
 SETTINGS_ONLY = True
 
@@ -85,6 +88,7 @@ def find_previous_run_with_same_settings(settings, log_path):
 
     if candidates_left:
         print(f"run(s) {log['run'].tolist()}")
+        print(log[['run', 'best_score_all']])
 
     return log
 
