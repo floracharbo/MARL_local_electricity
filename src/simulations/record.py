@@ -62,7 +62,8 @@ class Record:
         # all exploration / evaluation methods
         for info in [
             "n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space",
-            "n_explore", "n_all_epochs", "evaluation_methods", "dim_actions_1", "dim_states_1"
+            "n_explore", "n_all_epochs", "evaluation_methods",
+            'dim_actions_1', 'dim_states_1'
         ]:
             setattr(self, info, rl[info])
         self.all_methods = rl["evaluation_methods"] \
