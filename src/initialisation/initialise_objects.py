@@ -433,6 +433,7 @@ def _exploration_parameters(rl):
 
 def _dims_states_actions(rl, syst):
     rl["dim_states"] = len(rl["state_space"])
+    rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
@@ -723,7 +724,9 @@ def _homes_info(loads, syst, gen, heat):
         gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
         heat["own_heat" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
-            if heat["own_heat" + passive_ext] == 1 else np.array(heat["own_heat" + passive_ext])
+            if isinstance(heat["own_heat" + passive_ext], int) \
+            and heat["own_heat" + passive_ext] == 1 \
+            else np.array(heat["own_heat" + passive_ext])
         for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
             if ownership in loads:
                 loads[ownership] = np.ones(syst["n_homes" + passive_ext]) * loads[ownership] \
