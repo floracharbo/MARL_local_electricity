@@ -20,6 +20,7 @@ timestamp_changes:
   2: 1674755868.2259605
   3: 1676495809.255052
   4: 1676539869.830251
+  5: 1676808012.192225
 
 'RL-n_hidden_layers': [1, 1]
 'RL-aggregate_actions': [1, True]
@@ -37,3 +38,4 @@ timestamp_changes:
 'car-d_max': [3, 100]
 'car-SoC0': [3, 0.5]
 'RL-facmac-hysteretic': [4, False]
+'RL-facmac-beta_to_alpha': [5, 0.5]
