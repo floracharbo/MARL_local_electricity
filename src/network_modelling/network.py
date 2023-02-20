@@ -51,10 +51,10 @@ class Network:
         for info in [
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
-            'manage_agg_power', 'max_grid_import', 'penalty_import',
-            'max_grid_export', 'penalty_export', 'reactive_power_for_voltage_control',
+            'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
+            'penalty_export', 'reactive_power_for_voltage_control',
             'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs',
-            'tol_abs_line_losses'
+            'tol_abs_line_losses',
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -88,7 +88,7 @@ class Network:
             self.max_losses_error = - 1
             self.max_voltage_rel_error = - 1
 
-            for attribute in ['count_correction_opti_with_pp', 'n_losses_error']:
+            for attribute in ['n_voltage_error', 'n_losses_error']:
                 setattr(self, attribute, 0)
             for attribute in [
                 'timer_pp', 'timer_comparison', 'max_rel_diff_voltage',
@@ -410,7 +410,7 @@ class Network:
             pij_pp_kW, qij_pp_kW
     ):
         # corrected hourly_line_losses and grid values
-        self.count_correction_opti_with_pp += 1
+        self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
         delta_hourly_line_losses = hourly_line_losses_pp- res["hourly_line_losses"][time_step] 
         

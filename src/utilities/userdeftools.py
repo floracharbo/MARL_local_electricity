@@ -113,7 +113,7 @@ def get_moving_average(array, n_window, Nones=True):
     """Get moving average of array over window n_window."""
     x = max(int(n_window / 2 - 0.5), 1)
     n = len(array)
-    mova = [None for _ in range(n)]
+    mova = np.full(n, np.nan)
     for j in range(x):
         if not Nones:
             if sum(a is None for a in array[0: j * 2 + 1]) == 0:

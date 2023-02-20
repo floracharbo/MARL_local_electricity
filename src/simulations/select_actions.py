@@ -117,10 +117,7 @@ class ActionSelector:
                 time_step,
                 env.date + timedelta(hours=time_step * self.prm['syst']['dt']),
                 False,
-                [
-                    [env.batch[home]['flex'][ih] for ih in range(0, 2)]
-                    for home in self.homes
-                ],
+                env.batch['flex'][:, 0: 2],
                 env.car.store
             ]
             states[time_step] = env.get_state_vals(inputs=inputs_state_val)

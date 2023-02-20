@@ -64,11 +64,15 @@ def compute_max_car_cons_gen_values(env, state_space):
                 for c in range(env.n_clus["car"])
             ]
         )
-    if any(descriptor[0: len("loads_cons_")] == "loads_cons_" for descriptor in state_space):
+    if any(
+            descriptor[0: len("loads_cons_")] == "loads_cons_"
+            or descriptor == 'flexibility'
+            for descriptor in state_space
+    ):
         max_normcons = np.max(
             [
-                [np.max(env.prof["loads"][dt][c]) for dt in weekday_types]
-                for c in range(env.n_clus["loads"])
+                [np.max(env.hedge.profs["loads"][dt][c]) for dt in weekday_types]
+                for c in range(env.prm["loads"]['n_clus'])
             ]
         )
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
@@ -141,7 +145,10 @@ class EnvSpaces:
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         n_other_states = rl["n_other_states"]
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
-        max_flexibility = prm['car']['c_max'] + prm['car']['d_max'] + 1
+        max_flexibility = \
+            prm['car']['c_max'] / prm['car']['eta_ch'] \
+            + prm['car']['d_max'] \
+            + max_normcons * f_max["loads"] * prm['loads']['flex'][0] * 0.75
         n_clus = prm['n_clus']
         info = [
             ["None", 0, 0, 1, 1],
@@ -311,7 +318,7 @@ class EnvSpaces:
         return val
 
     def get_space_indexes(self, done=False, all_vals=None,
-                          type_="state", indiv_indexes=False):
+                          value_type="state", indiv_indexes=False):
         """
         Return array of indexes of current agents' states/actions.
 
@@ -323,13 +330,12 @@ class EnvSpaces:
                 input for action or if not testing current environment
                 type_ : "action" or "state" - default "state"
         """
-        t = type_
-        type_ = "state" if type_ in ["state", "next_state"] else "action"
+        space_type = "state" if value_type in ["state", "next_state"] else "action"
 
-        if t == "next_state" and done:
+        if value_type == "next_state" and done:
             # if the sequence is over, return None
             return [None for _ in range(self.n_homes)]
-        if type_ == "state" and self.descriptors["state"] == [None]:
+        if space_type == "state" and self.descriptors["state"] == [None]:
             # if the state space is None, return 0
             return [0 for _ in range(self.n_homes)]
 
@@ -342,14 +348,14 @@ class EnvSpaces:
             for v in range(len(vals_home)):
                 if vals_home[v] is None or np.isnan(vals_home[v]):
                     indexes.append(0)
-                elif self.discrete[type_][v] == 1:
+                elif self.discrete[space_type][v] == 1:
                     indexes.append(int(vals_home[v]))
                 else:
                     # correct if value is smaller than smallest bracket
                     if vals_home[v] is None:
                         indexes.append(None)
                     else:
-                        brackets = self.brackets[type_][v]
+                        brackets = self.brackets[space_type][v]
                         brackets_v = brackets \
                             if len(np.shape(brackets)) == 1 \
                             else brackets[home]
@@ -368,12 +374,12 @@ class EnvSpaces:
                 # global index for all values of current agent home
                 index.append(
                     self.indiv_to_global_index(
-                        type_, indexes=indexes,
-                        multipliers=self.multipliers[type_]
+                        space_type, indexes=indexes,
+                        multipliers=self.multipliers[space_type]
                     )
                 )
                 assert not (
-                    index[-1] is not None and index[-1] >= self.n[type_]
+                    index[-1] is not None and index[-1] >= self.n[space_type]
                 ), f"index larger than total size of space agent {home}"
 
         return index
@@ -386,7 +392,7 @@ class EnvSpaces:
                                       [current_state, state, action]):
             if not (label == "next_state" and done):
                 ind_x = self.get_space_indexes(
-                    done=False, all_vals=x, type_=type_ind)
+                    done=False, all_vals=x, value_type=type_ind)
                 if method[-2] == 'C':
                     global_ind[label] = [
                         self.indiv_to_global_index(
@@ -466,14 +472,12 @@ class EnvSpaces:
                 self.type_env == "discrete"
                 and any(method[-2] == 'C' for method in self.evaluation_methods)
         ):
-            ind_state = self.get_space_indexes(
-                all_vals=step_vals_i["state"])
+            ind_state = self.get_space_indexes(all_vals=step_vals_i["state"])
             step_vals_i["ind_global_state"] = \
                 [self.indiv_to_global_index(
                     "state", indexes=ind_state,
                     multipliers=self.global_multipliers["state"])]
-            ind_action = self.get_space_indexes(
-                all_vals=action, type_="action")
+            ind_action = self.get_space_indexes(all_vals=action, value_type="action")
             for home in range(self.n_homes):
                 assert not (ind_action is None and action[home] is not None), \
                     f"action[{home}] {step_vals_i['action'][home]} " \
@@ -609,19 +613,19 @@ class EnvSpaces:
     def get_bool_flex(self, inputs):
         """Get general bool flex (if any of the three bool flex is True then True)"""
         home = inputs[2]
-        return self.action_translator.aggregate_action_bool_flex(home)
+        return self.action_translator.aggregate_action_bool_flex()[home]
 
     def get_flexibility(self, inputs):
         """Get the flexibility (energy different between min/max import/export) for time step."""
         home = inputs[2]
-        flexibility = self.action_translator.get_flexibility(home)
+        flexibility = self.action_translator.get_flexibility()[home]
         assert flexibility >= 0, f"flexibility {flexibility}"
         return flexibility
 
     def get_store_bool_flex(self, inputs, home=None):
         """Whether there is flexibility in the battery operation"""
         home = inputs[2]
-        return self.action_translator.store_bool_flex(home)
+        return self.action_translator.get_store_bool_flex()[home]
 
     def _get_car_tau(self, inputs):
         """Get the battery requirement tau parameter for the current time step."""
@@ -680,8 +684,10 @@ class EnvSpaces:
             normalised_val = (val - min_val) / (max_home - min_val)
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
+            if not (0 <= normalised_val <= 1):
+                print( )
             assert 0 <= normalised_val <= 1, \
-                f"val {normalised_val} max_home {max_home.values.item()} descriptor {descriptor}"
+                f"val {normalised_val} max_home {max_home} descriptor {descriptor}"
         else:
             normalised_val = val
 

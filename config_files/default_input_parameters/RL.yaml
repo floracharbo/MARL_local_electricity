@@ -196,8 +196,8 @@ evaluation_methods:
 facmac:
         # varied
         critic_lr: 5.e-4
-        hysteretic: False
-        beta_to_alpha: 0.5
+        hysteretic: True
+        beta_to_alpha: 0.1
         # to vary
         batch_size: 5 # Num of tuples to train on.
         gamma: 0.85

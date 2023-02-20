@@ -6,25 +6,25 @@ charge_type: 0  # 0 linear, 1 quadratic on quantity imported/exported
 V: 415 # V nominal voltage from Mortsyn 2019 multiclass
 R: 0.084 # Ohm average resistance between the prosumers and main grid from Mortsyn 2019 multiclass
 manage_agg_power: False # Add constraints and penalty on max aggregated imports and exports
-max_grid_import : 6 # Limit to grid import
-max_grid_export : 6 # Limit to grid export
+max_grid_import: 6 # Limit to grid import
+max_grid_export: 6 # Limit to grid export
 penalty_import: 0.01 # Coefficient multiplied with import values to determine penalty
 penalty_export: 0.01 # Coefficient multiplied with export values to determine penalty
-small_coefficient: 0.00001 # Small coefficient used in the import and export constraints
+small_coefficient: 1.e-5 # Small coefficient used in the import and export constraints
 manage_voltage: False # Add constraints and penalty to limit voltage violations with relaxed optimisation
 penalise_individual_exports: True # Penalises the export to the external grid
 compare_pandapower_optimisation: False # Compares the power flows and losses results from relaxed opti and pandapower
 max_voltage: 1.1 # Upper limit for voltage on buses in per unit
 min_voltage: 0.96 # Lower limit for voltage on buses in per unit
-penalty_overvoltage: 0.00001 # Coefficient multiplied with overvoltage values to determine penalty
-penalty_undervoltage: 0.00001 # Coefficient multiplied with undervoltage values to determine penalty
+penalty_overvoltage: 1.e-5 # Coefficient multiplied with overvoltage values to determine penalty
+penalty_undervoltage: 1.e-5 # Coefficient multiplied with undervoltage values to determine penalty
 weight_network_costs: 1 # Reward weight of network costs voltage_costs and import_export_costs
-base_power : 1000000 # base power for per unit system in W, as defined in pandapower
-base_voltage : 416 # base voltage for per unit system in V, as defined in the IEEE Low Voltage Test Feeder
-subset_line_losses_modelled : 30 # Number of lines accounted for in losses
-tol_rel_voltage_diff: 0.001
-tol_rel_voltage_costs: 0.0001
-tol_abs_line_losses: 0.01
+base_power: 1000000 # base power for per unit system in W, as defined in pandapower
+base_voltage: 416 # base voltage for per unit system in V
+subset_line_losses_modelled: 30 # Number of lines accounted for in losses
+tol_rel_voltage_diff: 1.e-2
+tol_rel_voltage_costs: 1.e-2
+tol_abs_line_losses: 1.e-2
 reactive_power_for_voltage_control: False
 pf_passive_homes : 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes : 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
