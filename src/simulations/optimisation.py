@@ -129,7 +129,7 @@ class Optimiser:
             #print(f"diff lij {abs(opti_lij-corr_lij).max()}")
             #print(f"max hourly delta losses initialization: {max(abs(delta_losses))}")
             #print(f"max hourly delta voltages initialization: {delta_voltages.max()}")
-            while abs(delta_voltages).max() > 0.001 > 1 and it < 10:
+            while abs(delta_voltages).max() > 0.001 and it < 10:
                 print(f"iteration number: {it}")
                 self.input_hourly_lij = corr_lij
                 #print(f"corr_lij to use: {corr_lij}")
@@ -263,9 +263,9 @@ class Optimiser:
 
         p.add_list_of_constraints(
             [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
-                + self.grd['passive_buses'] 
-                * self.loads['active_power_passive_homes'][t]
-                * self.kW_to_per_unit_conversion
+                #+ self.grd['passive_buses']
+                #* self.loads['active_power_passive_homes'][t]
+                #* self.kW_to_per_unit_conversion
                 for t in range(self.N)])
         p.add_list_of_constraints(
             [qi[:, t] == self.grd['flex_buses'] * q_car_flex[:, t]
@@ -273,9 +273,9 @@ class Optimiser:
                 + self.grd['flex_buses'] * totcons[:, t]
                 * math.tan(math.acos(self.grd['pf_flexible_homes']))
                 * self.kW_to_per_unit_conversion
-                + self.grd['passive_buses'] 
-                * self.loads['reactive_power_passive_homes'][t]
-                * self.kW_to_per_unit_conversion
+                #+ self.grd['passive_buses'] 
+                #* self.loads['reactive_power_passive_homes'][t]
+                #* self.kW_to_per_unit_conversion
                 for t in range(self.N)])
 
         # external grid between bus 1 and 2
@@ -322,8 +322,7 @@ class Optimiser:
                     + np.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
                         np.diag(self.grd['line_reactance'], k=0)
-                    )
-                    * lij[:, t]
+                    ) * lij[:, t]
                     for t in range(self.N)
                 ]
             )
@@ -436,7 +435,7 @@ class Optimiser:
                 [
                     line_losses_pu[:, t]
                     == np.matmul(np.diag(self.grd['line_resistance']), lij[:, t]) for t in range(self.N)
-            ]   
+            ]
             )
 
         # Voltage limitation penalty
@@ -909,9 +908,10 @@ class Optimiser:
                 + res['hourly_line_losses_pu'][time_step] * self.grd['base_power'] / 1000
             res['grid2'][time_step] = res['grid'][time_step] * res['grid'][time_step]
 
-            res['netp_export'][home, time_step] = np.where(
-                res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
-            )
+            if self.penalise_individual_exports:
+                res['netp_export'][home, time_step] = np.where(
+                    res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
+                )
             if self.grd['manage_agg_power']:
                 [
                     _,

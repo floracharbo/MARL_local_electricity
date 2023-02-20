@@ -107,9 +107,12 @@ class Network:
 
     def _matrix_passive_buses(self):
         """ Creates a matrix indicating at which bus there is a non-flexible home """
-        passive_buses = np.zeros((len(self.net.bus), self.n_passive_homes))
-        for i in range(self.n_passive_homes):
-            passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
+        if self.n_passive_homes > 0:
+            passive_buses = np.zeros((len(self.net.bus), self.n_passive_homes))
+            for i in range(self.n_passive_homes):
+                passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
+        else:
+            passive_buses = np.zeros((len(self.net.bus), 1))
         return passive_buses
 
     def network_line_data(self):
