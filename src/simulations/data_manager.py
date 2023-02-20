@@ -531,8 +531,8 @@ class DataManager:
                     np.matmul(self.env.network.passive_buses,
                               self.prm['loads']['q_heat_home_car_passive'][:, t]))
         else:
-            self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 1])
-            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 1])
+            self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 0])
+            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 0])
             self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
 
         return feasible
