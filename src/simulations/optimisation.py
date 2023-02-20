@@ -132,6 +132,8 @@ class Optimiser:
             while max(abs(delta_losses)) > 1 and it < 10:
                 print(f"iteration number: {it}")
                 self.input_hourly_lij = corr_lij
+                print(f"corr_lij to use: {corr_lij}")
+                print(f"max lij to use: {corr_lij.max()}")
                 res, _ = self._problem()
                 res = self.res_post_processing(res)
                 opti_voltages = copy.deepcopy(res['voltage'])
