@@ -120,6 +120,7 @@ class DataManager:
         # optimisation of power flow
         if grd['manage_voltage']:
             grd['flex_buses'] = self.env.network.flex_buses
+            grd['passive_buses'] = self.env.network.passive_buses
             grd['incidence_matrix'] = self.env.network.incidence_matrix
             grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
             grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix

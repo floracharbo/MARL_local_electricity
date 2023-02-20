@@ -124,16 +124,16 @@ class Optimiser:
             corr_lij = copy.deepcopy(res['lij'])
             delta_losses = opti_losses - corr_losses
             delta_voltages = opti_voltages - corr_voltages
-            print(f"opti losses {opti_losses}")
-            print(f"corr losses {corr_losses}")
-            print(f"diff lij {abs(opti_lij-corr_lij).max()}")
-            print(f"max hourly delta losses initialization: {max(abs(delta_losses))}")
-            print(f"max hourly delta voltages initialization: {delta_voltages.max()}")
-            while max(abs(delta_losses)) > 1 and it < 10:
+            #print(f"opti losses {opti_losses}")
+            #print(f"corr losses {corr_losses}")
+            #print(f"diff lij {abs(opti_lij-corr_lij).max()}")
+            #print(f"max hourly delta losses initialization: {max(abs(delta_losses))}")
+            #print(f"max hourly delta voltages initialization: {delta_voltages.max()}")
+            while abs(delta_voltages).max() > 0.001 > 1 and it < 10:
                 print(f"iteration number: {it}")
                 self.input_hourly_lij = corr_lij
-                print(f"corr_lij to use: {corr_lij}")
-                print(f"max lij to use: {corr_lij.max()}")
+                #print(f"corr_lij to use: {corr_lij}")
+                #print(f"max lij to use: {corr_lij.max()}")
                 res, _ = self._problem()
                 res = self.res_post_processing(res)
                 opti_voltages = copy.deepcopy(res['voltage'])
@@ -150,11 +150,11 @@ class Optimiser:
                 corr_lij = copy.deepcopy(res['lij'])
                 delta_losses = opti_losses - corr_losses
                 delta_voltages = opti_voltages - corr_voltages
-                print(f"opti losses {opti_losses}")
-                print(f"corr losses {corr_losses}")
-                print(f"max hourly delta losses initialization: {max(abs(delta_losses))}")
-                print(f"max hourly delta losses iteration {it}: {max(abs(delta_losses))}")
-                print(f"max hourly delta voltages iteration {it}: {delta_voltages.max()}")
+                #print(f"opti losses {opti_losses}")
+                #print(f"corr losses {corr_losses}")
+                #print(f"max hourly delta losses initialization: {max(abs(delta_losses))}")
+                #print(f"max hourly delta losses iteration {it}: {max(abs(delta_losses))}")
+                #print(f"max hourly delta voltages iteration {it}: {delta_voltages.max()}")
                 it += 1
             pp_simulation_required = False
 
@@ -263,7 +263,8 @@ class Optimiser:
 
         p.add_list_of_constraints(
             [pi[:, t] == self.grd['flex_buses'] * netp[:, t] * self.kW_to_per_unit_conversion
-                + self.loads['active_power_passive_homes'][t]
+                + self.grd['passive_buses'] 
+                * self.loads['active_power_passive_homes'][t]
                 * self.kW_to_per_unit_conversion
                 for t in range(self.N)])
         p.add_list_of_constraints(
@@ -272,7 +273,8 @@ class Optimiser:
                 + self.grd['flex_buses'] * totcons[:, t]
                 * math.tan(math.acos(self.grd['pf_flexible_homes']))
                 * self.kW_to_per_unit_conversion
-                + self.loads['reactive_power_passive_homes'][t]
+                + self.grd['passive_buses'] 
+                * self.loads['reactive_power_passive_homes'][t]
                 * self.kW_to_per_unit_conversion
                 for t in range(self.N)])
 
@@ -397,7 +399,8 @@ class Optimiser:
             # reactive power flow
             p.add_list_of_constraints(
                 [
-                    qi[1:, t] == - self.grd['incidence_matrix'][1:, :] * qij[:, t]
+                    qi[1:, t]
+                    == - self.grd['incidence_matrix'][1:, :] * qij[:, t]
                     + np.matmul(np.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
                         np.diag(self.grd['line_reactance'], k=0)
@@ -422,8 +425,8 @@ class Optimiser:
                         ) * qij[:, t]
                     ) - np.matmul(np.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
-                        np.diag(np.square(self.grd['line_resistance']))
-                        + np.diag(np.square(self.grd['line_reactance']))
+                        (np.diag(np.square(self.grd['line_resistance']))
+                        + np.diag(np.square(self.grd['line_reactance'])))
                     ), lij[:, t])
                     for t in range(self.N)
                 ]
