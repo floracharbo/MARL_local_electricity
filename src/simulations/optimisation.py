@@ -301,10 +301,6 @@ class Optimiser:
         # bus voltage
         p.add_list_of_constraints([voltage_squared[0, time_step] == 1.0 for time_step in range(self.N)])
 
-        # hourly total line losses
-        p.add_list_of_constraints(
-            [hourly_line_losses_pu[time_step] == pic.sum(line_losses_pu[:, time_step]) for time_step in range(self.N)]
-        )
 
         if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
             # active power flow
