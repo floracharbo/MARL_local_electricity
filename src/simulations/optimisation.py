@@ -362,30 +362,70 @@ class Optimiser:
                 ]
             )
 
-        # auxiliary constraint
-        p.add_list_of_constraints(
-            [
-                v_line[:, t] == self.grd['out_incidence_matrix'].T * voltage_squared[:, t]
-                for t in range(self.N)
-            ]
-        )
-
-        # relaxed constraint
-        for time_step in range(self.N):
+            # relaxed constraint
+            for time_step in range(self.N):
+                p.add_list_of_constraints(
+                    [
+                        v_line[line, time_step] * lij[line, time_step] >= pij[line, time_step]
+                        * pij[line, time_step] + qij[line, time_step] * qij[line, time_step]
+                        for line in range(self.grd['subset_line_losses_modelled'])
+                    ]
+                )
+            # lij == 0 for remaining lines
             p.add_list_of_constraints(
                 [
-                    v_line[line, time_step] * lij[line, time_step] >= pij[line, time_step]
-                    * pij[line, time_step] + qij[line, time_step] * qij[line, time_step]
-                    for line in range(self.grd['subset_line_losses_modelled'])
+                    lij[self.grd['subset_line_losses_modelled']:self.grd['n_lines'], time_step] == 0
+                    for time_step in range(self.N)
                 ]
             )
-        # lij == 0 for remaining lines
-        p.add_list_of_constraints(
-            [
-                lij[self.grd['subset_line_losses_modelled']:self.grd['n_lines'], time_step] == 0
-                for time_step in range(self.N)
-            ]
-        )
+        else:
+            # active power flow
+            p.add_list_of_constraints(
+                [
+                    pi[1:, t]
+                    == - self.grd['incidence_matrix'][1:, :] * pij[:, t]
+                    + np.matmul(np.matmul(
+                        self.grd['in_incidence_matrix'][1:, :],
+                        np.diag(self.grd['line_resistance'], k=0)
+                    ), lij[:, t])
+                    for t in range(self.N)
+                ]
+            )
+
+            # reactive power flow
+            p.add_list_of_constraints(
+                [
+                    qi[1:, t] == - self.grd['incidence_matrix'][1:, :] * qij[:, t]
+                    + np.matmul(np.matmul(
+                        self.grd['in_incidence_matrix'][1:, :],
+                        np.diag(self.grd['line_reactance'], k=0)
+                    ), lij[:, t])
+                    for t in range(self.N)
+                ]
+            )
+            # voltages
+            p.add_list_of_constraints(
+                [
+                    voltage_squared[1:, t] == self.grd['bus_connection_matrix'][1:, :]
+                    * voltage_squared[:, t]
+                    + 2 * (
+                        np.matmul(
+                            self.grd['in_incidence_matrix'][1:, :],
+                            np.diag(self.grd['line_resistance'], k=0)
+                        )
+                        * pij[:, t]
+                        + np.matmul(
+                            self.grd['in_incidence_matrix'][1:, :],
+                            np.diag(self.grd['line_reactance'], k=0)
+                        ) * qij[:, t]
+                    ) - np.matmul(np.matmul(
+                        self.grd['in_incidence_matrix'][1:, :],
+                        np.diag(np.square(self.grd['line_resistance']))
+                        + np.diag(np.square(self.grd['line_reactance']))
+                    ), lij[:, t])
+                    for t in range(self.N)
+                ]
+            )
 
         # hourly line losses
         p.add_list_of_constraints(
