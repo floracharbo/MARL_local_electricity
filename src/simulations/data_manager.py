@@ -136,6 +136,7 @@ class DataManager:
             grd['n_lines'] = len(self.env.network.net.line)
             grd['net'] = self.env.network.net
             grd['line_losses_method'] = self.prm['grd']['line_losses_method']
+            grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
 
     def _passive_find_feasible_data(self):
         passive = True

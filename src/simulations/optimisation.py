@@ -10,7 +10,6 @@ Created on Tue Jan  7 17:10:28 2020.
 
 import copy
 import math
-import os
 
 import numpy as np
 import picos as pic
@@ -55,7 +54,8 @@ class Optimiser:
                 res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
             if self.grd['line_losses_method'] == 'iteration':
                 res['lij'] = self.input_hourly_lij
-                res['v_line'] = np.matmul(self.grd['out_incidence_matrix'].T, res['voltage_squared'])
+                res['v_line'] = np.matmul(
+                    self.grd['out_incidence_matrix'].T, res['voltage_squared'])
             res['p_solar_flex'] = self.grd['gen'][:, 0: self.N]
             res['q_solar_flex'] = calculate_reactive_power(
                 self.grd['gen'][:, 0: self.N], self.grd['pf_flexible_homes'])
@@ -120,9 +120,9 @@ class Optimiser:
 
         return res, pp_simulation_required
 
-    def _solve_line_losses_iteration(self):    
+    def _solve_line_losses_iteration(self):
         it = 0
-        self.input_hourly_lij =  np.zeros((self.grd['n_lines'], self.N))
+        self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
         res, _ = self._problem()
         res = self.res_post_processing(res)
         # print pi and qi
@@ -132,8 +132,8 @@ class Optimiser:
             # net0 = self.loads['netp0'][time_step]
             netp0 = np.zeros([1, self.N])
             grdCt = self.grd['C'][time_step]
-            res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
-                self.grd['line_losses_method'])
+            res = self.prepare_and_compare_optimiser_pandapower(
+                res, time_step, netp0, grdCt, self.grd['line_losses_method'])
         corr_voltages = copy.deepcopy(res['voltage'])
         corr_losses = copy.deepcopy(res['hourly_line_losses'])
         corr_lij = copy.deepcopy(res['lij'])
@@ -141,7 +141,7 @@ class Optimiser:
         delta_voltages = opti_voltages - corr_voltages
         print(f"max hourly delta voltages initialization: {abs(delta_voltages).max()}")
         print(f"max hourly delta losses initialization: {abs(delta_losses).max()}")
-        while abs(delta_voltages).max() > 0.001 and it < 10:
+        while abs(delta_voltages).max() > self.grd['tol_voltage_iteration'] and it < 10:
             it += 1
             self.input_hourly_lij = corr_lij
             res, _ = self._problem()
@@ -152,8 +152,8 @@ class Optimiser:
                 # net0 = self.loads['netp0'][time_step]
                 netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
-                res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
-                    self.grd['line_losses_method'])
+                res = self.prepare_and_compare_optimiser_pandapower(
+                    res, time_step, netp0, grdCt, self.grd['line_losses_method'])
             corr_voltages = copy.deepcopy(res['voltage'])
             corr_losses = copy.deepcopy(res['hourly_line_losses'])
             corr_lij = copy.deepcopy(res['lij'])
@@ -255,42 +255,44 @@ class Optimiser:
                 p_car_flex, self.grd['pf_flexible_homes']))
 
         p.add_list_of_constraints(
-            [pi[:, time_step] == self.grd['flex_buses'] * netp[:, time_step] * self.kW_to_per_unit_conversion
-                #+ self.grd['passive_buses']
-                #* self.loads['active_power_passive_homes'][t]
-                #* self.kW_to_per_unit_conversion
+            [pi[:, time_step]
+                == self.grd['flex_buses'] * netp[:, time_step] * self.kW_to_per_unit_conversion
+                # + self.grd['passive_buses']
+                # * self.loads['active_power_passive_homes'][t]
+                # * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
-    
+
         p.add_list_of_constraints(
             [
                 netq_flex[:, time_step] == q_car_flex[:, time_step]
-                +  totcons[:, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes']))
-                -  self.grd['gen'][:, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes']))
+                + totcons[:, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes']))
+                - self.grd['gen'][:, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes']))
                 for time_step in range(self.N)
             ]
         )
-
-        #p.add_list_of_constraints(
+        # p.add_list_of_constraints(
         #    [
-        #        netq_passive[time_step] == 
+        #        netq_passive[time_step] ==
         #        * self.loads['reactive_power_passive_homes'][t]
         #        * self.kW_to_per_unit_conversion
         #    ]
-        #)
+        # )
         p.add_list_of_constraints(
-            [qi[:, time_step] == self.grd['flex_buses'] * netq_flex[:, time_step] * self.kW_to_per_unit_conversion
+            [qi[:, time_step]
+                == self.grd['flex_buses'] * netq_flex[:, time_step] * self.kW_to_per_unit_conversion
                 # + self.grd['passive_buses']
                 # * netq_passive[:, time_step]
                 # * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
 
         # external grid between bus 1 and 2
-        p.add_list_of_constraints([
-            q_ext_grid[time_step] == pic.sum(netq_flex[:, time_step])
-            + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
+        p.add_list_of_constraints(
+            [q_ext_grid[time_step]
+                == pic.sum(netq_flex[:, time_step])
+                + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
                 * self.per_unit_to_kW_conversion
-            # + pic.sum(netq_passive[:, time_step])
-            for time_step in range(self.N)])
+                # + pic.sum(netq_passive[:, time_step])
+                for time_step in range(self.N)])
 
         p.add_list_of_constraints(
             [
@@ -306,8 +308,10 @@ class Optimiser:
         )
 
         # bus voltage
-        p.add_list_of_constraints([voltage_squared[0, time_step] == 1.0 for time_step in range(self.N)])
-
+        p.add_list_of_constraints([
+            voltage_squared[0, time_step] == 1.0
+            for time_step in range(self.N)
+        ])
 
         if self.grd['line_losses_method'] == 'subset_of_lines':
             # active power flow
@@ -335,12 +339,11 @@ class Optimiser:
                 ]
             )
             # auxiliary constraint
-            p.add_list_of_constraints(
-                [
-                    v_line[:, time_step] == self.grd['out_incidence_matrix'].T * voltage_squared[:, time_step]
-                    for time_step in range(self.N)
-                ]
-            )
+            p.add_list_of_constraints([
+                v_line[:, time_step]
+                == self.grd['out_incidence_matrix'].T * voltage_squared[:, time_step]
+                for time_step in range(self.N)
+            ])
             # voltages
             p.add_list_of_constraints(
                 [
@@ -438,13 +441,11 @@ class Optimiser:
                 ]
             )
             # hourly line losses
-            p.add_list_of_constraints(
-                [
-                    line_losses_pu[:, time_step]
-                    == np.matmul(np.diag(self.grd['line_resistance']), lij[:, time_step])
-                    for time_step in range(self.N)
-            ]   
-            )
+            p.add_list_of_constraints([
+                line_losses_pu[:, time_step]
+                == np.matmul(np.diag(self.grd['line_resistance']), lij[:, time_step])
+                for time_step in range(self.N)
+            ])
 
         p.add_list_of_constraints(
             [
@@ -919,7 +920,7 @@ class Optimiser:
                 - res['discharge_other'][home, time_step] \
                 - self.grd['gen'][home, time_step] \
                 + res['totcons'][home, time_step]
-            
+
             res['grid'][time_step] = \
                 sum(res['netp'][:, time_step]) \
                 + self.hourly_tot_netp0[time_step] \

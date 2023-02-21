@@ -19,8 +19,7 @@ import numpy as np
 from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
 from src.simulations.select_actions import ActionSelector
-from src.utilities.userdeftools import (calculate_reactive_power,
-                                        initialise_dict,
+from src.utilities.userdeftools import (initialise_dict,
                                         methods_learning_from_exploration,
                                         reward_type, set_seeds_rdn)
 

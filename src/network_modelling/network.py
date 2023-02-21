@@ -53,8 +53,8 @@ class Network:
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
             'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
             'penalty_export', 'reactive_power_for_voltage_control',
-            'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs',
-            'tol_abs_line_losses',
+            'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff',
+            'tol_rel_voltage_costs', 'tol_abs_line_losses',
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -325,21 +325,21 @@ class Network:
             if abs_rel_voltage_error > self.max_voltage_rel_error:
                 self.max_voltage_rel_error = abs_rel_voltage_error
             replace_with_pp_simulation = True
-        
+
         if replace_with_pp_simulation:
             with open(f"{self.folder_run}/voltage_comparison.txt", "a") as file:
                 file.write(
-                f"The max diff of voltage between the optimiser and pandapower for hour {time_step}"
-                f" is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
-                f"at bus {np.argmax(all_rel_diff_voltage)}. "
-                f"The absolute difference of hourly voltage costs is {abs_rel_voltage_error * 100}% "
-                f"of the daily optimisation costs. "
-                f"The network will be simulated with pandapower to correct the voltages"
+                    f"The max diff of voltage between the optimiser and pandapower for hour "
+                    f"{time_step} is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
+                    f"at bus {np.argmax(all_rel_diff_voltage)}. "
+                    f"The absolute difference of hourly voltage costs is "
+                    f"{abs_rel_voltage_error * 100}% of the daily optimisation costs. "
+                    f"The network will be simulated with pandapower to correct the voltages"
                 )
 
         return [
-            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-                pij_pp_kW, qij_pp_kW
+            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp,
+            voltage_pp, pij_pp_kW, qij_pp_kW
         ]
 
     def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
@@ -352,12 +352,12 @@ class Network:
             replace_with_pp_simulation = True
             with open(f"{self.folder_run}/line_losses.txt", "a") as file:
                 file.write(
-                f"The difference in hourly line losses "
-                f"between pandapower and the optimiser for hour {time_step} "
-                f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)} kW. "
-                f"To increase accuracy, the user could increase the subset_line_losses_modelled "
-                f"(currently: {self.subset_line_losses_modelled} lines)\n"
-            )
+                    f"The difference in hourly line losses "
+                    f"between pandapower and the optimiser for hour {time_step} "
+                    f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)} kW. "
+                    f"To increase accuracy, the user could increase the subset_line_losses_modelled"
+                    f" (currently: {self.subset_line_losses_modelled} lines)\n"
+                )
         else:
             replace_with_pp_simulation = False
         return replace_with_pp_simulation
@@ -367,12 +367,14 @@ class Network:
         """Compares hourly results from network modelling in optimizer and pandapower"""
         start = time.time()
         replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-            pij_pp_kW, qij_pp_kW = self._check_voltage_differences(res, time_step, netp0, netq_flex, netq_passive)
-        replace_with_pp_simulation = self._check_losses_differences(res, hourly_line_losses_pp, time_step)
+            pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
+                res, time_step, netp0, netq_flex, netq_passive)
+        replace_with_pp_simulation = self._check_losses_differences(
+            res, hourly_line_losses_pp, time_step)
         if replace_with_pp_simulation or line_losses_method == 'iteration':
             res = self._replace_res_values_with_pp_simulation(
-                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp,
-                pij_pp_kW, qij_pp_kW
+                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
+                voltage_pp, pij_pp_kW, qij_pp_kW
             )
         end = time.time()
         duration_comparison = end - start
@@ -380,7 +382,8 @@ class Network:
 
         return res, hourly_line_losses_pp, hourly_voltage_costs_pp
 
-    def prepare_and_compare_optimiser_pandapower(self, res, time_step, netp0, grdCt, line_losses_method):
+    def prepare_and_compare_optimiser_pandapower(
+            self, res, time_step, netp0, grdCt, line_losses_method):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = calculate_reactive_power(
@@ -389,7 +392,7 @@ class Network:
         else:
             netq_passive = np.zeros([1, self.N])
             netp0 = np.zeros([1, self.N])
-    
+
         # q_car_flex will be a decision variable
         q_car_flex = res['q_car_flex']
         q_heat_home_flex = calculate_reactive_power(
@@ -405,7 +408,7 @@ class Network:
             netq_passive,
             line_losses_method
         )
-    
+
         return res
 
     def _replace_res_values_with_pp_simulation(
@@ -415,8 +418,8 @@ class Network:
         # corrected hourly_line_losses and grid values
         self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
-        delta_hourly_line_losses = hourly_line_losses_pp- res["hourly_line_losses"][time_step] 
-        
+        delta_hourly_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
+
         grid_pp = res["grid"][time_step] + delta_hourly_line_losses
 
         hourly_grid_energy_costs_pp = grdCt * (
@@ -438,12 +441,14 @@ class Network:
         res['voltage'][:, time_step] = voltage_pp[1:]
         res['voltage_squared'][:, time_step] = np.square(voltage_pp[1:])
         res["hourly_line_losses"][time_step] += delta_hourly_line_losses
-        res["v_line"][:, time_step] = np.matmul(self.out_incidence_matrix.T,
+        res["v_line"][:, time_step] = np.matmul(
+            self.out_incidence_matrix.T,
             res["voltage_squared"][:, time_step])
-        res["pij"][:, time_step] = pij_pp_kW * 0.001
-        res["qij"][:, time_step] = qij_pp_kW * 0.001
-        res["lij"][:, time_step] = np.divide((np.square(res["pij"][:, time_step]) \
-            + np.square(res["qij"][:, time_step])), res["v_line"][:, time_step])
+        res["pij"][:, time_step] = pij_pp_kW * 1000 / self.base_power
+        res["qij"][:, time_step] = qij_pp_kW * 1000 / self.base_power
+        res["lij"][:, time_step] = np.divide(
+            (np.square(res["pij"][:, time_step]) + np.square(res["qij"][:, time_step])),
+            res["v_line"][:, time_step])
 
         # update individual cost components
         res['hourly_import_export_costs'][time_step] = import_export_costs_pp

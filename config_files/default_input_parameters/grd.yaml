@@ -29,3 +29,4 @@ reactive_power_for_voltage_control: False
 pf_passive_homes : 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes : 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
 line_losses_method : 'subset_of_lines' # choice between subset_of_lines and iteration
+tol_voltage_iteration: 0.001 # tolerance on voltages when iteratively solving the optimization
