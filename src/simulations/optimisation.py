@@ -53,7 +53,7 @@ class Optimiser:
             )
             res['hourly_line_losses'] = \
                 res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
-            if self.grd['line_losses_method'] in ['iteration', 'fixed_input']:
+            if self.grd['line_losses_method'] == 'iteration':
                 res['lij'] = self.input_hourly_lij
                 res['v_line'] = np.matmul(self.grd['out_incidence_matrix'].T, res['voltage_squared'])
             res['p_solar_flex'] = self.grd['gen'][:, 0: self.N]
@@ -107,14 +107,47 @@ class Optimiser:
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
         if self.grd['line_losses_method'] == 'iteration':
-            it = 0
-            self.input_hourly_lij =  np.zeros((self.grd['n_lines'], self.N))
+            res = self._solve_line_losses_iteration()
+            pp_simulation_required = False
+
+        elif self.grd['line_losses_method'] == 'subset_of_lines':
+            res, pp_simulation_required = self._problem()
+            res = self.res_post_processing(res)
+
+        if prm['car']['efftype'] == 1:
+            res = self._car_efficiency_iterations(prm, res)
+            res = self.res_post_processing(res)
+
+        return res, pp_simulation_required
+
+    def _solve_line_losses_iteration(self):    
+        it = 0
+        self.input_hourly_lij =  np.zeros((self.grd['n_lines'], self.N))
+        res, _ = self._problem()
+        res = self.res_post_processing(res)
+        # print pi and qi
+        opti_voltages = copy.deepcopy(res['voltage'])
+        opti_losses = copy.deepcopy(res['hourly_line_losses'])
+        for time_step in range(self.N):
+            # net0 = self.loads['netp0'][time_step]
+            netp0 = np.zeros([1, self.N])
+            grdCt = self.grd['C'][time_step]
+            res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
+                self.grd['line_losses_method'])
+        corr_voltages = copy.deepcopy(res['voltage'])
+        corr_losses = copy.deepcopy(res['hourly_line_losses'])
+        corr_lij = copy.deepcopy(res['lij'])
+        delta_losses = opti_losses - corr_losses
+        delta_voltages = opti_voltages - corr_voltages
+        print(f"max hourly delta voltages initialization: {abs(delta_voltages).max()}")
+        print(f"max hourly delta losses initialization: {abs(delta_losses).max()}")
+        while abs(delta_voltages).max() > 0.001 and it < 10:
+            it += 1
+            self.input_hourly_lij = corr_lij
             res, _ = self._problem()
             res = self.res_post_processing(res)
-            # print pi and qi
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
-            opti_lij = np.zeros((self.grd['n_lines'], self.N))
             for time_step in range(self.N):
                 # net0 = self.loads['netp0'][time_step]
                 netp0 = np.zeros([1, self.N])
@@ -126,44 +159,9 @@ class Optimiser:
             corr_lij = copy.deepcopy(res['lij'])
             delta_losses = opti_losses - corr_losses
             delta_voltages = opti_voltages - corr_voltages
-            print(f"max hourly delta voltages initialization: {abs(delta_voltages).max()}")
-            print(f"max hourly delta losses initialization: {abs(delta_losses).max()}")
-            while abs(delta_voltages).max() > 0.001 and it < 10:
-                it += 1
-                self.input_hourly_lij = corr_lij
-                res, _ = self._problem()
-                res = self.res_post_processing(res)
-                opti_voltages = copy.deepcopy(res['voltage'])
-                opti_losses = copy.deepcopy(res['hourly_line_losses'])
-                opti_lij = copy.deepcopy(res['lij'])
-                for time_step in range(self.N):
-                    # net0 = self.loads['netp0'][time_step]
-                    netp0 = np.zeros([1, self.N])
-                    grdCt = self.grd['C'][time_step]
-                    res = self.prepare_and_compare_optimiser_pandapower(res, time_step, netp0, grdCt,
-                        self.grd['line_losses_method'])
-                corr_voltages = copy.deepcopy(res['voltage'])
-                corr_losses = copy.deepcopy(res['hourly_line_losses'])
-                corr_lij = copy.deepcopy(res['lij'])
-                delta_losses = opti_losses - corr_losses
-                delta_voltages = opti_voltages - corr_voltages
-                print(f"max hourly delta voltages iteration {it}: {abs(delta_voltages).max()}")
-                print(f"max hourly delta losses iteration {it}: {abs(delta_losses).max()}")
-            pp_simulation_required = False
-
-        elif self.grd['line_losses_method'] == 'fixed_input':
-            self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
-            res, pp_simulation_required = self._problem()
-            res = self.res_post_processing(res)
-        elif self.grd['line_losses_method'] == 'subset_of_lines':
-            res, pp_simulation_required = self._problem()
-            res = self.res_post_processing(res)
-
-        if prm['car']['efftype'] == 1:
-            res = self._car_efficiency_iterations(prm, res)
-            res = self.res_post_processing(res)
-
-        return res, pp_simulation_required
+            print(f"max hourly delta voltages iteration {it}: {abs(delta_voltages).max()}")
+            print(f"max hourly delta losses iteration {it}: {abs(delta_losses).max()}")
+        return res
 
     def _car_efficiency_iterations(self, prm, res):
         init_eta = prm['car']['etach']
@@ -216,7 +214,7 @@ class Optimiser:
         line_losses_pu = p.add_variable(
             'line_losses_pu', (self.grd['n_lines'], self.N), vtype='continuous'
         )
-        if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
+        if self.grd['line_losses_method'] == 'subset_of_lines':
             # lij: square of the complex current
             lij = p.add_variable('lij', (self.grd['n_lines'], self.N), vtype='continuous')
             v_line = p.add_variable('v_line', (self.grd['n_lines'], self.N), vtype='continuous')
@@ -311,7 +309,7 @@ class Optimiser:
         p.add_list_of_constraints([voltage_squared[0, time_step] == 1.0 for time_step in range(self.N)])
 
 
-        if self.grd['line_losses_method'] not in ['iteration', 'fixed_input']:
+        if self.grd['line_losses_method'] == 'subset_of_lines':
             # active power flow
             p.add_list_of_constraints(
                 [
