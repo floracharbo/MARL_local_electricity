@@ -14,10 +14,10 @@ import pickle
 import uuid
 from pathlib import Path
 from typing import Optional, Tuple
-import yaml
 
 import numpy as np
 import torch as th
+import yaml
 from gym import spaces
 
 from src.initialisation.generate_colours import generate_colours

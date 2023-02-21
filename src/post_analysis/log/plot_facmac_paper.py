@@ -1,12 +1,11 @@
 
 from pathlib import Path
-from scipy import optimize
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
+from scipy import optimize
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
 font = {'size': 14}
