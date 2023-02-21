@@ -128,7 +128,7 @@ class Optimiser:
             delta_voltages = opti_voltages - corr_voltages
             print(f"max hourly delta voltages initialization: {abs(delta_voltages).max()}")
             print(f"max hourly delta losses initialization: {abs(delta_losses).max()}")
-            while abs(delta_voltages).max() > 0.000001 and it < 10:
+            while abs(delta_voltages).max() > 0.001 and it < 10:
                 it += 1
                 self.input_hourly_lij = corr_lij
                 res, _ = self._problem()
