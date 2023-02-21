@@ -278,8 +278,10 @@ class Network:
             q_heat_home_car_passive = []
         q_heat_home_flex = calculate_reactive_power(
             home_vars['tot_cons'], self.pf_flexible_homes)
+        q_solar_flex = calculate_reactive_power(
+            home_vars['gen'], self.pf_flexible_homes)
 
-        netq_flex = q_car_flex + q_heat_home_flex
+        netq_flex = q_car_flex + q_heat_home_flex + q_solar_flex
         netq_passive = q_heat_home_car_passive
 
         #  import/export external grid
@@ -392,7 +394,8 @@ class Network:
         q_car_flex = res['q_car_flex']
         q_heat_home_flex = calculate_reactive_power(
             res['totcons'], self.pf_flexible_homes)
-        netq_flex = q_car_flex + q_heat_home_flex
+        q_solar_flex = res['q_solar_flex']
+        netq_flex = q_car_flex + q_heat_home_flex + q_solar_flex
 
         res, _, _ = self.test_network_comparison_optimiser_pandapower(
             res, time_step,
