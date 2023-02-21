@@ -812,10 +812,10 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             if n_voltage_violations > 150:
                 ax1.set_xlim(min(first_bus_under, first_bus_over),
                              150 + min(first_bus_under, first_bus_over))
-                title = f'Over-, undervoltage and corresponding penalty for hour 24,' \
+                title = f'Over-, undervoltage and corresponding penalty for last time step,' \
                     f'first 150 buses, repeat{repeat}_{method}'
             else:
-                title = f'Over-, undervoltage and corresponding penalty for hour 24,' \
+                title = f'Over-, undervoltage and corresponding penalty for last time step,' \
                     f'repeat{repeat}_{method}'
             ax1.axhline(y=prm['grd']['max_voltage'], color='k')
             ax1.axhline(y=prm['grd']['min_voltage'], color='k')

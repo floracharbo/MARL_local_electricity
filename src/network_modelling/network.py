@@ -329,7 +329,7 @@ class Network:
         if replace_with_pp_simulation:
             with open(f"{self.folder_run}/voltage_comparison.txt", "a") as file:
                 file.write(
-                    f"The max diff of voltage between the optimiser and pandapower for hour "
+                    f"The max diff of voltage between the optimiser and pandapower for time step "
                     f"{time_step} is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
                     f"at bus {np.argmax(all_rel_diff_voltage)}. "
                     f"The absolute difference of hourly voltage costs is "
@@ -353,7 +353,7 @@ class Network:
             with open(f"{self.folder_run}/line_losses.txt", "a") as file:
                 file.write(
                     f"The difference in hourly line losses "
-                    f"between pandapower and the optimiser for hour {time_step} "
+                    f"between pandapower and the optimiser for time step {time_step} "
                     f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)} kW. "
                     f"To increase accuracy, the user could increase the subset_line_losses_modelled"
                     f" (currently: {self.subset_line_losses_modelled} lines)\n"
