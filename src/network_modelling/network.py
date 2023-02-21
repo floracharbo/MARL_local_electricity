@@ -229,7 +229,7 @@ class Network:
         start = time.time()
         """ Given selected action, obtain voltage on buses and lines using pandapower """
         # removing old loads
-        for power in ['p_mw', 'q_var']:
+        for power in ['p_mw', 'q_mvar']:
             self.net.load[power] = 0
             self.net.sgen[power] = 0
         # assign flexible homes
@@ -281,7 +281,7 @@ class Network:
         q_solar_flex = calculate_reactive_power(
             home_vars['gen'], self.pf_flexible_homes)
 
-        netq_flex = q_car_flex + q_heat_home_flex + q_solar_flex
+        netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
         netq_passive = q_heat_home_car_passive
 
         #  import/export external grid
@@ -395,7 +395,7 @@ class Network:
         q_heat_home_flex = calculate_reactive_power(
             res['totcons'], self.pf_flexible_homes)
         q_solar_flex = res['q_solar_flex']
-        netq_flex = q_car_flex + q_heat_home_flex + q_solar_flex
+        netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
 
         res, _, _ = self.test_network_comparison_optimiser_pandapower(
             res, time_step,

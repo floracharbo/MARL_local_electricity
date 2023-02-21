@@ -58,7 +58,7 @@ class Optimiser:
                 res['v_line'] = np.matmul(self.grd['out_incidence_matrix'].T, res['voltage_squared'])
             res['p_solar_flex'] = self.grd['gen'][:, 0: self.N]
             res['q_solar_flex'] = calculate_reactive_power(
-                self.grd['gen'], self.grd['pf_flexible_homes'])
+                self.grd['gen'][:, 0: self.N], self.grd['pf_flexible_homes'])
         else:
             res['voltage_squared'] = np.empty((1, self.N))
             res['voltage_costs'] = 0
