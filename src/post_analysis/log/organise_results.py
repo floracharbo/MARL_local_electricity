@@ -16,6 +16,12 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
+COLUMNS_OF_INTEREST = ['state_space']
+FILTER = {
+    # 'supervised_loss': False,
+    'facmac-beta_to_alpha': 0.1,
+    'SoC0',
+}
 
 def rename_runs(results_path):
     folders = os.listdir(results_path)
@@ -109,7 +115,7 @@ def get_list_all_fields(results_path):
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
-        'n_opti_constraints'
+        'n_opti_constraints', 'dim_states_1'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -651,6 +657,8 @@ def compare_all_runs_for_column_of_interest(
             else:
                 if column_of_interest == 'supervised_loss_weight':
                     indexes_ignore = [other_columns.index('supervised_loss')]
+                elif column_of_interest == 'state_space':
+                    indexes_ignore = [other_columns.index('grdC_n')]
                 elif current_setup[other_columns.index('type_learning')] == 'q_learning':
                     indexes_ignore = indexes_columns_ignore_q_learning
                 else:
@@ -796,14 +804,17 @@ def adapt_figure_for_state_space(state_space_vals, axs):
 
     plt.close()
 
-    all_best_vals = np.where(all_best_vals < 1e-5, None, all_best_vals)
-    all_env_vals = np.where(all_env_vals < 1e-5, None, all_env_vals)
+    i_sorted = np.argsort(all_x_labels)
+    x_labels_sorted = [all_x_labels[i] for i in i_sorted]
 
     fig, axs = plt.subplots(3, 1, figsize=(6.4, 11))
     for i, (best, env, time) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals)):
-        axs[0].plot(all_x_labels, best, label=i + 1)
-        axs[1].plot(all_x_labels, env, label=i + 1)
-        axs[2].plot(all_x_labels, time, label=i + 1)
+        best_sorted = [best[i] for i in i_sorted]
+        env_sorted = [env[i] for i in i_sorted]
+        time_sorted = [time[i] for i in i_sorted]
+        axs[0].plot(x_labels_sorted, best_sorted, label=i + 1)
+        axs[1].plot(x_labels_sorted, env_sorted, label=i + 1)
+        axs[2].plot(x_labels_sorted, time_sorted, label=i + 1)
 
     return fig, axs
 
@@ -895,10 +906,14 @@ def plot_sensitivity_analyses(new_columns, log):
     # and plot y axis best score vs x axis value (numerical or categorical)
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
-    columns_of_interest = [
-        column for column in new_columns[2:]
-        if column not in ['nn_learned', 'time_end', 'machine_id', 'timestamp']
-    ]
+    if COLUMNS_OF_INTEREST is None:
+        columns_of_interest = [
+            column for column in new_columns[2:]
+            if column not in ['nn_learned', 'time_end', 'machine_id', 'timestamp']
+        ]
+    else:
+        columns_of_interest = COLUMNS_OF_INTEREST
+
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
@@ -913,9 +928,8 @@ def plot_sensitivity_analyses(new_columns, log):
         )
 
         if plotted_something:
-            if FILTER_N_HOMES:
-                if column_of_interest == 'state_space':
-                    fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
+            if column_of_interest == 'state_space':
+                fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
 
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
@@ -949,6 +963,9 @@ def plot_sensitivity_analyses(new_columns, log):
             )
             axs[2].set_ylabel("time [s]")
             axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
+            if column_of_interest == 'state_space':
+                plt.tight_layout(rect=(0, 0.1, 1, 1))
+
             fig.savefig(f"outputs/results_analysis/{column_of_interest}_sensitivity")
             plt.close('all')
         elif column_of_interest == 'grdC_n':
@@ -977,6 +994,12 @@ def remove_duplicates(log, columns0):
 
     return log, columns0
 
+def filter_current_analysis(log):
+    for col, value in FILTER.items():
+        log = log.drop(log[log[col] != value].index)
+    log = log.reset_index()
+
+    return log
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")
@@ -1016,5 +1039,5 @@ if __name__ == "__main__":
     log.columns = new_columns + columns_results_methods
     log = compute_best_score_per_run(keys_methods, log)
     log.to_csv(log_path)
-
+    log = filter_current_analysis(log)
     plot_sensitivity_analyses(new_columns, log)
