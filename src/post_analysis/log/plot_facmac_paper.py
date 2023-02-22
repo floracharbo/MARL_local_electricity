@@ -13,13 +13,13 @@ font = {'size': 14}
 matplotlib.rc('font', **font)
 
 labels = {
-    'IQ': 'independent Q-learning',
-    'OIQ': 'optimisation-informed independent Q-learning',
-    'MQ': 'marginal reward Q-learning',
-    'OMQ': 'optimisation-informed, marginal reward Q-learning',
+    'IQ': 'Independent Q-learning',
+    'OIQ': 'Optimisation-informed independent Q-learning',
+    'MQ': 'Marginal reward Q-learning',
+    'OMQ': 'Optimisation-informed, marginal reward Q-learning',
     # 'FD': 'FACMAC (day-ahead)',
     'FH': 'FACMAC',  # (hourly)
-    'FHO': 'optimisation-informed FACMAC (hourly)'
+    'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
 type_learning = {
     'IQ': 'env_r_d',
@@ -113,7 +113,9 @@ axs[0].set_ylabel("Savings [£/home/month]")
 axs[0].axes.xaxis.set_ticklabels([])
 
 axs[1].set_yscale('log')
-axs[1].set_ylabel("time [s]")
+axs[1].set_ylabel("Time [s]")
+axs[1].set_xlabel("Number of homes")
+
 axs[0].legend(fancybox=True)
 fig.savefig(
     f"outputs/results_analysis/facmac_results.pdf",
@@ -138,7 +140,7 @@ def first_order(x, a, b):
 x_max = 50
 xs_facmac = [1, 3, 5, 10, 20, 50]
 ys_facmac = [ 26.50374389 , 38.85938716 , 49.69802213 , 73.43057513, 123.11931181, 281.53323126]
-xs_iql =  [3, 5, 10, 20, 50]
+xs_iql = [3, 5, 10, 20, 50]
 ys_iql = [302.6728189 ,  328.64307976 , 710.36226296, 1860.68218756, 8911.68623304]
 for xs, ys, label in zip(
     [xs_facmac, xs_iql],
@@ -184,5 +186,5 @@ for xs, ys, label in zip(
     plt.gca().set_yscale('log')
     plt.show()
     plt.title(label)
-    fig.savefig(f"{label}_growth")
-    plt.close()
+    fig.savefig(f"outputs/results_analysis/{label}_growth")
+    plt.close('all')
