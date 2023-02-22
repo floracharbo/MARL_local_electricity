@@ -64,6 +64,7 @@ class Battery:
 
         for info in [
             'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin',
+            'max_apparent_power_car',
         ]:
             setattr(self, info, prm['car'][info])
 
@@ -441,6 +442,11 @@ class Battery:
                 + self.loss_dis[home] + self.loads_car[home]
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
+        # calculate active and reactive power for all homes
+        self.active_reactive_power_car()
+        assert all(np.square(self.p_car_flex) + np.square(self.q_car_flex) <= self.max_apparent_power_car**2), \
+            f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
+            f" maximum apparent power of car: {self.max_apparent_power_car}"
 
     def initial_processing(self):
         """Get current available battery flexibility."""

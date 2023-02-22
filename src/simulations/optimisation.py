@@ -101,7 +101,7 @@ class Optimiser:
             f"negative flexible consumptions in the optimisation! " \
             f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
         assert np.all(abs(res['hourly_line_losses']) \
-            < 0.15 * abs(res['grid'] - res['hourly_line_losses'])), \
+                < 0.15 * abs(res['grid'] - res['hourly_line_losses'])), \
             f"Hourly line losses are larger than 15% of the total import."
 
         return res
