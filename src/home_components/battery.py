@@ -58,6 +58,8 @@ class Battery:
         self.set_passive_active(passive, prm)
 
         self.pf_flexible_homes = prm['grd']['pf_flexible_homes']
+        self.reactive_power_for_voltage_control = \
+            prm['grd']['reactive_power_for_voltage_control']
 
         for info in ['M', 'N', 'dt']:
             setattr(self, info, prm['syst'][info])
@@ -443,12 +445,13 @@ class Battery:
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
         # calculate active and reactive power for all homes
-        self.active_reactive_power_car()
+        if not self.reactive_power_for_voltage_control:
+            self.active_reactive_power_car()
         apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
         assert all(apparent_power_car <= self.max_apparent_power_car**2), \
             f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
-            f" maximum apparent power of car: {self.max_apparent_power_car} < " \
-            f"{apparent_power_car}"
+            f" maximum apparent power of the car: {self.max_apparent_power_car**2} < " \
+            f"{apparent_power_car.max()}"
 
     def initial_processing(self):
         """Get current available battery flexibility."""
