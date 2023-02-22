@@ -705,7 +705,6 @@ class Battery:
         return feasible
 
     def active_reactive_power_car(self):
-        self.p_car_flex = np.array(self.loss_ch) + np.array(self.charge) \
-            - np.array(self.discharge)
+        self.p_car_flex = np.array(self.charge) - np.array(self.discharge)
         self.q_car_flex = calculate_reactive_power(
             self.p_car_flex, self.pf_flexible_homes)
