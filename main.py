@@ -37,4 +37,3 @@ RUN_MODE = 1
 no_runs = [823]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
-
