@@ -105,7 +105,7 @@ class Optimiser:
             f"negative flexible consumptions in the optimisation! " \
             f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
         assert np.all(abs(res['hourly_line_losses']) \
-            < 0.15 * abs(res['grid'] - res['hourly_line_losses'])), \
+                < 0.15 * abs(res['grid'] - res['hourly_line_losses'])), \
             f"Hourly line losses are larger than 15% of the total import."
         return res
 
@@ -310,7 +310,6 @@ class Optimiser:
                     for time_step in range(self.N)]
             )
 
-
         p.add_list_of_constraints(
             [
                 pij[0, time_step] == grid[time_step] * self.kW_to_per_unit_conversion
@@ -331,6 +330,14 @@ class Optimiser:
         ])
 
         if self.grd['line_losses_method'] == 'subset_of_lines':
+            # external grid between bus 1 and 2
+            p.add_list_of_constraints(
+                [q_ext_grid[time_step]
+                    == pic.sum(netq_flex[:, time_step])
+                    + pic.sum(np.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
+                    * self.per_unit_to_kW_conversion
+                    # + pic.sum(netq_passive[:, time_step])
+                    for time_step in range(self.N)])
             # active power flow
             p.add_list_of_constraints(
                 [
@@ -410,6 +417,15 @@ class Optimiser:
                 ]
             )
         else:
+            # external grid between bus 1 and 2
+            p.add_list_of_constraints(
+                [q_ext_grid[time_step]
+                    == pic.sum(netq_flex[:, time_step])
+                    + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
+                    * self.per_unit_to_kW_conversion
+                    # + pic.sum(netq_passive[:, time_step])
+                    for time_step in range(self.N)])
+
             # active power flow
             p.add_list_of_constraints(
                 [
