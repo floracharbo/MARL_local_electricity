@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import set_seeds_rdn
+from src.utilities.userdeftools import calculate_reactive_power, set_seeds_rdn
 
 
 class DataManager:
@@ -42,7 +42,10 @@ class DataManager:
         compute_import_export_costs = self.env.network.compute_import_export_costs \
             if self.prm['grd']['manage_agg_power'] or self.prm['grd']['manage_voltage'] \
             else None
-        self.optimiser = Optimiser(prm, compute_import_export_costs)
+        prepare_and_compare_optimiser_pandapower = self.env.network.prepare_and_compare_optimiser_pandapower \
+        if self.prm['grd']['manage_voltage'] and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']\
+            else None
+        self.optimiser = Optimiser(prm, compute_import_export_costs, prepare_and_compare_optimiser_pandapower)
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
@@ -52,6 +55,9 @@ class DataManager:
         self.rl = prm['RL']
         self.force_optimisation = prm['syst']['force_optimisation']
         self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
+        self.N = prm["syst"]['N']
+        self.n_homesP = prm['syst']['n_homesP']
+        self.line_losses_method = prm['grd']['line_losses_method']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
@@ -117,7 +123,7 @@ class DataManager:
         # optimisation of power flow
         if grd['manage_voltage']:
             grd['flex_buses'] = self.env.network.flex_buses
-            grd['non_flex_buses'] = self.env.network.non_flex_buses
+            grd['passive_buses'] = self.env.network.passive_buses
             grd['incidence_matrix'] = self.env.network.incidence_matrix
             grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
             grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
@@ -129,6 +135,8 @@ class DataManager:
             grd['n_buses'] = len(self.env.network.net.bus)
             grd['n_lines'] = len(self.env.network.net.line)
             grd['net'] = self.env.network.net
+            grd['line_losses_method'] = self.prm['grd']['line_losses_method']
+            grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
 
     def _passive_find_feasible_data(self):
         passive = True
@@ -512,6 +520,24 @@ class DataManager:
         feasible = self.env.car.check_feasible_bat(self.prm, passive_ext)
 
         heat['T_out'] = self.env.heat.T_out
+
+        # reactive power for passive homes
+        self.prm['loads']['active_power_passive_homes'] = []
+        self.prm['loads']['reactive_power_passive_homes'] = []
+        if self.n_homesP > 0:
+            self.prm['loads']['q_heat_home_car_passive'] = \
+                calculate_reactive_power(
+                    loads['netp0'], self.prm['grd']['pf_passive_homes'])
+            for t in range(self.N):
+                self.prm['loads']['active_power_passive_homes'].append(
+                    np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
+                self.prm['loads']['reactive_power_passive_homes'].append(
+                    np.matmul(self.env.network.passive_buses,
+                              self.prm['loads']['q_heat_home_car_passive'][:, t]))
+        else:
+            self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 0])
+            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 0])
+            self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
 
         return feasible
 

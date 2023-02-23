@@ -296,10 +296,10 @@ class LocalElecEnv:
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok \
-            = self.policy_to_rewardvar(
-                action, E_req_only=E_req_only
-            )
+        home_vars, loads, hourly_line_losses, voltage_squared, \
+            q_ext_grid, constraint_ok = self.policy_to_rewardvar(
+                action, E_req_only=E_req_only)
+        netp0 = self.prm['loads']['netp0'][:, h]
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
@@ -345,6 +345,7 @@ class LocalElecEnv:
 
                 record_output = [
                     home_vars['netp'],
+                    netp0,
                     self.car.discharge,
                     self.car.store,
                     home_vars['tot_cons'].copy(),
@@ -360,7 +361,8 @@ class LocalElecEnv:
                     self.wholesale[self.time_step].copy(),
                     self.cintensity[self.time_step].copy(),
                     break_down_rewards,
-                    loaded_buses, sgen_buses
+                    loaded_buses, sgen_buses,
+                    q_ext_grid
                 ]
 
                 return [next_state, self.done, reward, break_down_rewards,
@@ -413,8 +415,8 @@ class LocalElecEnv:
 
         # negative netp is selling, positive buying, losses in kWh
         grid = sum(netp) + sum(netp0) + hourly_line_losses
-        # import and export limits
 
+        # import and export limits
         if self.prm['grd']['manage_agg_power']:
             import_export_costs, _, _ = self.network.compute_import_export_costs(grid)
         else:
@@ -434,6 +436,8 @@ class LocalElecEnv:
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
             distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
+        if not self.prm['grd']['penalise_individual_exports']:
+            distribution_network_export_costs = 0
         grid_energy_costs = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
         cost_distribution_network_losses = grdCt * hourly_line_losses
         indiv_grid_energy_costs = [wholesalet * netp[home] for home in self.homes]
@@ -546,18 +550,31 @@ class LocalElecEnv:
             bool_penalty, date, loads, E_req_only, h, last_step, home_vars
         )
 
+        if self.prm['syst']['n_homesP'] > 0:
+            netp0 = self.prm['loads']['netp0'][:, h]
+        else:
+            netp0 = []
         if self.prm['grd']['manage_voltage']:
-            hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
-            voltage_squared = np.square(voltage)
-
+            # retrieve info from battery
+            self.car.active_reactive_power_car()
+            # q_car_flex will be a decision variable
+            # p_car_flex is needed to set apparent power limits
+            p_car_flex = self.car.p_car_flex
+            q_car_flex = self.car.q_car_flex
+            # run pandapower simulation
+            voltage_squared, hourly_line_losses, q_ext_grid = \
+                self.network._power_flow_res_with_pandapower(
+                    home_vars, netp0, q_car_flex)
         else:
             voltage_squared = None
             hourly_line_losses = 0
+            q_ext_grid = 0
 
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
-        return home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok
+        return (home_vars, loads, hourly_line_losses, voltage_squared,
+                q_ext_grid, constraint_ok)
 
     def get_state_vals(
             self,

@@ -18,8 +18,8 @@ from src.post_analysis.plotting.plot_break_down_savings import (
     barplot_indiv_savings, distribution_savings, heatmap_savings_per_method)
 from src.post_analysis.plotting.plot_episode_results import (
     map_over_undervoltage, plot_env_input, plot_imp_exp_check,
-    plot_imp_exp_violations, plot_res, plot_voltage_violations,
-    voltage_penalty_per_bus)
+    plot_imp_exp_violations, plot_reactive_power, plot_res,
+    plot_voltage_violations, voltage_penalty_per_bus)
 from src.post_analysis.plotting.plot_moving_average_rewards import (
     plot_mova_eval_per_repeat, plot_results_all_repeats)
 from src.post_analysis.plotting.plot_q_learning_explorations_values import (
@@ -174,6 +174,7 @@ def plotting(record, spaces, prm, f):
         barplot_breakdown_savings(record, prm, plot_type='costs')
         barplot_grid_energy_costs(record, prm, plot_type='costs')
         voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run)
+        plot_reactive_power(prm, all_methods_to_plot, folder_run)
     barplot_breakdown_savings(record, prm, plot_type='costs')
 
     # 22 - check that some learning has occurred

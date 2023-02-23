@@ -10,6 +10,8 @@ import datetime
 
 import numpy as np
 
+from src.utilities.userdeftools import calculate_reactive_power
+
 
 class Battery:
     """
@@ -55,11 +57,16 @@ class Battery:
         # very large number for enforcing constraints
         self.set_passive_active(passive, prm)
 
+        self.pf_flexible_homes = prm['grd']['pf_flexible_homes']
+        self.reactive_power_for_voltage_control = \
+            prm['grd']['reactive_power_for_voltage_control']
+
         for info in ['M', 'N', 'dt']:
             setattr(self, info, prm['syst'][info])
 
         for info in [
             'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin',
+            'max_apparent_power_car',
         ]:
             setattr(self, info, prm['car'][info])
 
@@ -437,6 +444,14 @@ class Battery:
                 + self.loss_dis[home] + self.loads_car[home]
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
+        # calculate active and reactive power for all homes
+        if not self.reactive_power_for_voltage_control:
+            self.active_reactive_power_car()
+        apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
+        assert all(apparent_power_car <= self.max_apparent_power_car**2), \
+            f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
+            f" maximum apparent power of the car: {self.max_apparent_power_car**2} < " \
+            f"{apparent_power_car.max()}"
 
     def initial_processing(self):
         """Get current available battery flexibility."""
@@ -688,3 +703,8 @@ class Battery:
             time_step += 1
 
         return feasible
+
+    def active_reactive_power_car(self):
+        self.p_car_flex = np.array(self.charge) - np.array(self.discharge)
+        self.q_car_flex = calculate_reactive_power(
+            self.p_car_flex, self.pf_flexible_homes)

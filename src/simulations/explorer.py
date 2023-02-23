@@ -822,10 +822,11 @@ class Explorer:
             feasible = not any(error)
 
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
-                res, hourly_line_losses_pp, hourly_voltage_costs_pp \
-                    = self.env.network.test_network_comparison_optimiser_pandapower(
-                        res, time_step, self.prm['grd']['C'][time_step]
-                    )
+                netp0, _, _ = self.env.get_passive_vars(time_step)
+                grdCt = self.prm['grd']['C'][time_step]
+                line_losses_method = 'comparison'
+                res = self.env.network.prepare_and_compare_optimiser_pandapower(
+                    res, time_step, netp0, grdCt, line_losses_method)
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
@@ -840,8 +841,7 @@ class Explorer:
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
             self._tests_individual_step_rl_matches_res(
-                res, time_step, batch, step_vals_i["reward"], break_down_rewards, batchflex_opt
-            )
+                res, time_step, batch, step_vals_i["reward"], break_down_rewards, batchflex_opt)
 
             # substract baseline rewards to reward -
             # for training, not evaluating
@@ -920,7 +920,7 @@ class Explorer:
 
         record_output = []
         for entry in [
-            'netp', 'discharge_other', 'store', 'totcons', 'E_heat',
+            'netp', 'netp0', 'discharge_other', 'store', 'totcons', 'E_heat',
             'T', 'T_air', 'voltage_squared'
         ]:
             record_output.append(res[entry][:, time_step])
@@ -930,7 +930,8 @@ class Explorer:
             ldflex, ldfixed, tot_cons_loads,
             self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
             break_down_rewards,
-            loaded_buses, sgen_buses
+            loaded_buses, sgen_buses,
+            res['q_ext_grid'][time_step]
         ]
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
@@ -1014,7 +1015,8 @@ class Explorer:
         for comb_actions in combs_actions:
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
-            home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
+            home_vars, loads, hourly_line_losses, voltage_squared, \
+                _, constraint_ok = \
                 env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self.env.get_passive_vars(time_step)

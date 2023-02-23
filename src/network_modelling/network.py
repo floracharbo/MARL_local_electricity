@@ -6,11 +6,14 @@ Created on Mon Nov 28 2022.
 @author: julie-vienne
 """
 
+import random
 import time
 
 import numpy as np
 import pandapower as pp
 import pandapower.networks
+
+from src.utilities.userdeftools import calculate_reactive_power
 
 
 class Network:
@@ -39,23 +42,35 @@ class Network:
         prm:
             input parameters
         """
-        for info in ['n_homes', 'M', 'N']:
+        for info in ['n_homes', 'M', 'N', 'n_homesP']:
             setattr(self, info, prm['syst'][info])
+        self.homes = range(self.n_homes)
+        self.homesP = range(self.n_homesP)
+
+        # upper and lower voltage limits
         for info in [
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
             'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
-            'penalty_export', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs',
+            'penalty_export', 'reactive_power_for_voltage_control',
+            'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff',
+            'tol_rel_voltage_costs', 'tol_abs_line_losses',
         ]:
             setattr(self, info, prm['grd'][info])
 
         if prm['grd']['manage_voltage']:
             self.network_data_path = prm['paths']['network_data']
+            self.folder_run = prm['paths']['folder_run']
 
             # ieee network and corresponding incidence matrix
             self.net = pandapower.networks.ieee_european_lv_asymmetric('on_peak_566')
-            self.n_non_flex_homes = len(self.net.asymmetric_load) - self.n_homes
+            self.n_passive_homes = self.n_homesP
+
+            # replacing asymmetric loads with single-phase
+            self.existing_homes_network = list(self.net.asymmetric_load['bus'])
+            random.shuffle(self.existing_homes_network)
             self.loads_single_phase()
+
             self.in_incidence_matrix = np.where(
                 self.incidence_matrix == -1, self.incidence_matrix, 0
             )
@@ -87,15 +102,18 @@ class Network:
         """ Creates a matrix indicating at which bus there is a flexible agents """
         flex_buses = np.zeros((len(self.net.bus), self.n_homes))
         for i in range(self.n_homes):
-            flex_buses[self.net.asymmetric_load['bus'][i], i] = 1
+            flex_buses[self.existing_homes_network[i], i] = 1
         return flex_buses
 
-    def _matrix_non_flexible_buses(self):
+    def _matrix_passive_buses(self):
         """ Creates a matrix indicating at which bus there is a non-flexible home """
-        non_flex_buses = np.zeros((len(self.net.bus), self.n_non_flex_homes))
-        for i in range(self.n_non_flex_homes):
-            non_flex_buses[self.net.asymmetric_load['bus'][i + self.n_homes], i] = 1
-        return non_flex_buses
+        if self.n_passive_homes > 0:
+            passive_buses = np.zeros((len(self.net.bus), self.n_passive_homes))
+            for i in range(self.n_passive_homes):
+                passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
+        else:
+            passive_buses = np.zeros((len(self.net.bus), 1))
+        return passive_buses
 
     def network_line_data(self):
         """ Returns line resistance and reactance arrays from pandapower network """
@@ -129,17 +147,23 @@ class Network:
         self.bus_connection_matrix = self._network_bus_connection()
         # Generate matice of (non) flexible buses/loads
         self.flex_buses = self._matrix_flexible_buses()
-        self.non_flex_buses = self._matrix_non_flexible_buses()
+        self.passive_buses = self._matrix_passive_buses()
 
         if len(self.net.asymmetric_load) > 0:
-            # Add single phase loads and sgen to originally loaded buses
-            houses = self.net.asymmetric_load
-            for i in range(len(houses)):
-                pp.create_load(self.net, houses['bus'][i], p_mw=0, q_mvar=0, name=f"load{i+1}")
-                pp.create_sgen(self.net, houses['bus'][i], p_mw=0, q_mvar=0, name=f"sgen{i+1}")
             # Remove asymmetric loads on the three phases
-            for i in range(len(self.net.asymmetric_load)):
-                self.net.asymmetric_load['in_service'] = False
+            self.net.asymmetric_load['in_service'] = False
+            # Add single phase loads and generations instead
+            for home in self.homes:
+                pp.create_load(self.net, bus=self.existing_homes_network[home],
+                               p_mw=0, q_mvar=0, name=f'flex{home}')
+                pp.create_sgen(self.net, bus=self.existing_homes_network[home],
+                               p_mw=0, q_mvar=0, name=f'flex{home}')
+            if self.n_homesP > 0:
+                for homeP in self.homesP:
+                    pp.create_load(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                                   p_mw=0, q_mvar=0, name=f'passive{homeP}')
+                    pp.create_sgen(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                                   p_mw=0, q_mvar=0, name=f'passive{homeP}')
 
             # Remove bus duplicates
             # buscoords = pd.read_csv(self.network_data_path / 'Buscoords.csv', skiprows=1)
@@ -154,7 +178,7 @@ class Network:
         self.bus_connection_matrix = np.delete(self.bus_connection_matrix, (0), axis=0)
         self.bus_connection_matrix = np.delete(self.bus_connection_matrix, (0), axis=1)
         self.flex_buses = np.delete(self.flex_buses, (0), axis=0)
-        self.non_flex_buses = np.delete(self.non_flex_buses, (0), axis=0)
+        self.passive_buses = np.delete(self.passive_buses, (0), axis=0)
 
     def _identify_duplicates_buses_lines(self, buscoords):
         bus_duplicates = buscoords.duplicated(
@@ -196,34 +220,89 @@ class Network:
         self.net.line.drop(duplicated_lines, inplace=True)
         self.net.bus.drop(duplicated_buses, inplace=True)
 
-    def pf_simulation(self, netp: list):
+    def pf_simulation(
+            self,
+            netp: list,
+            netp0: list = None,
+            netq_flex: list = None,
+            netq_passive: list = None):
         start = time.time()
         """ Given selected action, obtain voltage on buses and lines using pandapower """
-        self.net.load.p_mw = 0
-        self.net.sgen.p_mw = 0
-        for home in self.homes:
-            # Pandapower uses MW while the simulations uses kW
-            # Add a load if netp < 0 or a generation if netp > 0
-            if netp[home] >= 0:
-                self.net.load['p_mw'].iloc[home] = netp[home] / 1000
-            else:
-                self.net.sgen['p_mw'].iloc[home] = abs(netp[home]) / 1000
-
+        # removing old loads
+        for power in ['p_mw', 'q_mvar']:
+            self.net.load[power] = 0
+            self.net.sgen[power] = 0
+        # assign flexible homes
+        if self.n_homes > 0:
+            for home in self.homes:
+                self._assign_power_to_load_or_sgen(
+                    netp[home], home, type='p_mw')
+                self._assign_power_to_load_or_sgen(
+                    netq_flex[home], home, type='q_mvar')
+        # assign passive homes
+        if self.n_homesP > 0:
+            for homeP in self.homesP:
+                self._assign_power_to_load_or_sgen(
+                    netp0[homeP], self.n_homes + homeP, type='p_mw')
+                self._assign_power_to_load_or_sgen(
+                    netq_passive[homeP], self.n_homes + homeP, type='q_mvar')
         pp.runpp(self.net)
-        self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw > 0])
+        self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw >= 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
         voltage = np.array(self.net.res_bus['vm_pu'])
+        pij = self.net.res_line.p_from_mw * 1e3
+        qij = self.net.res_line.q_from_mvar * 1e3
         end = time.time()
         duration_pp = end - start
         self.timer_pp.append(duration_pp)
 
-        return hourly_line_losses, voltage
+        return hourly_line_losses, voltage, pij, qij
 
-    def _check_voltage_differences(self, res, time_step):
+    def _assign_power_to_load_or_sgen(self, power, house_index, type):
+        # pandapower uses MW while the simulations uses kW
+        # add a load if power < 0 or a generation if power > 0
+        if power >= 0:
+            self.net.load[type].iloc[house_index] = power / 1000
+        else:
+            self.net.sgen[type].iloc[house_index] = abs(power) / 1000
+
+    def _power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex):
+        """Using active power, calculates reactive power and solves power flow
+        with pandapower """
+
+        if self.n_homesP > 0:
+            q_heat_home_car_passive = calculate_reactive_power(
+                netp0, self.pf_passive_homes)
+        else:
+            q_heat_home_car_passive = []
+        q_heat_home_flex = calculate_reactive_power(
+            home_vars['tot_cons'], self.pf_flexible_homes)
+        q_solar_flex = calculate_reactive_power(
+            home_vars['gen'], self.pf_flexible_homes)
+
+        netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
+        netq_passive = q_heat_home_car_passive
+
+        #  import/export external grid
+        q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
+            + sum(q_heat_home_flex)
+
+        hourly_line_losses, voltage, _, _ = self.pf_simulation(
+            home_vars['netp'], netp0,
+            netq_flex, netq_passive)
+        voltage_squared = np.square(voltage)
+
+        return voltage_squared, hourly_line_losses, q_ext_grid
+
+    def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_passive):
         replace_with_pp_simulation = False
         # Results from pandapower
-        hourly_line_losses_pp, voltage_pp = self.pf_simulation(res["netp"][:, time_step])
+        hourly_line_losses_pp, voltage_pp, pij_pp_kW, qij_pp_kW = self.pf_simulation(
+            res["netp"][:, time_step],
+            netp0[:, time_step],
+            netq_flex[:, time_step],
+            netq_passive[:, time_step])
 
         # Voltage test
         all_abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
@@ -247,28 +326,55 @@ class Network:
                 self.max_voltage_rel_error = abs_rel_voltage_error
             replace_with_pp_simulation = True
 
+        if replace_with_pp_simulation:
+            with open(f"{self.folder_run}/voltage_comparison.txt", "a") as file:
+                file.write(
+                    f"The max diff of voltage between the optimiser and pandapower for time step "
+                    f"{time_step} is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
+                    f"at bus {np.argmax(all_rel_diff_voltage)}. "
+                    f"The absolute difference of hourly voltage costs is "
+                    f"{abs_rel_voltage_error * 100}% of the daily optimisation costs. "
+                    f"The network will be simulated with pandapower to correct the voltages"
+                )
+
         return [
-            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp
+            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp,
+            voltage_pp, pij_pp_kW, qij_pp_kW
         ]
 
     def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
         # Line losses test
         abs_loss_error = abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)
-        if abs_loss_error > 1e-2:
+        if abs_loss_error > self.tol_abs_line_losses:
             self.n_losses_error += 1
             if abs_loss_error > self.max_losses_error:
                 self.max_losses_error = abs_loss_error
+            replace_with_pp_simulation = True
+            with open(f"{self.folder_run}/line_losses.txt", "a") as file:
+                file.write(
+                    f"The difference in hourly line losses "
+                    f"between pandapower and the optimiser for time step {time_step} "
+                    f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)} kW. "
+                    f"To increase accuracy, the user could increase the subset_line_losses_modelled"
+                    f" (currently: {self.subset_line_losses_modelled} lines)\n"
+                )
+        else:
+            replace_with_pp_simulation = False
+        return replace_with_pp_simulation
 
-    def test_network_comparison_optimiser_pandapower(self, res, time_step, grdCt):
+    def test_network_comparison_optimiser_pandapower(
+            self, res, time_step, grdCt, netp0, netq_flex, netq_passive, line_losses_method):
         """Compares hourly results from network modelling in optimizer and pandapower"""
         start = time.time()
-        # Results from optimization
-        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp \
-            = self._check_voltage_differences(res, time_step)
-        self._check_losses_differences(res, hourly_line_losses_pp, time_step)
-        if replace_with_pp_simulation:
+        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
+            pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
+                res, time_step, netp0, netq_flex, netq_passive)
+        replace_with_pp_simulation = self._check_losses_differences(
+            res, hourly_line_losses_pp, time_step)
+        if replace_with_pp_simulation or line_losses_method == 'iteration':
             res = self._replace_res_values_with_pp_simulation(
-                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
+                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
+                voltage_pp, pij_pp_kW, qij_pp_kW
             )
         end = time.time()
         duration_comparison = end - start
@@ -276,17 +382,46 @@ class Network:
 
         return res, hourly_line_losses_pp, hourly_voltage_costs_pp
 
+    def prepare_and_compare_optimiser_pandapower(
+            self, res, time_step, netp0, grdCt, line_losses_method):
+        """Prepares the reactive power injected and compares optimization with pandapower"""
+        if self.n_homesP > 0:
+            netq_passive = calculate_reactive_power(
+                netp0, self.grd['pf_passive_homes']
+            )
+        else:
+            netq_passive = np.zeros([1, self.N])
+            netp0 = np.zeros([1, self.N])
+
+        # q_car_flex will be a decision variable
+        q_car_flex = res['q_car_flex']
+        q_heat_home_flex = calculate_reactive_power(
+            res['totcons'], self.pf_flexible_homes)
+        q_solar_flex = res['q_solar_flex']
+        netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
+
+        res, _, _ = self.test_network_comparison_optimiser_pandapower(
+            res, time_step,
+            grdCt,
+            netp0,
+            netq_flex,
+            netq_passive,
+            line_losses_method
+        )
+
+        return res
+
     def _replace_res_values_with_pp_simulation(
-            self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp
+            self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp,
+            pij_pp_kW, qij_pp_kW
     ):
         # corrected hourly_line_losses and grid values
         self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
+        delta_hourly_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
 
-        grid_pp = \
-            res["grid"][time_step] \
-            - res["hourly_line_losses"][time_step] \
-            + hourly_line_losses_pp
+        grid_pp = res["grid"][time_step] + delta_hourly_line_losses
+
         hourly_grid_energy_costs_pp = grdCt * (
             grid_pp + self.loss * grid_pp ** 2
         )
@@ -305,7 +440,15 @@ class Network:
         res["grid2"][time_step] = grid_pp ** 2
         res['voltage'][:, time_step] = voltage_pp[1:]
         res['voltage_squared'][:, time_step] = np.square(voltage_pp[1:])
-        res["hourly_line_losses"][time_step] = hourly_line_losses_pp
+        res["hourly_line_losses"][time_step] += delta_hourly_line_losses
+        res["v_line"][:, time_step] = np.matmul(
+            self.out_incidence_matrix.T,
+            res["voltage_squared"][:, time_step])
+        res["pij"][:, time_step] = pij_pp_kW * 1000 / self.base_power
+        res["qij"][:, time_step] = qij_pp_kW * 1000 / self.base_power
+        res["lij"][:, time_step] = np.divide(
+            (np.square(res["pij"][:, time_step]) + np.square(res["qij"][:, time_step])),
+            res["v_line"][:, time_step])
 
         # update individual cost components
         res['hourly_import_export_costs'][time_step] = import_export_costs_pp

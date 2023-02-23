@@ -6,6 +6,7 @@ Created on Tue Jan  7 16:56:31 2020.
 @author: floracharbonnier
 """
 
+import math
 import os
 import random
 from pathlib import Path
@@ -255,3 +256,10 @@ def should_optimise_for_supervised_loss(epoch, rl):
         rl['supervised_loss']
         and epoch < rl['n_epochs_supervised_loss']
     )
+
+
+def calculate_reactive_power(active_power, power_factor):
+    """Calculate the reactive power based on the active power and
+    the power factor"""
+    reactive_power = active_power * math.tan(math.acos(power_factor))
+    return reactive_power
