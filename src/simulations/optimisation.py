@@ -15,6 +15,7 @@ import numpy as np
 import picos as pic
 
 from src.utilities.userdeftools import calculate_reactive_power, comb
+from src.simulations.optimisation_post_processing import add_val_to_res, add_home_time_step_pairs_to_list, efficiencies
 
 
 class Optimiser:
@@ -97,13 +98,15 @@ class Optimiser:
         for key, val in res.items():
             if key[0: len('hourly')] == 'hourly':
                 assert len(val) == self.N, f"np.shape(res[{key}]) = {np.shape(val)}"
+
+        assert np.all(res['totcons'] > - 1e-3), f"min(res['totcons']) = {min(res['totcons'])}"
+
         assert np.all(res['consa(1)'] > - self.tol_cons_constraints), \
             f"negative flexible consumptions in the optimisation! " \
             f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
         assert np.all(abs(res['hourly_line_losses']) \
             < 0.15 * abs(res['grid'] - res['hourly_line_losses'])), \
             f"Hourly line losses are larger than 15% of the total import."
-
         return res
 
     def solve(self, prm):
@@ -168,7 +171,7 @@ class Optimiser:
 
     def _car_efficiency_iterations(self, prm, res):
         init_eta = prm['car']['etach']
-        prm['car']['etach'] = self._efficiencies(
+        prm['car']['etach'] = efficiencies(
             res, prm, prm['car']['cap'])
         deltamax, its = 0.5, 0
         prm['car']['eff'] = 2
@@ -187,7 +190,7 @@ class Optimiser:
                 print(f"tot load cons "
                       f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
                       f"not equal to loads {np.sum(prm['loads'])}")
-            prm['car']['etach'] = self._efficiencies(
+            prm['car']['etach'] = efficiencies(
                 res, prm, prm['car']['cap'])
             deltamax = np.amax(abs(prm['car']['etach'] - eta_old))
         prm['car']['etach'] = init_eta
@@ -289,13 +292,24 @@ class Optimiser:
                 for time_step in range(self.N)])
 
         # external grid between bus 1 and 2
-        p.add_list_of_constraints(
-            [q_ext_grid[time_step]
-                == pic.sum(netq_flex[:, time_step])
-                + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
-                * self.per_unit_to_kW_conversion
-                # + pic.sum(netq_passive[:, time_step])
-                for time_step in range(self.N)])
+        if self.grd['line_losses_method'] == 'iteration':
+            p.add_list_of_constraints(
+                [q_ext_grid[time_step]
+                    == pic.sum(netq_flex[:, time_step])
+                    + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
+                    * self.per_unit_to_kW_conversion
+                    # + pic.sum(netq_passive[:, time_step])
+                    for time_step in range(self.N)])
+        else:
+            p.add_list_of_constraints(
+                [q_ext_grid[time_step]
+                    == pic.sum(netq_flex[:, time_step])
+                    + pic.sum(np.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
+                    * self.per_unit_to_kW_conversion
+                    # + pic.sum(netq_passive[:, time_step])
+                    for time_step in range(self.N)]
+            )
+
 
         p.add_list_of_constraints(
             [
@@ -681,14 +695,17 @@ class Optimiser:
         for tl in tlpairs:
             constl[tl] = p.add_variable('constl{0}'.format(tl), (self.n_homes, self.N))
 
-        constl_constraints = []
+        constl_consa_constraints = []
+        constl_loads_constraints = []
         for load_type in range(self.loads['n_types']):
-            constl_constraints_lt = []
+            constl_consa_constraints_lt = []
+            constl_loads_constraints_lt = []
             for home in range(self.n_homes):
-                constl_constraints_lt_home = []
+                constl_consa_constraints_lt_home = []
+                constl_loads_constraints_lt_home = []
                 for time_step in range(self.N):
                     # time_step = tD
-                    p.add_constraint(
+                    constl_loads_constraints_lt_home_t = p.add_constraint(
                         pic.sum(
                             [constl[time_step, load_type][home, tC]
                              * self.grd['flex'][time_step, load_type, home, tC]
@@ -696,15 +713,21 @@ class Optimiser:
                         )
                         == self.grd['loads'][load_type, home, time_step])
                     # time_step = tC
-                    constl_constraints_lt_home_t = p.add_constraint(
+                    constl_consa_constraints_lt_home_t = p.add_constraint(
                         pic.sum(
                             [constl[tD, load_type][home, time_step] for tD in range(self.N)]
                         ) == consa[load_type][home, time_step]
                     )
-                    constl_constraints_lt_home.append(constl_constraints_lt_home_t)
-                constl_constraints_lt.append(constl_constraints_lt_home)
-            constl_constraints.append(constl_constraints_lt)
-        p.add_constraint(
+                    constl_consa_constraints_lt_home.append(constl_consa_constraints_lt_home_t)
+                    constl_loads_constraints_lt_home.append(constl_loads_constraints_lt_home_t)
+
+                constl_consa_constraints_lt.append(constl_consa_constraints_lt_home)
+                constl_loads_constraints_lt.append(constl_loads_constraints_lt_home)
+
+            constl_consa_constraints.append(constl_consa_constraints_lt)
+            constl_loads_constraints.append(constl_loads_constraints_lt)
+
+        consa_constraint = p.add_constraint(
             pic.sum(
                 [consa[load_type]
                  for load_type in range(self.loads['n_types'])]
@@ -715,7 +738,7 @@ class Optimiser:
         p.add_list_of_constraints([constl[tl] >= 0 for tl in tlpairs])
         p.add_constraint(totcons >= 0)
 
-        return p, totcons, constl_constraints
+        return p, totcons, constl_consa_constraints, constl_loads_constraints, consa_constraint
 
     def _temperature_constraints(self, p):
         """Add temperature constraints to the problem."""
@@ -848,7 +871,7 @@ class Optimiser:
 
         p, charge, discharge_other, battery_degradation_costs = self._storage_constraints(p)
         p, E_heat = self._temperature_constraints(p)
-        p, totcons, constl_constraints = self._cons_constraints(p, E_heat)
+        p, totcons, constl_consa_constraints, constl_loads_constraints, consa_constraint = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(
             p, charge, discharge_other, totcons)
         # prosumer energy balance, active power
@@ -873,7 +896,7 @@ class Optimiser:
 
         if self.grd['manage_voltage']:
             res, pp_simulation_required = self._check_and_correct_cons_constraints(
-                res, constl_constraints
+                res, constl_consa_constraints, constl_loads_constraints, consa_constraint
             )
         else:
             pp_simulation_required = False
@@ -883,35 +906,201 @@ class Optimiser:
 
         return res, pp_simulation_required
 
-    def _check_and_correct_cons_constraints(
-            self, res, constl_constraints
-    ):
-        slacks_constl = np.array([
+    def _check_loads_are_met(self, constl_loads_constraints):
+        homes_to_update, time_steps_to_update = [np.array([], dtype=np.int) for _ in range(2)]
+
+        slacks_constl_loads = np.array([
             [
                 [
-                    constl_constraints[load_type][home][time_step].slack
+                    constl_loads_constraints[load_type][home][time_step].slack
                     for time_step in range(self.N)
                 ]
                 for home in range(self.n_homes)
             ]
             for load_type in range(self.loads['n_types'])
         ])
-        load_types_slack, homes_slack, time_steps_slack = np.where(
-            slacks_constl < - self.tol_cons_constraints
+        load_types_slack_loads, homes_slack_loads, time_steps_slack_loads = np.where(
+            slacks_constl_loads < - self.tol_cons_constraints
         )
+        if len(load_types_slack_loads) > 0:
+            print(f"(1) loads are not met for homes_slack_loads {homes_slack_loads} need to write code to update")
+            pp_simulation_required = True
+            homes_to_update = np.append(homes_to_update, homes_slack_loads)
+            time_steps_to_update = np.append(time_steps_to_update, time_steps_slack_loads)
 
-        pp_simulation_required = len(time_steps_slack) > 0
-        res['max_cons_slack'] = abs(np.min(slacks_constl))
+        else:
+            pp_simulation_required = False
+
+        return pp_simulation_required, homes_to_update, time_steps_to_update
+
+    def _check_constl_to_consa(
+            self, constl_consa_constraints, res, pp_simulation_required,
+            homes_to_update, time_steps_to_update
+    ):
+        if pp_simulation_required:
+            print(
+                "as we have already had to make changes in constl, we are not checking the slack of the "
+                "original optimisation changes, but rather checking whether the equalities with updated "
+                "variables hold for the translation of constl to consa"
+            )
+            load_types_slack, homes_slack, time_steps_slack = [np.array([], dtype=np.int) for _ in range(3)]
+            max_violation = 0
+            for load_type in range(self.loads['n_types']):
+                for home in range(self.n_homes):
+                    for time_step in range(self.N):
+                        delta = abs(
+                            np.sum([res[f'constl({tD}, {load_type})'][home, time_step] for tD in range(self.N)])
+                            - res[f'consa({load_type})'][home, time_step]
+                        )
+                        if delta > self.tol_cons_constraints:
+                            load_types_slack = np.append(load_types_slack, load_type)
+                            homes_slack = np.append(homes_slack, home)
+                            time_steps_slack = np.append(time_steps_slack, time_step)
+                            max_violation = max(max_violation, delta)
+
+        else:
+            print(f"checking the slack of optimisation constraints for translating constl to consa")
+            slacks_constl_consa = np.array([
+                [
+                    [
+                        constl_consa_constraints[load_type][home][time_step].slack
+                        for time_step in range(self.N)
+                    ]
+                    for home in range(self.n_homes)
+                ]
+                for load_type in range(self.loads['n_types'])
+            ])
+
+            load_types_slack, homes_slack, time_steps_slack = np.where(
+                slacks_constl_consa < - self.tol_cons_constraints
+            )
+            max_violation = max(abs(np.min(slacks_constl_consa)), np.max(slacks_constl_consa))
+        if len(load_types_slack) > 0:
+            print(f"these conslt do not add up to consa: load_types_slack, homes_slack, time_steps_slack {load_types_slack, homes_slack, time_steps_slack}")
+            homes_to_update, time_steps_to_update = add_home_time_step_pairs_to_list(
+                homes_to_update, time_steps_to_update, homes_slack, time_steps_slack
+            )
+            res['max_cons_slack'] = max_violation
+            pp_simulation_required = True
 
         for load_type, home, time_step in zip(
-                load_types_slack, homes_slack, time_steps_slack
+            load_types_slack, homes_slack, time_steps_slack
         ):
-            res[f'consa({load_type})'][home, time_step] = sum(
+            constl_tD_lt = np.array(
                 [
-                    res[f'constl({tD}, {load_type})'][home, time_step]
+                    res[f'constl({tD}, {int(load_type)})'][home, time_step]
                     for tD in range(self.N)
                 ]
             )
+            print(f"slack load_type, home, time_step {load_type, home, time_step}")
+            print(f"old consa({load_type})'][home, time_step] {res[f'consa({load_type})'][home, time_step]}")
+            res[f'consa({load_type})'][home, time_step] = sum(constl_tD_lt)
+            print(f"new consa({load_type})'][home, time_step] {res[f'consa({load_type})'][home, time_step]}")
+
+        return res, pp_simulation_required, homes_to_update, time_steps_to_update
+
+    def _check_constl_non_negative(self, res, pp_simulation_required, homes_to_update, time_steps_to_update):
+        for tD in range(self.N):
+            homes_neg_constl, time_step_neg_constl = np.where(
+                res[f'constl({tD}, 1)'] < - self.tol_cons_constraints
+            )
+            if len(homes_neg_constl) > 0:
+                pp_simulation_required = True
+
+                print(f"constl negative for tD {tD} homes_neg_constl, time_step_neg_constl {homes_neg_constl, time_step_neg_constl}")
+                for home, time_cons in zip(homes_neg_constl, time_step_neg_constl):
+                    if not self.grd['flex'][tD, 1, home, time_cons]:
+                        print(
+                            f"this number was multiplied by a zero flex coefficient so it should not mattery anyway."
+                            f"Setting it to zero and no further action taken."
+                        )
+                        res[f'constl({tD}, 1)'][home, time_cons] = 0
+                    else:
+                        print(
+                            f"we are adding {- res[f'constl({tD}, 1)'][home, time_cons]} "
+                            f"to res[f'constl({tD}, 1)'][home={home}, time_step={time_cons}] to make it 0.\n"
+                            f"We will reduce the consumption at the other consumption steps matching this demand evenly.\n"
+                            f"The new consa given updated constl should be computed at the next step."
+                        )
+                        window_cons_time_steps = []
+                        for potential_time_cons in range(self.N):
+                            if self.grd['flex'][tD, 1, home, potential_time_cons] and potential_time_cons != time_cons:
+                                window_cons_time_steps.append(potential_time_cons)
+                        window_cons_time_steps = np.array(window_cons_time_steps)
+                        constl_other_time_steps = res[f'constl({tD}, 1)'][home, window_cons_time_steps]
+                        i_sorted = np.argsort(constl_other_time_steps)
+                        window_other_cons_time_steps_ordered = window_cons_time_steps[i_sorted]
+                        n_other_time_cons = len(window_other_cons_time_steps_ordered)
+                        constl0 = copy.deepcopy(res[f'constl({tD}, 1)'][home])
+                        total_to_remove = abs(res[f'constl({tD}, 1)'][home, time_cons])
+                        total_left_to_remove = abs(res[f'constl({tD}, 1)'][home, time_cons])
+                        even_split_for_remaining_time_cons = total_left_to_remove / n_other_time_cons
+                        to_remove_each_time_cons = np.zeros(n_other_time_cons)
+                        for i, time_cons_other in enumerate(window_other_cons_time_steps_ordered):
+                            if res[f'constl({tD}, 1)'][home, time_cons_other] < even_split_for_remaining_time_cons:
+                                to_remove_each_time_cons[i] = res[f'constl({tD}, 1)'][home, time_cons_other]
+                                total_left_to_remove -= to_remove_each_time_cons[i]
+                                n_other_time_cons -= 1
+                                even_split_for_remaining_time_cons = total_left_to_remove / n_other_time_cons
+                            else:
+                                to_remove_each_time_cons[i] = even_split_for_remaining_time_cons
+                            if to_remove_each_time_cons[i] == 0:
+                                print()
+                            print(f"remove {to_remove_each_time_cons[i]} from res[f'constl({tD}, 1)'][home={home}, time_cons={time_cons_other}]")
+                            res[f'constl({tD}, 1)'][home, time_cons_other] -= to_remove_each_time_cons[i]
+                        res[f'constl({tD}, 1)'][home, time_cons] = 0
+
+                        if not sum(to_remove_each_time_cons) == total_to_remove:
+                            print()
+                        assert sum(to_remove_each_time_cons) == total_to_remove
+
+                homes_to_update, time_steps_to_update = add_home_time_step_pairs_to_list(
+                    homes_to_update, time_steps_to_update, homes_neg_constl, time_step_neg_constl
+                )
+
+        return pp_simulation_required, homes_to_update, time_steps_to_update
+
+    def _check_constraints_hold(self, res):
+        if res[f'constl({1}, {1})'][11, 0] < 0:
+            print()
+        assert res[f'constl({1}, {1})'][11, 0] >= 0, "res[f'constl({1}, {1})'][11, 0] < 0"
+
+        home_fix_consa, time_step_fix_consa = np.where(
+            res['consa(1)'] < - self.tol_cons_constraints
+        )
+        assert len(home_fix_consa) == 0, \
+            f"we still have neg consa for home_fix_consa, time_step_fix_consa {home_fix_consa, time_step_fix_consa}"
+        assert np.all(res['totcons'] > - self.tol_cons_constraints), "still neg totcons"
+        assert np.all(
+            abs(np.sum(res['totcons'][home, :] - res['E_heat'][home, :]) - np.sum(self.grd['loads'][:, home, :]) < self.tol_cons_constraints)
+            for home in range(self.n_homes)
+        ), "still totcons minus E_geat not adding up to loads"
+
+        for load_type in range(2):
+            for home in range(self.n_homes):
+                for time_step in range(self.N):
+                    if not (abs(
+                            np.sum(
+                                [res[f'constl({time_step}, {load_type})'][home, tC]
+                                 * self.grd['flex'][time_step, load_type, home, tC]
+                                 for tC in range(self.N)]
+                            )
+                            - self.grd['loads'][load_type, home, time_step]) < 1e-3
+                    ):
+                        print()
+                    assert (abs(
+                            np.sum(
+                                [res[f'constl({time_step}, {load_type})'][home, tC]
+                                 * self.grd['flex'][time_step, load_type, home, tC]
+                                 for tC in range(self.N)]
+                            )
+                            - self.grd['loads'][load_type, home, time_step]) < 1e-3
+                    ), f"still constl not adding up to loads home {home} time_step {time_step} load_type {load_type}"
+
+    def _update_res_variables(self, res, homes_to_update, time_steps_to_update, pp_simulation_required):
+        for home, time_step in zip(
+            homes_to_update, time_steps_to_update
+        ):
             res['totcons'][home, time_step] = sum(
                 [
                     res[f'consa({load_type})'][home, time_step]
@@ -923,153 +1112,41 @@ class Optimiser:
                 - res['discharge_other'][home, time_step] \
                 - self.grd['gen'][home, time_step] \
                 + res['totcons'][home, time_step]
-
-            res['grid'][time_step] = \
-                sum(res['netp'][:, time_step]) \
-                + self.hourly_tot_netp0[time_step] \
-                + res['hourly_line_losses_pu'][time_step] * self.grd['base_power'] / 1000
-            res['grid2'][time_step] = res['grid'][time_step] * res['grid'][time_step]
-
+            res['netq_flex'][home, time_step] = \
+                res['q_car_flex'][home, time_step] \
+                + res['totcons'][home, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes'])) \
+                - self.grd['gen'][home, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes']))
             if self.penalise_individual_exports:
                 res['netp_export'][home, time_step] = np.where(
                     res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
                 )
-            if self.grd['manage_agg_power']:
-                [
-                    _,
-                    res['hourly_import_costs'][time_step],
-                    res['hourly_export_costs'][time_step]
-                ] = self.compute_import_export_costs(res['grid'][time_step])
 
-        if pp_simulation_required:
-            res['grid_energy_costs'] = np.sum(
-                np.multiply(self.grd['C'][0: self.N], res['grid'] + self.grd['loss'] * res['grid2'])
+        return res
+
+    def _check_and_correct_cons_constraints(
+            self, res, constl_consa_constraints, constl_loads_constraints, consa_constraint
+    ):
+        # 1 - check that loads are met
+        pp_simulation_required, homes_to_update, time_steps_to_update = self._check_loads_are_met(
+            constl_loads_constraints
+        )
+        # 2 - check that constl are non-negative
+        pp_simulation_required, homes_to_update, time_steps_to_update = self._check_constl_non_negative(
+            res, pp_simulation_required, homes_to_update, time_steps_to_update
+        )
+        # 3 - check that const translates into consa
+        res, pp_simulation_required, homes_to_update, time_steps_to_update \
+            = self._check_constl_to_consa(
+                constl_consa_constraints, res, pp_simulation_required, homes_to_update, time_steps_to_update
             )
-            if self.penalise_individual_exports:
-                res['distribution_network_export_costs'] = self.grd['export_C'] * (
-                    np.sum(res['netp_export']) + np.sum(self.netp0_export)
-                )
-            else:
-                res['distribution_network_export_costs'] = np.zeros(self.N)
+        # 4 - update tot_cons
+        res = self._update_res_variables(res, homes_to_update, time_steps_to_update, pp_simulation_required)
 
-            if self.grd['manage_agg_power']:
-                res['import_export_costs'] = np.sum(
-                    res['hourly_import_costs'] + res['hourly_export_costs']
-                )
-
-            res['network_costs'] = self.grd['weight_network_costs'] * res['import_export_costs']
-
-            res['total_costs'] = \
-                res['grid_energy_costs'] \
-                + res['battery_degradation_costs'] \
-                + res['distribution_network_export_costs'] \
-                + res['network_costs']
+        # 5 - check constraints hold
+        self._check_constraints_hold(res)
 
         return res, pp_simulation_required
 
-    def _efficiencies(self, res, prm, bat_cap):
-        """Compute efficiencies"""
-        store = res['store']
-        P_ch = res['charge']
-        P_dis = res['discharge_tot']
-
-        P = (P_ch - P_dis) * 1e3
-        SoC = np.zeros((self.n_homes, prm['N']))
-        for home in range(self.n_homes):
-            if bat_cap[home] == 0:
-                SoC[home] = np.zeros(prm['N'])
-            else:
-                # in battery(times, bus)/cap(bus)
-                SoC[home] = np.divide(store[home], bat_cap[home])
-        a0 = - 0.852
-        a1 = 63.867
-        a2 = 3.6297
-        a3 = 0.559
-        a4 = 0.51
-        a5 = 0.508
-
-        b0 = 0.1463
-        b1 = 30.27
-        b2 = 0.1037
-        b3 = 0.0584
-        b4 = 0.1747
-        b5 = 0.1288
-
-        c0 = 0.1063
-        c1 = 62.49
-        c2 = 0.0437
-
-        e0 = 0.0712
-        e1 = 61.4
-        e2 = 0.0288
-
-        kappa = (130 * 215)
-
-        # as a function of SoC
-        Voc = a0 * np.exp(-a1 * SoC) \
-            + a2 + a3 * SoC - a4 * SoC ** 2 + a5 * SoC ** 3
-        Rs = b0 * np.exp(-b1 * SoC) \
-            + b2 \
-            + b3 * SoC \
-            - b4 * SoC ** 2 \
-            + b5 * SoC ** 3
-        Rts = c0 * np.exp(-c1 * SoC) + c2
-        Rtl = e0 * np.exp(-e1 * SoC) + e2
-        Rt = Rs + Rts + Rtl
-
-        # solve for current
-        from sympy import Symbol
-        from sympy.solvers import solve
-
-        x = Symbol('x')
-        i_cell = np.zeros(np.shape(P))
-        eta = np.zeros(np.shape(P))
-        for home in range(self.n_homes):
-            for time_step in range(prm['N']):
-                s = solve(
-                    P[home, time_step]
-                    + (x ** 2 - x * (Voc[home, time_step] / Rt[home, time_step]))
-                    * kappa * Rt[home, time_step],
-                    x)
-                A = Rt[home, time_step] * kappa
-                B = - Voc[home, time_step] * kappa
-                C = P[home, time_step]
-                s2_pos = (- B + np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
-                    if A > 0 else 0
-                s2_neg = (- B - np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
-                    if A > 0 else 0
-                s2 = [s2_pos, s2_neg]
-                etas, etas2 = [], []
-                for sign in range(2):
-                    if s[sign] == 0:
-                        etas.append(0)
-                        etas2.append(0)
-                    else:
-                        etas.append(np.divide(
-                            s[sign] * Voc[home, time_step],
-                            s[sign] * (Voc[home, time_step] - s[sign] * Rt[home, time_step]))
-                        )
-                        etas2.append(np.divide(
-                            s2[sign] * Voc[home, time_step],
-                            s2[sign] * (Voc[home, time_step] - s2[sign] * Rt[home, time_step]))
-                        )
-                print(f'etas = {etas}, etas2={etas2}')
-                eta[home, time_step] = etas[np.argmin(abs(etas - 1))]
-                i_cell[home, time_step] = s[np.argmin(abs(etas - 1))]
-
-        return eta, s, s2
-
-    def _add_val_to_res(self, res, var, val, size, arr):
-        """Add value to result dict."""
-        if size[0] < 2 and size[1] < 2:
-            res[var] = val
-        else:
-            for i in range(size[0]):
-                for j in range(size[1]):
-                    arr[i, j] = val[i, j]
-            res[var] = arr
-
-        return res
 
     def _save_results(self, pvars):
         """Save optimisation results to file."""
@@ -1084,7 +1161,7 @@ class Optimiser:
             size = pvars[var].size
             val = pvars[var].value
             arr = np.zeros(size)
-            res = self._add_val_to_res(res, var, val, size, arr)
+            res = add_val_to_res(res, var, val, size, arr)
 
         for key, val in res.items():
             if len(np.shape(val)) == 2 and np.shape(val)[1] == 1:
