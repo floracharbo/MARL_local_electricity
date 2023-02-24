@@ -34,4 +34,4 @@ test_on_run: False
 n_homes: 5 # number of buses considered
 n_homesP: 0 # additional number of passive buses
 force_optimisation: False # force optimisation to be run even if it is not necessary (for timing purposes)
-tol_cons_constraints: 5.e-3
+tol_constraints: 5.e-3
