@@ -15,21 +15,12 @@ if not results_analysis_path.exists():
 candidates_left = True
 settings = {
     'RL': {
-        'type_learning': 'facmac',
-        # 'aggregate_actions': False,
-        # 'state_space': [['avail_car_step', 'grdC', 'store_bool_flex']],
-        # 'n_epochs': 200,
-        # 'n_repeats': 3,
-        # 'rnn_hidden_dim': [500],
-        # 'evaluation_methods': [['env_r_c', 'opt']] * 1,
-        # 'lr': 1e-3,
-        # 'facmac': {'critic_lr': 5e-4},
-        # 'ou_stop_episode': 1e3,
-        # 'start_steps': [100],
-        # 'hyper_initialization_nonzeros': 0.1,
+        'type_learning': 'q_learning',
+        'trajectory': False,
+        'state_space': 'grdC',
     },
     'syst': {
-        'n_homes': 10
+        'n_homes': 10,
     },
     'bat': {
         'SoC0': 1,
@@ -94,6 +85,7 @@ def find_previous_run_with_same_settings(settings, log_path):
 
 
 log = find_previous_run_with_same_settings(settings, log_path)
+print(f"runs: {log['run'].tolist()}")
 if len(log) > 1:
     best_run = log['run'].loc[log['best_score_all'] == max(log['best_score_all'])].tolist()
     print(f"best run: {best_run}")
