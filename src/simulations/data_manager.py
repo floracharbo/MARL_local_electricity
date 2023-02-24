@@ -308,9 +308,11 @@ class DataManager:
 
         if new_res:
             np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
-
+            time_opti = self.timer_optimisation[-1]
+        else:
+            time_opti = 0
         end = time.time()
-        duration_feasible_data = end - start
+        duration_feasible_data = end - start - time_opti
         self.timer_feasible_data.append(duration_feasible_data)
 
         return seed_data, step_vals

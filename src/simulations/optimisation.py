@@ -9,6 +9,7 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
+import math
 
 import numpy as np
 import picos as pic
@@ -50,6 +51,7 @@ class Optimiser:
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
             res = res_post_processing(res, prm, self.input_hourly_lij)
+
 
         return res, pp_simulation_required
 
@@ -237,6 +239,7 @@ class Optimiser:
                     # + pic.sum(netq_passive[:, time_step])
                     for time_step in range(self.N)]
             )
+
 
         p.add_list_of_constraints(
             [
@@ -672,7 +675,7 @@ class Optimiser:
             constl_consa_constraints.append(constl_consa_constraints_lt)
             constl_loads_constraints.append(constl_loads_constraints_lt)
 
-        consa_constraint = p.add_constraint(
+        p.add_constraint(
             pic.sum(
                 [consa[load_type]
                  for load_type in range(self.loads['n_types'])]
@@ -683,7 +686,7 @@ class Optimiser:
         p.add_list_of_constraints([constl[tl] >= 0 for tl in tlpairs])
         p.add_constraint(totcons >= 0)
 
-        return p, totcons, constl_consa_constraints, constl_loads_constraints, consa_constraint
+        return p, totcons, constl_consa_constraints, constl_loads_constraints
 
     def _temperature_constraints(self, p):
         """Add temperature constraints to the problem."""
@@ -811,7 +814,7 @@ class Optimiser:
 
         p, charge, discharge_other, battery_degradation_costs = self._storage_constraints(p)
         p, E_heat = self._temperature_constraints(p)
-        p, totcons, constl_consa_constraints, constl_loads_constraints, consa_constraint = self._cons_constraints(p, E_heat)
+        p, totcons, constl_consa_constraints, constl_loads_constraints = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(
             p, charge, discharge_other, totcons)
         # prosumer energy balance, active power

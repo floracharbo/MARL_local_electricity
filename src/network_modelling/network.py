@@ -289,8 +289,8 @@ class Network:
             + sum(q_heat_home_flex)
 
         hourly_line_losses, voltage, _, _ = self.pf_simulation(
-            home_vars['netp'], netp0,
-            netq_flex, netq_passive)
+            home_vars['netp'], netp0, netq_flex, netq_passive
+        )
         voltage_squared = np.square(voltage)
 
         return voltage_squared, hourly_line_losses, q_ext_grid
@@ -395,9 +395,7 @@ class Network:
 
         # q_car_flex will be a decision variable
         q_car_flex = res['q_car_flex']
-        q_heat_home_flex = calculate_reactive_power(
-            res['totcons'], self.pf_flexible_homes
-        )
+        q_heat_home_flex = calculate_reactive_power(res['totcons'], self.pf_flexible_homes)
         q_solar_flex = res['q_solar_flex']
         netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
 
@@ -420,8 +418,8 @@ class Network:
         self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
         delta_hourly_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
-
         grid_pp = res["grid"][time_step] + delta_hourly_line_losses
+
         hourly_grid_energy_costs_pp = grdCt * (
             grid_pp + self.loss * grid_pp ** 2
         )
