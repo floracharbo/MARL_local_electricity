@@ -54,6 +54,8 @@ class LocalElecEnv:
 
         if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
             self.network = Network(prm)
+        
+        self.reactive_power_for_voltage_control = self.prm['grd']['reactive_power_for_voltage_control']
 
         # initialise parameters
         for info in ['N', 'n_int_per_hr', 'dt']:
@@ -534,9 +536,8 @@ class LocalElecEnv:
 
         #  ----------- meet consumption + check constraints ---------------
         constraint_ok = True
-        loads, home_vars, bool_penalty = self.action_translator.actions_to_env_vars(
-            loads, home_vars, action, date, h
-        )
+        loads, home_vars, bool_penalty, flexible_q_car_action = \
+            self.action_translator.actions_to_env_vars(loads, home_vars, action, date, h)
         share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
         for home in self.homes:
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
@@ -555,12 +556,12 @@ class LocalElecEnv:
         else:
             netp0 = []
         if self.prm['grd']['manage_voltage']:
-            # retrieve info from battery
-            self.car.active_reactive_power_car()
-            # q_car_flex will be a decision variable
-            # p_car_flex is needed to set apparent power limits
-            p_car_flex = self.car.p_car_flex
-            q_car_flex = self.car.q_car_flex
+            if self.reactive_power_for_voltage_control:
+                # retrieve info from battery
+                self.car.active_reactive_power_car()
+                q_car_flex = self.car.q_car_flex
+            else:
+                q_car_flex = flexible_q_car_action
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid = \
                 self.network._power_flow_res_with_pandapower(

@@ -51,6 +51,10 @@ class Action_translator:
         self.max_apparent_power_car = prm['car']['max_apparent_power_car']
         self.export_C = prm['grd']['export_C']
 
+        # no minimum requirements for reactive power import or export
+        self.min_q_car_import = 0
+        self.min_q_car_export = 0
+
     def optimisation_to_rl_env_action(self, time_step, date, netp, loads, home_vars, res):
         """
         From home energy values, get equivalent RL flexibility actions.
@@ -265,16 +269,23 @@ class Action_translator:
                         loads['flex_cons'][-1] = 0
             else:
                 flexible_cons_action, flexible_heat_action, \
-                    flexible_store_action, flexible_q_car_action = action[home]
+                    flexible_store_action = action[home]
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
                 # -1 max discharge
                 # 0 nothing (or just minimum)
                 # 1 max charge
+                # based on flexible store actions, calculate flexible q_car action
                 # reactive power battery between -1 and 1 where
                 # -1 max export
                 # 1 max import
+
+                # to do: define how to add the action to the environment: flexible_q_car_action
+                # to do: translate it into a kWh q_car value in _calculate_flexible_q_car based on store_actions
+                indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = flexible_store_action
+                    indiv_flexible_q_car_action = flexible_q_car_action)
+
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
                 loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
@@ -296,6 +307,7 @@ class Action_translator:
                     - home_vars['gen'][home]
 
                 res['dp'] = home_vars['netp'][home]
+                res[home]['q_car_flex'] = indiv_q_car
 
             loads['tot_cons_loads'].append(
                 loads['flex_cons'][home] + loads['l_fixed'][home])
@@ -331,6 +343,29 @@ class Action_translator:
         # bool_penalty
 
         return loads, home_vars, bool_penalty
+
+    def _calculate_flexible_q_car(self, indiv_flexible_store_action, indiv_flexible_q_car_action):
+        if indiv_flexible_store_action == 0:
+            indiv_flexible_q_car = 0
+        # if some charge flex is used, reactive power import available
+        elif indiv_flexible_store_action > 0:
+            # how much charge flex is used in kWh
+            charge_flexibility = (self.max_charge - self.min_charge) * indiv_flexible_store_action + self.min_charge
+            # how much is potentially left for reactive power import
+            max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge_flexibility**2)
+            indiv_flexible_q_car = (indiv_flexible_q_car_action - self.min_q_car_import
+                    ) / (max_q_car_import_flexibility - self.min_q_car_import)
+        # if some discharge flex is used, reactive power export available
+        elif indiv_flexible_store_action < 0:
+            # how much discharge flex is used in kWh
+            discharge_flexibility = \
+                self.min_discharge - (self.min_discharge - self.max_discharge) * indiv_flexible_store_action
+            # how much is potentially left for reactive power export
+            max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge_flexibility**2)
+            indiv_flexible_q_car = (self.min_q_car_export - indiv_flexible_q_car_action) \
+                / (self.min_q_car_export - max_q_car_export_flexibility)
+
+        return indiv_flexible_q_car
 
     def _flexible_store_action_to_ds(self, home, flexible_store_action, res):
         """Convert flexible store action to change in storage level ds."""
@@ -700,9 +735,6 @@ class Action_translator:
     def _flex_q_car_actions(self, res, time_step, store_actions, store_bool_flex):
         """Compute the flexible battery reactive power action from the optimisation result."""
         no_flex_actions = self._get_no_flex_actions('q_car_action')
-        # no minimum requirements for reactive power import or export
-        self.min_q_car_import = 0
-        self.min_q_car_export = 0
         flexible_q_car_actions = np.zeros(self.n_homes)
         # if home has (dis)charge flexibility then also reactive import and export flexibility
         q_car_bool_flex = store_bool_flex
@@ -729,7 +761,7 @@ class Action_translator:
                     max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge_flexibility**2)
                     # how the optimization action can be translated
                     flexible_q_car_actions[home] = (self.min_q_car_export[home] - res['q_car_flex'][home, time_step]) \
-                        / (self.min_q_car_export[home] - self.max_q_car_export_flexibility)
+                        / (self.min_q_car_export[home] - max_q_car_export_flexibility)
 
         q_car_actions = np.where(
             q_car_bool_flex,
