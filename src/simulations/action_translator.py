@@ -574,6 +574,7 @@ class Action_translator:
         flexible_cons_action, loads_bool_flex = self._flex_loads_actions(loads, res, time_step)
         flexible_heat_action, heat_bool_flex = self._flex_heat_actions(res, time_step)
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
+        flexible_q_bat_action, q_bat_flex = self._flex_q_bar_actions(res, time_step)
 
         actions = np.stack(
             (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
@@ -688,6 +689,11 @@ class Action_translator:
         )
 
         return store_actions, store_bool_flex
+
+    def _flex_q_bat_actions(self, res, time_step):
+        """Compute the flexible battery reactive power action from the optimisation result."""
+        no_flex_actions = self._get_no_flex_actions('q_bat_action')
+
 
     def _get_no_flex_actions(self, action_type):
         if self.no_flex_action == 'one':

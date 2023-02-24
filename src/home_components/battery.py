@@ -447,11 +447,11 @@ class Battery:
         # calculate active and reactive power for all homes
         if not self.reactive_power_for_voltage_control:
             self.active_reactive_power_car()
-        apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
-        assert all(apparent_power_car <= self.max_apparent_power_car**2), \
-            f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
-            f" maximum apparent power of the car: {self.max_apparent_power_car**2} < " \
-            f"{apparent_power_car.max()}"
+            apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
+            assert all(apparent_power_car <= self.max_apparent_power_car**2), \
+                f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
+                f" maximum apparent power of the car: {self.max_apparent_power_car**2} < " \
+                f"{apparent_power_car.max()}"
 
     def initial_processing(self):
         """Get current available battery flexibility."""
