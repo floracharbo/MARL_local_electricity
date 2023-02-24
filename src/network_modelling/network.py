@@ -396,7 +396,8 @@ class Network:
         # q_car_flex will be a decision variable
         q_car_flex = res['q_car_flex']
         q_heat_home_flex = calculate_reactive_power(
-            res['totcons'], self.pf_flexible_homes)
+            res['totcons'], self.pf_flexible_homes
+        )
         q_solar_flex = res['q_solar_flex']
         netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
 
@@ -421,10 +422,12 @@ class Network:
         delta_hourly_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
 
         grid_pp = res["grid"][time_step] + delta_hourly_line_losses
-
+        if time_step == 0:
+            print(f"res['grid'][0] {res['grid'][0]} -> {grid_pp}")
         hourly_grid_energy_costs_pp = grdCt * (
             grid_pp + self.loss * grid_pp ** 2
         )
+        print(f"t {time_step} hourly_grid_energy_costs_pp {hourly_grid_energy_costs_pp} grdCt {grdCt} grid_pp {grid_pp}")
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
@@ -440,6 +443,8 @@ class Network:
         res["grid2"][time_step] = grid_pp ** 2
         res['voltage'][:, time_step] = voltage_pp[1:]
         res['voltage_squared'][:, time_step] = np.square(voltage_pp[1:])
+        if time_step == 0:
+            print(f"res['hourly_line_losses'][0] = {res['hourly_line_losses'][0]}, add {delta_hourly_line_losses}")
         res["hourly_line_losses"][time_step] += delta_hourly_line_losses
         res["v_line"][:, time_step] = np.matmul(
             self.out_incidence_matrix.T,
@@ -458,7 +463,8 @@ class Network:
         res["voltage_costs"] += delta_voltage_costs
 
         res["hourly_grid_energy_costs"][time_step] = hourly_grid_energy_costs_pp
-        res["grid_energy_costs"] += delta_grid_energy_costs
+        print(f"grid_energy_costs {res['grid_energy_costs']} to {np.sum(res['hourly_grid_energy_costs'])}")
+        res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
         res["network_costs"] += delta_voltage_costs * self.weight_network_costs
@@ -475,6 +481,9 @@ class Network:
             + res['hourly_distribution_network_export_costs'][time_step]
         assert abs(sum_indiv_components - res['hourly_total_costs'][time_step]) < 1e-4, \
             "total hourly costs do not add up"
+        if not (abs(res['grid'][time_step] - (sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step])) < 1e-3):
+            print()
+        assert abs(res['grid'][time_step] - (sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step])) < 1e-3
 
         return res
 
