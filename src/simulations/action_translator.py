@@ -671,7 +671,7 @@ class Action_translator:
                     flexible_store_actions[home] = 0
                 elif res['discharge_other'][home, time_step] > 1e-3:
                     flexible_store_actions[home] = \
-                        (self.min_discharge[home] - res['charge'][home, time_step]) \
+                        (self.min_discharge[home] - res['discharge_other'][home, time_step]) \
                         / (self.min_discharge[home] - self.max_discharge[home])
                 else:
                     if abs(res['charge'][home, time_step] - self.max_charge[home]) < 1e-3:
