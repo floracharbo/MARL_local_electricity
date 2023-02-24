@@ -240,22 +240,25 @@ class Optimiser:
         # if we don't allow the use of the battery reactive power for control
         # then we restain it by using the power factor
         if self.reactive_power_for_voltage_control:
-            for time in range(self.N):
+            for time_step in range(self.N):
                 p.add_list_of_constraints([
-                    p_car_flex2[home, time] >= p_car_flex[home, time]
-                    * p_car_flex[home, time] for home in range(self.n_homes)
+                    p_car_flex2[home, time_step] >= p_car_flex[home, time_step]
+                    * p_car_flex[home, time_step] for home in range(self.n_homes)
                 ])
                 p.add_list_of_constraints([
-                    q_car_flex2[home, time] >= q_car_flex[home, time]
-                    * q_car_flex[home, time] for home in range(self.n_homes)
+                    q_car_flex2[home, time_step] >= q_car_flex[home, time_step]
+                    * q_car_flex[home, time_step] for home in range(self.n_homes)
                 ])
                 p.add_list_of_constraints([
-                    p_car_flex2[home, time] + q_car_flex2[home, time]
+                    p_car_flex2[home, time_step] + q_car_flex2[home, time_step]
                     <= self.car['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
             # can only use reactive power of battery if car is available
             p.add_constraint(q_car_flex2 <= self.car['batch_avail_car'][:, 0: self.N] * self.syst['M'])
-
+            # active and reactive power of the battery should have the same sign
+            for time_step in range(self.N):
+                p.add_list_of_constraints(p_car_flex[home, time_step] * q_car_flex[home, time_step]
+                    >= 0 for home in range(self.n_homes))
         else:
             p.add_constraint(q_car_flex == calculate_reactive_power(
                 p_car_flex, self.grd['pf_flexible_homes']))
