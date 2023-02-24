@@ -241,6 +241,7 @@ class Action_translator:
             = [[] for _ in range(4)]
         self.l_flex = loads['l_flex']
         flex_heat = np.zeros(self.n_homes)
+        flexible_q_car_action = np.zeros(self.n_homes)
         for home in homes:
             # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
@@ -269,7 +270,7 @@ class Action_translator:
                         loads['flex_cons'][-1] = 0
             else:
                 flexible_cons_action, flexible_heat_action, \
-                    flexible_store_action = action[home]
+                    flexible_store_action, flexible_q_car_action = action[home]
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
@@ -283,7 +284,7 @@ class Action_translator:
 
                 # to do: define how to add the action to the environment: flexible_q_car_action
                 # to do: translate it into a kWh q_car value in _calculate_flexible_q_car based on store_actions
-                indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = flexible_store_action
+                indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = flexible_store_action,
                     indiv_flexible_q_car_action = flexible_q_car_action)
 
                 res = {}
@@ -307,7 +308,7 @@ class Action_translator:
                     - home_vars['gen'][home]
 
                 res['dp'] = home_vars['netp'][home]
-                res[home]['q_car_flex'] = indiv_q_car
+                flexible_q_car_action[home] = indiv_q_car
 
             loads['tot_cons_loads'].append(
                 loads['flex_cons'][home] + loads['l_fixed'][home])
@@ -342,7 +343,7 @@ class Action_translator:
         # home_vars: netp, bool_flex, tot_cons
         # bool_penalty
 
-        return loads, home_vars, bool_penalty
+        return loads, home_vars, bool_penalty, flexible_q_car_action
 
     def _calculate_flexible_q_car(self, indiv_flexible_store_action, indiv_flexible_q_car_action):
         if indiv_flexible_store_action == 0:
