@@ -263,13 +263,17 @@ class Action_translator:
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
                         loads['flex_cons'][-1] = 0
             else:
-                flexible_cons_action, flexible_heat_action, flexible_store_action = action[home]
+                flexible_cons_action, flexible_heat_action, \
+                    flexible_store_action, flexible_q_bat_action = action[home]
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
                 # -1 max discharge
                 # 0 nothing (or just minimum)
                 # 1 max charge
+                # reactive power battery between -1 and 1 where
+                # -1 max export
+                # 1 max import
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
                 loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
@@ -574,12 +578,13 @@ class Action_translator:
         flexible_cons_action, loads_bool_flex = self._flex_loads_actions(loads, res, time_step)
         flexible_heat_action, heat_bool_flex = self._flex_heat_actions(res, time_step)
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
-        flexible_q_bat_action, q_bat_flex = self._flex_q_bar_actions(res, time_step)
+        flexible_q_bat_action, q_bat_bool_flex = self._flex_q_bat_actions(res, time_step)
 
         actions = np.stack(
-            (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
+            (flexible_cons_action, flexible_heat_action, flexible_store_action,
+            flexible_q_bat_action), axis=1
         )
-        bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
+        bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex | q_bat_bool_flex
 
         return actions, bool_flex
 
@@ -694,6 +699,7 @@ class Action_translator:
         """Compute the flexible battery reactive power action from the optimisation result."""
         no_flex_actions = self._get_no_flex_actions('q_bat_action')
 
+        return q_bat_actions, q_bat_bool_flex
 
     def _get_no_flex_actions(self, action_type):
         if self.no_flex_action == 'one':
