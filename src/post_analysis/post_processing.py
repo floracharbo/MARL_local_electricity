@@ -178,7 +178,7 @@ def _print_stats_cons_constraints_errors(prm, data_manager):
         if data_manager.n_cons_constraint_violations == 0:
             print(
                 f"All flexible consumption constraints were within "
-                f"the maximum violation of {prm['syst']['tol_cons_constraints']:.2E}"
+                f"the maximum violation of {prm['syst']['tol_constraints']:.2E}"
             )
         else:
             share_violations = data_manager.n_cons_constraint_violations \
@@ -187,7 +187,7 @@ def _print_stats_cons_constraints_errors(prm, data_manager):
                 f"Warning: consumptions did not always add up in optimisation results."
                 f"In {share_violations * 100} %"
                 f"of optimisations, the flexible consumption constraints were violated by "
-                f"more than {prm['syst']['tol_cons_constraints']}.\n"
+                f"more than {prm['syst']['tol_constraints']}.\n"
                 f"The maximum violation was {data_manager.max_cons_slack:.2E}.\n"
                 "This was be corrected, but optimality is not guaranteed."
             )
