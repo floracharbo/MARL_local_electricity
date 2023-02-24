@@ -408,11 +408,9 @@ def _check_constl_to_consa(
     N, n_homes, tol_constraints = [prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']]
     
     if pp_simulation_required:
-        print(
-            "as we have already had to make changes in constl, we are not checking the slack of the "
-            "original optimisation changes, but rather checking whether the equalities with updated "
-            "variables hold for the translation of constl to consa"
-        )
+        # "as we have already had to make changes in constl, we are not checking the slack of the "
+        # "original optimisation changes, but rather checking whether the equalities with updated "
+        # "variables hold for the translation of constl to consa"
         load_types_slack, homes_slack, time_steps_slack = [np.array([], dtype=np.int) for _ in range(3)]
         max_violation = 0
         for load_type in range(loads['n_types']):
@@ -429,7 +427,7 @@ def _check_constl_to_consa(
                         max_violation = max(max_violation, delta)
 
     else:
-        print(f"checking the slack of optimisation constraints for translating constl to consa")
+        # checking the slack of optimisation constraints for translating constl to consa
         slacks_constl_consa = np.array([
             [
                 [
@@ -446,7 +444,7 @@ def _check_constl_to_consa(
         )
         max_violation = max(abs(np.min(slacks_constl_consa)), np.max(slacks_constl_consa))
     if len(load_types_slack) > 0:
-        print(f"these conslt do not add up to consa: load_types_slack, homes_slack, time_steps_slack {load_types_slack, homes_slack, time_steps_slack}")
+        # these conslt do not add up to consa: load_types_slack, homes_slack, time_steps_slack
         homes_to_update, time_steps_to_update = _add_home_time_step_pairs_to_list(
             homes_to_update, time_steps_to_update, homes_slack, time_steps_slack
         )
@@ -464,10 +462,7 @@ def _check_constl_to_consa(
                 for tD in range(N)
             ]
         )
-        print(f"slack load_type, home, time_step {load_type, home, time_step}")
-        print(f"old consa({load_type})'][home, time_step] {res[f'consa({load_type})'][home, time_step]}")
         res[f'consa({load_type})'][home, time_step] = sum(constl_tD_lt)
-        print(f"new consa({load_type})'][home, time_step] {res[f'consa({load_type})'][home, time_step]}")
 
     return res, pp_simulation_required, homes_to_update, time_steps_to_update
 
@@ -487,13 +482,9 @@ def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, tim
                     f"tD {tD} home {home} tC {tC}"
                 )
             else:
-                print(
-                    f"fixed constl negative for tD {tD} homes_neg_constl, tC_neg_constl {home, tC}"
-                )
-                print(
-                    f"this number was multiplied by a zero flex coefficient so it should not matter anyway."
-                    f"Setting it to zero and no further action taken."
-                )
+                # "fixed constl negative for tD {tD} homes_neg_constl, tC_neg_constl {home, tC}"
+                # "this number was multiplied by a zero flex coefficient so it should not matter anyway."
+                # "Setting it to zero and no further action taken."
                 res[f'constl({tD}, 0)'][home, tC] = 0
 
         homes_neg_constl, time_step_neg_constl = np.where(
@@ -501,22 +492,17 @@ def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, tim
         )
         if len(homes_neg_constl) > 0:
             pp_simulation_required = True
-
-            print(f"constl negative for tD {tD} homes_neg_constl, time_step_neg_constl {homes_neg_constl, time_step_neg_constl}")
+            # constl negative for tD, homes_neg_constl, time_step_neg_constl
             for home, time_cons in zip(homes_neg_constl, time_step_neg_constl):
                 if not grd['flex'][tD, 1, home, time_cons]:
-                    print(
-                        f"this number was multiplied by a zero flex coefficient so it should not matter anyway."
-                        f"Setting it to zero and no further action taken."
-                    )
+                    # "this number was multiplied by a zero flex coefficient so it should not matter anyway."
+                    # "Setting it to zero and no further action taken."
                     res[f'constl({tD}, 1)'][home, time_cons] = 0
                 else:
-                    print(
-                        f"we are adding {- res[f'constl({tD}, 1)'][home, time_cons]} "
-                        f"to res[f'constl({tD}, 1)'][home={home}, time_step={time_cons}] to make it 0.\n"
-                        f"We will reduce the consumption at the other consumption steps matching this demand evenly.\n"
-                        f"The new consa given updated constl should be computed at the next step."
-                    )
+                    # f"we are adding {- res[f'constl({tD}, 1)'][home, time_cons]} "
+                    # f"to res[f'constl({tD}, 1)'][home={home}, time_step={time_cons}] to make it 0.\n"
+                    # f"We will reduce the consumption at the other consumption steps matching this demand evenly.\n"
+                    # f"The new consa given updated constl should be computed at the next step."
                     window_cons_time_steps = []
                     for potential_time_cons in range(N):
                         if grd['flex'][tD, 1, home, potential_time_cons] and potential_time_cons != time_cons:
@@ -539,7 +525,7 @@ def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, tim
                             even_split_for_remaining_time_cons = total_left_to_remove / n_other_time_cons
                         else:
                             to_remove_each_time_cons[i] = even_split_for_remaining_time_cons
-                        print(f"remove {to_remove_each_time_cons[i]} from res[f'constl({tD}, 1)'][home={home}, time_cons={time_cons_other}]")
+                        # "remove {to_remove_each_time_cons[i]} from res[f'constl({tD}, 1)'][home={home}, time_cons={time_cons_other}]")
                         res[f'constl({tD}, 1)'][home, time_cons_other] -= to_remove_each_time_cons[i]
                     res[f'constl({tD}, 1)'][home, time_cons] = 0
                     assert sum(to_remove_each_time_cons) == total_to_remove
