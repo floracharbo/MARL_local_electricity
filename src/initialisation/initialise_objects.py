@@ -19,6 +19,7 @@ import numpy as np
 import torch as th
 import yaml
 from gym import spaces
+import math
 
 from src.initialisation.generate_colours import generate_colours
 from src.initialisation.get_heat_coeffs import get_heat_coeffs
@@ -602,7 +603,6 @@ def opt_res_seed_save_paths(prm):
     rl, heat, syst, grd, paths, car, loads = \
         [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
-    car['cap']
     if np.all(car['cap'] == car['cap'][0]):
         cap_str = car['cap'][0]
     else:
@@ -679,6 +679,9 @@ def _update_grd_prm(prm):
 
     # grid loss
     grd["loss"] = grd["R"] / (grd["V"] ** 2)
+    grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
+    grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
+    grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
