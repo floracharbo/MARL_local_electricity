@@ -253,6 +253,9 @@ class Optimiser:
                     p_car_flex2[home, time] + q_car_flex2[home, time]
                     <= self.car['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
+            # can only use reactive power of battery if car is available
+            p.add_constraint(q_car_flex2 <= self.car['batch_avail_car'][:, 0: self.N] * self.syst['M'])
+
         else:
             p.add_constraint(q_car_flex == calculate_reactive_power(
                 p_car_flex, self.grd['pf_flexible_homes']))
