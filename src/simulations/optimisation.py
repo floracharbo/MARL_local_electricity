@@ -56,9 +56,7 @@ class Optimiser:
     def _solve_line_losses_iteration(self):
         it = 0
         self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
-        res, _, new_iteration_necessary = self._problem()
-        if new_iteration_necessary:
-            print(f"it {it} new_iteration_necessary")
+        res, _ = self._problem()
         res = res_post_processing(res, self.prm, self.input_hourly_lij)
         # print pi and qi
         opti_voltages = copy.deepcopy(res['voltage'])
@@ -76,12 +74,10 @@ class Optimiser:
         delta_voltages = opti_voltages - corr_voltages
         print(f"max hourly delta voltages initialization: {abs(delta_voltages).max()}")
         print(f"max hourly delta losses initialization: {abs(delta_losses).max()}")
-        while (abs(delta_voltages).max() > self.grd['tol_voltage_iteration'] or new_iteration_necessary) and it < 10:
+        while abs(delta_voltages).max() > self.grd['tol_voltage_iteration'] and it < 10:
             it += 1
             self.input_hourly_lij = corr_lij
-            res, _, new_iteration_necessary = self._problem()
-            if new_iteration_necessary:
-                print(f"it {it} new_iteration_necessary")
+            res, _ = self._problem()
             res = res_post_processing(res, self.prm, self.input_hourly_lij)
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -839,13 +835,13 @@ class Optimiser:
             self.syst['n_opti_constraints'] = number_opti_constraints
 
         if self.grd['manage_voltage']:
-            res, pp_simulation_required, new_iteration_necessary = check_and_correct_constraints(
+            res, pp_simulation_required = check_and_correct_constraints(
                 res, constl_consa_constraints, constl_loads_constraints, self.prm, self.input_hourly_lij
             )
         else:
-            pp_simulation_required, new_iteration_necessary = False, False
+            pp_simulation_required = False
             res['max_cons_slack'] = -1
 
         res['corrected_cons'] = pp_simulation_required
 
-        return res, pp_simulation_required, new_iteration_necessary
+        return res, pp_simulation_required

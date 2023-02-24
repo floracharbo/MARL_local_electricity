@@ -22,7 +22,7 @@ def _check_loads_are_met(constl_loads_constraints, prm):
         slacks_constl_loads < - tol_constraints
     )
     if len(load_types_slack_loads) > 0:
-        print(f"(1) loads are not met for homes_slack_loads {homes_slack_loads} need to write code to update")
+         # loads are not met for homes_slack_loads.
         pp_simulation_required = True
         homes_to_update = np.append(homes_to_update, homes_slack_loads)
         time_steps_to_update = np.append(time_steps_to_update, time_steps_slack_loads)
@@ -33,15 +33,10 @@ def _check_loads_are_met(constl_loads_constraints, prm):
     return pp_simulation_required, homes_to_update, time_steps_to_update
 
 def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
-    new_iteration_necessary = False
     # power flow equations
     if grd['pf_flexible_homes'] == 1:
         assert np.all(abs(res['q_car_flex']) < 1e-3)
         assert np.all(abs(res['qi']) < 1e-3)
-        if not np.all(abs(res['q_ext_grid']) < 1e-3):
-            print(f"q_ext_grid non zero")
-        if not np.all(abs(res['netq_flex']) < 1e-3):
-            print(f"netq_flex non zero")
     if grd['line_losses_method'] == 'iteration':
         res['lij'] = input_hourly_lij
     for time_step in range(N):
@@ -74,10 +69,6 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
                 print("with iterations, not pi_lij_constraint_holds, not pij0_constraint_holds")
                 print(f"max pij0_constraint gap: {np.max(abs_pij0_constraint)}")
                 print(f"max abs_pi_lij_constraint gap: {np.max(abs_pi_lij_constraint)}")
-
-            # if not pi_lij_constraint_holds or not pij0_constraint_holds:
-            #     new_iteration_necessary = True
-            #     print("new_iteration_necessary as not pi_lij_constraint_holds or not pij0_constraint_holds")
         else:
             assert pi_lij_constraint_holds
             assert pij0_constraint_holds
@@ -127,8 +118,6 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
             ) < 1e-3
             for time_step in range(N)
         )
-
-    return new_iteration_necessary
 
 def _check_storage_equations(res, N, car, grd, syst):
     # storage constraints
@@ -194,12 +183,8 @@ def _check_cons_equations(res, N, loads, syst, grd):
     # positivity constraints
     for time_step in range(N):
         for load_type in range(loads['n_types']):
-            if not (np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)):
-                print()
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     for load_type in range(loads['n_types']):
-        if not (np.all(res[f'consa({load_type})'] >= - tol_constraints)):
-            print()
         assert np.all(res[f'consa({load_type})'] >= - tol_constraints)
     assert np.all(res['totcons'] >= - 1e-3)
 
@@ -290,12 +275,10 @@ def check_constraints_hold(res, prm, input_hourly_lij=None):
     assert np.all(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-3
     )
-    new_iteration_necessary = _check_power_flow_equations(res, grd, N, input_hourly_lij)
     _check_storage_equations(res, N, car, grd, syst)
     _check_cons_equations(res, N, loads, syst, grd)
     _check_temp_equations(res, syst, heat)
 
-    return new_iteration_necessary
 
 def _add_val_to_res(res, var, val, size, arr):
     """Add value to result dict."""
@@ -556,14 +539,9 @@ def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, tim
                             even_split_for_remaining_time_cons = total_left_to_remove / n_other_time_cons
                         else:
                             to_remove_each_time_cons[i] = even_split_for_remaining_time_cons
-                        if to_remove_each_time_cons[i] == 0:
-                            print()
                         print(f"remove {to_remove_each_time_cons[i]} from res[f'constl({tD}, 1)'][home={home}, time_cons={time_cons_other}]")
                         res[f'constl({tD}, 1)'][home, time_cons_other] -= to_remove_each_time_cons[i]
                     res[f'constl({tD}, 1)'][home, time_cons] = 0
-
-                    if not sum(to_remove_each_time_cons) == total_to_remove:
-                        print()
                     assert sum(to_remove_each_time_cons) == total_to_remove
 
             homes_to_update, time_steps_to_update = _add_home_time_step_pairs_to_list(
@@ -572,8 +550,6 @@ def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, tim
 
     for time_step in range(N):
         for load_type in range(loads['n_types']):
-            if not (np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)):
-                print()
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     return res, pp_simulation_required, homes_to_update, time_steps_to_update
 
@@ -607,7 +583,7 @@ def _update_res_variables(
             )
     new_grid = np.sum(res['netp'], axis=0) + res['hourly_line_losses_pu'] * grd['per_unit_to_kW_conversion']
     if np.any(abs(res['grid'] - new_grid) > 1e-3) or len(time_steps_grid) > 0:
-        print(f"update grid and grid2 and grid_energy_costs and pi")
+        # update grid and grid2 and grid_energy_costs and pi
         res['grid'] = new_grid
         res['grid2'] = np.square(res['grid'])
         new_grid_energy_costs = np.sum(
@@ -679,15 +655,6 @@ def check_and_correct_constraints(
 ):
     N = prm['syst']['N']
     loads = prm['loads']
-    if not np.all(abs(res[f'consa(0)'] + res[f'consa(1)'] + res['E_heat'] - res['totcons']) < 1e-3):
-        print(
-            f"even before _check_and_correct_cons_constraints,"
-            f"max abs(res[f'consa(0)'] + res[f'consa(1)'] + res['E_heat'] - res['totcons'])"
-            f"{np.max(abs(res[f'consa(0)'] + res[f'consa(1)'] + res['E_heat'] - res['totcons']))}"
-        )
-    if not np.all(abs(res['grid2'] - np.square(res['grid'])) < 1e-3):
-        print("even before check_and_correct_cons_constraints grid2 != grid ** 2")
-
     # 1 - check that loads are met
     pp_simulation_required, homes_to_update, time_steps_to_update = _check_loads_are_met(
         constl_loads_constraints, prm
@@ -699,8 +666,6 @@ def check_and_correct_constraints(
     )
     for time_step in range(N):
         for load_type in range(loads['n_types']):
-            if not (np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)):
-                print()
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     # 3 - check that const translates into consa
     res, pp_simulation_required, homes_to_update, time_steps_to_update \
@@ -709,8 +674,6 @@ def check_and_correct_constraints(
         )
     for time_step in range(N):
         for load_type in range(loads['n_types']):
-            if not (np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)):
-                print()
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     pp_simulation_required, homes_to_update, time_steps_to_update, time_steps_grid \
         = _check_consa_to_totcons_netp_grid(
@@ -718,8 +681,6 @@ def check_and_correct_constraints(
         )
     for time_step in range(N):
         for load_type in range(loads['n_types']):
-            if not (np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)):
-                print()
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     # 4 - update tot_cons and grid etc
     res, pp_simulation_required = _update_res_variables(
@@ -727,16 +688,14 @@ def check_and_correct_constraints(
     )
     for time_step in range(N):
         for load_type in range(loads['n_types']):
-            if not (np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)):
-                print()
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     assert np.all(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-3
     )
     # 5 - check constraints hold
-    new_iteration_necessary = check_constraints_hold(res, prm, input_hourly_lij)
+    check_constraints_hold(res, prm, input_hourly_lij)
 
-    return res, pp_simulation_required, new_iteration_necessary
+    return res, pp_simulation_required
 
 
 def res_post_processing(res, prm, input_hourly_lij):

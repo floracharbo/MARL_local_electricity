@@ -544,8 +544,6 @@ class DataManager:
         n_homes = len(res["E_heat"])
         fixed_cons_opt = batchflex_opt[:, time_step, 0]
         flex_cons_opt = res["house_cons"][:, time_step] - fixed_cons_opt
-        if not (np.all(np.greater(flex_cons_opt, - self.tol_constraints * 2))):
-            print()
         assert np.all(np.greater(flex_cons_opt, - self.tol_constraints * 2)), \
             f"flex_cons_opt {flex_cons_opt}"
         flex_cons_opt = np.where(flex_cons_opt > 0, flex_cons_opt, 0)

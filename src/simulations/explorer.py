@@ -781,8 +781,6 @@ class Explorer:
                 i for i in range(len(self.prm['grd']['Call']) - self.N)
                 if abs(self.sum_gc_for_start_Call_index(res, i) - res['grid_energy_costs']) < 1e-3
             ]
-            if len(i_start_res) == 0:
-                print()
             if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
                 self.env.update_i0_costs(i_start_res[0])
