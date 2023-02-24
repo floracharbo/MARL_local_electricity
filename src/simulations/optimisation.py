@@ -40,18 +40,17 @@ class Optimiser:
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        if self.grd['line_losses_method'] == 'iteration':
+        if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res = self._solve_line_losses_iteration()
             pp_simulation_required = False
 
-        elif self.grd['line_losses_method'] == 'subset_of_lines':
-            res, pp_simulation_required, _ = self._problem()
+        else:
+            res, pp_simulation_required = self._problem()
             res = res_post_processing(res, prm, self.input_hourly_lij)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
             res = res_post_processing(res, prm, self.input_hourly_lij)
-
 
         return res, pp_simulation_required
 
@@ -111,7 +110,7 @@ class Optimiser:
             eta_old = copy.deepcopy(prm['car']['etach'])
             print(f"prm['grd']['loads'][0][0][0] = "
                   f"{prm['grd']['loads'][0][0][0]}")
-            res, _, _ = self._problem()
+            res, _ = self._problem()
             print(f"res['constl(0, 0)'][0][0] "
                   f"= {res['constl(0, 0)'][0][0]}")
             if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
