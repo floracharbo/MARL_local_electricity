@@ -250,7 +250,7 @@ class Optimiser:
                     * q_car_flex[home, time] for home in range(self.n_homes)
                 ])
                 p.add_list_of_constraints([
-                    p_car_flex2[home, time] + p_car_flex2[home, time]
+                    p_car_flex2[home, time] + q_car_flex2[home, time]
                     <= self.car['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
         else:
