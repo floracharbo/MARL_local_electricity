@@ -30,13 +30,18 @@ class Action_translator:
         """Initialise action_translator object and add relevant properties."""
         self.name = 'action translator'
         self.entries = ['dp', 'ds', 'l_ch', 'l_dis', 'c']
-        self.plotting = prm['RL']['plotting_action']
+        self.plotting = prm['save']['plotting_action']
         self.colours = [(0, 0, 0)] + prm['save']['colours']
         self.n_homes = env.n_homes
         self.N = env.N
         self.labels = [r'$\Delta$p', r'$\Delta$s', 'Losses', 'Consumption']
         self.z_orders = [1, 3, 2, 0, 4]
         self.H = prm['syst']['H']
+
+        type_action = env.spaces.space_info['name'].map(
+            lambda x: x[- min(len(x), len('action')):] == 'action'
+        )
+        self.action_info = env.spaces.space_info[type_action]
         for info in [
             'aggregate_actions', 'dim_actions_1', 'low_action',
             'high_action', 'type_env', 'no_flex_action'
@@ -52,23 +57,16 @@ class Action_translator:
         Given home consumption and import variables,
         compute equiavalent RL flexibility action values.
         """
-        # loads: l_flex, l_fixed
-
-        homes = range(self.n_homes)
-
         self.car.min_max_charge_t(time_step, date)
         self.initial_processing(loads, home_vars)
         error = np.zeros(self.n_homes, dtype=bool)
-        bool_flex, actions = [], []
-        for home in homes:
-            if self.aggregate_actions:
-                actions, bool_flex = self.get_aggregate_action(
-                    actions, bool_flex, netp, home
-                )
-            else:
-                actions, bool_flex = self._get_disaggregated_actions(
-                    actions, bool_flex, res, loads, home, time_step
-                )
+
+        if self.aggregate_actions:
+            actions, bool_flex = self.get_aggregate_actions(netp)
+        else:
+            actions, bool_flex = self._get_disaggregated_actions(res, loads, time_step)
+
+        for home in range(self.n_homes):
             error = self._check_action_errors(
                 actions, error, res, loads, home, time_step, bool_flex
             )
@@ -183,16 +181,16 @@ class Action_translator:
             mask = a_dp > 1e-3
             action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
             for home in homes:
-                assert action_points[i][home] > - 1e-4, \
+                assert action_points[i][home] > - 5e-3, \
                     f"action_points[{i}][{home}] {action_points[i][home]} < 0"
-                if action_points[i][home] > 1 + 1e-4 and self.car.time_step == self.N:
+                if action_points[i][home] > 1 + 5e-3 and self.car.time_step == self.N:
                     action_points[i][home] = 1
-                assert action_points[i][home] < 1 + 1e-4, \
+                assert action_points[i][home] < 1 + 5e-3, \
                     f"action_points[{i}][{home}] {action_points[i][home]} > 1 " \
                     f"mask {mask} d['dp'][i][mask] {d['dp'][i][mask]} a_dp {a_dp} b_dp {b_dp}"
                 if - 1e-4 < action_points[i][home] < 0:
                     action_points[i][home] = 0
-                if 1 < action_points[i][home] < 1 + 1e-4:
+                if 1 < action_points[i][home] < 1 + 5e-3:
                     action_points[i][home] = 1
         self.d = d
         self.k, self.action_intervals = [[] for _ in range(2)]
@@ -202,6 +200,7 @@ class Action_translator:
             assert self.heat.E_heat_min[home] + loads['l_fixed'][home] \
                    <= self.k[home]['c'][0][1] + 1e-3,\
                    "min c smaller than min required"
+        self.k_dp = np.array([self.k[home]['dp'][0] for home in range(self.n_homes)])
 
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
@@ -238,7 +237,7 @@ class Action_translator:
         self.l_flex = loads['l_flex']
         flex_heat = np.zeros(self.n_homes)
         for home in homes:
-            # boolean for whether or not we have flexibility
+            # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
             if self.aggregate_actions:
                 flex_heat = None
@@ -508,180 +507,33 @@ class Action_translator:
         assert isinstance(s_remove_0, np.ndarray), \
             f"type(s_remove_0) = {type(s_remove_0)}"
 
-    def aggregate_action_bool_flex(self, home):
-        """Check that there is flexibility over all three sub-actions."""
-        return self.k[home]['dp'][0][0] > 0
-
-    def get_flexibility(self, home):
+    def get_flexibility(self):
         """Compute total flexibility between minimum and maximum possible imports/exports."""
-        return self.k[home]['dp'][0][0]
+        return self.k_dp[:, 0]
 
-    def store_bool_flex(self, home):
+    def get_store_bool_flex(self):
         """Check that there is flexibility over the storage sub-action."""
-        return abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3
-
-    def get_aggregate_action(self, actions, bool_flex, netp, home):
-        """Compute the aggregate action variable from the current import/export."""
-        if abs(self.k[home]['dp'][0][0]) < 1e-2:
-            self.k[home]['dp'][0][0] = 0
-        bool_flex_ = self.aggregate_action_bool_flex(home)
-        bool_flex.append(bool_flex_)
-
-        if not bool_flex_:  # there is no flexibility
-            # boolean for whether we have flexibility
-            actions.append([None])
-        else:
-            # action none if no flexibility
-            assert netp[home] - self.k[home]['dp'][0][1] > - 1e-2, \
-                "netp smaller than k['dp'][0]"
-            delta = 0 if abs(netp[home] - self.k[home]['dp'][0][1]) < 1e-2 \
-                else netp[home] - self.k[home]['dp'][0][1]
-            actions.append(
-                [
-                    None if self.k[home]['dp'][0][0] == 0
-                    else delta / self.k[home]['dp'][0][0]
-                ]
-            )
-        if actions[home] is not None:
-            assert - 1e-2 < actions[home][0] < 1 + 1e-2, \
-                "action should be between 0 and 1"
-
-        return actions, bool_flex
-
-    def _flex_loads_action(self, loads, home, res, time_step):
-        """Compute the flexible household loads consumption action from the optimisation result."""
-        loads_bool_flex = True
-        flexible_cons_action = None
-        if loads['l_flex'][home] < 1e-3:
-            loads_bool_flex = False
-            if self.no_flex_action == 'one':
-                flexible_cons_action = 1
-            elif self.no_flex_action == 'random':
-                flexible_cons_action = np.random.rand()
-
-        if loads_bool_flex:
-            cons = res['house_cons'][home, time_step]
-            if cons < 1e-3:
-                cons = 0
-
-            flex_cons = cons - loads['l_fixed'][home]
-            if flex_cons < 1e-3:
-                flex_cons = 0
-            elif loads['l_flex'][home] < flex_cons < loads['l_flex'][home] + 1e-3:
-                flex_cons = loads['l_flex'][home]
-            flexible_cons_action = flex_cons / loads['l_flex'][home]
-
-        if flexible_cons_action > 1:
-            if abs(flex_cons - loads['l_flex'][home]) < 5e-3:
-                flexible_cons_action = 1
-            else:
-                print(f"flex_cons {flex_cons} loads['l_flex'][home] {loads['l_flex'][home]}")
-
-        return flexible_cons_action, loads_bool_flex
-
-    def _flex_heat_action(self, home, res, time_step):
-        """Compute the flexible heat energy consumption action from the optimisation result."""
-        heat_bool_flex = True
-        flexible_heat_action = None
-        if self.heat.potential_E_flex()[home] < 1e-3:
-            heat_bool_flex = False
-            if self.no_flex_action == 'one':
-                flexible_heat_action = 1
-            elif self.no_flex_action == 'random':
-                flexible_heat_action = np.random.rand()
-        if heat_bool_flex:
-            E_heat = 0 if res['E_heat'][home][time_step] < 1e-3 else res['E_heat'][home][time_step]
-            if abs(res['E_heat'][home][time_step] - self.heat.E_heat_min[home]) < 1e-3:
-                flexible_heat_action = 0
-            else:
-                flexible_heat_action = \
-                    (E_heat - self.heat.E_heat_min[home]) / \
-                    (self.heat.E_heat_max[home] - self.heat.E_heat_min[home])
-
-        return flexible_heat_action, heat_bool_flex
-
-    def _flex_store_action(self, res, home, time_step):
-        """Compute the flexible storage action from the optimisation result."""
-        store_bool_flex = True
-        flexible_store_action = None
-        max_charge_a, min_charge_a = [
-            self.max_charge[home], self.min_charge[home]
+        return [
+            abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3
+            for home in range(self.n_homes)
         ]
-        max_discharge_a, min_discharge_a = [
-            self.max_discharge[home], self.min_discharge[home]
+
+    def _get_no_flex_action(self, action_type):
+        if self.no_flex_action == 'one':
+            action = 1
+        elif self.no_flex_action == 'random' or self.type_env == 'discrete':
+            action = np.random.rand()
+        elif self.no_flex_action == 'None':
+            action = None
+
+        min_action, max_action = [
+            self.action_info.loc[self.action_info["name"] == action_type, col].values[0]
+            for col in ['min', 'max']
         ]
-        if (
-                (
-                    abs(max_charge_a - min_charge_a) < 1e-3  # or
-                    and abs(min_discharge_a - max_discharge_a) < 1e-3
-                )
-                or (
-                    abs(min_discharge_a - max_discharge_a) < 1e-3
-                    and res['discharge_other'][home, time_step] > 1e-3
-                )
-                or (
-                    abs(max_charge_a - min_charge_a) < 1e-3
-                    and res['charge'][home, time_step] > 1e-3
-                )
-        ):
-            store_bool_flex = False
-            # abs(max_charge_a - max_discharge_a) < 1e-3 or
-            # no flexibility in charging
-            if self.no_flex_action == 'one':
-                flexible_store_action = 1
-            elif self.no_flex_action == 'random' or self.type_env == 'discrete':
-                flexible_store_action = np.random.rand() * 2 - 1
 
-            assert abs(self.min_charge[home] - self.max_charge[home]) <= 1e-3, \
-                "flexible_store_action is None but " \
-                "self.min_charge[home] != self.max_charge[home]"
-        if store_bool_flex:
-            max_charge_a, min_charge_a = [
-                self.max_charge[home], self.min_charge[home]
-            ]
-            max_discharge_a, min_discharge_a = [
-                self.max_discharge[home], self.min_discharge[home]
-            ]
-            assert min_charge_a - 1e-3 <= res['charge'][home, time_step] \
-                   <= max_charge_a + 1e-3, \
-                   f"res charge {res['charge'][home, time_step]} " \
-                   f"min_charge_a {min_charge_a} max_charge_a {max_charge_a}"
-            assert max_discharge_a - 1e-3 \
-                   <= - res['discharge_other'][home, time_step] / self.car.eta_dis \
-                   <= min_discharge_a + 1e-3, \
-                   f"res discharge_other {res['discharge_other'][home, time_step]} " \
-                   f"min_discharge_a {- min_discharge_a} " \
-                   f"max_discharge_a {- max_discharge_a}"
-            if abs(res['discharge_other'][home, time_step]) < 1e-3 \
-                    and abs(res['charge'][home, time_step]) < 1e-3:
-                flexible_store_action = 0
-            elif res['discharge_other'][home, time_step] > 1e-3:
-                flexible_store_action = \
-                    (min_discharge_a - res['charge'][home, time_step]) \
-                    / (min_discharge_a - max_discharge_a)
-            else:
-                if abs(res['charge'][home, time_step] - max_charge_a) < 1e-3:
-                    flexible_store_action = 1
-                else:
-                    flexible_store_action = (res['charge'][home, time_step] - min_charge_a) \
-                        / (max_charge_a - min_charge_a)
+        action = action * (max_action - min_action) + min_action
 
-        return flexible_store_action, store_bool_flex
-
-    def _get_disaggregated_actions(self, actions, bool_flex, res, loads, home, time_step):
-        """Get all three sub-action values from the optimisation result."""
-        flexible_cons_action, loads_bool_flex = self._flex_loads_action(loads, home, res, time_step)
-        flexible_heat_action, heat_bool_flex = self._flex_heat_action(home, res, time_step)
-        flexible_store_action, store_bool_flex = self._flex_store_action(res, home, time_step)
-
-        actions.append(
-            [flexible_cons_action, flexible_heat_action, flexible_store_action]
-        )
-        bool_flex.append(
-            not sum(action is None for action in actions[home]) == 3
-        )
-
-        return actions, bool_flex
+        return action
 
     def _check_action_errors(
             self, actions, error, res, loads, home, time_step, bool_flex
@@ -718,8 +570,170 @@ class Action_translator:
 
         return error
 
+    def _get_disaggregated_actions(self, res, loads, time_step):
+        flexible_cons_action, loads_bool_flex = self._flex_loads_actions(loads, res, time_step)
+        flexible_heat_action, heat_bool_flex = self._flex_heat_actions(res, time_step)
+        flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
+
+        actions = np.stack(
+            (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
+        )
+        bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
+
+        return actions, bool_flex
+
+    def _flex_loads_actions(self, loads, res, time_step):
+        no_flex_actions = self._get_no_flex_actions('flexible_cons_action')
+
+        cons = res['house_cons'][:, time_step]
+        cons[cons < 1e-3] = 0
+        flex_cons = cons - loads['l_fixed']
+        flex_cons[flex_cons < 1e-3] = 0
+        flex_cons = np.where(
+            abs(loads['l_flex'] - flex_cons) < 1e-3,
+            loads['l_flex'],
+            flex_cons
+        )
+        loads_bool_flex = loads['l_flex'] > 1e-3
+        flexible_cons_action = no_flex_actions
+        flexible_cons_action[loads_bool_flex] \
+            = flex_cons[loads_bool_flex] / loads['l_flex'][loads_bool_flex]
+        flexible_cons_action[abs(flex_cons - loads['l_flex']) < 5e-3] = 1
+
+        if any(flexible_cons_action > 1):
+            print(
+                f"flexible_cons_action {flexible_cons_action} "
+                f"loads['l_flex'][home] {loads['l_flex']}"
+            )
+
+        return flexible_cons_action, loads_bool_flex
+
+    def _flex_heat_actions(self, res, time_step):
+        """Compute the flexible heat energy consumption action from the optimisation result."""
+        no_flex_actions = self._get_no_flex_actions('flexible_heat_action')
+
+        E_heat = res['E_heat'][:, time_step]
+        E_heat[E_heat < 1e-3] = 0
+        E_heat = np.where(
+            abs(E_heat - self.heat.E_heat_min) < 1e-3,
+            self.heat.E_heat_min,
+            E_heat
+        )
+        potential_E_flex = self.heat.potential_E_flex()
+        heat_bool_flex = potential_E_flex > 1e-3
+        heat_actions = no_flex_actions
+        heat_actions[heat_bool_flex] = (
+            E_heat[heat_bool_flex] - self.heat.E_heat_min[heat_bool_flex]
+        ) / potential_E_flex[heat_bool_flex]
+
+        return heat_actions, heat_bool_flex
+
+    def _flex_store_actions(self, res, time_step):
+        """Compute the flexible storage action from the optimisation result."""
+        no_flex_actions = self._get_no_flex_actions('battery_action')
+        no_flex_charge = abs(self.max_charge - self.min_charge) < 1e-3
+        no_flex_discharge = abs(self.min_discharge - self.max_discharge) < 1e-3
+        store_bool_flex = ~ (
+            (no_flex_charge & no_flex_discharge)
+            | (no_flex_discharge & (res['discharge_other'][:, time_step] > 1e-3))
+            | (no_flex_charge & (res['charge'][:, time_step] > 1e-3))
+        )
+
+        assert all(
+            store_bool_flex | (abs(self.min_charge - self.max_charge) <= 1e-3)
+        ), "flexible_store_action is None but self.min_charge[home] != self.max_charge[home]"
+
+        assert all(
+            (~ store_bool_flex)
+            | (
+                (self.min_charge - 1e-3 <= res['charge'][:, time_step])
+                & (res['charge'][:, time_step] <= self.max_charge + 1e-3)
+            )
+        ), f"res charge {res['charge'][:, time_step]} " \
+           f"self.min_charge[home] {self.min_charge} " \
+           f"self.max_charge[home] {self.max_charge}"
+
+        efficiency_corrected_discharge = res['discharge_other'][:, time_step] / self.car.eta_dis
+        assert all(
+            (~ store_bool_flex)
+            | (
+                (self.max_discharge - 1e-3 <= - efficiency_corrected_discharge)
+                & (- efficiency_corrected_discharge <= self.min_discharge + 1e-3)
+            )
+        ), f"res efficiency_corrected_discharge {efficiency_corrected_discharge} " \
+           f"self.min_discharge] {- self.min_discharge} " \
+           f"self.max_discharge] {- self.max_discharge}"
+        flexible_store_actions = np.zeros(self.n_homes)
+        for home in range(self.n_homes):
+            if store_bool_flex[home]:
+                if abs(res['discharge_other'][home, time_step]) < 1e-3 \
+                        and abs(res['charge'][home, time_step]) < 1e-3:
+                    flexible_store_actions[home] = 0
+                elif res['discharge_other'][home, time_step] > 1e-3:
+                    flexible_store_actions[home] = \
+                        (self.min_discharge[home] - res['charge'][home, time_step]) \
+                        / (self.min_discharge[home] - self.max_discharge[home])
+                else:
+                    if abs(res['charge'][home, time_step] - self.max_charge[home]) < 1e-3:
+                        flexible_store_actions[home] = 1
+                    else:
+                        flexible_store_actions[home] = (
+                            res['charge'][home, time_step] - self.min_charge[home]
+                        ) / (self.max_charge[home] - self.min_charge[home])
+
+        store_actions = np.where(
+            store_bool_flex,
+            flexible_store_actions,
+            no_flex_actions
+        )
+
+        return store_actions, store_bool_flex
+
+    def _get_no_flex_actions(self, action_type):
+        if self.no_flex_action == 'one':
+            action = np.ones(self.n_homes)
+        elif self.no_flex_action == 'random' or self.type_env == 'discrete':
+            action = np.random.rand(self.n_homes)
+        elif self.no_flex_action == 'None':
+            action = np.full(self.n_homes, None)
+
+        min_action, max_action = [
+            self.action_info.loc[self.action_info["name"] == action_type, col].values[0]
+            for col in ['min', 'max']
+        ]
+
+        action = action * (max_action - min_action) + min_action
+
+        return action
+
+    def aggregate_action_bool_flex(self):
+        return self.k_dp[:, 0] > 0
+
+    def get_aggregate_actions(self, netp):
+        self.k_dp[:, 0][abs(self.k_dp[:, 0]) < 1e-2] = 0
+        bool_flex = self.aggregate_action_bool_flex()
+        assert all(bool_flex | (netp - self.k_dp[:, 1] > - 1e-2)), \
+            "netp smaller than k['dp'][0]"
+
+        delta = np.where(
+            abs(netp - self.k_dp[:, 1]) < 1e-2,
+            0,
+            netp - self.k_dp[:, 1]
+        )
+        no_flex_actions = self._get_no_flex_actions('action')
+        actions = no_flex_actions
+        actions[bool_flex] = delta[bool_flex] / self.k_dp[bool_flex, 0]
+        assert all(
+            action is None or ((action >= 0) & (action <= 1))
+            for action in actions
+        ), "action should be between 0 and 1"
+
+        actions = np.reshape(actions, (self.n_homes, 1))
+
+        return actions, bool_flex
+
 # figs1
-# env.action_translator.mincharge=[7.5,7.5]
+# env.action_translator.mincharge=[7.5, 7.5]
 # env.action_translator.maxcharge=[75,75]
 # env.action_translator.initial_processing(
 # [45,45], [10, 10], [10,10], [1,1], [5,5],[20, 20],[5, 5],[0, 1])

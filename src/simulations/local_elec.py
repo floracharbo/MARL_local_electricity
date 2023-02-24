@@ -23,10 +23,9 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import initialise_dict
 
 
-class LocalElecEnv():
+class LocalElecEnv:
     """
     Local electricity environment.
 
@@ -61,7 +60,6 @@ class LocalElecEnv():
             setattr(self, info, prm['syst'][info])
 
         self.server = prm['syst']['server']
-        self.action_translator = Action_translator(prm, self)
         self.i0_costs = 0
         self.car = Battery(prm)
         self.hedge = HEDGE(
@@ -72,6 +70,9 @@ class LocalElecEnv():
         )
         self.spaces = EnvSpaces(self)
         self.spaces.new_state_space(self.rl['state_space'])
+        self.action_translator = Action_translator(prm, self)
+        self.spaces.action_translator = self.action_translator
+
         self.add_noise = 1 if self.rl['deterministic'] == 2 else 0
         for data in [
             "competitive", "n_grdC_level", "offset_reward", "delta_reward"
@@ -112,6 +113,7 @@ class LocalElecEnv():
             E_req_only: bool = False,
     ) -> Tuple[str, dict]:
         """Reset environment for new day with new data."""
+        self.tot_cons_loads = []
         if seed is not None:
             self.envseed = self._seed(seed)
             self.random_seeds_use[seed] = 0
@@ -124,7 +126,7 @@ class LocalElecEnv():
         # date0 is not the total date0 for all runs,
         # but the specific date0 for this run
         # as defined in learning.py at the same time as i0_costs
-        self.time = 0  # hrs since start
+        self.time_step = 0  # hrs since start
         self.steps_beyond_done = None
         self.done = False
         self.idt = 0 if self.date0.weekday() < 5 else 1
@@ -155,12 +157,15 @@ class LocalElecEnv():
         if not load_data or (load_data and self.add_noise):
             self._initialise_new_data(passive=passive)
 
-        for _ in range(2):
-            self._load_next_day(passive=passive)
+        for i in range(2):
+            self._load_next_day(i_load=i)
 
         self.car.add_batch(self.batch)
         self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
         self._loads_test()
+        self.batch_flex = copy.deepcopy(self.batch['flex'])
+
+        assert not np.all(self.batch['flex'] == 0), "no flex in batch"
 
         return self.save_file, self.batch
 
@@ -193,26 +198,23 @@ class LocalElecEnv():
     def fix_data_a(self, homes, file_id, its=0, passive=False):
         """Recompute data for home a that is infeasible."""
         self._seed(self.envseed[0] + its)
-        self._initialise_batch_entries(homes)
-        date_load = self.date0
         self.dloaded = 0
-        while date_load < self.date_end + timedelta(days=1):
-            self._load_next_day(homes=homes, passive=passive)
-            date_load += timedelta(days=1)
+        for i in range(2):
+            self._load_next_day(homes=homes, i_load=i)
         self.car.add_batch(self.batch)
         self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
         np.save(self.res_path / f"batch{file_id}", self.batch)
 
     def update_flex(
             self,
-            cons_flex: list,
+            flex_cons: list,
             opts: list = None
     ) -> np.ndarray:
         """Given step flexible consumption, update remaining flexibility."""
         if opts is None:
             h = self._get_time_step()
             n_homes = self.n_homes
-            batch_flex = np.array([self.batch[home]['flex'] for home in range(n_homes)])
+            batch_flex = self.batch_flex
         else:
             h, batch_flex, max_delay, n_homes = opts
 
@@ -226,10 +228,10 @@ class LocalElecEnv():
         new_batch_flex = copy.deepcopy(batch_flex[:, h: h + 2])
 
         for home in range(n_homes):
-            remaining_cons = max(cons_flex[home], 0)
+            remaining_cons = max(flex_cons[home], 0)
 
-            assert cons_flex[home] <= np.sum(batch_flex[home][h][1:]) + 1e-2, \
-                f"cons_flex[home={home}] {cons_flex[home]} " \
+            assert flex_cons[home] <= np.sum(batch_flex[home][h][1:]) + 1e-2, \
+                f"flex_cons[home={home}] {flex_cons[home]} " \
                 f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-2"
 
             # remove what has been consumed
@@ -241,29 +243,29 @@ class LocalElecEnv():
                 f"remaining_cons = {remaining_cons} too large"
 
             # move what has not been consumed to one step more urgent
-            self._new_flex_tests(batch_flex, new_batch_flex, h, home)
+            self._prep_next_flex_step(batch_flex, new_batch_flex, h, home)
+
+        assert np.all(new_batch_flex >= 0)
 
         return new_batch_flex
 
-    def check_batch_flex(self, h, batch_flex):
+    def check_batch_flex(self, h):
         for ih in range(h + 1, h + self.N):
             if not all(
-                    self.batch[home]['loads'][ih]
-                    <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
-                    for home in self.homes
+                    self.batch['loads'][:, ih]
+                    <= self.batch_flex[:, ih, 0] + self.batch_flex[:, ih, -1] + 1e-3
             ):
                 with open("batch_error", 'wb') as file:
                     pickle.dump(self.batch, file)
                 with open("batch_flex_error", 'wb') as file:
-                    pickle.dump(batch_flex, file)
+                    pickle.dump(self.batch_flex, file)
             assert all(
-                self.batch[home]['loads'][ih]
-                <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3
-                for home in self.homes
+                self.batch['loads'][:, ih]
+                <= self.batch_flex[:, ih, 0] + self.batch_flex[:, ih, -1] + 1e-3
             ), f"h {h} ih {ih} " \
-               f"loads {[self.batch[home]['loads'][ih] for home in self.homes]} " \
-               f"batch_flex[home][ih] {[batch_flex[home][ih] for home in self.homes]} " \
-               f"len(batch_flex[0]) {len(batch_flex[0])} " \
+               f"loads {self.batch['loads'][:, ih]} " \
+               f"batch_flex[home][ih] {self.batch_flex[:, ih]} " \
+               f"len(batch_flex[0]) {len(self.batch_flex[0])} " \
                f"self.dloaded {self.dloaded}"
 
     def step(
@@ -278,24 +280,26 @@ class LocalElecEnv():
         """Compute environment updates and reward from selected action."""
         h = self._get_time_step()
         homes = self.homes
-        batch_flex = np.array([self.batch[home]['flex'] for home in homes])
-        self._batch_tests(batch_flex, h)
-        # self.check_batch_flex(h, batch_flex)
+        self._batch_tests(h)
+        self.check_batch_flex(h)
         # update batch if needed
         daynumber = (self.date - self.date0).days
-        if h == 1 and self.time > 1 \
+        if h == 1 and self.time_step > 1 \
                 and self.dloaded < daynumber + 2 == 0 \
                 and not self.slid_day:
-            self._load_next_day()
+            print("sliding day need to fix this")
+            for key in self.batch:
+                self.batch[key][:, 0: self.N] = self.batch[key][:, self.N: self.N * 2]
+            self._load_next_day(i_load=1)
             self.slid_day = True
         self.car.add_batch(self.batch)
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok = \
-            self.policy_to_rewardvar(
-                action, E_req_only=E_req_only
-            )
+        home_vars, loads, hourly_line_losses, voltage_squared, \
+            q_ext_grid, constraint_ok = self.policy_to_rewardvar(
+                action, E_req_only=E_req_only)
+        netp0 = self.prm['loads']['netp0'][:, h]
         if not constraint_ok:
             print('constraint false not returning to original values')
             return [None, None, None, None, None, constraint_ok, None]
@@ -309,52 +313,56 @@ class LocalElecEnv():
 
             # ----- update environment variables and state
             new_batch_flex = self.update_flex(loads['flex_cons'])
-            next_date = self.date + timedelta(seconds=60 * 60 * self.dt)
+            next_date = self.date + timedelta(hours=self.dt)
             next_done = next_date == self.date_end
             inputs_next_state = [
-                self.time + 1, next_date, next_done, new_batch_flex, self.car.store
+                self.time_step + 1, next_date, next_done, new_batch_flex, self.car.store
             ]
             next_state = self.get_state_vals(inputs=inputs_next_state) \
                 if not self.done \
                 else [None for _ in homes]
+            T = self.heat.T.copy()
+
             if implement:
                 for home in homes:
-                    batch_flex[home][h: h + 2] = new_batch_flex[home]
-                self.time += 1
+                    self.batch_flex[home][h: h + 2] = new_batch_flex[home]
+                self.tot_cons_loads.append(loads['tot_cons_loads'])
+                self.time_step += 1
+                self._test_flex_cons()
                 self.date = next_date
                 self.idt = 0 if self.date.weekday() < 5 else 1
                 self.done = next_done
                 self.heat.update_step()
-                self.car.update_step(time_step=self.time)
-
-            if record or evaluation:
-                loads_fixed = [sum(batch_flex[home][h][:]) for home in homes] \
-                    if self.date == self.date_end - timedelta(hours=2 * self.dt) \
-                    else [batch_flex[home][h][0] for home in homes]
+                self.car.update_step(time_step=self.time_step)
 
             if record:
-                loads_flex = np.zeros(self.n_homes) if self.date == self.date_end \
-                    else [sum(batch_flex[home][h][1:]) for home in homes]
+                loads_flex = np.zeros(self.n_homes) if next_done \
+                    else [sum(self.batch_flex[home][h][1:]) for home in homes]
                 if self.prm['grd']['manage_voltage']:
                     loaded_buses, sgen_buses = self.network.loaded_buses, self.network.sgen_buses
                 else:
                     loaded_buses, sgen_buses = None, None
+
                 record_output = [
                     home_vars['netp'],
+                    netp0,
                     self.car.discharge,
                     self.car.store,
                     home_vars['tot_cons'].copy(),
                     self.heat.tot_E.copy(),
-                    self.heat.T.copy(),
+                    T,
                     self.heat.T_air.copy(),
                     voltage_squared,
                     hourly_line_losses,
-                    action, reward, loads_flex, loads_fixed, loads['tot_cons_loads'].copy(),
-                    self.prm['grd']['C'][self.time].copy(),
-                    self.wholesale[self.time].copy(),
-                    self.cintensity[self.time].copy(),
+                    action, reward, loads['flex_cons'].copy(),
+                    loads_flex, loads['l_fixed'].copy(),
+                    loads['tot_cons_loads'].copy(),
+                    self.prm['grd']['C'][self.time_step].copy(),
+                    self.wholesale[self.time_step].copy(),
+                    self.cintensity[self.time_step].copy(),
                     break_down_rewards,
-                    loaded_buses, sgen_buses
+                    loaded_buses, sgen_buses,
+                    q_ext_grid
                 ]
 
                 return [next_state, self.done, reward, break_down_rewards,
@@ -397,7 +405,7 @@ class LocalElecEnv():
             hour = int((self.date - self.date0).seconds / seconds_per_interval)
             netp0, discharge_tot0, charge0 = self.get_passive_vars(hour)
 
-        time_step = self.time if time_step is None else time_step
+        time_step = self.time_step if time_step is None else time_step
         if discharge_tot is None:
             discharge_tot = self.car.discharge_tot
         charge = self.car.charge if charge is None else charge
@@ -407,8 +415,8 @@ class LocalElecEnv():
 
         # negative netp is selling, positive buying, losses in kWh
         grid = sum(netp) + sum(netp0) + hourly_line_losses
-        # import and export limits
 
+        # import and export limits
         if self.prm['grd']['manage_agg_power']:
             import_export_costs, _, _ = self.network.compute_import_export_costs(grid)
         else:
@@ -428,6 +436,8 @@ class LocalElecEnv():
             netpvar = sum([netp[home] ** 2 for home in self.homes]) \
                 + sum([netp0[home] ** 2 for home in range(len(netp0))])
             distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
+        if not self.prm['grd']['penalise_individual_exports']:
+            distribution_network_export_costs = 0
         grid_energy_costs = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
         cost_distribution_network_losses = grdCt * hourly_line_losses
         indiv_grid_energy_costs = [wholesalet * netp[home] for home in self.homes]
@@ -478,22 +488,15 @@ class LocalElecEnv():
         return - np.where(netp < 0, netp, 0)
 
     def get_loads_fixed_flex_gen(self, date, time_step):
-        batch_flex = np.array([self.batch[home]['flex'][time_step] for home in self.homes])
         loads, home_vars = {}, {}
         if date == self.date_end - timedelta(hours=self.dt):
             loads['l_flex'] = np.zeros(self.n_homes)
-            loads['l_fixed'] = np.array(
-                [sum(batch_flex[home]) for home in self.homes]
-            )
+            loads['l_fixed'] = np.sum(self.batch_flex[:, time_step], axis=1)
         else:
-            loads['l_flex'] = np.array(
-                [sum(batch_flex[home][1:]) for home in self.homes]
-            )
-            loads['l_fixed'] = np.array(
-                [batch_flex[home][0] for home in self.homes]
-            )
+            loads['l_flex'] = np.sum(self.batch_flex[:, time_step, 1:], axis=1)
+            loads['l_fixed'] = np.array(self.batch_flex[:, time_step, 0])
 
-        home_vars['gen'] = np.array([self.batch[home]['gen'][time_step] for home in self.homes])
+        home_vars['gen'] = self.batch['gen'][:, time_step]
 
         return loads, home_vars
 
@@ -501,7 +504,7 @@ class LocalElecEnv():
             self,
             action: list,
             other_input: list = None,
-            E_req_only: bool = False
+            E_req_only: bool = False,
     ):
         """Given selected action, obtain results of the step."""
         if other_input is None:
@@ -516,7 +519,6 @@ class LocalElecEnv():
                     print(f'action[{home}] is None, action = {action[home]}')
 
             self.heat.current_temperature_bounds(h)
-
         else:
             date, action, gens, loads = other_input
             gens = np.array(gens)
@@ -540,25 +542,39 @@ class LocalElecEnv():
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
                 f"home = {home}, no flex cons at last time step"
             assert loads['l_fixed'][home] \
-                   >= self.batch[home]['loads'][h] * (1 - share_flexs[home]), \
+                   >= self.batch['loads'][home, h] * (1 - share_flexs[home]), \
                    f"home {home} l_fixed and batch do not match"
 
         self.heat.next_T(update=True)
         self._check_constraints(
-            bool_penalty, date, loads, E_req_only, h, last_step, home_vars)
+            bool_penalty, date, loads, E_req_only, h, last_step, home_vars
+        )
 
+        if self.prm['syst']['n_homesP'] > 0:
+            netp0 = self.prm['loads']['netp0'][:, h]
+        else:
+            netp0 = []
         if self.prm['grd']['manage_voltage']:
-            hourly_line_losses, voltage = self.network.pf_simulation(home_vars['netp'])
-            voltage_squared = np.square(voltage)
-
+            # retrieve info from battery
+            self.car.active_reactive_power_car()
+            # q_car_flex will be a decision variable
+            # p_car_flex is needed to set apparent power limits
+            p_car_flex = self.car.p_car_flex
+            q_car_flex = self.car.q_car_flex
+            # run pandapower simulation
+            voltage_squared, hourly_line_losses, q_ext_grid = \
+                self.network._power_flow_res_with_pandapower(
+                    home_vars, netp0, q_car_flex)
         else:
             voltage_squared = None
             hourly_line_losses = 0
+            q_ext_grid = 0
 
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
-        return home_vars, loads, hourly_line_losses, voltage_squared, constraint_ok
+        return (home_vars, loads, hourly_line_losses, voltage_squared,
+                q_ext_grid, constraint_ok)
 
     def get_state_vals(
             self,
@@ -571,16 +587,14 @@ class LocalElecEnv():
         (before translation into index)
         """
         if inputs is None:
-            t, date, done, store = [
-                self.time, self.date, self.done, self.car.store
+            time_step, date, done, store = [
+                self.time_step, self.date, self.done, self.car.store
             ]
-            batch_flex_h = [
-                self.batch[home]['flex'][self.time] for home in self.homes
-            ]
+            batch_flex_h = self.batch_flex[:, time_step]
         else:
             date = inputs[1]
 
-        inputs_ = [t, date, done, batch_flex_h, store] if inputs is None else inputs
+        inputs_ = [time_step, date, done, batch_flex_h, store] if inputs is None else inputs
 
         idt = 0 if date.weekday() < 5 else 1
         descriptors = descriptors if descriptors is not None \
@@ -650,7 +664,7 @@ class LocalElecEnv():
                     [c > rdn for c in cump].index(True)
                 self.cluss[home][data_type].append(self.clus[data_type + self.passive_ext][home])
 
-    def _load_next_day(self, homes: list = [], passive: bool = False):
+    def _load_next_day(self, homes: list = [], i_load=0):
         """
         Load next day of data.
 
@@ -663,12 +677,10 @@ class LocalElecEnv():
                 day = self.hedge.make_next_day(homes)
             else:
                 day = self.passive_hedge.make_next_day(homes)
-            for i_home, home in enumerate(homes):
-                for e in day.keys():
-                    self.batch[home][e] = self.batch[home][e] + list(day[e][i_home])
-            self._loads_to_flex(homes)
+            for e in day.keys():
+                self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
+            self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
-
         else:
             for info in ['batch', 'i0_costs']:
                 if (self.res_path / f"{info}{self._file_id()}").is_file():
@@ -681,36 +693,27 @@ class LocalElecEnv():
                         ).item()
                     )
             self.update_i0_costs()
-            self._correct_len_batch()
+            assert len(self.batch['loads'][0]) <= 2 * self.N, \
+                "there used to be _correct_len_batch here"
             self.dloaded += self.prm['syst']['D']
 
         assert len(self.batch) > 0, "empty batch"
-        assert len(self.batch[0]['avail_car']) > 0, "empty avail_car batch"
+        assert len(self.batch['avail_car'][0]) > 0, "empty avail_car batch"
 
-    def _correct_len_batch(self):
-        if len(self.batch[0]['loads']) > 2 * self.N:
-            for home in self.homes:
-                for e in self.batch[home]:
-                    self.batch[home][e] = self.batch[home][e][0: 2 * self.N]
-            np.save(self.res_path / f"batch{self._file_id()}", self.batch)
-
-    def _loads_to_flex(self, homes: list = None):
+    def _loads_to_flex(self, homes: list = None, i_load: int = 0):
         """Apply share of flexible loads to new day loads data."""
         homes = self.homes if len(homes) == 0 else homes
         share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
-            for t in range(self.N):
-                tot_t = self.dloaded * self.prm["syst"]["N"] + t
-                loads_t = self.batch[home]["loads"][tot_t]
-                dayflex_a[t, 0] = (1 - share_flexs[home]) * loads_t
-                dayflex_a[t, self.max_delay] = share_flexs[home] * loads_t
-            self.batch[home]['flex'] = np.concatenate(
-                (self.batch[home]['flex'], dayflex_a)
-            )
+            for time_step in range(self.N):
+                loads_t = self.batch["loads"][home, i_load * self.N + time_step]
+                dayflex_a[time_step, 0] = (1 - share_flexs[home]) * loads_t
+                dayflex_a[time_step, self.max_delay] = share_flexs[home] * loads_t
+            self.batch['flex'][home, i_load * self.N: (i_load + 1) * self.N] = dayflex_a
 
-            assert np.shape(self.batch[home]["flex"])[1] == self.max_delay + 1, \
-                f"shape batch[{home}]['flex'] {np.shape(self.batch[home]['flex'])} " \
+            assert np.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
+                f"shape batch['flex'][{home}] {np.shape(self.batch['flex'][home])} " \
                 f"self.max_delay {self.max_delay}"
 
     def _get_time_step(self, date: datetime = None) -> int:
@@ -787,7 +790,7 @@ class LocalElecEnv():
             share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
             if last_step \
                     and home_vars['tot_cons'][home] < \
-                    self.batch[home]['loads'][h] * (1 - share_flexs[home]):
+                    self.batch['loads'][home, h] * (1 - share_flexs[home]):
                 print(f"home = {home}, no flex cons at last time step")
                 bool_penalty[home] = True
         # self.car.revert_last_update_step()
@@ -796,7 +799,9 @@ class LocalElecEnv():
 
     def _compute_dT_next(self, home, hour):
         T_req = self.prm['heat']['T_req' + self.passive_ext][home]
-        t_change_T_req = [t for t in range(hour + 1, self.N) if T_req[t] != T_req[hour]]
+        t_change_T_req = [
+            time_step for time_step in range(hour + 1, self.N) if T_req[time_step] != T_req[hour]
+        ]
         if len(t_change_T_req) > 0:
             current_T_req = T_req[hour]
             next_T_req = T_req[t_change_T_req[0]]
@@ -815,33 +820,33 @@ class LocalElecEnv():
             home: int
     ):
         """Given state of action space descriptor, get value."""
-        t, date, done, batch_flex_h, store = inputs
+        time_step, date, done, batch_flex_h, store = inputs
         dict_vals = {
             "None": 0,
             "hour": hour % self.prm["syst"]["H"],
-            "bat_dem_agg": self.batch[home]["bat_dem_agg"][hour],
+            "bat_dem_agg": self.batch["bat_dem_agg"][home, hour],
             "store0": store[home],
-            "grdC": self.prm['grd']['C'][t],
+            "grdC": self.prm['grd']['C'][time_step],
             "day_type": idt,
             "dT": self.prm["heat"]["T_req" + self.passive_ext][home][hour] - self.T_air[home],
         }
         dict_functions_home = {
             "bool_flex": self.action_translator.aggregate_action_bool_flex,
-            "store_bool_flex": self.action_translator.store_bool_flex,
+            "store_bool_flex": self.action_translator.get_store_bool_flex,
             "flexibility": self.action_translator.get_flexibility
         }
 
         if descriptor in dict_vals:
             val = dict_vals[descriptor]
         elif descriptor in dict_functions_home:
-            val = dict_functions_home[descriptor](home)
+            val = dict_functions_home[descriptor]()[home]
         elif descriptor[0: len('grdC_t')] == 'grdC_t':
             t_ = int(descriptor[len('grdC_t'):])
-            val = self.prm['grd']['C'][t + t_] if t + t_ < self.N \
+            val = self.prm['grd']['C'][time_step + t_] if time_step + t_ < self.N \
                 else self.prm['grd']['C'][self.N - 1]
             assert val >= 0, f"flexibility = {val}"
         elif len(descriptor) >= 4 and descriptor[0:4] == 'grdC':
-            val = self.normalised_grdC[t]
+            val = self.normalised_grdC[time_step]
         elif descriptor == 'dT_next':
             val = self._compute_dT_next(home, hour)
         elif descriptor == 'car_tau':
@@ -856,38 +861,39 @@ class LocalElecEnv():
             h = self._get_time_step() if descriptor[-4:] == 'step' \
                 else self._get_time_step() - 1
             if len(descriptor) > 8 and descriptor[0: len('avail_car')] == 'avail_car':
-                val = self.batch[home]['avail_car'][h]
+                val = self.batch['avail_car'][home, h]
             elif descriptor[0:5] == 'loads':
                 val = np.sum(batch_flex_h[home][1])
             else:
                 # gen_prod_step / prev and car_cons_step / prev
                 batch_type = 'gen' if descriptor[0:3] == 'gen' else 'loads_car'
-                val = self.batch[home][batch_type][h]
+                val = self.batch[batch_type][home, h]
 
         val = self.spaces.normalise_state(descriptor, val, home)
 
         return val
 
-    def _batch_tests(self, batch_flex, h):
+    def _batch_tests(self, h):
         if self.test:
             for home in self.homes:
-                assert sum(batch_flex[home][h][1: 5]) <= \
-                       sum(batch_flex[home][ih][0] / (1 - self.share_flexs[home])
-                           * self.share_flexs[home]
-                           for ih in range(0, h + 1)), "batch_flex too large h"
+                fixed_to_flex = self.share_flexs[home] / (1 - self.share_flexs[home])
+                assert sum(self.batch_flex[home][h][1: 5]) \
+                    <= sum(self.batch_flex[home][0: h + 1, 0]) * fixed_to_flex, \
+                    "batch_flex too large h"
 
-                assert sum(batch_flex[home][h + 1][1: 5]) <= sum(
-                    batch_flex[home][ih][0]
+                assert sum(self.batch_flex[home][h + 1][1: 5]) <= sum(
+                    self.batch_flex[home][ih][0]
                     / (1 - self.share_flexs[home]) * self.share_flexs[home]
                     for ih in range(0, h + 2)), "batch_flex too large h + 1"
 
-                n = min(h + 30, len(self.batch[home]['loads']))
+                n = min(h + 30, len(self.batch['loads'][home]))
                 for ih in range(h, n):
-                    assert self.batch[home]['loads'][ih] \
-                           <= batch_flex[home][ih][0] + batch_flex[home][ih][-1] + 1e-3, \
-                           "loads larger than with flex"
+                    assert self.batch['loads'][home, ih] \
+                        <= self.batch_flex[home][ih][0] \
+                        + self.batch_flex[home][ih][-1] + 1e-3, \
+                        "loads larger than with flex"
 
-    def _new_flex_tests(self, batch_flex, new_batch_flex, h, home):
+    def _prep_next_flex_step(self, batch_flex, new_batch_flex, h, home):
         if self.test:
             assert np.sum(new_batch_flex[home][0][1:5]) <= sum(
                 batch_flex[home][ih][0] / (1 - self.share_flexs[home])
@@ -902,6 +908,7 @@ class LocalElecEnv():
                     > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
                     / (1 - self.share_flexs[home]) * self.share_flexs[home] + 1e-3
                 ), "loads_next_flex error"
+            new_batch_flex[home][0][i_flex + 1] -= loads_next_flex
             new_batch_flex[home][1][i_flex] += loads_next_flex
             if self.test:
                 assert not (
@@ -911,9 +918,9 @@ class LocalElecEnv():
     def _loads_test(self):
         for home in self.homes:
             for ih in range(self.N):
-                assert (self.batch[home]['loads'][ih]
-                        <= self.batch[home]['flex'][ih][0]
-                        + self.batch[home]['flex'][ih][-1] + 1e-3
+                assert (self.batch['loads'][home, ih]
+                        <= self.batch['flex'][home, ih, 0]
+                        + self.batch['flex'][home, ih, -1] + 1e-3
                         ), "loads too large"
 
     def set_i0_costs(self, i0_costs):
@@ -950,13 +957,12 @@ class LocalElecEnv():
 
     def _initialise_new_data(self, passive: bool = False):
         # we have not loaded data from file -> save new data
-        date_load = self.date0
 
         # date_end is not max date end but date end based on
         # current date0 and duration as specified in learning.py
-        while date_load < self.date_end + timedelta(days=2):
-            self._load_next_day(passive=passive)
-            date_load += timedelta(days=1)
+        for i in range(2):
+            self._load_next_day(i_load=i)
+
         if not passive:
             self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
 
@@ -971,15 +977,13 @@ class LocalElecEnv():
         self.dloaded = 0
         self.add_noise = False
 
-    def _initialise_batch_entries(self, homes=[]):
-        if len(homes) == 0:
-            homes = self.homes
-        for home in homes:
-            self.batch[home] = initialise_dict(self.batch_entries)
-            self.car.batch[home] = initialise_dict(self.car.batch_entries)
-            self.batch[home]['flex'] = np.zeros((0, self.max_delay + 1))
-            self.car.batch[home]['flex'] = np.zeros((0, self.max_delay + 1))
-            self.car.batch[home]['flex'] = np.zeros((0, self.max_delay + 1))
+    def _initialise_batch_entries(self):
+        self.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.batch_entries}
+        self.car.batch = {
+            entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.car.batch_entries
+        }
+        self.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
+        self.car.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
 
     def _get_factor_or_cluster_state(self, descriptor, home):
         module = descriptor.split('_')[0]  # car, loads or gen
@@ -993,3 +997,19 @@ class LocalElecEnv():
             val = step_data[module][home]
 
         return val
+
+    def _test_flex_cons(self):
+        if self.test:
+            for home in range(self.n_homes):
+                lb = np.sum(self.prm['grd']['loads'][0, home, 0: self.time_step])
+                ub = np.sum(self.prm['grd']['loads'][:, home, 0: self.time_step])
+                consumed_so_far = np.sum(np.array(self.tot_cons_loads)[:, home])
+                if self.time_step == self.N:
+                    consumed_so_far_ok = abs(consumed_so_far - ub) < 1e-3
+                else:
+                    consumed_so_far_ok = lb - 1e-3 < consumed_so_far < ub + 1e-3
+                assert consumed_so_far_ok, f"home {home} self.time_step {self.time_step}"
+                left_to_consume = np.sum(self.batch_flex[home, self.time_step: self.N])
+                total_to_consume = np.sum(self.prm['grd']['loads'][:, home, 0: self.N])
+                cons_adds_up = abs(left_to_consume + consumed_so_far - total_to_consume) < 1e-3
+                assert cons_adds_up, f"home {home} self.time_step {self.time_step}"

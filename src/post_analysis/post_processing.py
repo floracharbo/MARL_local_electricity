@@ -37,9 +37,9 @@ def _print_stats_voltage_losses_errors(prm, network):
                 f"(currently: {network.subset_line_losses_modelled} lines)"
             )
 
-        if network.count_correction_opti_with_pp > 1:
+        if network.n_voltage_error > 1:
             print(
-                f"Warning: There were {network.count_correction_opti_with_pp} difference "
+                f"Warning: There were {network.n_voltage_error} difference "
                 f"in hourly voltage costs between the optimisation and pandapower "
                 f"larger than {prm['grd']['tol_rel_voltage_costs'] * 100}% "
                 f"of the total daily costs\n. "

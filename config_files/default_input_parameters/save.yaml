@@ -8,20 +8,21 @@ save_run: True
 learner_log_interval: 2000 # Log training stats every {} timesteps
 plot_indiv_repeats_rewards: False
 last_entries: [
-  'netp', 'store_outs', 'store',
+  'netp', 'netp0', 'store_outs', 'store',
   'totcons', 'tot_E_heat', 'T', 'T_air',
   'voltage_squared', 'hourly_line_losses',
-  'action','reward',
+  'action','reward', 'flex_cons',
   'ldflex', 'ldfixed','tot_cons_loads',
   'grdC','wholesale',
   'cintensity',
   'break_down_rewards',  # values i want to store from last epoch so that i can plot
-  'loaded_buses', 'sgen_buses'
+  'loaded_buses', 'sgen_buses',
+  'q_ext_grid'
 ]
 repeat_entries: [
   'train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',
    'stability', 'last', 'seed', 'eps', 'ind_seed_deterministic',
-   'duration_epoch', 'n_not_feas', 'not_feas_vars', 'train_actions',
+   'duration_epoch', 'n_not_feas', 'train_actions',
    'train_states', 'q_tables', 'counter'
 ]
 run_entries0: [
@@ -32,7 +33,7 @@ run_entries0: [
 ]
 pandapower_voltage_entries: [
   'max_rel_diff_voltage', 'mean_rel_diff_voltage',
-  'std_rel_diff_voltage', 'count_correction_opti_with_pp'
+  'std_rel_diff_voltage', 'n_voltage_error'
 ]
 discrete_states_info_entries : [
     'possible_states', 'granularity_state0', 'granularity_state1', 'multipliers_state'
@@ -40,3 +41,5 @@ discrete_states_info_entries : [
 
 save_nns: True
 plotting_batch: False
+plotting_action: False  # used for plotting mu position on graph
+plot_imp_exp_check: False

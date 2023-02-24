@@ -15,7 +15,7 @@ from src.utilities.userdeftools import (data_source,
                                         should_optimise_for_supervised_loss)
 
 
-class LearningManager():
+class LearningManager:
     """Learn from collected experience."""
 
     def __init__(self, env, prm, learner, episode_batch):
@@ -185,8 +185,9 @@ class LearningManager():
                     if self.rl['type_learning'] in ['DQN', 'DDQN']:
                         i_current_state, i_action, i_state = [
                             self.env.spaces.get_space_indexes(
-                                all_vals=val, type_=type_, indiv_indexes=True)
-                            for val, type_ in zip(
+                                all_vals=val, value_type=value_type, indiv_indexes=True
+                            )
+                            for val, value_type in zip(
                                 [current_state, actions, state],
                                 ["state", "action", "state"])]
                         if self.rl["distr_learning"] == "decentralised":
@@ -276,8 +277,8 @@ class LearningManager():
         if self.rl['type_learning'] in ['DQN', 'DDQN']:
             ind_current_state, ind_action, ind_state = \
                 [self.env.spaces.get_space_indexes(
-                    all_vals=val, type_=type_)
-                    for val, type_ in zip(
+                    all_vals=val, value_type=value_type)
+                    for val, value_type in zip(
                     [current_state, action, state],
                     ["state", "action", "state"])]
             current_state_, action_, state_ \
@@ -323,11 +324,11 @@ class LearningManager():
             [
                 [
                     env.indiv_to_global_index(
-                        type_, indexes=ind, multipliers=multipliers_traj
+                        value_type, indexes=ind, multipliers=multipliers_traj
                     )
                     for home in self.homes
                 ]
-                for type_, ind
+                for value_type, ind
                 in zip(["state", "state", "action"],
                        [ind_states, ind_next_states, ind_actions]
                        )

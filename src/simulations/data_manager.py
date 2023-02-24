@@ -29,10 +29,10 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import set_seeds_rdn
+from src.utilities.userdeftools import calculate_reactive_power, set_seeds_rdn
 
 
-class DataManager():
+class DataManager:
     """Generating, checking, formatting data for explorations."""
 
     def __init__(self, env: object, prm: dict, explorer: object):
@@ -42,7 +42,10 @@ class DataManager():
         compute_import_export_costs = self.env.network.compute_import_export_costs \
             if self.prm['grd']['manage_agg_power'] or self.prm['grd']['manage_voltage'] \
             else None
-        self.optimiser = Optimiser(prm, compute_import_export_costs)
+        prepare_and_compare_optimiser_pandapower = self.env.network.prepare_and_compare_optimiser_pandapower \
+        if self.prm['grd']['manage_voltage'] and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']\
+            else None
+        self.optimiser = Optimiser(prm, compute_import_export_costs, prepare_and_compare_optimiser_pandapower)
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
@@ -52,6 +55,9 @@ class DataManager():
         self.rl = prm['RL']
         self.force_optimisation = prm['syst']['force_optimisation']
         self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
+        self.N = prm["syst"]['N']
+        self.n_homesP = prm['syst']['n_homesP']
+        self.line_losses_method = prm['grd']['line_losses_method']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
@@ -82,13 +88,15 @@ class DataManager():
         potential_delay = np.zeros((loads['n_types'], syst['N']), dtype=int)
         if loads['flextype'] == 1:
             potential_delay[0] = np.zeros(syst['N'])
-            for t in range(syst['N']):
-                potential_delay[1, t] = max(min(loads['flex'][1], syst['N'] - 1 - t), 0)
+            for time_step in range(syst['N']):
+                potential_delay[1, time_step] = max(
+                    min(loads['flex'][1], syst['N'] - 1 - time_step), 0
+                )
         else:
             for load_type in range(loads['n_types']):
-                for t in range(syst['N']):
-                    potential_delay[load_type][t] = max(
-                        min(loads['flex'][load_type], syst['N'] - 1 - t), 0)
+                for time_step in range(syst['N']):
+                    potential_delay[load_type][time_step] = max(
+                        min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0)
 
         # make ntw matrices
         grd['Bcap'] = np.zeros((syst['n_homes' + passive_ext], syst['N']))
@@ -99,22 +107,23 @@ class DataManager():
         grd['gen'] = np.zeros((syst['n_homes' + passive_ext], syst['N'] + 1))
         share_flexs = loads['share_flexs' + passive_ext]
         for home in range(syst['n_homes' + passive_ext]):
-            grd['gen'][home] = batch[home]['gen'][0: len(grd['gen'][home])]
-            for t in range(syst['N']):
-                grd['Bcap'][home, t] = car['cap' + passive_ext][home]
+            grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
+            for time_step in range(syst['N']):
+                grd['Bcap'][home, time_step] = car['cap' + passive_ext][home]
                 for load_type in range(loads['n_types']):
-                    grd['loads'][0][home][t] \
-                        = batch[home]['loads'][t] * (1 - share_flexs[home])
-                    grd['loads'][1][home][t] \
-                        = batch[home]['loads'][t] * share_flexs[home]
+                    potential_delay_t = int(potential_delay[load_type][time_step])
+                    grd['loads'][0][home][time_step] \
+                        = batch['loads'][home, time_step] * (1 - share_flexs[home])
+                    grd['loads'][1][home][time_step] \
+                        = batch['loads'][home, time_step] * share_flexs[home]
                     for time_cons in range(syst['N']):
-                        if t <= time_cons <= t + int(potential_delay[load_type][t]):
-                            grd['flex'][t, load_type, home, time_cons] = 1
+                        if time_step <= time_cons <= time_step + potential_delay_t:
+                            grd['flex'][time_step, load_type, home, time_cons] = 1
 
         # optimisation of power flow
         if grd['manage_voltage']:
             grd['flex_buses'] = self.env.network.flex_buses
-            grd['non_flex_buses'] = self.env.network.non_flex_buses
+            grd['passive_buses'] = self.env.network.passive_buses
             grd['incidence_matrix'] = self.env.network.incidence_matrix
             grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
             grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
@@ -126,6 +135,8 @@ class DataManager():
             grd['n_buses'] = len(self.env.network.net.bus)
             grd['n_lines'] = len(self.env.network.net.line)
             grd['net'] = self.env.network.net
+            grd['line_losses_method'] = self.prm['grd']['line_losses_method']
+            grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
 
     def _passive_find_feasible_data(self):
         passive = True
@@ -192,7 +203,7 @@ class DataManager():
                 int(self.seed[self.passive_ext]),
                 passive=passive
             )
-            assert batch[0]['loads'][0] == self.env.batch[0]['loads'][0]
+            assert batch['loads'][0, 0] == self.env.batch['loads'][0, 0]
 
         else:
             if opt_needed:
@@ -205,11 +216,11 @@ class DataManager():
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
                 seed=self.seed[self.passive_ext],
-                load_data=True, passive=passive)
+                load_data=True, passive=passive
+            )
             new_res = False
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(batch, passive=passive)
-
         if not all(data_feasibles):
             batch, data_feasibles = self._loop_replace_data(data_feasibles, passive)
             feasibility_checked = False
@@ -239,7 +250,7 @@ class DataManager():
 
         seed_data = [res, batch]
 
-        return (seed_data, new_res, data_feasible, step_vals, feasibility_checked)
+        return seed_data, new_res, data_feasible, step_vals, feasibility_checked
 
     def find_feasible_data(
             self,
@@ -294,7 +305,8 @@ class DataManager():
 
         if not feasibility_checked:
             self.seeds[self.passive_ext] = np.append(
-                self.seeds[self.passive_ext], self.seed[self.passive_ext])
+                self.seeds[self.passive_ext], self.seed[self.passive_ext]
+            )
 
         if new_res:
             np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
@@ -388,8 +400,8 @@ class DataManager():
             )
 
             assert all(
-                len(batch[home]['loads']) == len(batch[0]['loads']) for home in homes
-            ), f"len loads= {[len(batch[home]['loads']) for home in homes]}"
+                len(batch['loads'][home]) == len(batch['loads'][0]) for home in homes
+            ), f"len loads= {[len(batch['loads'][home]) for home in homes]}"
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
@@ -501,7 +513,7 @@ class DataManager():
         for home in range(syst["n_homes" + passive_ext]):
             for info in self.env.car.batch_entries:
                 car['batch_' + info][home] = \
-                    batch[home][info][0: len(car['batch_' + info][home])]
+                    batch[info][home, 0: len(car['batch_' + info][home])]
 
         loads['n_types'] = 2
 
@@ -511,23 +523,42 @@ class DataManager():
 
         heat['T_out'] = self.env.heat.T_out
 
+        # reactive power for passive homes
+        self.prm['loads']['active_power_passive_homes'] = []
+        self.prm['loads']['reactive_power_passive_homes'] = []
+        if self.n_homesP > 0:
+            self.prm['loads']['q_heat_home_car_passive'] = \
+                calculate_reactive_power(
+                    loads['netp0'], self.prm['grd']['pf_passive_homes'])
+            for t in range(self.N):
+                self.prm['loads']['active_power_passive_homes'].append(
+                    np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
+                self.prm['loads']['reactive_power_passive_homes'].append(
+                    np.matmul(self.env.network.passive_buses,
+                              self.prm['loads']['q_heat_home_car_passive'][:, t]))
+        else:
+            self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 0])
+            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 0])
+            self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
+
         return feasible
 
     def update_flexibility_opt(self, batchflex_opt, res, time_step):
         """Update available flexibility based on optimisation results."""
         n_homes = len(res["E_heat"])
-        cons_flex_opt = res["house_cons"][:, time_step] - batchflex_opt[:, time_step, 0]
-
-        assert np.all(np.greater(cons_flex_opt, - self.tol_cons_constraints * 2)), \
-            f"cons_flex_opt {cons_flex_opt}"
-        cons_flex_opt = np.where(cons_flex_opt > 0, cons_flex_opt, 0)
+        fixed_cons_opt = batchflex_opt[:, time_step, 0]
+        flex_cons_opt = res["house_cons"][:, time_step] - fixed_cons_opt
+        assert np.all(np.greater(flex_cons_opt, - self.tol_cons_constraints * 2)), \
+            f"flex_cons_opt {flex_cons_opt}"
+        flex_cons_opt = np.where(flex_cons_opt > 0, flex_cons_opt, 0)
         inputs_update_flex = [
             time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes
         ]
-        new_batch_flex = self.env.update_flex(cons_flex_opt, opts=inputs_update_flex)
+        new_batch_flex = self.env.update_flex(flex_cons_opt, opts=inputs_update_flex)
         for home in range(n_homes):
             batchflex_opt[home][time_step: time_step + 2] = new_batch_flex[home]
 
         assert batchflex_opt is not None, "batchflex_opt is None"
+        self.env.batch_flex = batchflex_opt
 
         return batchflex_opt

@@ -15,3 +15,4 @@ out_marl_*
 debug/*
 input_data/open_data/European_LV_CSV/*
 config_files/input_parameters/previous_defaults.yaml
+local_files/*

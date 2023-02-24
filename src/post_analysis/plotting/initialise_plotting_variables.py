@@ -25,7 +25,7 @@ def _get_mean_rewards_from_record(prm, record):
         prm, prm["save"]["eval_entries_plot"]
     )
 
-    prm["RL"]["mean_eval_rewards_per_hh"] = record.mean_eval_rewards_per_hh
+    prm["RL"]["monthly_mean_eval_rewards_per_home"] = record.monthly_mean_eval_rewards_per_home
 
     return prm
 

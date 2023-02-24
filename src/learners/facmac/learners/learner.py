@@ -8,7 +8,7 @@ from src.learners.facmac.modules.mixers.qmix import QMixer
 from src.learners.facmac.modules.mixers.vdn import VDNMixer
 
 
-class Learner():
+class Learner:
     def __init__(self, mac, rl, scheme):
         self.mixer = None
         self.critic = None

@@ -21,15 +21,14 @@ settings = {
        'n_epochs': 20,
        'n_repeats': 3,
        'type_learning': ['facmac'] * 2,
-       'evaluation_methods': [['env_r_c', 'opt_d_d']] * 2,
+       'evaluation_methods': [['env_r_c', 'opt_r_c']] * 2,
        'facmac': {
            'hysteretic': True,
-           'beta_to_alpha': 0.11,
+           'beta_to_alpha': 0.1,
         },
     },
     'syst': {
        'n_homes': 10,
-
     }
 }
 

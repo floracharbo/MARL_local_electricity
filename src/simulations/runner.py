@@ -39,7 +39,7 @@ from src.utilities.userdeftools import (data_source, initialise_dict,
                                         should_optimise_for_supervised_loss)
 
 
-class Runner():
+class Runner:
     """Run experiments for all repeats and epochs."""
 
     def __init__(self, env, prm, record):
@@ -93,8 +93,8 @@ class Runner():
                         self._facmac_episode_batch_insert_and_sample(epoch)
 
                     # append record
-                    for e in ['seed', 'n_not_feas', 'not_feas_vars']:
-                        self.record.__dict__[e][repeat].append(train_steps_vals[-1][e])
+                    for e in ['seed', 'n_not_feas']:
+                        self.record.__dict__[e][repeat][epoch] = train_steps_vals[-1][e]
 
                     model_save_time = self._save_nn_model(model_save_time)
 
@@ -111,14 +111,15 @@ class Runner():
                     evaluation=True, new_episode_batch=self.new_episode_batch)
 
                 # record
-                for e in ['seed', 'n_not_feas', 'not_feas_vars']:
-                    self.record.__dict__[e][repeat].append(eval_steps[e])
+                for e in ['seed', 'n_not_feas']:
+                    self.record.__dict__[e][repeat][epoch] = eval_steps[e]
                 duration_epoch = time.time() - t_start
 
                 # make a list, one exploration after the other
                 # rather than a list of 'explorations' in 2D
                 list_train_stepvals = self._train_vals_to_list(
-                    train_steps_vals, exploration_methods)
+                    train_steps_vals, exploration_methods
+                )
                 self.record.end_epoch(epoch, eval_steps, list_train_stepvals,
                                       self.rl, self.learner, duration_epoch)
 
@@ -317,23 +318,22 @@ class Runner():
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods):
-        list_train_stepvals = initialise_dict(
-            self.rl["exploration_methods"], type_obj='empty_dict')
+        list_train_stepvals = initialise_dict(self.rl["exploration_methods"], type_obj='empty_dict')
 
         for method in self.rl["exploration_methods"]:
             for e in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
-                if e not in ['seeds', 'n_not_feas', 'not_feas_vars'] \
+                if e not in ['seeds', 'n_not_feas'] \
                         and e in train_steps_vals[0][exploration_methods[0]].keys():
-                    list_train_stepvals[method][e] = []
+                    shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][e])
+                    new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
+                    list_train_stepvals[method][e] = np.full(new_shape, np.nan)
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
-                            for x in train_steps_vals[i_explore][method][e]:
-                                list_train_stepvals[method][e].append(x)
-                        else:
-                            vals = \
-                                train_steps_vals[i_explore][exploration_methods[0]][e]
-                            for _ in enumerate(vals):
-                                list_train_stepvals[method][e].append(None)
+                            try:
+                                list_train_stepvals[method][e][i_explore * self.N: (i_explore + 1) * self.N] = train_steps_vals[i_explore][method][e]
+                            except Exception:
+                                pass
+                                # these may be recorded differently for optimisation, e.g. no grid_energy_costs, etc.
 
         return list_train_stepvals
 
@@ -369,7 +369,7 @@ class Runner():
 
     def _check_if_opt_env_needed(self, epoch, evaluation=False):
         opts_in_eval = sum(
-            method != 'opt' and method[0:3] == 'opt' for method in self.rl["evaluation_methods"]
+            method != 'opt' and method[0: 3] == 'opt' for method in self.rl["evaluation_methods"]
         ) > 0
         opt_stage = False
         for method in self.rl["evaluation_methods"]:
