@@ -53,10 +53,8 @@ class DataManager:
 
         self.seeds = prm['RL']['seeds']
         self.rl = prm['RL']
-        self.force_optimisation = prm['syst']['force_optimisation']
-        self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
-        self.N = prm["syst"]['N']
-        self.n_homesP = prm['syst']['n_homesP']
+        for info in ['force_optimisation', 'tol_constraints', 'N', 'n_homesP']:
+            setattr(self, info, prm['syst'][info])
         self.line_losses_method = prm['grd']['line_losses_method']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
@@ -546,7 +544,9 @@ class DataManager:
         n_homes = len(res["E_heat"])
         fixed_cons_opt = batchflex_opt[:, time_step, 0]
         flex_cons_opt = res["house_cons"][:, time_step] - fixed_cons_opt
-        assert np.all(np.greater(flex_cons_opt, - self.tol_cons_constraints * 2)), \
+        if not (np.all(np.greater(flex_cons_opt, - self.tol_constraints * 2))):
+            print()
+        assert np.all(np.greater(flex_cons_opt, - self.tol_constraints * 2)), \
             f"flex_cons_opt {flex_cons_opt}"
         flex_cons_opt = np.where(flex_cons_opt > 0, flex_cons_opt, 0)
         inputs_update_flex = [
