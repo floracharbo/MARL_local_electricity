@@ -781,6 +781,8 @@ class Explorer:
                 i for i in range(len(self.prm['grd']['Call']) - self.N)
                 if abs(self.sum_gc_for_start_Call_index(res, i) - res['grid_energy_costs']) < 1e-3
             ]
+            if len(i_start_res) == 0:
+                print()
             if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
                 self.env.update_i0_costs(i_start_res[0])
@@ -884,6 +886,7 @@ class Explorer:
                 res, time_step, break_down_rewards, batchflex_opt,
                 last_epoch, step_vals_i, batch, evaluation
             )
+        assert abs(res["grid_energy_costs"] - sum(res["hourly_grid_energy_costs"])) < 1e-3
 
         self._test_total_rewards_match(evaluation, res, sum_rl_rewards)
         if not evaluation \
