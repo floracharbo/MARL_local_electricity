@@ -755,12 +755,14 @@ def res_post_processing(res, prm, input_hourly_lij):
     assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
         f"negative flexible consumptions in the optimisation! " \
         f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-    assert np.all(abs(res['hourly_line_losses'])  \
-            < 0.15 * abs(res['grid'] - res['hourly_line_losses'])), \
-        f"Hourly line losses are larger than 15% of the total import."
-
+    max_losses_condition = res['hourly_line_losses']  \
+            < 0.15 * abs(res['grid'] - res['hourly_line_losses'])
+    assert np.all(max_losses_condition), \
+        f"Hourly line losses are larger than 15% of the total import. " \
+        f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} " \
+        f"Grid imp/exp: {abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]}."
+ 
     return res
-
 
 def save_results(pvars, prm):
     """Save optimisation results to file."""
