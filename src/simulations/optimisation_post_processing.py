@@ -755,12 +755,12 @@ def res_post_processing(res, prm, input_hourly_lij):
     assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
         f"negative flexible consumptions in the optimisation! " \
         f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-    max_losses_condition = res['hourly_line_losses']  \
-            < 0.15 * abs(res['grid'] - res['hourly_line_losses'])
-    assert np.all(max_losses_condition), \
+    max_losses_condition = np.logical_and(res['hourly_line_losses'] > 1, \
+            res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses']))
+    assert np.all(~max_losses_condition), \
         f"Hourly line losses are larger than 15% of the total import. " \
-        f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} " \
-        f"Grid imp/exp: {abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]}."
+        f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
+        f"Grid imp/exp: {abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
  
     return res
 
