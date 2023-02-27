@@ -575,15 +575,15 @@ def _naming_file_extension_network_parameters(grd):
             if default_grd[upper_quantity] != grd[upper_quantity]:
                 file_extension += f"_{management}_limit" + str(grd[upper_quantity])
             if (
-                    default_grd[lower_quantity] != grd[lower_quantity]
-                    and grd[upper_quantity] != grd[lower_quantity]
+                default_grd[lower_quantity] != grd[lower_quantity]
+                and grd[upper_quantity] != grd[lower_quantity]
             ):
                 file_extension += f"_{grd[lower_quantity]}"
             if default_grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_upper}']:
                 file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
             if (
-                    default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
-                    and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
+                default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
+                and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
             ):
                 file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
 
