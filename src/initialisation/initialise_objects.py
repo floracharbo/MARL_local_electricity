@@ -431,11 +431,16 @@ def _exploration_parameters(rl):
                         control_window_eps[reward_type(evaluation_method)]
 
 
-def _dims_states_actions(rl, syst):
+def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
     rl["dim_states"] = len(rl["state_space"])
     rl["dim_states_1"] = rl["dim_states"]
-    rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
-        # TO DO if self.manage_... 4 else 3
+    if rl["aggregate_actions"]:
+        rl["dim_actions"] = 1
+    elif reactive_power_for_voltage_control:
+        rl["dim_actions"] = 4
+    else:
+        rl["dim_actions"] = 3
+
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
 
@@ -512,8 +517,9 @@ def _update_rl_prm(prm, initialise_all):
     rl = _format_rl_parameters(rl)
     rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
+    reactive_power_for_voltage_control = prm["grd"]["reactive_power_for_voltage_control"]
 
-    _dims_states_actions(rl, syst)
+    _dims_states_actions(rl, syst, reactive_power_for_voltage_control)
 
     # learning parameter variables
     rl["ncpu"] = mp.cpu_count() if syst["server"] else 10

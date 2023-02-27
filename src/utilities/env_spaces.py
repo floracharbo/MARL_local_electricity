@@ -202,7 +202,8 @@ class EnvSpaces:
             ["action", 0, 1, rl["n_discrete_actions"], 0],
             ["flexible_cons_action", 0, 1, rl["n_discrete_actions"], 0],
             ["flexible_heat_action", 0, 1, rl["n_discrete_actions"], 0],
-            ["battery_action", -1, 1, rl["n_discrete_actions"], 0]
+            ["battery_action", -1, 1, rl["n_discrete_actions"], 0],
+            ["q_car_action", -1, 1, rl["n_discrete_actions"], 0]
         ]
 
         self.space_info = pd.DataFrame(info, columns=columns)

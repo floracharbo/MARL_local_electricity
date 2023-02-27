@@ -27,6 +27,7 @@ class ActionSelector:
         self.env = env
         self.homes = range(prm["syst"]["n_homes"])
         self.episode_batch = episode_batch
+        self.reactive_power_for_voltage_control = prm["grd"]["reactive_power_for_voltage_control"]
 
     def _format_tf_prev_state(
             self,
@@ -152,7 +153,13 @@ class ActionSelector:
             )
             ind_actions = None
 
-        n_actions = 1 if self.rl['aggregate_actions'] else 3
+        if self.rl["aggregate_actions"]:
+            n_actions = 1
+        elif self.reactive_power_for_voltage_control:
+            n_actions = 4
+        else:
+            n_actions = 3
+
         actions = np.reshape(actions, (self.n_agents, self.N, n_actions))
 
         return actions, ind_actions, states
