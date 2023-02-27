@@ -12,6 +12,7 @@ import copy
 
 import numpy as np
 import picos as pic
+import math
 
 from src.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
