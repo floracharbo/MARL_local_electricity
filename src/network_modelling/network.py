@@ -380,8 +380,8 @@ class Network:
         # Compare hourly results from network modelling in optimizer and pandapower
         start = time.time()
         replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-        pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
-            res, time_step, netp0, netq_flex, netq_passive)
+            pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
+                res, time_step, netp0, netq_flex, netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(
             res, hourly_line_losses_pp, time_step)
         if replace_with_pp_simulation or line_losses_method == 'iteration':

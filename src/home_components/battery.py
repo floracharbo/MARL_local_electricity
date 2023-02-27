@@ -450,7 +450,7 @@ class Battery:
                 # reactive power is a decision variable
                 self.q_car_flex[home] = res[home]['q']
         if not self.reactive_power_for_voltage_control:
-        # calculate active and reactive power for all homes with fixed pf
+            # calculate active and reactive power for all homes with fixed pf
             self.active_reactive_power_car()
         apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
         assert all(apparent_power_car <= self.max_apparent_power_car**2), \

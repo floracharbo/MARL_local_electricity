@@ -9,10 +9,10 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
+import math
 
 import numpy as np
 import picos as pic
-import math
 
 from src.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
