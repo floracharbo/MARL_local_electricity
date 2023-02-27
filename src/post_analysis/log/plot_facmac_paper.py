@@ -79,10 +79,7 @@ for line_label in labels.keys():
     for i, run in enumerate(runs[line_label]):
         if run is not None:
             for metric in metrics:
-                try:
-                    values[metric][i] = log.loc[log['run'] == run, f'{metric}_{type_learning[line_label]}'].values[0]
-                except Exception as ex:
-                    print()
+                values[metric][i] = log.loc[log['run'] == run, f'{metric}_{type_learning[line_label]}'].values[0]
                 time_end[i] = log.loc[log['run'] == run, 'time_end'].values[0]
     ls = '--' if opt_informed[line_label] else '-'
     label = None if opt_informed[line_label] else labels[line_label]

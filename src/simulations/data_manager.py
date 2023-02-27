@@ -42,10 +42,16 @@ class DataManager:
         compute_import_export_costs = self.env.network.compute_import_export_costs \
             if self.prm['grd']['manage_agg_power'] or self.prm['grd']['manage_voltage'] \
             else None
-        prepare_and_compare_optimiser_pandapower = self.env.network.prepare_and_compare_optimiser_pandapower \
-        if self.prm['grd']['manage_voltage'] and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']\
-            else None
-        self.optimiser = Optimiser(prm, compute_import_export_costs, prepare_and_compare_optimiser_pandapower)
+        if (
+                self.prm['grd']['manage_voltage']
+                and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']
+        ):
+            compare_optimiser_pandapower = self.env.network.compare_optimiser_pandapower
+        else:
+            compare_optimiser_pandapower = None
+        self.optimiser = Optimiser(
+            prm, compute_import_export_costs, compare_optimiser_pandapower
+        )
         self.get_steps_opt = explorer.get_steps_opt
 
         self.paths = prm['paths']
@@ -53,10 +59,8 @@ class DataManager:
 
         self.seeds = prm['RL']['seeds']
         self.rl = prm['RL']
-        self.force_optimisation = prm['syst']['force_optimisation']
-        self.tol_cons_constraints = prm['syst']['tol_cons_constraints']
-        self.N = prm["syst"]['N']
-        self.n_homesP = prm['syst']['n_homesP']
+        for info in ['force_optimisation', 'tol_constraints', 'N', 'n_homesP']:
+            setattr(self, info, prm['syst'][info])
         self.line_losses_method = prm['grd']['line_losses_method']
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
@@ -310,9 +314,11 @@ class DataManager:
 
         if new_res:
             np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
-
+            time_opti = self.timer_optimisation[-1]
+        else:
+            time_opti = 0
         end = time.time()
-        duration_feasible_data = end - start
+        duration_feasible_data = end - start - time_opti
         self.timer_feasible_data.append(duration_feasible_data)
 
         return seed_data, step_vals
@@ -546,7 +552,7 @@ class DataManager:
         n_homes = len(res["E_heat"])
         fixed_cons_opt = batchflex_opt[:, time_step, 0]
         flex_cons_opt = res["house_cons"][:, time_step] - fixed_cons_opt
-        assert np.all(np.greater(flex_cons_opt, - self.tol_cons_constraints * 2)), \
+        assert np.all(np.greater(flex_cons_opt, - self.tol_constraints * 2)), \
             f"flex_cons_opt {flex_cons_opt}"
         flex_cons_opt = np.where(flex_cons_opt > 0, flex_cons_opt, 0)
         inputs_update_flex = [

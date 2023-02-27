@@ -16,11 +16,13 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['state_space']
+# COLUMNS_OF_INTEREST = ['state_space']
+COLUMNS_OF_INTEREST = None
+
 FILTER = {
     # 'supervised_loss': False,
     'facmac-beta_to_alpha': 0.1,
-    'SoC0',
+    'SoC0': 1
 }
 
 def rename_runs(results_path):
@@ -46,11 +48,11 @@ def fix_learning_specific_values(log):
     """If there are no optimisations, this is equivalent to if we had forced optimisations."""
     ave_opt_cols = [col for col in log.columns if col[0: len('ave_opt')] == 'ave_opt']
     for i in range(len(log)):
-        if (
-            all(log[col].loc[i] is None for col in ave_opt_cols)
-            and not log['syst-force_optimisation'].loc[i]
-        ):
-            log.loc[i, 'syst-force_optimisation'] = True
+        if all(log[col].loc[i] is None for col in ave_opt_cols):
+            if not log['syst-force_optimisation'].loc[i]:
+                log.loc[i, 'syst-force_optimisation'] = True
+            if log['syst-error_with_opt_to_rl_discharge'].loc[i]:
+                log.loc[i, 'syst-error_with_opt_to_rl_discharge'] = False
 
     return log
 
