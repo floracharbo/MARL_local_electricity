@@ -145,8 +145,8 @@ DDPG:
 use_cuda: True # Use gpu by default unless it isn't available
 low_action: [0]
 high_action: [1]
-low_actions: [0, 0, -1]
-high_actions: [1, 1, 1]
+low_actions: [0, 0, -1, -1]
+high_actions: [1, 1, 1, 1]
 actions_dtype: np.float32
 discretize_actions: False
 buffer_cpu_only: True

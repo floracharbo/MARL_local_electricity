@@ -315,6 +315,7 @@ class Action_translator:
                     indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = res['ds'],
                         indiv_flexible_q_car_action = flexible_q_car_action)
                     flexible_q_car[home] = indiv_q_car
+                    res['q'] = indiv_q_car
 
                 res['dp'] = home_vars['netp'][home]
                 
@@ -365,7 +366,7 @@ class Action_translator:
                     ) / (max_q_car_import_flexibility - self.min_q_car_import)
         # if some discharge flex is used, reactive power export available
         elif indiv_flexible_store_action < 0:
-            discharge = indiv_flexible_q_car
+            discharge = indiv_flexible_store_action
             max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
             indiv_flexible_q_car = (self.min_q_car_export - indiv_flexible_q_car_action) \
                 / (self.min_q_car_export - max_q_car_export_flexibility)
