@@ -338,7 +338,9 @@ class Explorer:
                             traj_reward[home] += reward[home]
                 step += 1
 
-        sequence_feasible = self._check_rewards_match(method, evaluation, step_vals, sequence_feasible)
+        sequence_feasible = self._check_rewards_match(
+            method, evaluation, step_vals, sequence_feasible
+        )
 
         return step_vals, traj_reward, sequence_feasible
 
@@ -483,7 +485,7 @@ class Explorer:
             #        f"reward {method} {np.mean(step_vals[method]['reward'])} " \
             #        f"better than opt {np.mean(step_vals['opt']['reward'])}"
             if not (
-                np.mean(step_vals[method]["reward"])  < np.mean(step_vals["opt"]["reward"]) + 1e-3
+                np.mean(step_vals[method]["reward"]) < np.mean(step_vals["opt"]["reward"]) + 1e-3
             ):
                 print(
                     f"reward {method} {np.mean(step_vals[method]['reward'])} "
@@ -493,9 +495,8 @@ class Explorer:
 
         return sequence_feasible
 
-
     def _opt_step_init(
-            self, time_step, batchflex_opt, batch_avail_car, res
+        self, time_step, batchflex_opt, batch_avail_car, res
     ):
         step_vals_i = {}
         # update time at each time step
@@ -825,7 +826,7 @@ class Explorer:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
                 grdCt = self.prm['grd']['C'][time_step]
                 line_losses_method = 'comparison'
-                res = self.env.network.prepare_and_compare_optimiser_pandapower(
+                res = self.env.network.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt, line_losses_method)
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(

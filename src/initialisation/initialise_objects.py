@@ -8,6 +8,7 @@ Created on Tue Mar  2 14:48:27 2021.
 
 # import python packages
 import datetime
+import math
 import multiprocessing as mp
 import os
 import pickle
@@ -19,7 +20,6 @@ import numpy as np
 import torch as th
 import yaml
 from gym import spaces
-import math
 
 from src.initialisation.generate_colours import generate_colours
 from src.initialisation.get_heat_coeffs import get_heat_coeffs
@@ -574,15 +574,21 @@ def _naming_file_extension_network_parameters(grd):
         if grd[management]:
             if default_grd[upper_quantity] != grd[upper_quantity]:
                 file_extension += f"_{management}_limit" + str(grd[upper_quantity])
-            if default_grd[lower_quantity] != grd[lower_quantity] and grd[upper_quantity] != grd[lower_quantity]:
+            if (
+                    default_grd[lower_quantity] != grd[lower_quantity]
+                    and grd[upper_quantity] != grd[lower_quantity]
+            ):
                 file_extension += f"_{grd[lower_quantity]}"
             if default_grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_upper}']:
                 file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
-            if default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}'] and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']:
+            if (
+                    default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
+                    and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
+            ):
                 file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
 
             if management == 'manage_voltage':
-                if default_grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
+                if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
                     file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
 
     return file_extension
@@ -706,6 +712,7 @@ def _update_grd_prm(prm):
 
     if grd['manage_voltage']:
         grd['penalise_individual_exports'] = False
+
 
 def _syst_info(prm):
     syst, paths = prm["syst"], prm['paths']

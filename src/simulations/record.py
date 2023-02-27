@@ -124,7 +124,9 @@ class Record:
             for method in rl["evaluation_methods"]:
                 self.eps[repeat][method] = np.zeros((self.n_all_epochs, self.n_homes))
 
-        all_evaluation_methods = rl["evaluation_methods"] + ['opt'] if rl["supervised_loss"] else rl["evaluation_methods"]
+        all_evaluation_methods = \
+            rl["evaluation_methods"] + ['opt'] if rl["supervised_loss"] \
+            else rl["evaluation_methods"]
         self.eval_rewards[repeat] = {
             method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
         }

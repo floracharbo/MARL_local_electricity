@@ -1,10 +1,13 @@
-import copy
 import numpy as np
+
 from src.utilities.userdeftools import calculate_reactive_power
+
 
 def _check_loads_are_met(constl_loads_constraints, prm):
     loads = prm['loads']
-    N, n_homes, tol_constraints = [prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']]
+    N, n_homes, tol_constraints = [
+        prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
+    ]
 
     homes_to_update, time_steps_to_update = [np.array([], dtype=np.int) for _ in range(2)]
 
@@ -22,7 +25,7 @@ def _check_loads_are_met(constl_loads_constraints, prm):
         slacks_constl_loads < - tol_constraints
     )
     if len(load_types_slack_loads) > 0:
-         # loads are not met for homes_slack_loads.
+        # loads are not met for homes_slack_loads.
         pp_simulation_required = True
         homes_to_update = np.append(homes_to_update, homes_slack_loads)
         time_steps_to_update = np.append(time_steps_to_update, time_steps_slack_loads)
@@ -31,6 +34,7 @@ def _check_loads_are_met(constl_loads_constraints, prm):
         pp_simulation_required = False
 
     return pp_simulation_required, homes_to_update, time_steps_to_update
+
 
 def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
     # power flow equations
@@ -41,11 +45,11 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
         res['lij'] = input_hourly_lij
     for time_step in range(N):
         assert np.all(
-           abs(
+            abs(
                res['pi'][:, time_step]
-               - np.matmul(grd['flex_buses'], res['netp'][:, time_step]) * grd[
-                   'kW_to_per_unit_conversion']
-           ) < 1e-3
+               - np.matmul(grd['flex_buses'], res['netp'][:, time_step])
+               * grd['kW_to_per_unit_conversion']
+            ) < 1e-3
         )
         abs_pi_lij_constraint = abs(
             res['pi'][1:, time_step]
@@ -83,30 +87,34 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
             for line in range(grd['subset_line_losses_modelled']):
                 assert (
                     res['v_line'][line, time_step] * res['lij'][line, time_step] + 1e-3
-                    >= res['pij'][line, time_step]
-                    * res['pij'][line, time_step] + res['qij'][line, time_step] * res['qij'][line, time_step]
+                    >= res['pij'][line, time_step] * res['pij'][line, time_step]
+                    + res['qij'][line, time_step] * res['qij'][line, time_step]
                 )
         assert np.all(
             abs(
                 res['voltage_squared'][1:, time_step]
                 - (
-                    np.matmul(grd['bus_connection_matrix'][1:, :], res['voltage_squared'][:, time_step])
+                    np.matmul(
+                        grd['bus_connection_matrix'][1:, :],
+                        res['voltage_squared'][:, time_step]
+                    )
                     + 2 * (
+                        np.matmul(
                             np.matmul(
-                                np.matmul(
-                                    grd['in_incidence_matrix'][1:, :],
-                                    np.diag(grd['line_resistance'], k=0)
-                                ),
-                                res['pij'][:, time_step]
-                            )
-                            + np.matmul(
                                 grd['in_incidence_matrix'][1:, :],
-                                np.diag(grd['line_reactance'], k=0)
-                            ) * res['qij'][:, time_step]
+                                np.diag(grd['line_resistance'], k=0)
+                            ),
+                            res['pij'][:, time_step]
+                        )
+                        + np.matmul(
+                            grd['in_incidence_matrix'][1:, :],
+                            np.diag(grd['line_reactance'], k=0)
+                        ) * res['qij'][:, time_step]
                     )
                     - np.matmul(
                         grd['in_incidence_matrix'][1:, :],
-                        np.diag(np.square(grd['line_resistance'])) + np.diag(np.square(grd['line_reactance']))
+                        np.diag(np.square(grd['line_resistance']))
+                        + np.diag(np.square(grd['line_reactance']))
                     ) * res['lij'][:, time_step]
                 )
             ) < 1e-3
@@ -118,6 +126,7 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
             ) < 1e-3
             for time_step in range(N)
         )
+
 
 def _check_storage_equations(res, N, car, grd, syst):
     # storage constraints
@@ -140,7 +149,8 @@ def _check_storage_equations(res, N, car, grd, syst):
             * grd['Bcap'][:, time_step] * car['batch_avail_car'][:, time_step]
         )
         assert np.all(
-            res['store'][:, time_step + 1] + 1e-3 >= car['baseld'] * car['batch_avail_car'][:, time_step]
+            res['store'][:, time_step + 1] + 1e-3
+            >= car['baseld'] * car['batch_avail_car'][:, time_step]
         )
 
     assert np.all(
@@ -177,6 +187,7 @@ def _check_storage_equations(res, N, car, grd, syst):
         abs(res['store'][:, 0] - car['SoC0'] * grd['Bcap'][:, 0]) < 1e-3
     )
 
+
 def _check_cons_equations(res, N, loads, syst, grd):
     n_homes, tol_constraints = [syst[info] for info in ['n_homes', 'tol_constraints']]
 
@@ -192,21 +203,30 @@ def _check_cons_equations(res, N, loads, syst, grd):
         for home in range(n_homes):
             for time_step in range(N):
                 # loads are met by constl
-                assert (abs(
-                    np.sum(
-                        [res[f'constl({time_step}, {load_type})'][home, tC]
-                         * grd['flex'][time_step, load_type, home, tC]
-                         for tC in range(N)]
-                    )
-                    - grd['loads'][load_type, home, time_step]) < 1e-3
-                        ), f"still constl not adding up to loads home {home} time_step {time_step} load_type {load_type}"
+                assert (
+                    abs(
+                        np.sum(
+                            [
+                                res[f'constl({time_step}, {load_type})'][home, tC]
+                                * grd['flex'][time_step, load_type, home, tC]
+                                for tC in range(N)
+                            ]
+                        )
+                        - grd['loads'][load_type, home, time_step]
+                    ) < 1e-3
+                ), \
+                    f"constl not adding up to loads " \
+                    f"home {home} time_step {time_step} load_type {load_type}"
 
                 # constl adds up to consa
-                assert (abs(
-                    np.sum(
-                        [res[f'constl({tD}, {load_type})'][home, time_step] for tD in range(N)]
-                    ) - res[f'consa({load_type})'][home, time_step]) < tol_constraints
+                assert (
+                    abs(
+                        np.sum(
+                            [res[f'constl({tD}, {load_type})'][home, time_step] for tD in range(N)]
                         )
+                        - res[f'consa({load_type})'][home, time_step]
+                    ) < tol_constraints
+                )
 
     # tot cons adds up
     assert np.all(
@@ -214,6 +234,7 @@ def _check_cons_equations(res, N, loads, syst, grd):
             grd['loads'][:, home, :]) < syst['tol_constraints'])
         for home in range(n_homes)
     ), "still totcons minus E_geat not adding up to loads"
+
 
 def _check_temp_equations(res, syst, heat):
     n_homes, N = [syst[info] for info in ['n_homes', 'N']]
@@ -250,7 +271,8 @@ def _check_temp_equations(res, syst, heat):
             assert np.all(abs(res['E_heat'][home]) < 1e-3)
             assert np.all(
                 abs(
-                    res['T_air'][home, :] - (heat['T_LB'][home, 0: N] + heat['T_UB'][home, 0: N]) / 2
+                    res['T_air'][home, :]
+                    - (heat['T_LB'][home, 0: N] + heat['T_UB'][home, 0: N]) / 2
                 ) < 1e-3
             )
             assert np.all(
@@ -261,9 +283,14 @@ def _check_temp_equations(res, syst, heat):
 
         assert np.all(res['E_heat'] + 1e-3 >= 0)
 
-def check_constraints_hold(res, prm, input_hourly_lij=None):
-    N, n_homes, tol_constraints = [prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']]
-    grd, loads, car, syst, heat = [prm[info] for info in ['grd', 'loads', 'car', 'syst', 'heat']]
+
+def check_constraints_hold(res, prm):
+    N, n_homes, tol_constraints = [
+        prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
+    ]
+    grd, loads, car, syst, heat = [
+        prm[info] for info in ['grd', 'loads', 'car', 'syst', 'heat']
+    ]
 
     assert np.all(
         abs(
@@ -386,6 +413,7 @@ def efficiencies(res, prm, bat_cap):
 
     return eta
 
+
 def _add_home_time_step_pairs_to_list(
     total_list_homes, total_list_time_steps, new_list_homes, new_list_time_steps
 ):
@@ -405,19 +433,25 @@ def _check_constl_to_consa(
         homes_to_update, time_steps_to_update, prm
 ):
     loads = prm['loads']
-    N, n_homes, tol_constraints = [prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']]
-    
+    N, n_homes, tol_constraints = [
+        prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
+    ]
+
     if pp_simulation_required:
         # "as we have already had to make changes in constl, we are not checking the slack of the "
         # "original optimisation changes, but rather checking whether the equalities with updated "
         # "variables hold for the translation of constl to consa"
-        load_types_slack, homes_slack, time_steps_slack = [np.array([], dtype=np.int) for _ in range(3)]
+        load_types_slack, homes_slack, time_steps_slack = [
+            np.array([], dtype=np.int) for _ in range(3)
+        ]
         max_violation = 0
         for load_type in range(loads['n_types']):
             for home in range(n_homes):
                 for time_step in range(N):
                     delta = abs(
-                        np.sum([res[f'constl({tD}, {load_type})'][home, time_step] for tD in range(N)])
+                        np.sum(
+                            [res[f'constl({tD}, {load_type})'][home, time_step] for tD in range(N)]
+                        )
                         - res[f'consa({load_type})'][home, time_step]
                     )
                     if delta > tol_constraints:
@@ -467,8 +501,12 @@ def _check_constl_to_consa(
     return res, pp_simulation_required, homes_to_update, time_steps_to_update
 
 
-def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, time_steps_to_update, prm):
-    N, n_homes, tol_constraints = [prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']]
+def _check_constl_non_negative(
+    res, pp_simulation_required, homes_to_update, time_steps_to_update, prm
+):
+    N, n_homes, tol_constraints = [
+        prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
+    ]
     grd, loads = [prm[info] for info in ['grd', 'loads']]
 
     for tD in range(N):
@@ -482,9 +520,10 @@ def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, tim
                     f"tD {tD} home {home} tC {tC}"
                 )
             else:
-                # "fixed constl negative for tD {tD} homes_neg_constl, tC_neg_constl {home, tC}"
-                # "this number was multiplied by a zero flex coefficient so it should not matter anyway."
-                # "Setting it to zero and no further action taken."
+                # fixed constl negative for tD {tD} homes_neg_constl, tC_neg_constl {home, tC}
+                # this number was multiplied by a zero flex coefficient
+                # so it should not matter anyway.
+                # Setting it to zero and no further action taken.
                 res[f'constl({tD}, 0)'][home, tC] = 0
 
         homes_neg_constl, time_step_neg_constl = np.where(
@@ -495,38 +534,51 @@ def _check_constl_non_negative(res, pp_simulation_required, homes_to_update, tim
             # constl negative for tD, homes_neg_constl, time_step_neg_constl
             for home, time_cons in zip(homes_neg_constl, time_step_neg_constl):
                 if not grd['flex'][tD, 1, home, time_cons]:
-                    # "this number was multiplied by a zero flex coefficient so it should not matter anyway."
-                    # "Setting it to zero and no further action taken."
+                    # this number was multiplied by a zero flex coefficient
+                    # so it should not matter anyway
+                    # Setting it to zero and no further action taken
                     res[f'constl({tD}, 1)'][home, time_cons] = 0
                 else:
-                    # f"we are adding {- res[f'constl({tD}, 1)'][home, time_cons]} "
-                    # f"to res[f'constl({tD}, 1)'][home={home}, time_step={time_cons}] to make it 0.\n"
-                    # f"We will reduce the consumption at the other consumption steps matching this demand evenly.\n"
-                    # f"The new consa given updated constl should be computed at the next step."
+                    # we are adding {- res[f'constl({tD}, 1)'][home, time_cons]}
+                    # to res[f'constl({tD}, 1)'][home={home}, time_step={time_cons}]
+                    # to make it 0
+                    # We will reduce the consumption at the other consumption steps
+                    # matching this demand evenly.\n"
+                    # The new consa given updated constl should be computed at the next step.
                     window_cons_time_steps = []
                     for potential_time_cons in range(N):
-                        if grd['flex'][tD, 1, home, potential_time_cons] and potential_time_cons != time_cons:
+                        if (
+                            grd['flex'][tD, 1, home, potential_time_cons]
+                            and potential_time_cons != time_cons
+                        ):
                             window_cons_time_steps.append(potential_time_cons)
                     window_cons_time_steps = np.array(window_cons_time_steps)
                     constl_other_time_steps = res[f'constl({tD}, 1)'][home, window_cons_time_steps]
                     i_sorted = np.argsort(constl_other_time_steps)
                     window_other_cons_time_steps_ordered = window_cons_time_steps[i_sorted]
                     n_other_time_cons = len(window_other_cons_time_steps_ordered)
-                    constl0 = copy.deepcopy(res[f'constl({tD}, 1)'][home])
                     total_to_remove = abs(res[f'constl({tD}, 1)'][home, time_cons])
                     total_left_to_remove = abs(res[f'constl({tD}, 1)'][home, time_cons])
                     even_split_for_remaining_time_cons = total_left_to_remove / n_other_time_cons
                     to_remove_each_time_cons = np.zeros(n_other_time_cons)
+
                     for i, time_cons_other in enumerate(window_other_cons_time_steps_ordered):
-                        if res[f'constl({tD}, 1)'][home, time_cons_other] < even_split_for_remaining_time_cons:
-                            to_remove_each_time_cons[i] = res[f'constl({tD}, 1)'][home, time_cons_other]
+                        if (
+                            res[f'constl({tD}, 1)'][home, time_cons_other]
+                            < even_split_for_remaining_time_cons
+                        ):
+                            to_remove_each_time_cons[i] \
+                                = res[f'constl({tD}, 1)'][home, time_cons_other]
                             total_left_to_remove -= to_remove_each_time_cons[i]
                             n_other_time_cons -= 1
-                            even_split_for_remaining_time_cons = total_left_to_remove / n_other_time_cons
+                            even_split_for_remaining_time_cons \
+                                = total_left_to_remove / n_other_time_cons
                         else:
                             to_remove_each_time_cons[i] = even_split_for_remaining_time_cons
-                        # "remove {to_remove_each_time_cons[i]} from res[f'constl({tD}, 1)'][home={home}, time_cons={time_cons_other}]")
-                        res[f'constl({tD}, 1)'][home, time_cons_other] -= to_remove_each_time_cons[i]
+                        # "remove {to_remove_each_time_cons[i]}
+                        # from res[f'constl({tD}, 1)'][home={home}, time_cons={time_cons_other}]")
+                        res[f'constl({tD}, 1)'][home, time_cons_other] \
+                            -= to_remove_each_time_cons[i]
                     res[f'constl({tD}, 1)'][home, time_cons] = 0
                     assert sum(to_remove_each_time_cons) == total_to_remove
 
@@ -567,7 +619,9 @@ def _update_res_variables(
             res['netp_export'][home, time_step] = np.where(
                 res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
             )
-    new_grid = np.sum(res['netp'], axis=0) + res['hourly_line_losses_pu'] * grd['per_unit_to_kW_conversion']
+    new_grid = \
+        np.sum(res['netp'], axis=0) \
+        + res['hourly_line_losses_pu'] * grd['per_unit_to_kW_conversion']
     if np.any(abs(res['grid'] - new_grid) > 1e-3) or len(time_steps_grid) > 0:
         # update grid and grid2 and grid_energy_costs and pi
         res['grid'] = new_grid
@@ -585,17 +639,19 @@ def _update_res_variables(
                     * grd['kW_to_per_unit_conversion']
         pp_simulation_required = True
 
-    assert np.all(abs(res[f'consa(0)'] + res[f'consa(1)'] + res['E_heat'] - res['totcons']) < 1e-3)
+    assert np.all(abs(res['consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons']) < 1e-3)
 
     return res, pp_simulation_required
 
 
-def _check_consa_to_totcons_netp_grid(res, pp_simulation_required, homes_to_update, time_steps_to_update, prm):
+def _check_consa_to_totcons_netp_grid(
+        res, pp_simulation_required, homes_to_update, time_steps_to_update, prm
+):
     tol_constraints, N = [prm['syst'][info] for info in ['tol_constraints', 'N']]
     car, grd, loads = [prm[info] for info in ['car', 'grd', 'loads']]
 
     homes, time_steps = np.where(
-        abs(res[f'consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons']) > tol_constraints
+        abs(res['consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons']) > tol_constraints
     )
 
     if len(homes) > 0:
@@ -628,7 +684,7 @@ def _check_consa_to_totcons_netp_grid(res, pp_simulation_required, homes_to_upda
     if len(time_steps_grid) > 0:
         pp_simulation_required = True
     time_steps_grid2 = np.where(
-        abs(np.square(res['grid'])- res['grid2']) > tol_constraints
+        abs(np.square(res['grid']) - res['grid2']) > tol_constraints
     )[0]
     time_steps_grid = \
         list(time_steps_grid) + list(set(time_steps_grid2) - set(time_steps_grid))
@@ -656,7 +712,8 @@ def check_and_correct_constraints(
     # 3 - check that const translates into consa
     res, pp_simulation_required, homes_to_update, time_steps_to_update \
         = _check_constl_to_consa(
-            constl_consa_constraints, res, pp_simulation_required, homes_to_update, time_steps_to_update, prm
+            constl_consa_constraints, res, pp_simulation_required,
+            homes_to_update, time_steps_to_update, prm
         )
     for time_step in range(N):
         for load_type in range(loads['n_types']):
@@ -679,15 +736,17 @@ def check_and_correct_constraints(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-3
     )
     # 5 - check constraints hold
-    check_constraints_hold(res, prm, input_hourly_lij)
+    check_constraints_hold(res, prm)
 
     return res, pp_simulation_required
 
 
 def res_post_processing(res, prm, input_hourly_lij):
-    N, n_homes, tol_constraints = [prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']]
+    N, n_homes, tol_constraints = [
+        prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
+    ]
     grd, syst, loads, car = [prm[info] for info in ['grd', 'syst', 'loads', 'car']]
-    
+
     res['house_cons'] = res['totcons'] - res['E_heat']
     if grd['manage_agg_power']:
         res['hourly_import_export_costs'] = \
@@ -755,14 +814,18 @@ def res_post_processing(res, prm, input_hourly_lij):
     assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
         f"negative flexible consumptions in the optimisation! " \
         f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-    max_losses_condition = np.logical_and(res['hourly_line_losses'] > 1, \
-            res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses']))
+    max_losses_condition = np.logical_and(
+        res['hourly_line_losses'] > 1,
+        res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses'])
+    )
     assert np.all(~max_losses_condition), \
         f"Hourly line losses are larger than 15% of the total import. " \
         f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
-        f"Grid imp/exp: {abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
- 
+        f"Grid imp/exp: " \
+        f"{abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
+
     return res
+
 
 def save_results(pvars, prm):
     """Save optimisation results to file."""

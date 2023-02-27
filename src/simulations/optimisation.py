@@ -9,19 +9,20 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
-import math
 
 import numpy as np
 import picos as pic
 
+from src.simulations.optimisation_post_processing import (
+    check_and_correct_constraints, efficiencies, res_post_processing,
+    save_results)
 from src.utilities.userdeftools import calculate_reactive_power, comb
-from src.simulations.optimisation_post_processing import save_results, efficiencies, check_and_correct_constraints, res_post_processing
 
 
 class Optimiser:
     """The Optimiser object manages convex optimisations."""
 
-    def __init__(self, prm, compute_import_export_costs, prepare_and_compare_optimiser_pandapower):
+    def __init__(self, prm, compute_import_export_costs, compare_optimiser_pandapower):
         """Initialise solver object for doing optimisations."""
         for attribute in ['N', 'n_homes', 'tol_constraints', 'n_homesP']:
             setattr(self, attribute, prm['syst'][attribute])
@@ -33,7 +34,7 @@ class Optimiser:
         self.save = prm["save"]
         self.paths = prm["paths"]
         self.compute_import_export_costs = compute_import_export_costs
-        self.prepare_and_compare_optimiser_pandapower = prepare_and_compare_optimiser_pandapower
+        self.compare_optimiser_pandapower = compare_optimiser_pandapower
         self.prm = prm
         self.input_hourly_lij = None
 
@@ -66,7 +67,7 @@ class Optimiser:
             # net0 = self.loads['netp0'][time_step]
             netp0 = np.zeros([1, self.N])
             grdCt = self.grd['C'][time_step]
-            res = self.prepare_and_compare_optimiser_pandapower(
+            res = self.compare_optimiser_pandapower(
                 res, time_step, netp0, grdCt, self.grd['line_losses_method'])
         corr_voltages = copy.deepcopy(res['voltage'])
         corr_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -86,7 +87,7 @@ class Optimiser:
                 # net0 = self.loads['netp0'][time_step]
                 netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
-                res = self.prepare_and_compare_optimiser_pandapower(
+                res = self.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt, self.grd['line_losses_method'])
             corr_voltages = copy.deepcopy(res['voltage'])
             corr_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -198,20 +199,12 @@ class Optimiser:
                 # * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
 
-        p.add_list_of_constraints(
-            [
-                netq_flex[:, time_step] == q_car_flex[:, time_step]
-                + (totcons[:, time_step] - self.grd['gen'][:, time_step]) * self.grd['active_to_reactive']
-                for time_step in range(self.N)
-            ]
+        p.add_constraint(
+            netq_flex
+            == q_car_flex
+            + (totcons - self.grd['gen'][:, 0: self.N]) * self.grd['active_to_reactive']
         )
-        # p.add_list_of_constraints(
-        #    [
-        #        netq_passive[time_step] ==
-        #        * self.loads['reactive_power_passive_homes'][t]
-        #        * self.kW_to_per_unit_conversion
-        #    ]
-        # )
+
         p.add_list_of_constraints(
             [qi[:, time_step]
                 == self.grd['flex_buses'] * netq_flex[:, time_step] * self.kW_to_per_unit_conversion
@@ -238,7 +231,6 @@ class Optimiser:
                     # + pic.sum(netq_passive[:, time_step])
                     for time_step in range(self.N)]
             )
-
 
         p.add_list_of_constraints(
             [
@@ -471,7 +463,6 @@ class Optimiser:
             grid_energy_costs
             == (self.grd['C'][0: self.N] | (grid + self.grd['loss'] * grid2))
         )
-
 
         if self.grd['manage_voltage']:
             p, voltage_costs = self._power_flow_equations(
@@ -813,7 +804,8 @@ class Optimiser:
 
         p, charge, discharge_other, battery_degradation_costs = self._storage_constraints(p)
         p, E_heat = self._temperature_constraints(p)
-        p, totcons, constl_consa_constraints, constl_loads_constraints = self._cons_constraints(p, E_heat)
+        p, totcons, constl_consa_constraints, constl_loads_constraints \
+            = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(
             p, charge, discharge_other, totcons)
         # prosumer energy balance, active power
@@ -838,7 +830,8 @@ class Optimiser:
 
         if self.grd['manage_voltage']:
             res, pp_simulation_required = check_and_correct_constraints(
-                res, constl_consa_constraints, constl_loads_constraints, self.prm, self.input_hourly_lij
+                res, constl_consa_constraints, constl_loads_constraints,
+                self.prm, self.input_hourly_lij
             )
         else:
             pp_simulation_required = False
