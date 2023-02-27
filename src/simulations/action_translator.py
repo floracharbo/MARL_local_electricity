@@ -47,11 +47,15 @@ class Action_translator:
             'high_action', 'type_env', 'no_flex_action'
         ]:
             setattr(self, info, prm['RL'][info])
-        self.bat_dep = prm['car']['dep']
-        self.max_apparent_power_car = prm['car']['max_apparent_power_car']
-        self.export_C = prm['grd']['export_C']
-        self.reactive_power_for_voltage_control = prm['grd']['reactive_power_for_voltage_control']
-
+        for info in [
+            'dep', 'max_apparent_power_car'
+        ]:
+            setattr(self, info, prm['car'][info])
+        for info in [
+            'export_C', 'reactive_power_for_voltage_control'
+        ]:
+            setattr(self, info, prm['grd'][info])
+            
         # no minimum requirements for reactive power import or export
         self.min_q_car_import = 0
         self.min_q_car_export = 0
@@ -284,9 +288,12 @@ class Action_translator:
 
                     # to do: define how to add the action to the environment: flexible_q_car_action
                     # to do: translate it into a kWh q_car value in _calculate_flexible_q_car based on store_actions
+
                     indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = flexible_store_action,
                         indiv_flexible_q_car_action = flexible_q_car_action)
                     flexible_q_car_action[home] = indiv_q_car
+                    # use res['ds'] calculated in _flexible_store_action_to_ds: gives result of actions on charge (>0)
+                    # and discharge (<0)
 
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1

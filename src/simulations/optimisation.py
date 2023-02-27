@@ -260,8 +260,7 @@ class Optimiser:
                 p.add_list_of_constraints(p_car_flex[home, time_step] * q_car_flex[home, time_step]
                     >= 0 for home in range(self.n_homes))
         else:
-            p.add_constraint(q_car_flex == calculate_reactive_power(
-                p_car_flex, self.grd['pf_flexible_homes']))
+            p.add_constraint(q_car_flex == p_car_flex * math.tan(math.acos(self.grd['pf_flexible_homes'])))
 
         p.add_list_of_constraints(
             [pi[:, time_step]

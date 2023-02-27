@@ -435,6 +435,7 @@ def _dims_states_actions(rl, syst):
     rl["dim_states"] = len(rl["state_space"])
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
+        # TO DO if self.manage_... 4 else 3
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
 
@@ -703,6 +704,8 @@ def _update_grd_prm(prm):
 
     if grd['manage_voltage']:
         grd['penalise_individual_exports'] = False
+    else:
+        grd['reactive_power_for_voltage_control'] = False
 
 def _syst_info(prm):
     syst, paths = prm["syst"], prm['paths']

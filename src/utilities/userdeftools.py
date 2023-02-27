@@ -261,5 +261,5 @@ def should_optimise_for_supervised_loss(epoch, rl):
 def calculate_reactive_power(active_power, power_factor):
     """Calculate the reactive power based on the active power and
     the power factor"""
-    reactive_power = active_power * math.tan(math.acos(power_factor))
+    reactive_power = np.array(active_power) * math.tan(math.acos(power_factor))
     return reactive_power
