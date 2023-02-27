@@ -185,9 +185,26 @@ class Action_translator:
                     f"action_points[{i}][{home}] {action_points[i][home]} < 0"
                 if action_points[i][home] > 1 + 5e-3 and self.car.time_step == self.N:
                     action_points[i][home] = 1
-                assert action_points[i][home] < 1 + 5e-3, \
-                    f"action_points[{i}][{home}] {action_points[i][home]} > 1 " \
-                    f"mask {mask} d['dp'][i][mask] {d['dp'][i][mask]} a_dp {a_dp} b_dp {b_dp}"
+                if action_points[i][home] > 1 + 5e-3:
+                    print(
+                        f"ERROR: action_points[{i}][{home}] {action_points[i][home]} > 1 "
+                        f"mask {mask[home]} "
+                        f"d['dp'][i][mask] {d['dp'][i][mask][home]} "
+                        f"a_dp {a_dp[home]} b_dp {b_dp[home]} "
+                        f"self.heat.E_heat_min[home] {self.heat.E_heat_min[home]} "
+                        f"self.heat.potential_E_flex()[home] {self.heat.potential_E_flex()[home]}"
+                        f"s_avail_dis {s_avail_dis[home]}, "
+                        f"s_add_0 {s_add_0[home]}, "
+                        f"s_remove_0 {s_remove_0[home]}, "
+                        f"potential_charge {potential_charge[home]} "
+                    )
+                    np.save('loads_error', loads)
+                    np.save('home_vars_error', home_vars)
+                    action_points[i][home] = 1
+
+                # assert action_points[i][home] < 1 + 5e-3, \
+                #     f"action_points[{i}][{home}] {action_points[i][home]} > 1 " \
+                #     f"mask {mask[home]} d['dp'][i][mask] {d['dp'][i][mask][home]} a_dp {a_dp[home]} b_dp {b_dp[home]}"
                 if - 1e-4 < action_points[i][home] < 0:
                     action_points[i][home] = 0
                 if 1 < action_points[i][home] < 1 + 5e-3:
@@ -671,7 +688,7 @@ class Action_translator:
                     flexible_store_actions[home] = 0
                 elif res['discharge_other'][home, time_step] > 1e-3:
                     flexible_store_actions[home] = \
-                        (self.min_discharge[home] - res['charge'][home, time_step]) \
+                        (self.min_discharge[home] - res['discharge_other'][home, time_step]) \
                         / (self.min_discharge[home] - self.max_discharge[home])
                 else:
                     if abs(res['charge'][home, time_step] - self.max_charge[home]) < 1e-3:
