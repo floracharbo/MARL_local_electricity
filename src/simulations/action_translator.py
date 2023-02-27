@@ -639,7 +639,7 @@ class Action_translator:
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
         if self.reactive_power_for_voltage_control:
             flexible_q_car_action, q_car_bool_flex = self._flex_q_car_actions(
-                res, time_step, flexible_store_action, store_bool_flex)
+                res, time_step)
             actions = np.stack(
                 (flexible_cons_action, flexible_heat_action, flexible_store_action,
                 flexible_q_car_action), axis=1
@@ -769,24 +769,17 @@ class Action_translator:
         for home in range(self.n_homes):
             if q_car_bool_flex[home]:
                 # if some charge flex is used, reactive power import available
-                if store_actions[home] > 1e3:
-                    # how much charge flex is used in kWh
-                    charge_flexibility = (self.max_charge[home] - self.min_charge[home]) * store_actions[home] + self.min_charge[home]
-                    # how much is potentially left for reactive power import
-                    max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge_flexibility**2)
-                    # how the optimization action can be translated
+                if res['charge'][home, time_step] > 1e-3:
+                    charge = res['charge'][:, time_step]
+                    max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge**2)
                     flexible_q_car_actions[home] = (res['q_car_flex'][home, time_step] - self.min_q_car_import
                     ) / (max_q_car_import_flexibility - self.min_q_car_import)
                 # if some discharge flex is used, reactive power export available
-                elif store_actions[home] < 1e-3:
-                    # how much discharge flex is used in kWh
-                    discharge_flexibility = \
-                        self.min_discharge[home] - (self.min_discharge[home] - self.max_discharge[home]) * store_actions[home]
-                    # how much is potentially left for reactive power export
-                    max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge_flexibility**2)
-                    # how the optimization action can be translated
-                    flexible_q_car_actions[home] = (self.min_q_car_export - res['q_car_flex'][home, time_step]) \
-                        / (self.min_q_car_export - max_q_car_export_flexibility)
+                elif res['discharge_other'][home, time_step] > 1e-3:
+                    discharge = res['discharge_other'][home, time_step]
+                    max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
+                    flexible_q_car_actions[home] = - abs(self.min_q_car_export - res['q_car_flex'][home, time_step]) \
+                        / abs(self.min_q_car_export - max_q_car_export_flexibility)
                 # if no charge flexibility is used, no reactive power flexibility can be used
                 else:
                     flexible_q_car_actions[home] = 0
