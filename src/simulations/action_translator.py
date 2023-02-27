@@ -55,7 +55,7 @@ class Action_translator:
             'export_C', 'reactive_power_for_voltage_control'
         ]:
             setattr(self, info, prm['grd'][info])
-            
+
         # no minimum requirements for reactive power import or export
         self.min_q_car_import = 0
         self.min_q_car_export = 0
@@ -281,19 +281,6 @@ class Action_translator:
                 else:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action, flexible_q_car_action = action[home]
-                    # based on flexible store actions, calculate flexible q_car action
-                    # reactive power battery between -1 and 1 where
-                    # -1 max export
-                    # 1 max import
-
-                    # to do: define how to add the action to the environment: flexible_q_car_action
-                    # to do: translate it into a kWh q_car value in _calculate_flexible_q_car based on store_actions
-
-                    indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = flexible_store_action,
-                        indiv_flexible_q_car_action = flexible_q_car_action)
-                    flexible_q_car_action[home] = indiv_q_car
-                    # use res['ds'] calculated in _flexible_store_action_to_ds: gives result of actions on charge (>0)
-                    # and discharge (<0)
 
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
@@ -320,6 +307,15 @@ class Action_translator:
                     + flex_heat[home] \
                     + charge - discharge + res['l_ch'] \
                     - home_vars['gen'][home]
+                
+                if self.reactive_power_for_voltage_control:
+                    # based on flexible store actions, calculate flexible q_car action
+                    # reactive power battery between -1 and 1 where
+                    # -1 max export
+                    # 1 max import
+                    indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = res['ds'],
+                        indiv_flexible_q_car_action = flexible_q_car_action)
+                    flexible_q_car_action[home] = indiv_q_car
 
                 res['dp'] = home_vars['netp'][home]
                 
@@ -360,23 +356,19 @@ class Action_translator:
         return loads, home_vars, bool_penalty, flexible_q_car_action
 
     def _calculate_flexible_q_car(self, indiv_flexible_store_action, indiv_flexible_q_car_action):
+        # if no charge or discharge, no reactive power either
         if indiv_flexible_store_action == 0:
             indiv_flexible_q_car = 0
         # if some charge flex is used, reactive power import available
         elif indiv_flexible_store_action > 0:
-            # how much charge flex is used in kWh
-            charge_flexibility = (self.max_charge - self.min_charge) * indiv_flexible_store_action + self.min_charge
-            # how much is potentially left for reactive power import
-            max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge_flexibility**2)
+            charge = indiv_flexible_store_action
+            max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge**2)
             indiv_flexible_q_car = (indiv_flexible_q_car_action - self.min_q_car_import
                     ) / (max_q_car_import_flexibility - self.min_q_car_import)
         # if some discharge flex is used, reactive power export available
         elif indiv_flexible_store_action < 0:
-            # how much discharge flex is used in kWh
-            discharge_flexibility = \
-                self.min_discharge - (self.min_discharge - self.max_discharge) * indiv_flexible_store_action
-            # how much is potentially left for reactive power export
-            max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge_flexibility**2)
+            discharge = indiv_flexible_q_car
+            max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
             indiv_flexible_q_car = (self.min_q_car_export - indiv_flexible_q_car_action) \
                 / (self.min_q_car_export - max_q_car_export_flexibility)
 
