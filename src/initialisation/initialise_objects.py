@@ -107,7 +107,7 @@ def initialise_objects(
     return prm, record
 
 
-def _make_action_space(rl):
+def _make_action_space(rl, reactive_power_for_voltage_control):
     """
     Make action space.
 
@@ -116,9 +116,13 @@ def _make_action_space(rl):
     if rl["discretize_actions"]:
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
+        if reactive_power_for_voltage_control:
+            n_actions = 4
+        else:
+            n_actions = 3
         action_space = spaces.Box(
-            low=np.array(rl["low_action"], dtype=np.float32),
-            high=np.array(rl["high_action"], dtype=np.float32),
+            low=np.array(rl["low_action"][0:n_actions], dtype=np.float32),
+            high=np.array(rl["high_action"][0:n_actions], dtype=np.float32),
             shape=(rl["dim_actions"],), dtype=np.float32)
     rl["action_space"] = [action_space] * rl["n_homes"]
 
@@ -215,6 +219,7 @@ def _facmac_initialise(prm):
     """
     rl = prm["RL"]
     rl["n_homes"] = prm["syst"]["n_homes"]
+    reactive_power_for_voltage_control = prm["grd"]["reactive_power_for_voltage_control"]
 
     rl["obs_shape"] = len(rl["state_space"])
     if rl['trajectory']:
@@ -232,7 +237,7 @@ def _facmac_initialise(prm):
 
     rl["device"] = "cuda" if rl["use_cuda"] else "cpu"
 
-    _make_action_space(rl)
+    _make_action_space(rl, reactive_power_for_voltage_control)
     _make_scheme(rl)
 
     return prm
