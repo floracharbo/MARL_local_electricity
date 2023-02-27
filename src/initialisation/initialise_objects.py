@@ -602,6 +602,8 @@ def _naming_file_extension_network_parameters(grd):
             if management == 'manage_voltage':
                 if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
                     file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
+                if grd['reactive_power_for_voltage_control']:
+                    file_extension += 'reactive_power_for_voltage_control'
 
     return file_extension
 
