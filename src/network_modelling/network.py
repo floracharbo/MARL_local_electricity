@@ -321,7 +321,7 @@ class Network:
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
             / res['total_costs']
         )
-        if abs_rel_voltage_error > self.tol_rel_voltage_costs:
+        if np.any(abs_rel_voltage_error > self.tol_rel_voltage_costs):
             if abs_rel_voltage_error > self.max_voltage_rel_error:
                 self.max_voltage_rel_error = abs_rel_voltage_error
             replace_with_pp_simulation = True
