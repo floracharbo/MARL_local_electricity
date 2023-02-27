@@ -9,117 +9,49 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
-import math
 
 import numpy as np
 import picos as pic
 
+from src.simulations.optimisation_post_processing import (
+    check_and_correct_constraints, efficiencies, res_post_processing,
+    save_results)
 from src.utilities.userdeftools import calculate_reactive_power, comb
 
 
 class Optimiser:
     """The Optimiser object manages convex optimisations."""
 
-    def __init__(self, prm, compute_import_export_costs, prepare_and_compare_optimiser_pandapower):
+    def __init__(self, prm, compute_import_export_costs, compare_optimiser_pandapower):
         """Initialise solver object for doing optimisations."""
-        for attribute in ['N', 'n_homes', 'tol_cons_constraints', 'n_homesP']:
+        for attribute in ['N', 'n_homes', 'tol_constraints', 'n_homesP']:
             setattr(self, attribute, prm['syst'][attribute])
+        for info in [
+            'manage_agg_power', 'penalise_individual_exports', 'reactive_power_for_voltage_control',
+            'per_unit_to_kW_conversion', 'kW_to_per_unit_conversion'
+        ]:
+            setattr(self, info, prm['grd'][info])
         self.save = prm["save"]
         self.paths = prm["paths"]
-        self.manage_agg_power = prm["grd"]["manage_agg_power"]
-        self.penalise_individual_exports = prm["grd"]["penalise_individual_exports"]
-        self.kW_to_per_unit_conversion = 1000 / prm['grd']['base_power']
-        self.per_unit_to_kW_conversion = prm['grd']['base_power'] / 1000
-        self.reactive_power_for_voltage_control = \
-            prm['grd']['reactive_power_for_voltage_control']
         self.compute_import_export_costs = compute_import_export_costs
-        self.prepare_and_compare_optimiser_pandapower = prepare_and_compare_optimiser_pandapower
-
-    def res_post_processing(self, res):
-        res['house_cons'] = res['totcons'] - res['E_heat']
-        if self.grd['manage_agg_power']:
-            res['hourly_import_export_costs'] = \
-                res['hourly_import_costs'] + res['hourly_export_costs']
-        else:
-            res['hourly_import_costs'] = np.zeros(self.N)
-            res['hourly_export_costs'] = np.zeros(self.N)
-            res['hourly_import_export_costs'] = np.zeros(self.N)
-
-        if self.grd['manage_voltage']:
-            res['voltage'] = np.sqrt(res['voltage_squared'])
-            res['hourly_voltage_costs'] = np.sum(
-                res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
-            )
-            res['hourly_line_losses'] = \
-                res['hourly_line_losses_pu'] * self.per_unit_to_kW_conversion
-            if self.grd['line_losses_method'] == 'iteration':
-                res['lij'] = self.input_hourly_lij
-                res['v_line'] = np.matmul(
-                    self.grd['out_incidence_matrix'].T, res['voltage_squared'])
-            res['p_solar_flex'] = self.grd['gen'][:, 0: self.N]
-            res['q_solar_flex'] = calculate_reactive_power(
-                self.grd['gen'][:, 0: self.N], self.grd['pf_flexible_homes'])
-        else:
-            res['voltage_squared'] = np.empty((1, self.N))
-            res['voltage_costs'] = 0
-            res['hourly_voltage_costs'] = np.zeros(self.N)
-            res['hourly_line_losses'] = np.zeros(self.N)
-            res['q_ext_grid'] = np.zeros(self.N)
-
-        if self.n_homesP > 0:
-            res['netp0'] = self.loads['netp0']
-        else:
-            res['netp0'] = np.zeros([1, self.N])
-
-        res['hourly_grid_energy_costs'] = self.grd['C'][0: self.N] * (
-            res["grid"] + self.grd["loss"] * res["grid2"]
-        )
-        res['hourly_battery_degradation_costs'] = self.car["C"] * (
-            np.sum(res["discharge_tot"] + res["charge"], axis=0)
-            + np.sum(self.loads['discharge_tot0'], axis=0)
-            + np.sum(self.loads['charge0'], axis=0)
-        )
-        if self.penalise_individual_exports:
-            res['hourly_distribution_network_export_costs'] = self.grd["export_C"] * (
-                np.sum(res["netp_export"], axis=0)
-                + np.sum(self.netp0_export, axis=0)
-            )
-        else:
-            res['hourly_distribution_network_export_costs'] = np.zeros(self.N)
-
-        res['hourly_total_costs'] = \
-            (res['hourly_import_export_costs'] + res['hourly_voltage_costs']) \
-            * self.grd["weight_network_costs"] \
-            + res['hourly_grid_energy_costs'] \
-            + res['hourly_battery_degradation_costs'] \
-            + res['hourly_distribution_network_export_costs']
-
-        for key, val in res.items():
-            if key[0: len('hourly')] == 'hourly':
-                assert len(val) == self.N, f"np.shape(res[{key}]) = {np.shape(val)}"
-        assert np.all(res['consa(1)'] > - self.tol_cons_constraints), \
-            f"negative flexible consumptions in the optimisation! " \
-            f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-        assert np.all(abs(res['hourly_line_losses']) \
-                < 0.15 * abs(res['grid'] - res['hourly_line_losses'])), \
-            f"Hourly line losses are larger than 15% of the total import."
-
-        return res
+        self.compare_optimiser_pandapower = compare_optimiser_pandapower
+        self.prm = prm
+        self.input_hourly_lij = None
 
     def solve(self, prm):
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
-        if self.grd['line_losses_method'] == 'iteration':
+        if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res = self._solve_line_losses_iteration()
             pp_simulation_required = False
 
-        elif self.grd['line_losses_method'] == 'subset_of_lines':
+        else:
             res, pp_simulation_required = self._problem()
-            res = self.res_post_processing(res)
+            res = res_post_processing(res, prm, self.input_hourly_lij)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
-            res = self.res_post_processing(res)
+            res = res_post_processing(res, prm, self.input_hourly_lij)
 
         return res, pp_simulation_required
 
@@ -127,7 +59,7 @@ class Optimiser:
         it = 0
         self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
         res, _ = self._problem()
-        res = self.res_post_processing(res)
+        res = res_post_processing(res, self.prm, self.input_hourly_lij)
         # print pi and qi
         opti_voltages = copy.deepcopy(res['voltage'])
         opti_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -135,7 +67,7 @@ class Optimiser:
             # net0 = self.loads['netp0'][time_step]
             netp0 = np.zeros([1, self.N])
             grdCt = self.grd['C'][time_step]
-            res = self.prepare_and_compare_optimiser_pandapower(
+            res = self.compare_optimiser_pandapower(
                 res, time_step, netp0, grdCt, self.grd['line_losses_method'])
         corr_voltages = copy.deepcopy(res['voltage'])
         corr_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -148,14 +80,14 @@ class Optimiser:
             it += 1
             self.input_hourly_lij = corr_lij
             res, _ = self._problem()
-            res = self.res_post_processing(res)
+            res = res_post_processing(res, self.prm, self.input_hourly_lij)
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
                 # net0 = self.loads['netp0'][time_step]
                 netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
-                res = self.prepare_and_compare_optimiser_pandapower(
+                res = self.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt, self.grd['line_losses_method'])
             corr_voltages = copy.deepcopy(res['voltage'])
             corr_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -164,12 +96,14 @@ class Optimiser:
             delta_voltages = opti_voltages - corr_voltages
             print(f"max hourly delta voltages iteration {it}: {abs(delta_voltages).max()}")
             print(f"max hourly delta losses iteration {it}: {abs(delta_losses).max()}")
+
         return res
 
     def _car_efficiency_iterations(self, prm, res):
         init_eta = prm['car']['etach']
-        prm['car']['etach'] = self._efficiencies(
-            res, prm, prm['car']['cap'])
+        prm['car']['etach'] = efficiencies(
+            res, prm, prm['car']['cap']
+        )
         deltamax, its = 0.5, 0
         prm['car']['eff'] = 2
         while deltamax > 0.01 and its < 10:
@@ -177,7 +111,7 @@ class Optimiser:
             eta_old = copy.deepcopy(prm['car']['etach'])
             print(f"prm['grd']['loads'][0][0][0] = "
                   f"{prm['grd']['loads'][0][0][0]}")
-            res = self._problem()
+            res, _ = self._problem()
             print(f"res['constl(0, 0)'][0][0] "
                   f"= {res['constl(0, 0)'][0][0]}")
             if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
@@ -187,7 +121,7 @@ class Optimiser:
                 print(f"tot load cons "
                       f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
                       f"not equal to loads {np.sum(prm['loads'])}")
-            prm['car']['etach'] = self._efficiencies(
+            prm['car']['etach'] = efficiencies(
                 res, prm, prm['car']['cap'])
             deltamax = np.amax(abs(prm['car']['etach'] - eta_old))
         prm['car']['etach'] = init_eta
@@ -265,21 +199,12 @@ class Optimiser:
                 # * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
 
-        p.add_list_of_constraints(
-            [
-                netq_flex[:, time_step] == q_car_flex[:, time_step]
-                + totcons[:, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes']))
-                - self.grd['gen'][:, time_step] * math.tan(math.acos(self.grd['pf_flexible_homes']))
-                for time_step in range(self.N)
-            ]
+        p.add_constraint(
+            netq_flex
+            == q_car_flex
+            + (totcons - self.grd['gen'][:, 0: self.N]) * self.grd['active_to_reactive']
         )
-        # p.add_list_of_constraints(
-        #    [
-        #        netq_passive[time_step] ==
-        #        * self.loads['reactive_power_passive_homes'][t]
-        #        * self.kW_to_per_unit_conversion
-        #    ]
-        # )
+
         p.add_list_of_constraints(
             [qi[:, time_step]
                 == self.grd['flex_buses'] * netq_flex[:, time_step] * self.kW_to_per_unit_conversion
@@ -287,6 +212,25 @@ class Optimiser:
                 # * netq_passive[:, time_step]
                 # * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
+
+        # external grid between bus 1 and 2
+        if self.grd['line_losses_method'] == 'iteration':
+            p.add_list_of_constraints(
+                [q_ext_grid[time_step]
+                    == pic.sum(netq_flex[:, time_step])
+                    + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
+                    * self.per_unit_to_kW_conversion
+                    # + pic.sum(netq_passive[:, time_step])
+                    for time_step in range(self.N)])
+        else:
+            p.add_list_of_constraints(
+                [q_ext_grid[time_step]
+                    == pic.sum(netq_flex[:, time_step])
+                    + pic.sum(np.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
+                    * self.per_unit_to_kW_conversion
+                    # + pic.sum(netq_passive[:, time_step])
+                    for time_step in range(self.N)]
+            )
 
         p.add_list_of_constraints(
             [
@@ -495,13 +439,13 @@ class Optimiser:
 
         # constraints
         # substation energy balance
-        self.hourly_tot_netp0 = \
+        self.loads['hourly_tot_netp0'] = \
             np.sum(self.loads['netp0'], axis=0) if len(self.loads['netp0']) > 0 \
             else np.zeros(self.N)
         p.add_list_of_constraints(
             [
                 grid[time_step]
-                - self.hourly_tot_netp0[time_step]
+                - self.loads['hourly_tot_netp0'][time_step]
                 - pic.sum([netp[home, time_step] for home in range(self.n_homes)])
                 - hourly_line_losses_pu[time_step] * self.per_unit_to_kW_conversion
                 == 0
@@ -635,7 +579,7 @@ class Optimiser:
                 (self.n_homes, self.N),
                 vtype='continuous'
             )
-            self.netp0_export = np.where(
+            self.loads['netp0_export'] = np.where(
                 self.loads['netp0'] < 0,
                 abs(self.loads['netp0']),
                 0
@@ -646,7 +590,7 @@ class Optimiser:
             # distribution costs
             p.add_constraint(
                 distribution_network_export_costs
-                == grd['export_C'] * (pic.sum(netp_export) + np.sum(self.netp0_export))
+                == grd['export_C'] * (pic.sum(netp_export) + np.sum(self.loads['netp0_export']))
             )
 
         else:
@@ -689,14 +633,17 @@ class Optimiser:
         for tl in tlpairs:
             constl[tl] = p.add_variable('constl{0}'.format(tl), (self.n_homes, self.N))
 
-        constl_constraints = []
+        constl_consa_constraints = []
+        constl_loads_constraints = []
         for load_type in range(self.loads['n_types']):
-            constl_constraints_lt = []
+            constl_consa_constraints_lt = []
+            constl_loads_constraints_lt = []
             for home in range(self.n_homes):
-                constl_constraints_lt_home = []
+                constl_consa_constraints_lt_home = []
+                constl_loads_constraints_lt_home = []
                 for time_step in range(self.N):
                     # time_step = tD
-                    p.add_constraint(
+                    constl_loads_constraints_lt_home_t = p.add_constraint(
                         pic.sum(
                             [constl[time_step, load_type][home, tC]
                              * self.grd['flex'][time_step, load_type, home, tC]
@@ -704,14 +651,20 @@ class Optimiser:
                         )
                         == self.grd['loads'][load_type, home, time_step])
                     # time_step = tC
-                    constl_constraints_lt_home_t = p.add_constraint(
+                    constl_consa_constraints_lt_home_t = p.add_constraint(
                         pic.sum(
                             [constl[tD, load_type][home, time_step] for tD in range(self.N)]
                         ) == consa[load_type][home, time_step]
                     )
-                    constl_constraints_lt_home.append(constl_constraints_lt_home_t)
-                constl_constraints_lt.append(constl_constraints_lt_home)
-            constl_constraints.append(constl_constraints_lt)
+                    constl_consa_constraints_lt_home.append(constl_consa_constraints_lt_home_t)
+                    constl_loads_constraints_lt_home.append(constl_loads_constraints_lt_home_t)
+
+                constl_consa_constraints_lt.append(constl_consa_constraints_lt_home)
+                constl_loads_constraints_lt.append(constl_loads_constraints_lt_home)
+
+            constl_consa_constraints.append(constl_consa_constraints_lt)
+            constl_loads_constraints.append(constl_loads_constraints_lt)
+
         p.add_constraint(
             pic.sum(
                 [consa[load_type]
@@ -723,7 +676,7 @@ class Optimiser:
         p.add_list_of_constraints([constl[tl] >= 0 for tl in tlpairs])
         p.add_constraint(totcons >= 0)
 
-        return p, totcons, constl_constraints
+        return p, totcons, constl_consa_constraints, constl_loads_constraints
 
     def _temperature_constraints(self, p):
         """Add temperature constraints to the problem."""
@@ -768,22 +721,17 @@ class Optimiser:
                     ]
                 )
             else:
-                p.add_list_of_constraints(
-                    [E_heat[home, time_step] == 0 for time_step in range(self.N)]
+                p.add_constraint(
+                    E_heat[home] == 0
                 )
-                p.add_list_of_constraints(
-                    [
-                        T_air[home, time_step]
-                        == (heat['T_LB'][home][time_step] + heat['T_UB'][home][time_step]) / 2
-                        for time_step in range(self.N)
-                    ]
+                p.add_constraint(
+                    T_air[home, :]
+                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
                 )
-                p.add_list_of_constraints(
-                    [
-                        T[home, time_step]
-                        == (heat['T_LB'][home][time_step] + heat['T_UB'][home][time_step]) / 2
-                        for time_step in range(self.N)
-                    ]
+                p.add_constraint(
+                    T[home, :]
+                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
+                    for time_step in range(self.N)
                 )
 
         p.add_constraint(E_heat >= 0)
@@ -856,7 +804,8 @@ class Optimiser:
 
         p, charge, discharge_other, battery_degradation_costs = self._storage_constraints(p)
         p, E_heat = self._temperature_constraints(p)
-        p, totcons, constl_constraints = self._cons_constraints(p, E_heat)
+        p, totcons, constl_consa_constraints, constl_loads_constraints \
+            = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(
             p, charge, discharge_other, totcons)
         # prosumer energy balance, active power
@@ -874,14 +823,15 @@ class Optimiser:
         p.solve(verbose=0, solver=self.syst['solver'])
 
         # save results
-        res = self._save_results(p.variables)
+        res = save_results(p.variables, self.prm)
         number_opti_constraints = len(p.constraints)
         if 'n_opti_constraints' not in self.syst:
             self.syst['n_opti_constraints'] = number_opti_constraints
 
         if self.grd['manage_voltage']:
-            res, pp_simulation_required = self._check_and_correct_cons_constraints(
-                res, constl_constraints
+            res, pp_simulation_required = check_and_correct_constraints(
+                res, constl_consa_constraints, constl_loads_constraints,
+                self.prm, self.input_hourly_lij
             )
         else:
             pp_simulation_required = False
@@ -890,215 +840,3 @@ class Optimiser:
         res['corrected_cons'] = pp_simulation_required
 
         return res, pp_simulation_required
-
-    def _check_and_correct_cons_constraints(
-            self, res, constl_constraints
-    ):
-        slacks_constl = np.array([
-            [
-                [
-                    constl_constraints[load_type][home][time_step].slack
-                    for time_step in range(self.N)
-                ]
-                for home in range(self.n_homes)
-            ]
-            for load_type in range(self.loads['n_types'])
-        ])
-        load_types_slack, homes_slack, time_steps_slack = np.where(
-            slacks_constl < - self.tol_cons_constraints
-        )
-
-        pp_simulation_required = len(time_steps_slack) > 0
-        res['max_cons_slack'] = abs(np.min(slacks_constl))
-
-        for load_type, home, time_step in zip(
-                load_types_slack, homes_slack, time_steps_slack
-        ):
-            res[f'consa({load_type})'][home, time_step] = sum(
-                [
-                    res[f'constl({tD}, {load_type})'][home, time_step]
-                    for tD in range(self.N)
-                ]
-            )
-            res['totcons'][home, time_step] = sum(
-                [
-                    res[f'consa({load_type})'][home, time_step]
-                    for load_type in range(self.loads['n_types'])
-                ]
-            ) + res['E_heat'][home, time_step]
-            res['netp'][home, time_step] = \
-                res['charge'][home, time_step] / self.car['eta_ch'] \
-                - res['discharge_other'][home, time_step] \
-                - self.grd['gen'][home, time_step] \
-                + res['totcons'][home, time_step]
-
-            res['grid'][time_step] = \
-                sum(res['netp'][:, time_step]) \
-                + self.hourly_tot_netp0[time_step] \
-                + res['hourly_line_losses_pu'][time_step] * self.grd['base_power'] / 1000
-            res['grid2'][time_step] = res['grid'][time_step] * res['grid'][time_step]
-
-            if self.penalise_individual_exports:
-                res['netp_export'][home, time_step] = np.where(
-                    res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
-                )
-            if self.grd['manage_agg_power']:
-                [
-                    _,
-                    res['hourly_import_costs'][time_step],
-                    res['hourly_export_costs'][time_step]
-                ] = self.compute_import_export_costs(res['grid'][time_step])
-
-        if pp_simulation_required:
-            res['grid_energy_costs'] = np.sum(
-                np.multiply(self.grd['C'][0: self.N], res['grid'] + self.grd['loss'] * res['grid2'])
-            )
-            if self.penalise_individual_exports:
-                res['distribution_network_export_costs'] = self.grd['export_C'] * (
-                    np.sum(res['netp_export']) + np.sum(self.netp0_export)
-                )
-            else:
-                res['distribution_network_export_costs'] = np.zeros(self.N)
-
-            if self.grd['manage_agg_power']:
-                res['import_export_costs'] = np.sum(
-                    res['hourly_import_costs'] + res['hourly_export_costs']
-                )
-
-            res['network_costs'] = self.grd['weight_network_costs'] * res['import_export_costs']
-
-            res['total_costs'] = \
-                res['grid_energy_costs'] \
-                + res['battery_degradation_costs'] \
-                + res['distribution_network_export_costs'] \
-                + res['network_costs']
-
-        return res, pp_simulation_required
-
-    def _efficiencies(self, res, prm, bat_cap):
-        """Compute efficiencies"""
-        store = res['store']
-        P_ch = res['charge']
-        P_dis = res['discharge_tot']
-
-        P = (P_ch - P_dis) * 1e3
-        SoC = np.zeros((self.n_homes, prm['N']))
-        for home in range(self.n_homes):
-            if bat_cap[home] == 0:
-                SoC[home] = np.zeros(prm['N'])
-            else:
-                # in battery(times, bus)/cap(bus)
-                SoC[home] = np.divide(store[home], bat_cap[home])
-        a0 = - 0.852
-        a1 = 63.867
-        a2 = 3.6297
-        a3 = 0.559
-        a4 = 0.51
-        a5 = 0.508
-
-        b0 = 0.1463
-        b1 = 30.27
-        b2 = 0.1037
-        b3 = 0.0584
-        b4 = 0.1747
-        b5 = 0.1288
-
-        c0 = 0.1063
-        c1 = 62.49
-        c2 = 0.0437
-
-        e0 = 0.0712
-        e1 = 61.4
-        e2 = 0.0288
-
-        kappa = (130 * 215)
-
-        # as a function of SoC
-        Voc = a0 * np.exp(-a1 * SoC) \
-            + a2 + a3 * SoC - a4 * SoC ** 2 + a5 * SoC ** 3
-        Rs = b0 * np.exp(-b1 * SoC) \
-            + b2 \
-            + b3 * SoC \
-            - b4 * SoC ** 2 \
-            + b5 * SoC ** 3
-        Rts = c0 * np.exp(-c1 * SoC) + c2
-        Rtl = e0 * np.exp(-e1 * SoC) + e2
-        Rt = Rs + Rts + Rtl
-
-        # solve for current
-        from sympy import Symbol
-        from sympy.solvers import solve
-
-        x = Symbol('x')
-        i_cell = np.zeros(np.shape(P))
-        eta = np.zeros(np.shape(P))
-        for home in range(self.n_homes):
-            for time_step in range(prm['N']):
-                s = solve(
-                    P[home, time_step]
-                    + (x ** 2 - x * (Voc[home, time_step] / Rt[home, time_step]))
-                    * kappa * Rt[home, time_step],
-                    x)
-                A = Rt[home, time_step] * kappa
-                B = - Voc[home, time_step] * kappa
-                C = P[home, time_step]
-                s2_pos = (- B + np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
-                    if A > 0 else 0
-                s2_neg = (- B - np.sqrt(B ** 2 - 4 * A * C)) / (2 * A) \
-                    if A > 0 else 0
-                s2 = [s2_pos, s2_neg]
-                etas, etas2 = [], []
-                for sign in range(2):
-                    if s[sign] == 0:
-                        etas.append(0)
-                        etas2.append(0)
-                    else:
-                        etas.append(np.divide(
-                            s[sign] * Voc[home, time_step],
-                            s[sign] * (Voc[home, time_step] - s[sign] * Rt[home, time_step]))
-                        )
-                        etas2.append(np.divide(
-                            s2[sign] * Voc[home, time_step],
-                            s2[sign] * (Voc[home, time_step] - s2[sign] * Rt[home, time_step]))
-                        )
-                print(f'etas = {etas}, etas2={etas2}')
-                eta[home, time_step] = etas[np.argmin(abs(etas - 1))]
-                i_cell[home, time_step] = s[np.argmin(abs(etas - 1))]
-
-        return eta, s, s2
-
-    def _add_val_to_res(self, res, var, val, size, arr):
-        """Add value to result dict."""
-        if size[0] < 2 and size[1] < 2:
-            res[var] = val
-        else:
-            for i in range(size[0]):
-                for j in range(size[1]):
-                    arr[i, j] = val[i, j]
-            res[var] = arr
-
-        return res
-
-    def _save_results(self, pvars):
-        """Save optimisation results to file."""
-        res = {}
-        constls1, constls0 = [], []
-        for var in pvars:
-            if var[0:6] == 'constl':
-                if var[-2] == '1':
-                    constls1.append(var)
-                elif var[-2] == '0':
-                    constls0.append(var)
-            size = pvars[var].size
-            val = pvars[var].value
-            arr = np.zeros(size)
-            res = self._add_val_to_res(res, var, val, size, arr)
-
-        for key, val in res.items():
-            if len(np.shape(val)) == 2 and np.shape(val)[1] == 1:
-                res[key] = res[key][:, 0]
-
-        if self.save['saveresdata']:
-            np.save(self.paths['record_folder'] / 'res', res)
-
-        return res
