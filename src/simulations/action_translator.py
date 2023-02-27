@@ -50,6 +50,7 @@ class Action_translator:
         self.bat_dep = prm['car']['dep']
         self.max_apparent_power_car = prm['car']['max_apparent_power_car']
         self.export_C = prm['grd']['export_C']
+        self.reactive_power_for_voltage_control = prm['grd']['reactive_power_for_voltage_control']
 
         # no minimum requirements for reactive power import or export
         self.min_q_car_import = 0
@@ -269,24 +270,30 @@ class Action_translator:
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
                         loads['flex_cons'][-1] = 0
             else:
-                flexible_cons_action, flexible_heat_action, \
-                    flexible_store_action, flexible_q_car_action = action[home]
+                if not self.reactive_power_for_voltage_control:
+                    flexible_cons_action, flexible_heat_action, \
+                        flexible_store_action = action[home]
+                    flexible_q_car_action[home] = None
+                else:
+                    flexible_cons_action, flexible_heat_action, \
+                        flexible_store_action, flexible_q_car_action = action[home]
+                    # based on flexible store actions, calculate flexible q_car action
+                    # reactive power battery between -1 and 1 where
+                    # -1 max export
+                    # 1 max import
+
+                    # to do: define how to add the action to the environment: flexible_q_car_action
+                    # to do: translate it into a kWh q_car value in _calculate_flexible_q_car based on store_actions
+                    indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = flexible_store_action,
+                        indiv_flexible_q_car_action = flexible_q_car_action)
+                    flexible_q_car_action[home] = indiv_q_car
+
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
                 # -1 max discharge
                 # 0 nothing (or just minimum)
                 # 1 max charge
-                # based on flexible store actions, calculate flexible q_car action
-                # reactive power battery between -1 and 1 where
-                # -1 max export
-                # 1 max import
-
-                # to do: define how to add the action to the environment: flexible_q_car_action
-                # to do: translate it into a kWh q_car value in _calculate_flexible_q_car based on store_actions
-                indiv_q_car = self._calculate_flexible_q_car(indiv_flexible_store_action = flexible_store_action,
-                    indiv_flexible_q_car_action = flexible_q_car_action)
-
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
                 loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
@@ -308,7 +315,7 @@ class Action_translator:
                     - home_vars['gen'][home]
 
                 res['dp'] = home_vars['netp'][home]
-                flexible_q_car_action[home] = indiv_q_car
+                
 
             loads['tot_cons_loads'].append(
                 loads['flex_cons'][home] + loads['l_fixed'][home])
@@ -615,14 +622,19 @@ class Action_translator:
         flexible_cons_action, loads_bool_flex = self._flex_loads_actions(loads, res, time_step)
         flexible_heat_action, heat_bool_flex = self._flex_heat_actions(res, time_step)
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
-        flexible_q_car_action, q_car_bool_flex = self._flex_q_car_actions(
-            res, time_step, flexible_store_action, store_bool_flex)
-
-        actions = np.stack(
-            (flexible_cons_action, flexible_heat_action, flexible_store_action,
-            flexible_q_car_action), axis=1
-        )
-        bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex | q_car_bool_flex
+        if self.reactive_power_for_voltage_control:
+            flexible_q_car_action, q_car_bool_flex = self._flex_q_car_actions(
+                res, time_step, flexible_store_action, store_bool_flex)
+            actions = np.stack(
+                (flexible_cons_action, flexible_heat_action, flexible_store_action,
+                flexible_q_car_action), axis=1
+            )
+            bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex | q_car_bool_flex
+        else:
+            actions = np.stack(
+                (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
+            )
+            bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
 
         return actions, bool_flex
 
