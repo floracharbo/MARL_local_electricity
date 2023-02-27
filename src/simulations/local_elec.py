@@ -556,11 +556,12 @@ class LocalElecEnv:
         else:
             netp0 = []
         if self.prm['grd']['manage_voltage']:
-            if self.reactive_power_for_voltage_control:
+            if not self.reactive_power_for_voltage_control:
                 # retrieve info from battery if not a decision variable
                 self.car.active_reactive_power_car()
                 q_car_flex = self.car.q_car_flex
             else:
+                # if agents decide on reactive power of battery
                 q_car_flex = flexible_q_car_action
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid = \
