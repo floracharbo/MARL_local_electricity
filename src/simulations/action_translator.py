@@ -375,18 +375,21 @@ class Action_translator:
         return loads, home_vars, bool_penalty, flexible_q_car
 
     def _calculate_flexible_q_car(self, indiv_flexible_store_action, indiv_flexible_q_car_action):
-        # if some charge flex is used, reactive power import available
         if indiv_flexible_q_car_action > 0:
             charge = indiv_flexible_store_action
             max_q_car_import = np.sqrt(self.max_apparent_power_car**2 - charge**2)
-            indiv_flexible_q_car = (
-                indiv_flexible_q_car_action - self.min_q_car_import
-                    ) / (max_q_car_import - self.min_q_car_import)
-        # if some discharge flex is used, reactive power export available
+            indiv_flexible_q_car = \
+                indiv_flexible_q_car_action * (max_q_car_import - self.min_q_car_import) \
+                    + self.min_q_car_import
         elif indiv_flexible_q_car_action < 0:
             discharge = indiv_flexible_store_action
             max_q_car_export = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
-            indiv_flexible_q_car = (self.min_q_car_export - indiv_flexible_q_car_action) \
+            indiv_flexible_q_car = \
+                - abs(self.min_q_car_export - 
+                        indiv_flexible_q_car_action * abs(self.min_q_car_export - max_q_car_export))
+            
+            
+            (self.min_q_car_export - indiv_flexible_q_car_action) \
                 / (self.min_q_car_export - max_q_car_export)
         else:
             indiv_flexible_q_car = 0
@@ -769,15 +772,14 @@ class Action_translator:
         no_flex_actions = self._get_no_flex_actions('q_car_action')
         flexible_q_car_actions = np.zeros(self.n_homes)
         for home in range(self.n_homes):
-            # if some charge flex is used, reactive power import available
-            if res['charge'][home, time_step] > 1e-3:
+            if res['q_car_flex'][home, time_step] > 1e-3:
                 charge = res['charge'][:, time_step]
                 max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge**2)
                 flexible_q_car_actions[home] = (
                     res['q_car_flex'][home, time_step]- self.min_q_car_import
                 ) / (max_q_car_import_flexibility - self.min_q_car_import)
             # if some discharge flex is used, reactive power export available
-            elif res['discharge_other'][home, time_step] > 1e-3:
+            elif res['q_car_flex'][home, time_step] > 1e-3:
                 discharge = res['discharge_other'][home, time_step]
                 max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
                 flexible_q_car_actions[home] = - abs(self.min_q_car_export - res['q_car_flex'][home, time_step]) \
@@ -786,7 +788,7 @@ class Action_translator:
             else:
                 flexible_q_car_actions[home] = 0
         
-        q_car_bool_flex =  (res['q_car_flex'] > 1e-3) | (res['q_car_flex'] < -1e-3)
+        q_car_bool_flex =  (res['q_car_flex'][:, time_step] > 1e-3) | (res['q_car_flex'][:, time_step] < -1e-3)
 
         q_car_actions = np.where(
             q_car_bool_flex,
