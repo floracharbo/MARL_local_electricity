@@ -289,8 +289,8 @@ class Network:
             + sum(q_heat_home_flex)
 
         hourly_line_losses, voltage, _, _ = self.pf_simulation(
-            home_vars['netp'], netp0,
-            netq_flex, netq_passive)
+            home_vars['netp'], netp0, netq_flex, netq_passive
+        )
         voltage_squared = np.square(voltage)
 
         return voltage_squared, hourly_line_losses, q_ext_grid
@@ -362,27 +362,7 @@ class Network:
             replace_with_pp_simulation = False
         return replace_with_pp_simulation
 
-    def test_network_comparison_optimiser_pandapower(
-            self, res, time_step, grdCt, netp0, netq_flex, netq_passive, line_losses_method):
-        """Compares hourly results from network modelling in optimizer and pandapower"""
-        start = time.time()
-        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-            pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
-                res, time_step, netp0, netq_flex, netq_passive)
-        replace_with_pp_simulation = self._check_losses_differences(
-            res, hourly_line_losses_pp, time_step)
-        if replace_with_pp_simulation or line_losses_method == 'iteration':
-            res = self._replace_res_values_with_pp_simulation(
-                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
-                voltage_pp, pij_pp_kW, qij_pp_kW
-            )
-        end = time.time()
-        duration_comparison = end - start
-        self.timer_comparison.append(duration_comparison)
-
-        return res, hourly_line_losses_pp, hourly_voltage_costs_pp
-
-    def prepare_and_compare_optimiser_pandapower(
+    def compare_optimiser_pandapower(
             self, res, time_step, netp0, grdCt, line_losses_method):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
@@ -394,20 +374,24 @@ class Network:
             netp0 = np.zeros([1, self.N])
 
         # q_car_flex will be a decision variable
-        q_car_flex = res['q_car_flex']
-        q_heat_home_flex = calculate_reactive_power(
-            res['totcons'], self.pf_flexible_homes)
-        q_solar_flex = res['q_solar_flex']
-        netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
+        q_heat_home_flex = calculate_reactive_power(res['totcons'], self.pf_flexible_homes)
+        netq_flex = res['q_car_flex'] + q_heat_home_flex - res['q_solar_flex']
 
-        res, _, _ = self.test_network_comparison_optimiser_pandapower(
-            res, time_step,
-            grdCt,
-            netp0,
-            netq_flex,
-            netq_passive,
-            line_losses_method
-        )
+        # Compare hourly results from network modelling in optimizer and pandapower
+        start = time.time()
+        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
+        pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
+            res, time_step, netp0, netq_flex, netq_passive)
+        replace_with_pp_simulation = self._check_losses_differences(
+            res, hourly_line_losses_pp, time_step)
+        if replace_with_pp_simulation or line_losses_method == 'iteration':
+            res = self._replace_res_values_with_pp_simulation(
+                res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
+                voltage_pp, pij_pp_kW, qij_pp_kW
+            )
+        end = time.time()
+        duration_comparison = end - start
+        self.timer_comparison.append(duration_comparison)
 
         return res
 
@@ -419,7 +403,6 @@ class Network:
         self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
         delta_hourly_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
-
         grid_pp = res["grid"][time_step] + delta_hourly_line_losses
 
         hourly_grid_energy_costs_pp = grdCt * (
@@ -458,7 +441,7 @@ class Network:
         res["voltage_costs"] += delta_voltage_costs
 
         res["hourly_grid_energy_costs"][time_step] = hourly_grid_energy_costs_pp
-        res["grid_energy_costs"] += delta_grid_energy_costs
+        res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
         res["network_costs"] += delta_voltage_costs * self.weight_network_costs
@@ -475,6 +458,7 @@ class Network:
             + res['hourly_distribution_network_export_costs'][time_step]
         assert abs(sum_indiv_components - res['hourly_total_costs'][time_step]) < 1e-4, \
             "total hourly costs do not add up"
+        assert abs(res['grid'][time_step] - (sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step])) < 1e-3
 
         return res
 
