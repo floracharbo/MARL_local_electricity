@@ -97,8 +97,8 @@ def _plot_all_agents_mean_res(
     return axs
 
 
-def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N):
-    ax = axs[2, 1]
+def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1):
+    ax = axs[row, col]
     ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
     for band in bands_car_availability:
         ax.axvspan(band[0], band[1], alpha=0.3, color="grey")
@@ -336,6 +336,7 @@ def _plot_indiv_agent_res(
         prm, all_methods_to_plot, title_ylabel_dict,
         colours_non_methods, lw_indiv, labels, linestyles
 ):
+    reduced_version = True
     # Grid price / intensity
     # Heating E
     # Action variable
@@ -353,15 +354,23 @@ def _plot_indiv_agent_res(
             last["batch"][e] for e in ["loads_car", "avail_car"]
         ]
 
-        for home in range(
-            min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
-        ):
+        if reduced_version:
+            n_rows, n_cols = 2, 2
+            figsize = (13, 7)
+        else:
+            n_rows, n_cols = 4, 2
+            figsize = (13, 13)
+
+        # for home in range(
+        #     min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
+        # ):
+        for home in range(50):
             xs = range(len(loads_car[home]))
             bands_car_availability = _get_bands_car_availability(
                 availabilities_car, home, prm['syst']['N']
             )
 
-            fig, axs = plt.subplots(4, 2, figsize=(13, 13))
+            fig, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
 
             # carbon intensity, wholesale price and grid cost coefficient
             _plot_grid_price(
@@ -369,25 +378,36 @@ def _plot_indiv_agent_res(
                 row=0, col=0, last=last,
                 colours_non_methods=colours_non_methods, lw=lw_indiv)
 
+            if reduced_version:
+                row, col = 0, 1
+            else:
+                row, col = 2, 1
             axs = _plot_ev_loads_and_availability(
                 axs, xs, loads_car, home, bands_car_availability, prm['syst']['N'],
+                row=row, col=col
             )
 
             # cum rewards
-            _plot_cum_rewards(
-                axs, last, methods_to_plot, labels, prm,
-                row=3, col=0, lw=lw_indiv)
+            if not reduced_version:
+                _plot_cum_rewards(
+                    axs, last, methods_to_plot, labels, prm,
+                    row=3, col=0, lw=lw_indiv)
 
-            # indoor air temp
-            _plot_indoor_air_temp(
-                axs, methods_to_plot, last,
-                title_ylabel_dict, prm, home,
-                row=1, col=1, lw=lw_indiv
-            )
+                # indoor air temp
+                _plot_indoor_air_temp(
+                    axs, methods_to_plot, last,
+                    title_ylabel_dict, prm, home,
+                    row=1, col=1, lw=lw_indiv
+                )
 
-            rows = [1, 2, 0, 3]
-            columns = [0, 0, 1, 1]
-            entries = ["action", "totcons", "tot_E_heat", "store"]
+            if reduced_version:
+                rows = [1, 1]
+                columns = [0, 1]
+                entries = ["totcons",  "store"]
+            else:
+                rows = [1, 2, 0, 3]
+                columns = [0, 0, 1, 1]
+                entries = ["action", "totcons", "tot_E_heat", "store"]
             for r, c, e in zip(rows, columns, entries):
                 ax = axs[r, c]
                 for method in methods_to_plot:
@@ -406,21 +426,28 @@ def _plot_indiv_agent_res(
                             ys = [prm["car"]["store0"][home]] + ys
                         else:
                             ys = [0] + ys
+                        if reduced_version and method != 'baseline':
+                            colour = (192/255, 0, 0)
+                        else:
+                            colour = prm["save"]["colourse"][method]
+
                         ax.step(xs, ys, where="post", label=method,
-                                color=prm["save"]["colourse"][method],
+                                color=colour,
                                 lw=lw_indiv)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
-                axs[3, c].set_xlabel("Time [h]")
+                axs[n_rows - 1, c].set_xlabel("Time [h]")
 
             fig.tight_layout()
             title = f"subplots example day repeat {repeat} home {home}"
             title_display = "subplots example day"
+            if reduced_version:
+                title += '_reduced_version'
             subtitles = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
-            for r in range(4):
-                for c in range(2):
-                    axs[r, c].set_title(subtitles[r + c * 4])
+            for r in range(n_rows):
+                for c in range(n_cols):
+                    axs[r, c].set_title(subtitles[r + c * n_rows])
             formatting_figure(
                 prm, fig=fig, title=title,
                 legend=False,
