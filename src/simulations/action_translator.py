@@ -380,17 +380,13 @@ class Action_translator:
             max_q_car_import = np.sqrt(self.max_apparent_power_car**2 - charge**2)
             indiv_flexible_q_car = \
                 indiv_flexible_q_car_action * (max_q_car_import - self.min_q_car_import) \
-                    + self.min_q_car_import
+                + self.min_q_car_import
         elif indiv_flexible_q_car_action < 0:
             discharge = indiv_flexible_store_action
             max_q_car_export = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
             indiv_flexible_q_car = \
-                - abs(self.min_q_car_export - 
-                        indiv_flexible_q_car_action * abs(self.min_q_car_export - max_q_car_export))
-            
-            
-            (self.min_q_car_export - indiv_flexible_q_car_action) \
-                / (self.min_q_car_export - max_q_car_export)
+                - abs(self.min_q_car_export
+                      - indiv_flexible_q_car_action * abs(self.min_q_car_export - max_q_car_export))
         else:
             indiv_flexible_q_car = 0
 
@@ -648,7 +644,7 @@ class Action_translator:
                 res, time_step)
             actions = np.stack(
                 (flexible_cons_action, flexible_heat_action, flexible_store_action,
-                flexible_q_car_action), axis=1
+                    flexible_q_car_action), axis=1
             )
             bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex | q_car_bool_flex
         else:
@@ -776,19 +772,24 @@ class Action_translator:
                 charge = res['charge'][:, time_step]
                 max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge**2)
                 flexible_q_car_actions[home] = (
-                    res['q_car_flex'][home, time_step]- self.min_q_car_import
+                    res['q_car_flex'][home, time_step] - self.min_q_car_import
                 ) / (max_q_car_import_flexibility - self.min_q_car_import)
             # if some discharge flex is used, reactive power export available
             elif res['q_car_flex'][home, time_step] > 1e-3:
                 discharge = res['discharge_other'][home, time_step]
-                max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
-                flexible_q_car_actions[home] = - abs(self.min_q_car_export - res['q_car_flex'][home, time_step]) \
+                max_q_car_export_flexibility = - np.sqrt(
+                    self.max_apparent_power_car**2 - discharge**2
+                )
+                flexible_q_car_actions[home] = \
+                    - abs(self.min_q_car_export - res['q_car_flex'][home, time_step]) \
                     / abs(self.min_q_car_export - max_q_car_export_flexibility)
             # if no charge flexibility is used, no reactive power flexibility can be used
             else:
                 flexible_q_car_actions[home] = 0
-        
-        q_car_bool_flex =  (res['q_car_flex'][:, time_step] > 1e-3) | (res['q_car_flex'][:, time_step] < -1e-3)
+
+        q_car_bool_flex = (
+            res['q_car_flex'][:, time_step] > 1e-3) | (res['q_car_flex'][:, time_step] < -1e-3
+                                                       )
 
         q_car_actions = np.where(
             q_car_bool_flex,

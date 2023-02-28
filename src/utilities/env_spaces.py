@@ -686,7 +686,7 @@ class EnvSpaces:
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
             if not (0 <= normalised_val <= 1):
-                print( )
+                print()
             assert 0 <= normalised_val <= 1, \
                 f"val {normalised_val} max_home {max_home} descriptor {descriptor}"
         else:

@@ -17,7 +17,7 @@ import picos as pic
 from src.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
     save_results)
-from src.utilities.userdeftools import calculate_reactive_power, comb
+from src.utilities.userdeftools import comb
 
 
 class Optimiser:
@@ -189,13 +189,19 @@ class Optimiser:
                     <= self.car['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
             # can only use reactive power of battery if car is available
-            p.add_constraint(q_car_flex2 <= self.car['batch_avail_car'][:, 0: self.N] * self.syst['M'])
+            p.add_constraint(
+                q_car_flex2 <= self.car['batch_avail_car'][:, 0: self.N] * self.syst['M']
+            )
             # active and reactive power of the battery should have the same sign
             for time_step in range(self.N):
-                p.add_list_of_constraints(p_car_flex[home, time_step] * q_car_flex[home, time_step]
-                    >= 0 for home in range(self.n_homes))
+                p.add_list_of_constraints(
+                    p_car_flex[home, time_step] * q_car_flex[home, time_step]
+                    >= 0 for home in range(self.n_homes)
+            )
         else:
-            p.add_constraint(q_car_flex == p_car_flex * math.tan(math.acos(self.grd['pf_flexible_homes'])))
+            p.add_constraint(
+                q_car_flex == p_car_flex * math.tan(math.acos(self.grd['pf_flexible_homes']))
+            )
 
         p.add_list_of_constraints(
             [pi[:, time_step]

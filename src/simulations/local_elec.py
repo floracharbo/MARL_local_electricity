@@ -54,8 +54,9 @@ class LocalElecEnv:
 
         if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
             self.network = Network(prm)
-        
-        self.reactive_power_for_voltage_control = self.prm['grd']['reactive_power_for_voltage_control']
+
+        self.reactive_power_for_voltage_control = \
+            self.prm['grd']['reactive_power_for_voltage_control']
 
         # initialise parameters
         for info in ['N', 'n_int_per_hr', 'dt']:

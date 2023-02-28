@@ -49,7 +49,7 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
                res['pi'][:, time_step]
                - np.matmul(grd['flex_buses'], res['netp'][:, time_step])
                * grd['kW_to_per_unit_conversion']
-            ) < 1e-3
+               ) < 1e-3
         )
         abs_pi_lij_constraint = abs(
             res['pi'][1:, time_step]
