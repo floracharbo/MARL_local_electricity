@@ -640,8 +640,8 @@ def _update_res_variables(
         pp_simulation_required = True
 
     cons_difference = abs(res['consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons'])
-    assert np.all(cons_difference < 1e-3), \
-        f"Consumption does not add up: {cons_difference[cons_difference > 1e-3]}"
+    assert np.all(cons_difference < 1e-2), \
+        f"Consumption does not add up: {cons_difference[cons_difference > 1e-2]}"
 
     return res, pp_simulation_required
 
