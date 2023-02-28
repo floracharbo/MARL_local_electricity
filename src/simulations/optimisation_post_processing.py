@@ -639,7 +639,9 @@ def _update_res_variables(
                     * grd['kW_to_per_unit_conversion']
         pp_simulation_required = True
 
-    assert np.all(abs(res['consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons']) < 1e-3)
+    cons_difference = abs(res['consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons'])
+    assert np.all(cons_difference < 1e-3), \
+        f"Consumption does not add up: {cons_difference[cons_difference > 1e-3]}"
 
     return res, pp_simulation_required
 
