@@ -370,6 +370,7 @@ class Action_translator:
         # loads: flex_cons, tot_cons_loads
         # home_vars: netp, bool_flex, tot_cons
         # bool_penalty
+        # flexible_q_car
 
         return loads, home_vars, bool_penalty, flexible_q_car
 
@@ -654,6 +655,7 @@ class Action_translator:
             )
             bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
 
+        print(f"for time_step {time_step}, opti translated actions are {actions}")
         return actions, bool_flex
 
     def _flex_loads_actions(self, loads, res, time_step):
@@ -785,7 +787,7 @@ class Action_translator:
             else:
                 flexible_q_car_actions[home] = 0
         
-        q_car_bool_flex = (res['q_car_flex'] > 1e-3) or (res['q_car_flex'] < 1e-3)
+        q_car_bool_flex =  (res['q_car_flex'] > 1e-3) | (res['q_car_flex'] < -1e-3)
 
         q_car_actions = np.where(
             q_car_bool_flex,
