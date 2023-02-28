@@ -375,22 +375,21 @@ class Action_translator:
         return loads, home_vars, bool_penalty, flexible_q_car
 
     def _calculate_flexible_q_car(self, indiv_flexible_store_action, indiv_flexible_q_car_action):
-        # if no charge or discharge, no reactive power either
-        if indiv_flexible_store_action == 0:
-            indiv_flexible_q_car = 0
         # if some charge flex is used, reactive power import available
-        elif indiv_flexible_store_action > 0:
+        if indiv_flexible_q_car_action > 0:
             charge = indiv_flexible_store_action
-            max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge**2)
+            max_q_car_import = np.sqrt(self.max_apparent_power_car**2 - charge**2)
             indiv_flexible_q_car = (
                 indiv_flexible_q_car_action - self.min_q_car_import
-                    ) / (max_q_car_import_flexibility - self.min_q_car_import)
+                    ) / (max_q_car_import - self.min_q_car_import)
         # if some discharge flex is used, reactive power export available
-        elif indiv_flexible_store_action < 0:
+        elif indiv_flexible_q_car_action < 0:
             discharge = indiv_flexible_store_action
-            max_q_car_export_flexibility = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
+            max_q_car_export = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
             indiv_flexible_q_car = (self.min_q_car_export - indiv_flexible_q_car_action) \
-                / (self.min_q_car_export - max_q_car_export_flexibility)
+                / (self.min_q_car_export - max_q_car_export)
+        else:
+            indiv_flexible_q_car = 0
 
         return indiv_flexible_q_car
 
