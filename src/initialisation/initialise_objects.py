@@ -8,6 +8,7 @@ Created on Tue Mar  2 14:48:27 2021.
 
 # import python packages
 import datetime
+import math
 import multiprocessing as mp
 import os
 import pickle
@@ -17,6 +18,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch as th
+import yaml
 from gym import spaces
 
 from src.initialisation.generate_colours import generate_colours
@@ -319,17 +321,16 @@ def _update_bat_prm(prm):
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
+    car["cap"] = np.array(
+        car["cap"]) if isinstance(car["cap"], list)\
+        else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
-        car["cap"] = car["cap"] if isinstance(car["cap"], list) \
-            else [car["cap"] for _ in range(syst["n_homes"])]
         for passive_ext in ["", "P"]:
-            car["own_car" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-                if car["own_car" + passive_ext] == 1 else car["own_car" + passive_ext]
-        car["cap"] = [c if o == 1 else 0
-                      for c, o in zip(car["cap"], car["own_car"])]
-
-    if isinstance(car["cap"], (int, float)):
-        car["cap"] = [car["cap"] for _ in range(syst["n_homes"])]
+            car["own_car" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
+                if isinstance(car["own_car" + passive_ext], (int, float))\
+                and car["own_car" + passive_ext] == 1 \
+                else np.array(car["own_car" + passive_ext])
+        car["cap"] = np.where(car["own_car"], car["cap"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
 
@@ -338,12 +339,9 @@ def _update_bat_prm(prm):
                          for home in range(syst["n_homes"])]
     car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
     if "capP" not in car:
-        car["capP"] = [car["cap"][0] for _ in range(syst["n_homesP"])]
-    car["store0P"] = [car["SoC0"] * car["capP"][home] for home in range(syst["n_homesP"])]
-    car["min_chargeP"] = [
-        car["capP"][home] * max(car["SoCmin"], car["baseld"])
-        for home in range(syst["n_homesP"])
-    ]
+        car["capP"] = np.full(syst["n_homesP"], car["cap"][0])
+    car["store0P"] = car["SoC0"] * car["capP"]
+    car["min_chargeP"] = car["capP"] * max(car["SoCmin"], car["baseld"])
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -436,9 +434,12 @@ def _exploration_parameters(rl):
 
 def _dims_states_actions(rl, syst):
     rl["dim_states"] = len(rl["state_space"])
+    rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
+    rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
     rl['low_actions'] = np.array(rl['low_actions'][0: rl["dim_actions_1"]])
+
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
         rl["high_action"] = rl["high_actions"]
@@ -559,26 +560,37 @@ def _update_rl_prm(prm, initialise_all):
 
 
 def _naming_file_extension_network_parameters(grd):
-    """ Adds the mange_voltage and manage_agg_power settings to optimization results in opt_res """
+    """ Adds the manage_voltage and manage_agg_power settings to optimization results in opt_res """
     upper_quantities = ['max_voltage', 'max_grid_import']
     lower_quantities = ['min_voltage', 'max_grid_export']
     penalties_upper = ['overvoltage', 'import']
     penalties_lower = ['undervoltage', 'export']
     managements = ['manage_voltage', 'manage_agg_power']
     file_extension = ''
+    with open("config_files/default_input_parameters/grd.yaml", "rb") as file:
+        default_grd = yaml.safe_load(file)
     for lower_quantity, upper_quantity, penalty_upper, penalty_lower, management in zip(
             lower_quantities, upper_quantities, penalties_upper, penalties_lower, managements
     ):
         if grd[management]:
-            file_extension += f"_{management}_limit" + str(grd[upper_quantity])
-            if grd[upper_quantity] != grd[lower_quantity]:
+            if default_grd[upper_quantity] != grd[upper_quantity]:
+                file_extension += f"_{management}_limit" + str(grd[upper_quantity])
+            if (
+                default_grd[lower_quantity] != grd[lower_quantity]
+                and grd[upper_quantity] != grd[lower_quantity]
+            ):
                 file_extension += f"_{grd[lower_quantity]}"
-            file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
-            if grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']:
+            if default_grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_upper}']:
+                file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
+            if (
+                default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
+                and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
+            ):
                 file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
 
             if management == 'manage_voltage':
-                file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
+                if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
+                    file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
 
     return file_extension
 
@@ -595,14 +607,37 @@ def opt_res_seed_save_paths(prm):
     rl, paths with updated entries
 
     """
-    rl, heat, syst, grd, paths, car = \
-        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car"]]
+    rl, heat, syst, grd, paths, car, loads = \
+        [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
+
+    if np.all(car['cap'] == car['cap'][0]):
+        cap_str = car['cap'][0]
+    else:
+        caps = {}
+        for home, cap in enumerate(car['cap']):
+            if cap not in caps:
+                caps[cap] = []
+            caps[cap].append(home)
+        cap_str = ''
+        for cap, homes in caps.items():
+            cap_str += f"{cap}"
+            for home in homes:
+                cap_str += f"_{home}"
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}"
+        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}_" \
+        f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
+
+    for obj, label in zip([car, heat, loads], ['car', 'heat', 'loads']):
+        ownership = obj[f'own_{label}']
+        if sum(ownership) != len(ownership):
+            paths["opt_res_file"] += f"_no_{label}"
+            for home in np.where(ownership == 0)[0]:
+                paths["opt_res_file"] += f"_{home}"
+
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
     if rl["deterministic"] == 2:
         for file in ["opt_res_file", "seeds_file"]:
@@ -651,6 +686,9 @@ def _update_grd_prm(prm):
 
     # grid loss
     grd["loss"] = grd["R"] / (grd["V"] ** 2)
+    grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
+    grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
+    grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
@@ -673,6 +711,9 @@ def _update_grd_prm(prm):
         # comparison between optimisation and pandapower is only relevant if simulating voltage.
         grd['compare_pandapower_optimisation'] = False
 
+    if grd['manage_voltage']:
+        grd['penalise_individual_exports'] = False
+
 
 def _syst_info(prm):
     syst, paths = prm["syst"], prm['paths']
@@ -685,15 +726,20 @@ def _syst_info(prm):
     syst["dt"] = 1 / syst["n_int_per_hr"]
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
-    syst['timestampe'] = datetime.datetime.now().timestamp()
+    syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
+    syst['timestamp'] = datetime.datetime.now().timestamp()
+    syst['share_active'] = syst['n_homes'] / syst['n_homes_all']
+    syst['interval_to_month'] = prm['syst']['H'] * 365 / 12
 
 
 def _homes_info(loads, syst, gen, heat):
     for passive_ext in ["", "P"]:
         gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
             if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
-        heat["own_heat" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-            if heat["own_heat" + passive_ext] == 1 else heat["own_heat" + passive_ext]
+        heat["own_heat" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
+            if isinstance(heat["own_heat" + passive_ext], int) \
+            and heat["own_heat" + passive_ext] == 1 \
+            else np.array(heat["own_heat" + passive_ext])
         for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
             if ownership in loads:
                 loads[ownership] = np.ones(syst["n_homes" + passive_ext]) * loads[ownership] \
@@ -783,14 +829,18 @@ def _filter_type_learning_facmac(rl):
             if method in valid_types[stage] or "env_r_c" in method:
                 rl[f"{stage}_methods"].append(method)
             else:
-                print(f"Warning: {method} is not a valid method for {stage} stage with facmac and has been removed")
+                print(
+                    f"Warning: {method} is not a valid method for {stage} stage "
+                    f"with facmac and has been removed"
+                )
+
 
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning
         rl["evaluation_methods"] = [
-            t for t in rl["evaluation_methods"]
-            if t in ["opt", "baseline"]
-            or (reward_type(t) != "A" and distr_learning(t) != "c")
+            method for method in rl["evaluation_methods"]
+            if method in ["opt", "baseline"]
+            or (reward_type(method) != "A" and distr_learning(method) != "c")
         ]
 
 
@@ -855,7 +905,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
         rl["exploration_methods"] += ['opt']
 
     rl["eval_action_choice"] = [
-        t for t in rl["evaluation_methods"] if t not in ["baseline", "opt"]
+        method for method in rl["evaluation_methods"] if method not in ["baseline", "opt"]
     ]
     assert len(rl["eval_action_choice"]) > 0, \
         "not valid eval_type with action_choice"

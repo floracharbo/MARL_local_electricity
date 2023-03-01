@@ -97,8 +97,8 @@ def _plot_all_agents_mean_res(
     return axs
 
 
-def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N):
-    ax = axs[2, 1]
+def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1):
+    ax = axs[row, col]
     ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
     for band in bands_car_availability:
         ax.axvspan(band[0], band[1], alpha=0.3, color="grey")
@@ -336,6 +336,7 @@ def _plot_indiv_agent_res(
         prm, all_methods_to_plot, title_ylabel_dict,
         colours_non_methods, lw_indiv, labels, linestyles
 ):
+    reduced_version = True
     # Grid price / intensity
     # Heating E
     # Action variable
@@ -344,28 +345,33 @@ def _plot_indiv_agent_res(
     # EV load / availability
     # Cumulative rewards
     # Battery level
+
     for repeat in range(prm["RL"]["n_repeats"]):
         last, cintensity_kg, methods_to_plot = \
             _get_repeat_data(repeat, all_methods_to_plot, prm["paths"]["folder_run"])
 
         # plot EV availability + EV cons on same plot
         loads_car, availabilities_car = [
-            [
-                last["batch"][home][e]
-                for home in range(prm["syst"]["n_homes"])
-            ]
-            for e in ["loads_car", "avail_car"]
+            last["batch"][e] for e in ["loads_car", "avail_car"]
         ]
 
-        for home in range(
-                min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
-        ):
+        if reduced_version:
+            n_rows, n_cols = 2, 2
+            figsize = (13, 7)
+        else:
+            n_rows, n_cols = 4, 2
+            figsize = (13, 13)
+
+        # for home in range(
+        #     min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
+        # ):
+        for home in range(50):
             xs = range(len(loads_car[home]))
             bands_car_availability = _get_bands_car_availability(
                 availabilities_car, home, prm['syst']['N']
             )
 
-            fig, axs = plt.subplots(4, 2, figsize=(13, 13))
+            fig, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
 
             # carbon intensity, wholesale price and grid cost coefficient
             _plot_grid_price(
@@ -373,25 +379,36 @@ def _plot_indiv_agent_res(
                 row=0, col=0, last=last,
                 colours_non_methods=colours_non_methods, lw=lw_indiv)
 
+            if reduced_version:
+                row, col = 0, 1
+            else:
+                row, col = 2, 1
             axs = _plot_ev_loads_and_availability(
                 axs, xs, loads_car, home, bands_car_availability, prm['syst']['N'],
+                row=row, col=col
             )
 
             # cum rewards
-            _plot_cum_rewards(
-                axs, last, methods_to_plot, labels, prm,
-                row=3, col=0, lw=lw_indiv)
+            if not reduced_version:
+                _plot_cum_rewards(
+                    axs, last, methods_to_plot, labels, prm,
+                    row=3, col=0, lw=lw_indiv)
 
-            # indoor air temp
-            _plot_indoor_air_temp(
-                axs, methods_to_plot, last,
-                title_ylabel_dict, prm, home,
-                row=1, col=1, lw=lw_indiv
-            )
+                # indoor air temp
+                _plot_indoor_air_temp(
+                    axs, methods_to_plot, last,
+                    title_ylabel_dict, prm, home,
+                    row=1, col=1, lw=lw_indiv
+                )
 
-            rows = [1, 2, 0, 3]
-            columns = [0, 0, 1, 1]
-            entries = ["action", "totcons", "tot_E_heat", "store"]
+            if reduced_version:
+                rows = [1, 1]
+                columns = [0, 1]
+                entries = ["totcons",  "store"]
+            else:
+                rows = [1, 2, 0, 3]
+                columns = [0, 0, 1, 1]
+                entries = ["action", "totcons", "tot_E_heat", "store"]
             for r, c, e in zip(rows, columns, entries):
                 ax = axs[r, c]
                 for method in methods_to_plot:
@@ -402,7 +419,6 @@ def _plot_indiv_agent_res(
                         ax = _plot_indiv_agent_res_action(
                             prm, ys, xs, lw_indiv, linestyles, method, ax
                         )
-
                     else:
                         if e == "store" and method == "opt":
                             ys = ys + [prm["car"]["store0"][home]]
@@ -410,21 +426,32 @@ def _plot_indiv_agent_res(
                             ys = [prm["car"]["store0"][home]] + ys
                         else:
                             ys = [0] + ys
-                        ax.step(xs, ys, where="post", label=method,
-                                color=prm["save"]["colourse"][method],
+                        if reduced_version and method != 'baseline':
+                            colour = (192/255, 0, 0)
+                        else:
+                            colour = prm["save"]["colourse"][method]
+                        if reduced_version and method != 'baseline':
+                            label = 'MARL policy'
+                        else:
+                            label = method
+                        ax.step(xs, ys, where="post", label=label,
+                                color=colour,
                                 lw=lw_indiv)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
-                axs[3, c].set_xlabel("Time [h]")
+                axs[n_rows - 1, c].set_xlabel("Time [h]")
+            axs[n_rows - 1, 1].legend()
 
             fig.tight_layout()
             title = f"subplots example day repeat {repeat} home {home}"
             title_display = "subplots example day"
-            subtitles = ["A", "B", "C", "D", "E", "F", "G", "H"]
+            if reduced_version:
+                title += '_reduced_version'
+            subtitles = ["a", "b", "b", "d", "e", "f", "g", "h"]
 
-            for r in range(4):
-                for c in range(2):
-                    axs[r, c].set_title(subtitles[r + c * 4])
+            for r in range(n_rows):
+                for c in range(n_cols):
+                    axs[r, c].set_title(subtitles[r + c * n_rows])
             formatting_figure(
                 prm, fig=fig, title=title,
                 legend=False,
@@ -563,7 +590,7 @@ def plot_env_input(repeat, prm, record):
             fig, axs = plt.subplots(n_homes_plot, 1, squeeze=0)
             axs = axs.ravel()
             for home in range(n_homes_plot):
-                axs[home].plot(batch[home][e])
+                axs[home].plot(batch[e][home])
                 axs[home].set_title("{home}")
             title = f"deterministic repeat {repeat} {e}"
             title_and_save(title, fig, prm)
@@ -578,12 +605,15 @@ def plot_imp_exp_violations(
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
-        for t in methods_to_plot:
+        for method in methods_to_plot:
+            print(method)
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
-            netp = last['netp'][t]  # [step][a]
-            grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
-            break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
+            netp = last['netp'][method]  # [step][a]
+            netp0 = last['netp0'][method]  # [step][a]
+            grid_flex = np.sum(netp, axis=1)
+            grid_passive = np.sum(netp0, axis=1)
+            break_down_rewards = last['break_down_rewards'][method]
             i_import_export_costs = prm['syst']['break_down_rewards_entries'].index(
                 'import_export_costs'
             )
@@ -591,7 +621,8 @@ def plot_imp_exp_violations(
                 break_down_rewards[step][i_import_export_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(grid, label='Import/Export', color='coral')
+            ax1.plot(grid_flex, label='Flex Import/Export', color='coral')
+            ax1.plot(grid_passive, label='Passive Import/Export', color='coral', linestyle='dashed')
             ax2.bar(
                 range(prm['syst']['N']),
                 import_export_costs,
@@ -602,7 +633,7 @@ def plot_imp_exp_violations(
             ax1.axhline(y=-prm['grd']['max_grid_export'], color='k', linestyle='dotted')
             ax1.set_ylabel('Grid import/export [kWh]')
             ax2.set_ylabel('System penalty [£]')
-            ax2.set_ylim([0, 0.11])
+            ax2.set_ylim([0, 1.1 * max(import_export_costs)])
             ax1.spines['right'].set_color('coral')
             ax1.spines['left'].set_color('coral')
             ax1.spines['right'].set_color('olive')
@@ -612,7 +643,91 @@ def plot_imp_exp_violations(
             ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
             ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
             plt.tight_layout()
-            title = f'Import and export and corresponding penalties, repeat{repeat}, {t}'
+            title = f'Import and export and corresponding penalties, repeat{repeat}, {method}'
+            title_and_save(title, fig, prm)
+
+
+def plot_reactive_power(
+        prm, all_methods_to_plot, folder_run):
+    """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
+    plt.rcParams['font.size'] = '16'
+    for repeat in range(prm['RL']['n_repeats']):
+        last, _, methods_to_plot = _get_repeat_data(
+            repeat, all_methods_to_plot, folder_run)
+        for method in methods_to_plot:
+            fig, ax1 = plt.subplots(figsize=(8, 6))
+            ax2 = ax1.twinx()
+            flex_reactive_power = last['q_ext_grid'][method]
+            break_down_rewards = last['break_down_rewards'][method]  # [step][break_down_rewards_entry]
+            i_total_costs = prm['syst']['break_down_rewards_entries'].index(
+                'total_costs'
+            )
+            total_costs = [
+                break_down_rewards[step][i_total_costs]
+                for step in range(prm['syst']['N'])
+            ]
+            ax1.plot(flex_reactive_power, label='Reactive power', color='salmon')
+            ax2.bar(
+                range(prm['syst']['N']),
+                total_costs,
+                label='Total costs',
+                color='forestgreen'
+            )
+            ax1.set_ylabel('Sum reactive power [kWh]')
+            ax2.set_ylabel('System total costs [£]')
+            ax2.set_ylim([0, 1.1 * max(total_costs)])
+            ax1.spines['right'].set_color('salmon')
+            ax1.spines['left'].set_color('salmon')
+            ax1.spines['right'].set_color('forestgreen')
+            ax1.spines['left'].set_color('forestgreen')
+            ax1.yaxis.label.set_color('coral')
+            ax2.yaxis.label.set_color('forestgreen')
+            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
+            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+            plt.tight_layout()
+            title = f'Reactive power and total costs, repeat{repeat}, {t}'
+            title_and_save(title, fig, prm)
+
+
+def plot_reactive_power(
+        prm, all_methods_to_plot, folder_run):
+    """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
+    plt.rcParams['font.size'] = '16'
+    for repeat in range(prm['RL']['n_repeats']):
+        last, _, methods_to_plot = _get_repeat_data(
+            repeat, all_methods_to_plot, folder_run)
+        for t in methods_to_plot:
+            fig, ax1 = plt.subplots(figsize=(8, 6))
+            ax2 = ax1.twinx()
+            flex_reactive_power = last['q_ext_grid'][t]
+            break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
+            i_total_costs = prm['syst']['break_down_rewards_entries'].index(
+                'total_costs'
+            )
+            total_costs = [
+                break_down_rewards[step][i_total_costs]
+                for step in range(prm['syst']['N'])
+            ]
+            ax1.plot(flex_reactive_power, label='Reactive power', color='salmon')
+            ax2.bar(
+                range(prm['syst']['N']),
+                total_costs,
+                label='Total costs',
+                color='forestgreen'
+            )
+            ax1.set_ylabel('Sum reactive power [kWh]')
+            ax2.set_ylabel('System total costs [£]')
+            ax2.set_ylim([0, 1.1 * max(total_costs)])
+            ax1.spines['right'].set_color('salmon')
+            ax1.spines['left'].set_color('salmon')
+            ax1.spines['right'].set_color('forestgreen')
+            ax1.spines['left'].set_color('forestgreen')
+            ax1.yaxis.label.set_color('coral')
+            ax2.yaxis.label.set_color('forestgreen')
+            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
+            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+            plt.tight_layout()
+            title = f'Reactive power and total costs, repeat{repeat}, {t}'
             title_and_save(title, fig, prm)
 
 
@@ -623,18 +738,21 @@ def plot_voltage_violations(
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
-        for t in methods_to_plot:
+        for method in methods_to_plot:
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
-            netp = last['netp'][t]  # [step][a]
-            grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
-            break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
+            netp = last['netp'][method]  # [step][a]
+            netp0 = last['netp0'][method]  # [step][a]
+            grid_flex = [sum(netp[step]) for step in range(prm['syst']['N'])]
+            grid_passive = [sum(netp0[step]) for step in range(prm['syst']['N'])]
+            break_down_rewards = last['break_down_rewards'][method]
             i_voltage_costs = prm['syst']['break_down_rewards_entries'].index('voltage_costs')
             voltage_costs = [
                 break_down_rewards[step][i_voltage_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(grid, label='Import/Export', color='coral')
+            ax1.plot(grid_flex, label='Flex Import/Export', color='coral')
+            ax1.plot(grid_passive, label='Passive Import/Export', color='coral', linestyle='dashed')
             ax2.bar(
                 range(prm['syst']['N']),
                 voltage_costs,
@@ -643,7 +761,7 @@ def plot_voltage_violations(
             )
             ax1.set_ylabel('Grid import/export [kWh]')
             ax2.set_ylabel('System penalty [£]')
-            ax2.set_ylim([0, 0.11])
+            ax2.set_ylim([0, 1.1 * max(voltage_costs)])
             ax1.spines['right'].set_color('coral')
             ax1.spines['left'].set_color('coral')
             ax1.spines['right'].set_color('cadetblue')
@@ -653,7 +771,7 @@ def plot_voltage_violations(
             ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
             ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
             plt.tight_layout()
-            title = f'Import and export and voltage penalties, repeat{repeat}, {t}'
+            title = f'Import and export and voltage penalties, repeat{repeat}, {method}'
             title_and_save(title, fig, prm)
 
 
@@ -663,9 +781,9 @@ def plot_imp_exp_check(
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
-        for t in methods_to_plot:
+        for method in methods_to_plot:
             fig = plt.figure()
-            netp = last['netp'][t]  # [step][a]
+            netp = last['netp'][method]  # [step][a]
             grid = [sum(netp[step]) for step in range(prm['syst']['N'])]
             grid_in = np.where(np.array(grid) >= 0, grid, 0)
             grid_out = np.where(np.array(grid) < 0, grid, 0)
@@ -674,7 +792,7 @@ def plot_imp_exp_check(
             plt.plot(grid, label='grid tot', color='r', linestyle='--')
             plt.legend()
             plt.tight_layout()
-            title = f'grid_imports_exports_check_repeat{repeat}_{t}'
+            title = f'grid_imports_exports_check_repeat{repeat}_{method}'
             title_and_save(title, fig, prm)
 
 
@@ -683,18 +801,16 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
-        for t in [t for t in methods_to_plot if t not in ['opt']]:
+        for method in [method for method in methods_to_plot if method not in ['opt']]:
             overvoltage_bus_index, undervoltage_bus_index = \
-                get_index_over_under_voltage_last_time_step(last, t, prm)
+                get_index_over_under_voltage_last_time_step(last, method, prm)
             overvoltage_value = \
-                last['voltage_squared'][t][prm['syst']['N'] - 1][overvoltage_bus_index]
+                last['voltage_squared'][method][prm['syst']['N'] - 1][overvoltage_bus_index]
             undervoltage_value = \
-                last['voltage_squared'][t][prm['syst']['N'] - 1][undervoltage_bus_index]
+                last['voltage_squared'][method][prm['syst']['N'] - 1][undervoltage_bus_index]
             n_voltage_violations = len(overvoltage_bus_index) + len(undervoltage_bus_index)
             if n_voltage_violations > 150:
                 fig_length = 22
-            elif n_voltage_violations < 10:
-                fig_length = 6
             else:
                 fig_length = 10
 
@@ -727,11 +843,11 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             if n_voltage_violations > 150:
                 ax1.set_xlim(min(first_bus_under, first_bus_over),
                              150 + min(first_bus_under, first_bus_over))
-                title = f'Over-, undervoltage and corresponding penalty for hour 24, \
-                    first 150 buses, repeat{repeat}_{t}'
+                title = f'Over-, undervoltage and corresponding penalty for last time step,' \
+                    f'first 150 buses, repeat{repeat}_{method}'
             else:
-                title = f'Over-, undervoltage and corresponding penalty for hour 24, \
-                    repeat{repeat}_{t}'
+                title = f'Over-, undervoltage and corresponding penalty for last time step,' \
+                    f'repeat{repeat}_{method}'
             ax1.axhline(y=prm['grd']['max_voltage'], color='k')
             ax1.axhline(y=prm['grd']['min_voltage'], color='k')
             ax1.set_ylabel('Voltage magnitude [p.u.]')
@@ -744,12 +860,12 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             title_and_save(title, fig, prm)
 
 
-def get_index_over_under_voltage_last_time_step(last, t, prm):
+def get_index_over_under_voltage_last_time_step(last, method, prm):
     overvoltage_bus_index = np.where(
-        last['voltage_squared'][t][prm["syst"]["N"] - 1] > prm['grd']['max_voltage'] ** 2
+        last['voltage_squared'][method][prm["syst"]["N"] - 1] > prm['grd']['max_voltage'] ** 2
     )[0]
     undervoltage_bus_index = np.where(
-        last['voltage_squared'][t][prm["syst"]["N"] - 1] < prm['grd']['min_voltage'] ** 2
+        last['voltage_squared'][method][prm["syst"]["N"] - 1] < prm['grd']['min_voltage'] ** 2
     )[0]
 
     return overvoltage_bus_index, undervoltage_bus_index
@@ -761,8 +877,8 @@ def map_over_undervoltage(
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
-        for t in methods_to_plot:
-            if t != 'opt':
+        for method in methods_to_plot:
+            if method != 'opt':
                 # Plot all the buses
                 bc = plot.create_bus_collection(net, net.bus.index, size=.2,
                                                 color="black", zorder=10)
@@ -780,14 +896,18 @@ def map_over_undervoltage(
                                                 size=.7, color="grey", zorder=11)
 
                 # Plot all the loads
-                ldA = plot.create_bus_collection(net, last['loaded_buses'][t][prm["syst"]["N"] - 1],
-                                                 patch_type="poly3", size=1.4, color="r", zorder=11)
-                ldB = plot.create_bus_collection(net, last['sgen_buses'][t][prm["syst"]["N"] - 1],
-                                                 patch_type="poly3", size=1.4, color="g", zorder=11)
+                ldA = plot.create_bus_collection(
+                    net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
+                    patch_type="poly3", size=1.4, color="r", zorder=11
+                )
+                ldB = plot.create_bus_collection(
+                    net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
+                    patch_type="poly3", size=1.4, color="g", zorder=11
+                )
 
                 # Plot over and under voltages
                 overvoltage_bus_index, undervoltage_bus_index = \
-                    get_index_over_under_voltage_last_time_step(last, t, prm)
+                    get_index_over_under_voltage_last_time_step(last, method, prm)
 
                 over = plot.create_bus_collection(
                     net,
@@ -804,5 +924,5 @@ def map_over_undervoltage(
                                            figsize=(20, 20))
                 ax.legend()
                 # Save
-                title = f'map_over_under_voltage{repeat}_{t}'
+                title = f'map_over_under_voltage{repeat}_{method}'
                 title_and_save(title, ax.figure, prm)

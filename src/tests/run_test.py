@@ -31,10 +31,11 @@ def patch_find_feasible_data(
     files = ['res', 'batch']
     for file in files:
         names_files[file] = f"{file}_test{self.prm['paths']['opt_res_file']}"
-
     res, batch = [
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
+    if 'house_cons' not in res:
+        res['house_cons'] = res['totcons'] - res['E_heat']
     for file in files:
         print(
             f"copy {self.paths['test_data'] / names_files[file]}"
@@ -47,16 +48,17 @@ def patch_find_feasible_data(
 
     self.res_name = names_files['res']
     self.batch_file, batch = self.env.reset(
-            seed=0, load_data=True, passive=False
+        seed=0, load_data=True, passive=False
     )
     data_feasibles = self._format_data_optimiser(
         batch, passive=passive
     )
     data_feasible = True
+    pp_simulation_required = False
     if data_feasible and 'opt' in type_actions:  # start with opt
         # exploration through optimisation
         step_vals, data_feasible = self.get_steps_opt(
-            res, step_vals, evaluation, batch, epoch
+            res, pp_simulation_required, step_vals, evaluation, batch, epoch
         )
 
     seed_data = res, batch
@@ -171,7 +173,7 @@ def test_all(mocker):
         },
         'syst': {
             'test_on_run': True,
-            'n_homes': 3
+            'n_homes': 4
         },
         'grd': {
             'max_grid_in': 5,
@@ -190,7 +192,16 @@ def test_all(mocker):
             'min_voltage': 0.999,
             'weight_network_costs': 1,
             'subset_line_losses_modelled': 30
-        }
+        },
+        'heat': {
+            'own_heat': [[1, 0, 1, 1]],
+        },
+        'loads': {
+            'own_loads': [[1, 1, 0, 1]],
+        },
+        'car': {
+            'own_car': [[1, 1, 1, 0]],
+        },
     }
     run_mode = 1
 

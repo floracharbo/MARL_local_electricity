@@ -14,8 +14,15 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
+FILTER_N_HOMES = False
+COLUMNS_OF_INTEREST = ['optimizer']
 
+FILTER = {
+    # 'supervised_loss': False,
+    # 'facmac-beta_to_alpha': 0.1,
+    'SoC0': 1
+}
 
 def rename_runs(results_path):
     folders = os.listdir(results_path)
@@ -40,11 +47,11 @@ def fix_learning_specific_values(log):
     """If there are no optimisations, this is equivalent to if we had forced optimisations."""
     ave_opt_cols = [col for col in log.columns if col[0: len('ave_opt')] == 'ave_opt']
     for i in range(len(log)):
-        if (
-            all(log[col].loc[i] is None for col in ave_opt_cols)
-            and not log['syst-force_optimisation'].loc[i]
-        ):
-            log.loc[i, 'syst-force_optimisation'] = True
+        if all(log[col].loc[i] is None for col in ave_opt_cols):
+            if not log['syst-force_optimisation'].loc[i]:
+                log.loc[i, 'syst-force_optimisation'] = True
+            if log['syst-error_with_opt_to_rl_discharge'].loc[i]:
+                log.loc[i, 'syst-error_with_opt_to_rl_discharge'] = False
 
     gaussian_params = ['start_steps', 'act_noise']
     for param in gaussian_params:
@@ -115,19 +122,29 @@ def get_list_all_fields(results_path):
         'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
-        'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all'
+        'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
+        'n_opti_constraints', 'dim_states_1'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
+    remove_nos = []
     for result_no in result_nos:
         path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
-        if path_prm.is_file():
+        there_are_figures = len(os.listdir(results_path / f"run{result_no}" / 'figures')) > 0
+        if path_prm.is_file() and there_are_figures:
             prm = np.load(path_prm, allow_pickle=True).item()
             for key, val in prm.items():
                 if key not in ignore:
                     for subkey, subval in val.items():
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
+        else:
+            shutil.rmtree(results_path / f"run{result_no}")
+            remove_nos.append(result_no)
+
+    print(f"delete run(s) {remove_nos}")
+    for result_no in remove_nos:
+        result_nos.pop(result_nos.index(result_no))
 
     columns0 = ["run", "date"] + sorted(columns0)
     if 'RL-batch_size' in columns0:
@@ -139,16 +156,17 @@ def get_list_all_fields(results_path):
 def get_names_evaluation_methods(results_path, result_nos):
     evaluation_methods_found = False
     it = 0
-    while not evaluation_methods_found and it < 100:
+    keys_methods = []
+    while not evaluation_methods_found and it < len(result_nos):
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
-        if path_metrics0.is_file():
-            metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-            keys_methods = list(metrics0['end_test_bl']['ave'].keys())
-            if len(keys_methods) == 16:
-                evaluation_methods_found = True
-        else:
-            shutil.rmtree(results_path / f"run{result_nos[-it]}")
+        metrics0 = np.load(path_metrics0, allow_pickle=True).item()
+        keys_methods_run = list(metrics0['end_test_bl']['ave'].keys())
+        for method in keys_methods_run:
+            if method not in keys_methods:
+                keys_methods.append(method)
+        if len(keys_methods) == 16:
+            evaluation_methods_found = True
 
     keys_methods.remove("baseline")
 
@@ -224,6 +242,10 @@ def add_default_values(log):
                 if log.loc[row, column] is None and column != 'syst-time_end':
                     log = fill_in_log_value_with_run_data(log, row, column, prm_default)
 
+    share_active_none = log['syst-share_active'].isnull()
+    log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
+        lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
+    )
     # then replace column by column the missing data with current defaults
     for column in log.columns:
         key, subkey, subsubkey = get_key_subkeys_column(column)
@@ -242,7 +264,6 @@ def add_default_values(log):
                 lambda x: replace_single_default_value(x, default_data, subkey, subsubkey)
             )
 
-    # save all defaults in prm_default row by row
     save_default_values_to_run_data(log)
 
     return log
@@ -366,6 +387,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                 if subkey == 'start_steps':
                     assert isinstance(val, int), f"start_steps is not an int: {val}"
                 row.append(val)
+
     else:
         row = None
 
@@ -403,9 +425,13 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_methods):
     new_columns = []
+    do_not_remove = [
+        'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
+        'syst-n_homes', 'syst-share_active', 'syst-force_optimisation'
+    ]
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
-        if not column == "RL-state_space" and unique_value:
+        if column not in do_not_remove and unique_value:
             log.drop([column], axis=1, inplace=True)
         else:
             new_columns.append(column)
@@ -522,7 +548,8 @@ def only_columns_relevant_learning_type_comparison(
         'cnn_out_channels', 'facmac-batch_size', 'facmac-critic_lr',
         'hyper_initialization_nonzeros', 'lr', 'mixer', 'n_hidden_layers',
         'n_hidden_layers_critic', 'nn_type', 'nn_type_critic', 'obs_agent_id',
-        'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha'
+        'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha',
+        'gamma', 'timestamp', 'instant_feedback'
     ]
     only_col_of_interest_changes = all(
         current_col == row_col or (
@@ -537,7 +564,8 @@ def only_columns_relevant_learning_type_comparison(
 
 
 def annotate_run_nos(
-        axs, values_of_interest_sorted, best_score_sorted, best_env_score_sorted, runs_sorted
+        axs, values_of_interest_sorted, best_score_sorted,
+        best_env_score_sorted, runs_sorted
 ):
     if ANNOTATE_RUN_NOS:
         for i, (x, best_score, best_env_score, run) in enumerate(zip(
@@ -583,7 +611,8 @@ def compare_all_runs_for_column_of_interest(
         'buffer_size', 'cnn_kernel_size', 'cnn_out_channels', 'facmac-batch_size',
         'facmac-beta_to_alpha', 'facmac-critic_lr', 'facmac-hysteretic', 'learner',
         'mixer', 'n_hidden_layers', 'n_hidden_layers_critic', 'nn_type',
-        'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode'
+        'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode',
+        'instant_feedback'
     ]
     indexes_columns_ignore_q_learning = [
         other_columns.index(col) for col in columns_irrelevant_to_q_learning if col in other_columns
@@ -596,7 +625,7 @@ def compare_all_runs_for_column_of_interest(
         x_labels = []
         best_values = []
         env_values = []
-        time_values = []
+    time_values = []
     while len(rows_considered) < len(log):
         initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
         rows_considered.append(initial_setup_row)
@@ -637,6 +666,8 @@ def compare_all_runs_for_column_of_interest(
             else:
                 if column_of_interest == 'supervised_loss_weight':
                     indexes_ignore = [other_columns.index('supervised_loss')]
+                elif column_of_interest == 'state_space':
+                    indexes_ignore = [other_columns.index('grdC_n')]
                 elif current_setup[other_columns.index('type_learning')] == 'q_learning':
                     indexes_ignore = indexes_columns_ignore_q_learning
                 else:
@@ -654,11 +685,14 @@ def compare_all_runs_for_column_of_interest(
             n_homes_on_laptop_only = not (
                 column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
             )
-            n_homes_facmac_traj_only = not (
-                column_of_interest == 'n_homes'
-                and current_setup[other_columns.index('type_learning')] == 'facmac'
-                and not current_setup[other_columns.index('trajectory')]
-            )
+            if FILTER_N_HOMES:
+                n_homes_facmac_traj_only = not (
+                    column_of_interest == 'n_homes'
+                    and current_setup[other_columns.index('type_learning')] == 'facmac'
+                    and not current_setup[other_columns.index('trajectory')]
+                )
+            else:
+                n_homes_facmac_traj_only = True
             relevant_data = \
                 relevant_cnn \
                 and relevant_facmac \
@@ -682,7 +716,13 @@ def compare_all_runs_for_column_of_interest(
             )
             runs = log.loc[rows_considered[- len(values_of_interest):], 'run'].values
             if all_setups_same_as_0:
-                print(f"runs {runs} equal?")
+                row0 = rows_considered[- len(values_of_interest)]
+                for row in rows_considered[- len(values_of_interest) + 1:]:
+                    if all(
+                        log.loc[row, col] == log.loc[row0, col]
+                        for col in other_columns + [column_of_interest]
+                    ):
+                        print(f"runs {runs} equal?")
             else:
                 setups.append(current_setup)
                 i_sorted = np.argsort(values_of_interest)
@@ -702,13 +742,21 @@ def compare_all_runs_for_column_of_interest(
                 )
                 for ax_i, k in enumerate(['all', 'env']):
                     label = \
-                        current_setup[other_columns.index('type_learning')] \
+                        current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
                         else len(setups)
-                    axs[ax_i].plot(
+                    p = axs[ax_i].plot(
                         values_of_interest_sorted_k[k],
                         best_scores_sorted[k]['ave'],
-                        label=label, linestyle=ls
+                        'o', label=label, linestyle=ls,
+                        markerfacecolor='None'
+                    )
+                    colour = p[0].get_color()
+                    i_best = np.argmax(best_scores_sorted[k]['ave'])
+                    axs[ax_i].plot(
+                        values_of_interest_sorted_k[k][i_best],
+                        best_scores_sorted[k]['ave'][i_best],
+                        'o', markerfacecolor=colour, markeredgecolor=colour
                     )
                     axs[ax_i].fill_between(
                         values_of_interest_sorted_k[k],
@@ -718,14 +766,17 @@ def compare_all_runs_for_column_of_interest(
                     )
                     if column_of_interest == 'n_epochs':
                         axs[ax_i].set_yscale('log')
-
                 axs[2].plot(
-                    values_of_interest_sorted, time_best_score_sorted,
+                    values_of_interest_sorted, time_best_score_sorted, 'o',
                     label=label,
-                    linestyle=ls
+                    linestyle=ls,
+                    markerfacecolor='None',
+                    color=colour
                 )
-                # axs[2].set_yscale('log')
-
+                for i in range(len(values_of_interest_sorted) - 1):
+                    if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
+                        print(F"we have two values for {column_of_interest} = {values_of_interest_sorted[i]}, "
+                              F"runs {runs_sorted[i]} and {runs_sorted[i+1]}")
                 axs = annotate_run_nos(
                     axs, values_of_interest_sorted, best_scores_sorted['all']['ave'],
                     best_scores_sorted['env']['ave'], runs_sorted
@@ -734,10 +785,15 @@ def compare_all_runs_for_column_of_interest(
                     x_labels.append(values_of_interest_sorted)
                     best_values.append(best_scores_sorted['all']['ave'])
                     env_values.append(best_scores_sorted['env']['ave'])
-                    time_values.append(time_best_score_sorted)
+                time_values.append(time_best_score_sorted)
                 plotted_something = True
 
         setup_no += 1
+
+    if len(time_values) > 1:
+        end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
+        if max(end_time_best_score_sorted)/min(end_time_best_score_sorted) > 30:
+            axs[2].set_yscale('log')
 
     state_space_vals = [x_labels, best_values, env_values, time_values] \
         if column_of_interest == 'state_space' else None
@@ -766,14 +822,27 @@ def adapt_figure_for_state_space(state_space_vals, axs):
 
     plt.close()
 
-    all_best_vals = np.where(all_best_vals < 1e-5, None, all_best_vals)
-    all_env_vals = np.where(all_env_vals < 1e-5, None, all_env_vals)
+    i_sorted = np.argsort(all_x_labels)
+    x_labels_sorted = [all_x_labels[i] for i in i_sorted]
 
     fig, axs = plt.subplots(3, 1, figsize=(6.4, 11))
     for i, (best, env, time) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals)):
-        axs[0].plot(all_x_labels, best, label=i + 1)
-        axs[1].plot(all_x_labels, env, label=i + 1)
-        axs[2].plot(all_x_labels, time, label=i + 1)
+        best_sorted = [best[i] for i in i_sorted]
+        env_sorted = [env[i] for i in i_sorted]
+        time_sorted = [time[i] for i in i_sorted]
+        p = axs[0].plot(x_labels_sorted, best_sorted, 'o', label=i + 1, markerfacecolor='None')
+        i_best = np.argmax(best_sorted)
+        axs[0].plot(
+            x_labels_sorted[i_best], best_sorted[i_best],
+            'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
+        )
+        p = axs[1].plot(x_labels_sorted, env_sorted, 'o', label=i + 1, markerfacecolor='None')
+        i_best = np.argmax(env_sorted)
+        axs[0].plot(
+            x_labels_sorted[i_best], env_sorted[i_best],
+            'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
+        )
+        axs[2].plot(x_labels_sorted, time_sorted, 'o', label=i + 1, markerfacecolor='None')
 
     return fig, axs
 
@@ -865,16 +934,21 @@ def plot_sensitivity_analyses(new_columns, log):
     # and plot y axis best score vs x axis value (numerical or categorical)
     # with each line being another set of parameters being fixed with legend
     # each plot being a 2 row subplot with best score / best score env
-    columns_of_interest = [
-        column for column in new_columns[2:]
-        if column not in ['nn_learned', 'time_end']
-    ]
+    if COLUMNS_OF_INTEREST is None:
+        columns_of_interest = [
+            column for column in new_columns[2:]
+            if column not in ['nn_learned', 'time_end', 'machine_id', 'timestamp']
+        ]
+    else:
+        columns_of_interest = COLUMNS_OF_INTEREST
+
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        column_of_interest = 'supervised_loss_weight'
         fig, axs = plt.subplots(3, 1, figsize=(8, 10))
         other_columns = [
             column for column in new_columns[2:]
-            if column not in [column_of_interest, 'nn_learned', 'time_end']
+            if column not in [
+                column_of_interest, 'nn_learned', 'time_end', 'machine_id', 'timestamp', 'n_homes_all'
+            ]
         ]
 
         plotted_something, axs, setups, state_space_vals = compare_all_runs_for_column_of_interest(
@@ -888,12 +962,11 @@ def plot_sensitivity_analyses(new_columns, log):
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
 
-            if column_of_interest == 'state_space':
+            if column_of_interest in ['state_space', 'type_learning']:
                 axs[0].axes.xaxis.set_ticklabels([])
                 axs[1].axes.xaxis.set_ticklabels([])
-
                 plt.xticks(rotation=90)
-            elif column_of_interest == 'rnn_hidden_dim':
+            elif column_of_interest in ['rnn_hidden_dim', 'lr']:
                 axs[0].set_xscale('log')
                 axs[1].set_xscale('log')
                 axs[2].set_xscale('log')
@@ -918,6 +991,9 @@ def plot_sensitivity_analyses(new_columns, log):
             )
             axs[2].set_ylabel("time [s]")
             axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
+            if column_of_interest == 'state_space':
+                plt.tight_layout(rect=(0, 0.1, 1, 1))
+
             fig.savefig(f"outputs/results_analysis/{column_of_interest}_sensitivity")
             plt.close('all')
         elif column_of_interest == 'grdC_n':
@@ -934,15 +1010,24 @@ def remove_key_from_columns_names(new_columns):
 
     return new_columns
 
-def remove_server_duplicate(log, columns0):
+
+def remove_duplicates(log, columns0):
     if 'RL-server' in columns0:
         log['syst-server'] = log.apply(
-            lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'], axis=1
+            lambda row: row['RL-server'] if row['syst-server'] is None else row['syst-server'],
+            axis=1
         )
         log.drop(columns=['RL-server'], inplace=True)
         columns0.remove('RL-server')
 
     return log, columns0
+
+def filter_current_analysis(log):
+    for col, value in FILTER.items():
+        log = log.drop(log[log[col] != value].index)
+    log = log.reset_index()
+
+    return log
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")
@@ -971,20 +1056,16 @@ if __name__ == "__main__":
             if row is not None:
                 log.loc[len(log.index)] = row
                 newly_added_runs.append(row[0])
-    log, columns0 = remove_server_duplicate(log, columns0)
+
+    log, columns0 = remove_duplicates(log, columns0)
     new_columns, log = remove_columns_that_never_change_and_tidy(
         log, columns0, columns_results_methods
     )
     log = add_default_values(log)
     log = fix_learning_specific_values(log)
     new_columns = remove_key_from_columns_names(new_columns)
-
     log.columns = new_columns + columns_results_methods
-    log['share_active'] = log.apply(lambda x: x.n_homes / (x.n_homes + x.n_homesP), axis=1)
-    new_columns.append('share_active')
-
     log = compute_best_score_per_run(keys_methods, log)
-
     log.to_csv(log_path)
-
+    log = filter_current_analysis(log)
     plot_sensitivity_analyses(new_columns, log)

@@ -31,16 +31,16 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
     ]
     baseline = 'opt' if diff_to_opt else 'baseline'
     for e in [e for e in prm["save"]["eval_entries_plot"] if e != baseline]:
-        p25, p50, p75, p25_not_None, p75_not_None, epoch_not_None = record.results_to_percentiles(
+        p25, p50, p75, p25_not_nan, p75_not_nan, epoch_not_nan = record.results_to_percentiles(
             e, prm,
             mov_average=moving_average,
             n_window=prm["save"]["n_window"],
             baseline=baseline
         )
 
-        min_val = np.min(p25_not_None) if np.min(p25_not_None) < min_val \
+        min_val = np.min(p25_not_nan) if np.min(p25_not_nan) < min_val \
             else min_val
-        max_val = np.max(p75_not_None) if np.max(p75_not_None) > max_val \
+        max_val = np.max(p75_not_nan) if np.max(p75_not_nan) > max_val \
             else max_val
 
         lower_bound, upper_bound = _update_lower_upper_bounds(
@@ -50,22 +50,20 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
         ls = 'dotted' if e == 'opt' else '-'
         plt.plot(p50, label=e, color=prm['save']['colourse'][e], ls=ls)
         plt.fill_between(
-            epoch_not_None, p25_not_None, p75_not_None,
+            epoch_not_nan, p25_not_nan, p75_not_nan,
             color=prm['save']['colourse'][e], alpha=0.3
         )
-
     plt.hlines(
         y=0, xmin=0, xmax=len(p25), colors='k',
         linestyle='dotted'
     )
-
     plt.legend()
     plt.ylim([lower_bound, upper_bound])
     plt.tight_layout()
     if moving_average:
         plt.title('Moving average of difference between baseline and reward')
 
-    plt.gca().set_yticks(np.arange(-0.15, 0.2, 0.05))
+    # plt.gca().set_yticks(np.arange(-0.15, 0.2, 0.05))
     plt.xlabel('Episode')
     # ylabel = 'Moving average ' if moving_average else ''
     title_display = "Savings relative to baseline"

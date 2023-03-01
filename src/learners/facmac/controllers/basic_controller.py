@@ -27,8 +27,8 @@ class BasicMAC:
         if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.rl['facmac']['epsilon']:
             chosen_actions = th.tensor(self.rl['low_actions']) + rdn_action * (1 - self.rl['low_actions'])
         else:
-            agent_outputs = self.forward(
-                ep_batch, t_ep, return_logits=(not test_mode))
+            agent_outputs = self.forward(ep_batch, t_ep)
+
             chosen_actions = self.action_selector.select_action(
                 agent_outputs[bs], avail_actions[bs], t_env,
                 test_mode=test_mode, explore=explore)
@@ -85,7 +85,6 @@ class BasicMAC:
         inputs = []
         inputs.append(batch["obs"][:, t])  # b1av
         if self.rl['obs_last_action']:
-
             if t == 0:
                 inputs.append(th.zeros_like(batch["actions_onehot"][:, t]))
             else:

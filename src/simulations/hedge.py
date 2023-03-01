@@ -8,6 +8,7 @@ The main method is 'make_next_day', which generates new day of data
 (car, loads, gen profiles), calling other methods as needed.
 """
 
+import copy
 import os
 import pickle
 from datetime import datetime, timedelta
@@ -40,29 +41,31 @@ class HEDGE:
         factors0: Optional[dict] = None,
         clusters0: Optional[dict] = None,
         prm: Optional[dict] = None,
-        other_prm: Optional[dict] = None
+        other_prm: Optional[dict] = None,
     ):
         """Initialise HEDGE object and initial properties."""
         # update object properties
         self.labels_day = ["wd", "we"]
         self.n_homes = n_homes
         self.homes = range(self.n_homes)
-
         # load input data
         self._load_input_data(prm, other_prm, factors0, clusters0)
 
-    def _replace_other_prm(self, prm, other_prm):
-        prm = prm.copy()
+    def _replace_car_prm(self, prm, other_prm):
+        prm = copy.deepcopy(prm)
         if other_prm is not None:
             for key, val in other_prm.items():
                 for subkey, subval in val.items():
-                    prm[key][subkey] = val
+                    prm[key][subkey] = subval
+        # add relevant parameters to object properties
+        self.car = prm["car"]
+        self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
 
         return prm
 
     def _load_input_data(self, prm, other_prm, factors0, clusters0):
         prm = self._load_inputs(prm)
-        prm = self._replace_other_prm(prm, other_prm)
+        prm = self._replace_car_prm(prm, other_prm)
         self._init_factors(factors0)
         self._init_clusters(clusters0)
         self.profs = self._load_profiles(prm)
@@ -119,7 +122,7 @@ class HEDGE:
             ]
         if "car" in self.data_types:
             day["loads_car"] = np.array([
-                [p * factors["car"][home]
+                [p * factors["car"][home] * self.car['own_car'][home]
                  for p in self.profs["car"]["cons"][day_type][
                      clusters["car"][home]][i_profiles["car"][home]]]
                 for home in homes
@@ -186,7 +189,13 @@ class HEDGE:
             with open("inputs/parameters.yaml", "rb") as file:
                 prm = yaml.safe_load(file)
 
-        self._init_params(prm)
+        self.data_types = prm["syst"]["data_types"]
+        self.behaviour_types = [
+            data_type for data_type in self.data_types if data_type != "gen"
+        ]
+        # update date and time information
+        self.date = datetime(*prm["syst"]["date0"])
+        self.save_day_path = Path(prm["paths"]["record_folder"])
 
         # general inputs with all data types
         factors_path = prm["paths"]["hedge_inputs"] / "factors"
@@ -295,7 +304,7 @@ class HEDGE:
 
     def _next_factors(self, transition, prev_clusters):
         prev_factors = self.factors.copy()
-        factors = initialise_dict(self.data_types)
+        factors = {data_type: np.zeros(self.n_homes) for data_type in self.data_types}
         random_f = {}
         for data_type in self.data_types:
             random_f[data_type] = [np.random.rand() for _ in self.homes]
@@ -309,18 +318,18 @@ class HEDGE:
                        <= prev_factors["car"][home]][-1]
                 if prev_clusters["car"][home] == self.n_all_clusters_ev - 1:
                     # no trip day
-                    probabilities = self.p_zero2pos[transition]
+                    probabilities = self.p_zero2pos['all']
                 else:
-                    probabilities = self.p_pos[transition][current_interval]
+                    probabilities = self.p_pos['all'][current_interval]
+                assert abs(np.sum(probabilities) - 1) < 1e-2, \
+                    f"sum(probabilities) {sum(probabilities)}"
                 interval_f_ev.append(
                     self._ps_rand_to_choice(
                         probabilities,
                         random_f["car"][home],
                     )
                 )
-                factors["car"].append(
-                    self.mid_fs_brackets[transition][int(interval_f_ev[home])]
-                )
+                factors["car"][home] = self.mid_fs_brackets[transition][int(interval_f_ev[home])]
 
             if "gen" in self.data_types:
                 i_month = self.date.month - 1
@@ -330,11 +339,8 @@ class HEDGE:
                     random_f["gen"][home],
                     *self.residual_distribution_prms["gen"]
                 )
-                factors["gen"].append(
-                    prev_factors["gen"][home]
-                    + delta_f
-                    - self.mean_residual["gen"]
-                )
+                factors["gen"][home] = \
+                    prev_factors["gen"][home] + delta_f - self.mean_residual["gen"]
                 factors["gen"][home] = min(
                     max(self.f_min["gen"][i_month], factors["gen"][home]),
                     self.f_max["gen"][i_month]
@@ -346,11 +352,10 @@ class HEDGE:
                     random_f["loads"][home],
                     *list(self.residual_distribution_prms["loads"][transition])
                 )
-                factors["loads"].append(
-                    prev_factors["loads"][home]
-                    + delta_f
+                factors["loads"][home] = \
+                    prev_factors["loads"][home] \
+                    + delta_f \
                     - self.mean_residual["loads"][transition]
-                )
 
             for data_type in self.behaviour_types:
                 factors[data_type][home] = min(
@@ -590,24 +595,24 @@ class HEDGE:
             day: dict
     ) -> bool:
         """Given profiles generated, check feasibility of battery charge."""
-        t = 0
+        time_step = 0
         feasible = True
 
         while feasible:
             # regular initial minimum charge
             min_charge_t_0 = (
-                self.store0 * day["avail_car"][home][t]
-                if t == self.n_steps - 1
-                else self.car["min_charge"] * day["avail_car"][home][t]
+                self.store0 * day["avail_car"][home, time_step]
+                if time_step == self.n_steps - 1
+                else self.car["min_charge"] * day["avail_car"][home, time_step]
             )
             # min_charge if need to charge up ahead of last step
-            if day["avail_car"][home][t]:  # if you are currently in garage
+            if day["avail_car"][home, time_step]:  # if you are currently in garage
                 # obtain all future trips
                 trip_loads: List[float] = []
                 dt_to_trips: List[int] = []
 
                 end = False
-                t_trip = t
+                t_trip = time_step
                 while not end:
                     trip_load, dt_to_trip, t_end_trip \
                         = self._next_trip_details(t_trip, home, day)
@@ -616,7 +621,7 @@ class HEDGE:
                     else:
                         feasible = self._check_trip_load(
                             feasible, trip_load, dt_to_trip,
-                            t, day["avail_car"][home])
+                            time_step, day["avail_car"][home])
                         trip_loads.append(trip_load)
                         dt_to_trips.append(dt_to_trip)
                         t_trip = t_end_trip
@@ -634,22 +639,21 @@ class HEDGE:
 
             # determine whether you need to charge ahead for next car trip
             # check if opportunity to charge before trip > 37.5
-            if feasible and t == 0 and day["avail_car"][home][0] == 0:
-                feasible = self._ev_unavailable_start(
-                    t, home, day)
+            if feasible and time_step == 0 and day["avail_car"][home][0] == 0:
+                feasible = self._ev_unavailable_start(time_step, home, day)
 
             # check if any hourly load is larger than d_max
-            if sum(1 for t in range(self.n_steps)
-                   if day["loads_car"][home][t] > self.car["d_max"] + 1e-2)\
+            if sum(1 for time_step in range(self.n_steps)
+                   if day["loads_car"][home, time_step] > self.car["d_max"] + 1e-2)\
                     > 0:
                 # would have to break constraints to meet demand
                 feasible = False
 
             if feasible:
                 feasible = self._check_min_charge_t(
-                    min_charge_t, day, home, t)
+                    min_charge_t, day, home, time_step)
 
-            t += 1
+            time_step += 1
 
         return feasible
 
@@ -660,9 +664,7 @@ class HEDGE:
                         avail_car: List[bool]
                         ) -> float:
         # obtain required charge before each trip, starting with end
-        n_avail_until_end = sum(
-            avail_car[t] for t in range(t_end_trip, self.n_steps)
-        )
+        n_avail_until_end = sum(avail_car[t_end_trip: self.n_steps])
         # this is the required charge for the current step
         # if there is no trip
         # or this is what is needed coming out of the last trip
@@ -689,7 +691,7 @@ class HEDGE:
             feasible: bool,
             trip_load: float,
             dt_to_trip: int,
-            t: int,
+            time_step: int,
             avail_car_: list
     ) -> bool:
         if trip_load > self.car['cap'] + 1e-2:
@@ -697,17 +699,17 @@ class HEDGE:
             feasible = False
         elif (
                 dt_to_trip > 0
-                and sum(avail_car_[0: t]) == 0
+                and sum(avail_car_[0: time_step]) == 0
                 and trip_load / dt_to_trip > self.store0 + self.car["c_max"]
         ):
             feasible = False
 
         return feasible
 
-    def _ev_unavailable_start(self, t, home, day):
+    def _ev_unavailable_start(self, time_step, home, day):
         feasible = True
         trip_load, dt_to_trip, _ \
-            = self._next_trip_details(t, home, day)
+            = self._next_trip_details(time_step, home, day)
         if trip_load > self.store0:
             # trip larger than initial charge
             # and straight away not available
@@ -729,20 +731,20 @@ class HEDGE:
                             min_charge_t: float,
                             day: dict,
                             home: int,
-                            t: int,
+                            time_step: int,
                             ) -> bool:
         feasible = True
         if min_charge_t > self.car['cap'] + 1e-2:
             feasible = False  # min_charge_t larger than total cap
         if min_charge_t > self.car["store0"] \
-                - sum(day["loads_car"][home][0: t]) \
-                + (sum(day["loads_car"][home][0: t]) + 1) * self.car["c_max"] \
+                - sum(day["loads_car"][home][0: time_step]) \
+                + (sum(day["loads_car"][home][0: time_step]) + 1) * self.car["c_max"] \
                 + 1e-3:
             feasible = False
 
-        if t > 0 and sum(day["avail_car"][home][0:t]) == 0:
+        if time_step > 0 and sum(day["avail_car"][home][0: time_step]) == 0:
             # the car has not been available at home to recharge until now
-            store_t_a = self.store0 - sum(day["loads_car"][home][0:t])
+            store_t_a = self.store0 - sum(day["loads_car"][home][0: time_step])
             if min_charge_t > store_t_a + self.car["c_max"] + 1e-3:
                 feasible = False
 
@@ -852,15 +854,3 @@ class HEDGE:
 
                 if data_type == "car":
                     self._plot_ev_avail(day, hr_per_t, hours, home)
-
-    def _init_params(self, prm):
-        # add relevant parameters to object properties
-        self.data_types = prm["syst"]["data_types"]
-        self.behaviour_types = [
-            data_type for data_type in self.data_types if data_type != "gen"
-        ]
-        self.car = prm["car"]
-        self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
-        # update date and time information
-        self.date = datetime(*prm["syst"]["date0"])
-        self.save_day_path = Path(prm["paths"]["record_folder"])

@@ -87,7 +87,6 @@ def _check_shape_array_vals(obj_a, obj_b, label_a, label_b):
         print(f"{label_a} {obj_a} != {label_b} {obj_b}")
 
 
-
 def replace_outdated_labels(k1, objs):
     """Replace dictionary keys with more recent labels."""
     k1_ = k1

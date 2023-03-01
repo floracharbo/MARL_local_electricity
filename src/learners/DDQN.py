@@ -6,7 +6,7 @@ from tensorflow.keras.losses import MeanSquaredError
 # adapted from https://github.com/iomanker/DQN-DDQN-for-Tensorflow-2.0
 
 
-class Agent_DDQN():
+class Agent_DDQN:
     """ Tabular Q-learning learner """
     def __init__(self, env, rl, t):
         self.n_agents = env.n_homes

@@ -6,6 +6,7 @@ Created on Tue Jan  7 16:56:31 2020.
 @author: floracharbonnier
 """
 
+import math
 import os
 import random
 from pathlib import Path
@@ -112,7 +113,7 @@ def get_moving_average(array, n_window, Nones=True):
     """Get moving average of array over window n_window."""
     x = max(int(n_window / 2 - 0.5), 1)
     n = len(array)
-    mova = [None for _ in range(n)]
+    mova = np.full(n, np.nan)
     for j in range(x):
         if not Nones:
             if sum(a is None for a in array[0: j * 2 + 1]) == 0:
@@ -255,3 +256,10 @@ def should_optimise_for_supervised_loss(epoch, rl):
         rl['supervised_loss']
         and epoch < rl['n_epochs_supervised_loss']
     )
+
+
+def calculate_reactive_power(active_power, power_factor):
+    """Calculate the reactive power based on the active power and
+    the power factor"""
+    reactive_power = active_power * math.tan(math.acos(power_factor))
+    return reactive_power
