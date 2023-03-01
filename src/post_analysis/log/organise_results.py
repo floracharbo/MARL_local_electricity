@@ -16,12 +16,11 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-# COLUMNS_OF_INTEREST = ['state_space']
-COLUMNS_OF_INTEREST = None
+COLUMNS_OF_INTEREST = ['optimizer']
 
 FILTER = {
     # 'supervised_loss': False,
-    'facmac-beta_to_alpha': 0.1,
+    # 'facmac-beta_to_alpha': 0.1,
     'SoC0': 1
 }
 
@@ -738,10 +737,18 @@ def compare_all_runs_for_column_of_interest(
                         current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
                         else len(setups)
-                    axs[ax_i].plot(
+                    p = axs[ax_i].plot(
                         values_of_interest_sorted_k[k],
                         best_scores_sorted[k]['ave'],
-                        label=label, linestyle=ls
+                        'o', label=label, linestyle=ls,
+                        markerfacecolor='None'
+                    )
+                    colour = p[0].get_color()
+                    i_best = np.argmax(best_scores_sorted[k]['ave'])
+                    axs[ax_i].plot(
+                        values_of_interest_sorted_k[k][i_best],
+                        best_scores_sorted[k]['ave'][i_best],
+                        'o', markerfacecolor=colour, markeredgecolor=colour
                     )
                     axs[ax_i].fill_between(
                         values_of_interest_sorted_k[k],
@@ -751,11 +758,12 @@ def compare_all_runs_for_column_of_interest(
                     )
                     if column_of_interest == 'n_epochs':
                         axs[ax_i].set_yscale('log')
-
                 axs[2].plot(
-                    values_of_interest_sorted, time_best_score_sorted,
+                    values_of_interest_sorted, time_best_score_sorted, 'o',
                     label=label,
-                    linestyle=ls
+                    linestyle=ls,
+                    markerfacecolor='None',
+                    color=colour
                 )
                 for i in range(len(values_of_interest_sorted) - 1):
                     if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
@@ -814,9 +822,19 @@ def adapt_figure_for_state_space(state_space_vals, axs):
         best_sorted = [best[i] for i in i_sorted]
         env_sorted = [env[i] for i in i_sorted]
         time_sorted = [time[i] for i in i_sorted]
-        axs[0].plot(x_labels_sorted, best_sorted, label=i + 1)
-        axs[1].plot(x_labels_sorted, env_sorted, label=i + 1)
-        axs[2].plot(x_labels_sorted, time_sorted, label=i + 1)
+        p = axs[0].plot(x_labels_sorted, best_sorted, 'o', label=i + 1, markerfacecolor='None')
+        i_best = np.argmax(best_sorted)
+        axs[0].plot(
+            x_labels_sorted[i_best], best_sorted[i_best],
+            'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
+        )
+        p = axs[1].plot(x_labels_sorted, env_sorted, 'o', label=i + 1, markerfacecolor='None')
+        i_best = np.argmax(env_sorted)
+        axs[0].plot(
+            x_labels_sorted[i_best], env_sorted[i_best],
+            'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
+        )
+        axs[2].plot(x_labels_sorted, time_sorted, 'o', label=i + 1, markerfacecolor='None')
 
     return fig, axs
 
@@ -940,7 +958,7 @@ def plot_sensitivity_analyses(new_columns, log):
                 axs[0].axes.xaxis.set_ticklabels([])
                 axs[1].axes.xaxis.set_ticklabels([])
                 plt.xticks(rotation=90)
-            elif column_of_interest == 'rnn_hidden_dim':
+            elif column_of_interest in ['rnn_hidden_dim', 'lr']:
                 axs[0].set_xscale('log')
                 axs[1].set_xscale('log')
                 axs[2].set_xscale('log')
