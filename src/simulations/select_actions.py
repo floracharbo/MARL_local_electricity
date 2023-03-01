@@ -56,8 +56,6 @@ class ActionSelector:
             t_env
     ) -> Tuple[list, list]:
         """Select exploration action."""
-        if method == 'env_r_c':
-            print('stop')
         rl = self.rl
         if rl['type_learning'] in ['facmac', 'DDPG']:
             tf_prev_state = self._format_tf_prev_state(current_state)
