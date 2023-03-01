@@ -205,7 +205,8 @@ class ActionSelector:
         if self.rl['action_selector'] == "gumbel":
             actions = self.mac[method].select_actions(
                 self.episode_batch[method], t_ep=step, t_env=t_env,
-                test_mode=evaluation, explore=(not evaluation))
+                test_mode=evaluation
+            )
             action = th.argmax(actions, dim=-1).long()
         else:
             action = self.mac[method].select_actions(
