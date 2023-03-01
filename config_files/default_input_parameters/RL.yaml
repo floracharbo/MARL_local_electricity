@@ -202,6 +202,10 @@ facmac:
         batch_size: 5 # Num of tuples to train on.
         gamma: 0.85
         epsilon: 0.5
+        epsilon_decay: False
+        epsilon_end: 1.e-2
+        epsilon0: 0.8
+        control_eps: 0
 
 aggregate_actions: False
 

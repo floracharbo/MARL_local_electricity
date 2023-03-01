@@ -381,7 +381,7 @@ def _exploration_parameters(rl):
     rl["T_decay_param"] = (rl["Tend"] / rl["T0"]) ** (1 / rl["n_epochs"])
 
     type_learning = rl["type_learning"]
-    if type_learning in ["DDQN", "DQN", "q_learning"]:
+    if type_learning in ["DDQN", "DQN", "q_learning", "facmac"]:
         if rl[type_learning]["control_eps"] == 1 \
                 and "baseline" not in rl["evaluation_methods"]:
             rl["evaluation_methods"].append("baseline")

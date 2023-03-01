@@ -413,6 +413,12 @@ class Runner:
             if self.rl['q_learning']['T_decay']:
                 self.learner.T = self.learner.T * self.rl['T_decay_param']
 
+        if self.rl['type_learning'] == 'facmac':
+            if self.rl['facmac']['epsilon_decay']:
+                for method in self.mac:
+                    self.mac[method].epsilon *= self.rl['facmac']['epsilon_decay_param'][method]
+                    self.learner[method].target_mac.epsilon *= self.rl['facmac']['epsilon_decay_param'][method]
+
         elif self.rl['type_learning'] == 'DQN' and self.rl['DQN']['T_decay']:
             self._DQN_T_decay()
 
