@@ -769,10 +769,7 @@ class LocalElecEnv():
             for t in range(self.N):
                 tot_t = self.dloaded * self.prm["syst"]["N"] + t
                 loads_t = self.batch[home]["loads"][tot_t]
-                try:
-                    dayflex_a[t, 0] = (1 - share_flexs[home]) * loads_t
-                except Exception as ex:
-                    print(ex)
+                dayflex_a[t, 0] = (1 - share_flexs[home]) * loads_t
                 dayflex_a[t, self.max_delay] = share_flexs[home] * loads_t
             self.batch[home]['flex'] = np.concatenate(
                 (self.batch[home]['flex'], dayflex_a)
