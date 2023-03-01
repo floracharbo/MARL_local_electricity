@@ -345,6 +345,7 @@ def _plot_indiv_agent_res(
     # EV load / availability
     # Cumulative rewards
     # Battery level
+
     for repeat in range(prm["RL"]["n_repeats"]):
         last, cintensity_kg, methods_to_plot = \
             _get_repeat_data(repeat, all_methods_to_plot, prm["paths"]["folder_run"])
@@ -418,7 +419,6 @@ def _plot_indiv_agent_res(
                         ax = _plot_indiv_agent_res_action(
                             prm, ys, xs, lw_indiv, linestyles, method, ax
                         )
-
                     else:
                         if e == "store" and method == "opt":
                             ys = ys + [prm["car"]["store0"][home]]
@@ -430,20 +430,24 @@ def _plot_indiv_agent_res(
                             colour = (192/255, 0, 0)
                         else:
                             colour = prm["save"]["colourse"][method]
-
-                        ax.step(xs, ys, where="post", label=method,
+                        if reduced_version and method != 'baseline':
+                            label = 'MARL policy'
+                        else:
+                            label = method
+                        ax.step(xs, ys, where="post", label=label,
                                 color=colour,
                                 lw=lw_indiv)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
                 axs[n_rows - 1, c].set_xlabel("Time [h]")
+            axs[n_rows - 1, 1].legend()
 
             fig.tight_layout()
             title = f"subplots example day repeat {repeat} home {home}"
             title_display = "subplots example day"
             if reduced_version:
                 title += '_reduced_version'
-            subtitles = ["A", "B", "C", "D", "E", "F", "G", "H"]
+            subtitles = ["a", "b", "b", "d", "e", "f", "g", "h"]
 
             for r in range(n_rows):
                 for c in range(n_cols):
