@@ -11,7 +11,11 @@ from src.utilities.userdeftools import get_prm_save
 
 def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_action, repeat):
     """Plot evaluation actions selected over epochs for one repeat"""
-    fig = plt.figure()
+    n_intervals = 50
+    density_matrix = np.zeros((prm["RL"]["n_epochs"], n_intervals))
+    min_action, max_action = np.min(actions_[:, :, :, i_action]), np.max(actions_[:, :, :, i_action])
+    intervals = np.linspace(min_action, max_action, n_intervals)
+
     for epoch in range(prm["RL"]["n_epochs"]):
         if actions_[epoch] is None:
             if evaluation_method != 'opt':
@@ -19,15 +23,27 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
             continue
         for step in range(len(actions_[epoch])):
             for home in range(len(actions_[epoch][step])):
-                if actions_[epoch][step][home][i_action] is None:
+                action = actions_[epoch][step][home][i_action]
+                if action is None:
                     if evaluation_method != 'opt':
                         print(f"None in {evaluation_method}")
                     continue
-                plt.plot(
-                    epoch,
-                    actions_[epoch][step][home][i_action],
-                    'o'
-                )
+                i_interval = np.where(action >= intervals)[0][-1]
+                density_matrix[epoch, i_interval] += 1
+                # plt.plot(
+                #     epoch,
+                #     action,
+                #     'o'
+                # )
+    fig = plt.figure()
+    plt.imshow(np.transpose(density_matrix), interpolation='none')
+    # min_label = min_action + (0.05 - min_action % 0.05)
+    # max_label = max_action - (max_action % 0.01)
+    y_labels = [f"{label:.2f}" for label in np.linspace(min_action, max_action, 5)]
+
+    ytickslocs = plt.gca().get_yticks()
+    plt.yticks(ytickslocs[1:-1], y_labels)
+
     plt.ylabel(labels[i_action])
     plt.xlabel("Epoch")
     title = f"actions {evaluation_method} {labels[i_action]} {repeat}"
