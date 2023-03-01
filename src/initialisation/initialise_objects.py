@@ -453,7 +453,7 @@ def _dims_states_actions(rl, syst):
             rl[key] *= syst["N"]
         if syst['run_mode'] == 1:
             for key in ["low_action", "high_action"]:
-                rl[key] = np.repeat(rl[key], syst["N"])
+                rl[key] = np.tile(rl[key], syst["N"])
 
 
 def _remove_states_incompatible_with_trajectory(rl):

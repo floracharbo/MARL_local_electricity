@@ -25,7 +25,7 @@ class BasicMAC:
         rdn_eps = np.random.rand()
         rdn_action = np.random.rand((self.rl['dim_actions']))
         if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.rl['facmac']['epsilon']:
-            chosen_actions = th.tensor(self.rl['low_actions']) + rdn_action * (1 - self.rl['low_actions'])
+            chosen_actions = th.tensor(self.rl['low_action']) + rdn_action * (1 - self.rl['low_action'])
         else:
             agent_outputs = self.forward(ep_batch, t_ep)
 
