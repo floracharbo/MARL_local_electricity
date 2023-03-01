@@ -97,8 +97,8 @@ class CQMixMAC(BasicMAC):
 
         rdn_eps = np.random.rand()
         rdn_action = th.rand((ep_batch[bs].batch_size, self.n_homes, self.rl['dim_actions']))
-        if self.rl['facmac']['eps_greedy'] and rdn_eps < self.rl['facmac']['epsilon']:
-            chosen_actions = th.tensor(self.rl['min_actions']) + rdn_action * (1 - self.rl['min_actions'])
+        if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.rl['facmac']['epsilon']:
+            chosen_actions = th.tensor(self.rl['low_actions']) + rdn_action * (1 - self.rl['low_actions'])
         # Note batch_size_run is set to be 1 in our experiments
         elif self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
             hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] \

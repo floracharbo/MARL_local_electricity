@@ -164,7 +164,7 @@ mac: cqmix_mac
 obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation
 obs_agent_id: True # Include the agent's one_hot id in the observation
 rnn_hidden_dim: 5.e+2 # for rnn agent (from 64)
-exploration_mode: "gaussian"
+exploration_mode: "gaussian"  # or eps greedy or ornstein_uhlenbeck
 ou_stop_episode: 1000 # for cqmix controller - training noise goes to zero after this episode
 start_steps: 100 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
 act_noise: 0.1 # Stddev for Gaussian exploration noise added to policy at training time.
@@ -204,7 +204,6 @@ facmac:
         # to vary
         batch_size: 5 # Num of tuples to train on.
         gamma: 0.85
-        eps_greedy: False
         epsilon: 0.5
 
 aggregate_actions: False
@@ -243,4 +242,3 @@ num_layers_rnn: 1
 grdC_n: 0
 flexibility_states: ['bool_flex', 'store_bool_flex', 'flexibility']
 n_epochs_supervised_loss: 0
-min_actions: [0, 0, -1, -1]

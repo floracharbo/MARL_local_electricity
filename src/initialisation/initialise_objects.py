@@ -119,7 +119,6 @@ def _make_action_space(rl):
             high=np.array(rl["high_action"], dtype=np.float32),
             shape=(rl["dim_actions"],), dtype=np.float32)
     rl["action_space"] = [action_space] * rl["n_homes"]
-    rl['min_actions'] = np.array(rl['min_actions'][0: rl["dim_actions_1"]])
 
     ttype = th.FloatTensor if not rl["use_cuda"] else th.cuda.FloatTensor
     mult_coef_tensor = ttype(rl["n_homes"], rl["dim_actions"])
@@ -439,6 +438,7 @@ def _dims_states_actions(rl, syst):
     rl["dim_states"] = len(rl["state_space"])
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
     rl["dim_actions_1"] = rl["dim_actions"]
+    rl['low_actions'] = np.array(rl['low_actions'][0: rl["dim_actions_1"]])
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
         rl["high_action"] = rl["high_actions"]
@@ -452,7 +452,7 @@ def _dims_states_actions(rl, syst):
             rl[key] *= syst["N"]
         if syst['run_mode'] == 1:
             for key in ["low_action", "high_action"]:
-                rl[key] *= syst["N"]
+                rl[key] = np.repeat(rl[key], syst["N"])
 
 
 def _remove_states_incompatible_with_trajectory(rl):

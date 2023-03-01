@@ -192,9 +192,9 @@ class EnvSpaces():
 
             # action
             ["action", 0, 1, rl["n_discrete_actions"], 0],
-            ["flexible_cons_action", rl['min_actions'][0], 1, rl["n_discrete_actions"], 0],
-            ["flexible_heat_action", rl['min_actions'][1], 1, rl["n_discrete_actions"], 0],
-            ["battery_action", rl['min_actions'][2], 1, rl["n_discrete_actions"], 0]
+            ["flexible_cons_action", rl['low_actions'][0], 1, rl["n_discrete_actions"], 0],
+            ["flexible_heat_action", rl['low_actions'][1], 1, rl["n_discrete_actions"], 0],
+            ["battery_action", rl['low_actions'][2], 1, rl["n_discrete_actions"], 0]
         ]
 
         self.space_info = pd.DataFrame(info, columns=columns)
