@@ -653,7 +653,6 @@ class Action_translator:
             )
             bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
 
-        print(f"for time_step {time_step}, opti translated actions are {actions}")
         return actions, bool_flex
 
     def _flex_loads_actions(self, loads, res, time_step):

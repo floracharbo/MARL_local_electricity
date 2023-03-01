@@ -453,8 +453,6 @@ class Battery:
             # calculate active and reactive power for all homes with fixed pf
             self.active_reactive_power_car()
         apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
-        print(f"charge-discharge: {self.p_car_flex}")
-        print(f"q_car_flex: {self.q_car_flex}")
         assert all(apparent_power_car <= self.max_apparent_power_car**2 + 1e-2), \
             f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
             f" maximum apparent power of the car: {self.max_apparent_power_car**2} < " \

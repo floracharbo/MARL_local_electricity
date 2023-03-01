@@ -223,7 +223,8 @@ class EnvSpaces:
          self.multipliers, self.global_multipliers, self.n, self.discrete,
          self.possible] = [{} for _ in range(9)]
         action_space = ["action"] if self.aggregate_actions \
-            else ["flexible_cons_action", "flexible_heat_action", "battery_action", "flexible_q_car_action"]
+            else ["flexible_cons_action", "flexible_heat_action",
+                  "battery_action", "flexible_q_car_action"]
         for space, descriptors in zip(["state", "action"],
                                       [state_space, action_space]):
             # looping through state and action spaces

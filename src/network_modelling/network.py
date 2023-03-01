@@ -458,7 +458,8 @@ class Network:
             + res['hourly_distribution_network_export_costs'][time_step]
         assert abs(sum_indiv_components - res['hourly_total_costs'][time_step]) < 1e-4, \
             "total hourly costs do not add up"
-        assert abs(res['grid'][time_step] - (sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step])) < 1e-3
+        control_sum_grid = sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step]
+        assert abs(res['grid'][time_step] - control_sum_grid) < 1e-3
 
         return res
 
