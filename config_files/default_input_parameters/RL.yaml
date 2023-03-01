@@ -214,7 +214,8 @@ action_labels_aggregate: ['Action variable [-]']
 action_labels_disaggregate: [
         'Flexible consumption action [-]',
         'Flexible heating action [-]',
-        'Flexible EV charge action [-]'
+        'Flexible EV charge action [-]',
+        'Flexible battery reactive power action'
 ]
 
 no_flex_action: 'random' # 'target' 'random' 'None', 'one'
