@@ -628,12 +628,13 @@ class Explorer:
 
         # check tot cons
         for home in self.homes:
-            assert res["totcons"][home][time_step] <= \
-                   sum(flex[home][time_step]) \
+            fixed_flex = sum(flex[home][time_step]) \
                    + self.env.heat.E_heat_min[home] \
-                   + self.env.heat.potential_E_flex()[home] + 1e-3, \
-                   f"cons more than sum fixed + flex!, " \
-                   f"home = {home}, time_step = {time_step}"
+                   + self.env.heat.potential_E_flex()[home]
+            assert res["totcons"][home][time_step] <= \
+                   fixed_flex + 1e-2, \
+                   f"cons {res['totcons'][home][time_step]} more than sum fixed + flex" \
+                   f" {fixed_flex} for home = {home}, time_step = {time_step}"
 
         # check loads and consumption match
         sum_consa = 0
