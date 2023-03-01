@@ -53,6 +53,13 @@ def fix_learning_specific_values(log):
             if log['syst-error_with_opt_to_rl_discharge'].loc[i]:
                 log.loc[i, 'syst-error_with_opt_to_rl_discharge'] = False
 
+    gaussian_params = ['start_steps', 'act_noise']
+    for param in gaussian_params:
+        log[f'RL-{param}'] = log.apply(lambda x: 0 if x['RL-exploration_mode'] != 'gaussian' else x[f'RL-{param}'])
+    ou_params = ['ou_theta', 'ou_sigma', 'ou_noise_scale', 'ou_stop_episode']
+    for param in ou_params:
+        log[f'RL-{param}'] = log.apply(lambda x: 0 if x['RL-exploration_mode'] != 'ornstein_uhlenbeck' else x[f'RL-{param}'])
+
     return log
 
 
@@ -651,6 +658,7 @@ def compare_all_runs_for_column_of_interest(
                     other_columns, current_setup, row_setup, initial_setup_row,
                     row, indexes_columns_ignore_q_learning
                 )
+
             elif column_of_interest == 'type_learning':
                 only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
                     other_columns, current_setup, row_setup

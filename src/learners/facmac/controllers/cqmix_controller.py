@@ -50,7 +50,7 @@ class CQMixMAC(BasicMAC):
                 else:
                     chosen_actions = th.from_numpy(
                         np.array([[action_space[i].sample()
-                                   for i in range(self.n_agents)]
+                                   for i in range(self.n_homes)]
                                   for _ in range(ep_batch[bs].batch_size)])
                     ).float().to(device=ep_batch.device)
 
@@ -59,7 +59,7 @@ class CQMixMAC(BasicMAC):
     def _clamp_actions(self, action_space, chosen_actions):
         if all([isinstance(act_space, spaces.Box)
                 for act_space in action_space]):
-            for _aid in range(self.n_agents):
+            for _aid in range(self.n_homes):
                 for _actid in range(action_space[_aid].shape[0]):
                     chosen_actions[:, _aid, _actid].clamp_(
                         (action_space[_aid].low[_actid]).item(),
@@ -68,7 +68,7 @@ class CQMixMAC(BasicMAC):
                   for act_space in action_space]):
             # NOTE: This was added to handle scenarios
             # like simple_reference since action space is Tuple
-            for _aid in range(self.n_agents):
+            for _aid in range(self.n_homes):
                 n = action_space[_aid].spaces[0].shape[0]
                 for _actid in range(n):
                     chosen_actions[:, _aid, _actid].clamp_(
@@ -95,8 +95,12 @@ class CQMixMAC(BasicMAC):
 
         action_space = self.rl['action_space']
 
+        rdn_eps = np.random.rand()
+        rdn_action = th.rand((ep_batch[bs].batch_size, self.n_homes, self.rl['dim_actions']))
+        if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.epsilon:
+            chosen_actions = th.tensor(self.rl['low_action']) + rdn_action * (1 - self.rl['low_action'])
         # Note batch_size_run is set to be 1 in our experiments
-        if self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
+        elif self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
             hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] \
                 else self.hidden_states[bs]
             chosen_actions = self.forward(
@@ -106,7 +110,7 @@ class CQMixMAC(BasicMAC):
             )["actions"]
             # just to make sure detach
             chosen_actions = chosen_actions.view(
-                ep_batch[bs].batch_size, self.n_agents,
+                ep_batch[bs].batch_size, self.n_homes,
                 self.rl['dim_actions']
             ).detach()
             pass
@@ -114,7 +118,7 @@ class CQMixMAC(BasicMAC):
             inputs = self._build_inputs(ep_batch[bs], t_ep)
             chosen_actions = self.agent.bundle_tuned2(observation=inputs)
             chosen_actions = chosen_actions.view(
-                ep_batch[bs].batch_size, self.n_agents,
+                ep_batch[bs].batch_size, self.n_homes,
                 self.rl['dim_actions']).detach()
 
         elif self.rl['agent_facmac'] in ["cem", "cemrnn"]:
@@ -129,11 +133,11 @@ class CQMixMAC(BasicMAC):
                 if not next(self.agent.parameters()).is_cuda \
                 else th.cuda.FloatTensor
             low = ftype(
-                ep_batch[bs].batch_size, self.n_agents,
+                ep_batch[bs].batch_size, self.n_homes,
                 self.rl['dim_actions']).zero_() \
                 + action_space[0].low[0]
             high = ftype(
-                ep_batch[bs].batch_size, self.n_agents,
+                ep_batch[bs].batch_size, self.n_homes,
                 self.rl['dim_actions']).zero_() \
                 + action_space[0].high[0]
             dist = tdist.Uniform(low.view(-1, self.rl['dim_actions']),
@@ -156,7 +160,7 @@ class CQMixMAC(BasicMAC):
                     1, 1, self.rl['dim_actions']).long()),
                 dim=0)
             chosen_actions = action_prime.clone().view(
-                ep_batch[bs].batch_size, self.n_agents,
+                ep_batch[bs].batch_size, self.n_homes,
                 self.rl['dim_actions']).detach()
             pass
         else:
@@ -199,7 +203,7 @@ class CQMixMAC(BasicMAC):
                      + th.ones_like(agent_outs)
                      * self.action_selector.epsilon / agent_outs.size(-1))
 
-        return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), actions
+        return agent_outs.view(ep_batch.batch_size, self.n_homes, -1), actions
 
     def _build_inputs(self, batch, t, target_mac=False,
                       last_target_action=None):
@@ -210,11 +214,11 @@ class CQMixMAC(BasicMAC):
         inputs = input_last_action(self.rl['obs_last_action'], inputs, batch, t)
         if self.rl['obs_agent_id']:
             inputs.append(th.eye(
-                self.n_agents, device=batch.device).unsqueeze(0).expand(
+                self.n_homes, device=batch.device).unsqueeze(0).expand(
                 bs, -1, -1))
 
         inputs = th.cat(
-            [x.reshape(bs * self.n_agents, - 1) for x in inputs],
+            [x.reshape(bs * self.n_homes, - 1) for x in inputs],
             dim=1
         )
 
@@ -229,7 +233,7 @@ class CQMixMAC(BasicMAC):
                 input_shape += scheme["actions"]["vshape"][0]
         if self.rl['obs_agent_id']:
 
-            input_shape += self.n_agents
+            input_shape += self.n_homes
 
         return input_shape
 
@@ -242,9 +246,9 @@ class CQMixMAC(BasicMAC):
         ftype = th.FloatTensor \
             if not next(self.agent.parameters()).is_cuda \
             else th.cuda.FloatTensor
-        mu = ftype(ep_batch[bs].batch_size, self.n_agents,
+        mu = ftype(ep_batch[bs].batch_size, self.n_homes,
                    self.rl['dim_actions']).zero_()
-        std = ftype(ep_batch[bs].batch_size, self.n_agents,
+        std = ftype(ep_batch[bs].batch_size, self.n_homes,
                     self.rl['dim_actions']).zero_() + 1.0
 
         its = 0
@@ -252,7 +256,7 @@ class CQMixMAC(BasicMAC):
         maxits = 2
         agent_inputs = self._build_inputs(ep_batch[bs], t)
         hidden_states = self.hidden_states.reshape(
-            -1, self.n_agents, self.rl['rnn_hidden_dim'])[bs].repeat(
+            -1, self.n_homes, self.rl['rnn_hidden_dim'])[bs].repeat(
             N, 1, 1, 1)
 
         # Use feed-forward critic here,
@@ -261,7 +265,7 @@ class CQMixMAC(BasicMAC):
         if critic is not None:
             critic_inputs.append(ep_batch[bs]["obs"][:, t])
             critic_inputs = th.cat(
-                [x.reshape(ep_batch[bs].batch_size * self.n_agents, -1)
+                [x.reshape(ep_batch[bs].batch_size * self.n_homes, -1)
                  for x in critic_inputs], dim=1)
 
         while its < maxits:
@@ -302,7 +306,7 @@ class CQMixMAC(BasicMAC):
             0, topk_idxs.repeat(1, 1, self.rl['dim_actions']).long()
         ), dim=0)
         chosen_actions = action_prime.clone().view(
-            ep_batch[bs].batch_size, self.n_agents, self.rl['dim_actions']
+            ep_batch[bs].batch_size, self.n_homes, self.rl['dim_actions']
         ).detach()
 
         return chosen_actions

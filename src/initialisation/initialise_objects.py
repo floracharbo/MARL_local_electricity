@@ -381,7 +381,7 @@ def _exploration_parameters(rl):
     rl["T_decay_param"] = (rl["Tend"] / rl["T0"]) ** (1 / rl["n_epochs"])
 
     type_learning = rl["type_learning"]
-    if type_learning in ["DDQN", "DQN", "q_learning"]:
+    if type_learning in ["DDQN", "DQN", "q_learning", "facmac"]:
         if rl[type_learning]["control_eps"] == 1 \
                 and "baseline" not in rl["evaluation_methods"]:
             rl["evaluation_methods"].append("baseline")
@@ -408,6 +408,9 @@ def _exploration_parameters(rl):
                 rl[type_learning]["epsilon_decay_param"][exploration_method] \
                     = (epsilon_end[exploration_method] / epsilon0) \
                     ** (1 / rl["tot_learn_cycles"])
+    if type_learning == 'facmac' and rl['facmac']['lr_decay']:
+        rl['facmac']['lr_decay_param'] = (rl['facmac']['lr_end'] / rl['facmac']['lr0']) ** (1 / rl['n_epochs'])
+        rl['facmac']['critic_lr_decay_param'] = (rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']) ** (1 / rl['n_epochs'])
 
     # for key in ["epsilon_end", "T", "tauMT", "tauLT",
     #             "control_window_eps", "epsilon_decay_param"]:
@@ -438,6 +441,7 @@ def _dims_states_actions(rl, syst):
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
+    rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
 
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
@@ -452,7 +456,7 @@ def _dims_states_actions(rl, syst):
             rl[key] *= syst["N"]
         if syst['run_mode'] == 1:
             for key in ["low_action", "high_action"]:
-                rl[key] *= syst["N"]
+                rl[key] = np.tile(rl[key], syst["N"])
 
 
 def _remove_states_incompatible_with_trajectory(rl):

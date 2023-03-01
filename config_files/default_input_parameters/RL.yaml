@@ -145,7 +145,7 @@ DDPG:
 use_cuda: True # Use gpu by default unless it isn't available
 low_action: [0]
 high_action: [1]
-low_actions: [0, 0, -1]
+all_low_actions: [0, 0, -1]
 high_actions: [1, 1, 1]
 actions_dtype: np.float32
 discretize_actions: False
@@ -161,7 +161,7 @@ mac: cqmix_mac
 obs_last_action: False # default was True - Include the agent's last action  (one_hot) in the observation
 obs_agent_id: True # Include the agent's one_hot id in the observation
 rnn_hidden_dim: 5.e+2 # for rnn agent (from 64)
-exploration_mode: "gaussian"
+exploration_mode: "gaussian"  # or eps greedy or ornstein_uhlenbeck
 ou_stop_episode: 1000 # for cqmix controller - training noise goes to zero after this episode
 start_steps: 100 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
 act_noise: 0.1 # Stddev for Gaussian exploration noise added to policy at training time.
@@ -201,6 +201,16 @@ facmac:
         # to vary
         batch_size: 5 # Num of tuples to train on.
         gamma: 0.85
+        epsilon: 0.5
+        epsilon_decay: False
+        epsilon_end: 1.e-2
+        epsilon0: 0.8
+        control_eps: 0
+        lr_decay: False
+        lr0: 1.e-2
+        lr_end: 1.e-4
+        critic_lr0: 5.e-3
+        critic_lr_end: 5.e-5
 
 aggregate_actions: False
 

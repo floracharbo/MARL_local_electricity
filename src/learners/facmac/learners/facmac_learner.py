@@ -121,8 +121,8 @@ class FACMACLearner(Learner):
         mask = mask.cuda() if self.cuda_available else mask
         masked_td_error = td_error * mask
         loss = (masked_td_error ** 2).sum() / mask.sum()
-        lr = self.rl['lr'] if (not self.hysteretic or loss > 0) \
-            else self.rl['lr'] * self.beta_to_alpha
+        lr = self.critic_lr if (not self.hysteretic or loss > 0) \
+            else self.critic_lr * self.beta_to_alpha
         for g in self.critic_optimiser.param_groups:
             g['lr'] = lr
 
@@ -157,8 +157,8 @@ class FACMACLearner(Learner):
         chosen_action_qvals = self.add_supervised_loss(chosen_action_qvals, batch)
         # Compute the actor loss
         pg_loss = - chosen_action_qvals.mean() + (pi ** 2).mean() * 1e-3
-        lr = self.rl['lr'] if (not self.hysteretic or pg_loss > 0) \
-            else self.rl['lr'] * self.beta_to_alpha
+        lr = self.lr if (not self.hysteretic or pg_loss > 0) \
+            else self.lr * self.beta_to_alpha
         for g in self.agent_optimiser.param_groups:
             g['lr'] = lr
 

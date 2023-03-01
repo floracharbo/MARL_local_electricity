@@ -214,9 +214,10 @@ class ActionSelector:
                 t_env=t_env, test_mode=evaluation
             )
 
-        action = [[float(action[0][home][i])
-                   for i in range(self.rl['dim_actions'])]
-                  for home in self.homes]
+        action = [
+            [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
+            for home in self.homes
+        ]
 
         return action
 
