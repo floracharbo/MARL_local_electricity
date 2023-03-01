@@ -408,6 +408,9 @@ def _exploration_parameters(rl):
                 rl[type_learning]["epsilon_decay_param"][exploration_method] \
                     = (epsilon_end[exploration_method] / epsilon0) \
                     ** (1 / rl["tot_learn_cycles"])
+    if type_learning == 'facmac' and rl['facmac']['lr_decay']:
+        rl['facmac']['lr_decay_param'] = (rl['facmac']['lr_end'] / rl['facmac']['lr0']) ** (1 / rl['n_epochs'])
+        rl['facmac']['critic_lr_decay_param'] = (rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']) ** (1 / rl['n_epochs'])
 
     # for key in ["epsilon_end", "T", "tauMT", "tauLT",
     #             "control_window_eps", "epsilon_decay_param"]:

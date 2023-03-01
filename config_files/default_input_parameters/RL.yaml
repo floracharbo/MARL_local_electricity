@@ -206,6 +206,11 @@ facmac:
         epsilon_end: 1.e-2
         epsilon0: 0.8
         control_eps: 0
+        lr_decay: False
+        lr0: 1.e-2
+        lr_end: 1.e-4
+        critic_lr0: 5.e-3
+        critic_lr_end: 5.e-5
 
 aggregate_actions: False
 
