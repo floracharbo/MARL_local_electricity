@@ -114,8 +114,20 @@ def first_order(x, a, b):
     """First-order function."""
     return a * x + b
 
-def polynomial(x, a, b, c):
+def polynomial2(x, a, b, c):
     return a * x ** 2 + b * x + c
+
+def unknown_order(x, a, b, c):
+    return a * x ** b + c
+
+def polynomial3(x, a, b, c, d):
+    return a * x ** 3 + b * x ** 2 + c * x + d
+
+def xlogx(x, a, b):
+    return a * x * np.log(x) + b
+
+def logx(x, a, b):
+    return a * np.log(x) + b
 
 x_max = n_homes[-1]
 ys_time = {entry: [] for entry in ['OMQ', 'FH']}
@@ -159,7 +171,7 @@ for line_label in labels.keys():
             function = first_order
             label = 'first order: ' + r'$y = ax + b$'
         else:
-            function = polynomial
+            function = polynomial2
             label = 'second order: ' + r'$y = ax^2 + bx + c$'
         popt, pcov = optimize.curve_fit(function, n_homes, time_end)
         coeffs = popt
@@ -219,12 +231,34 @@ for xs, ys, label in zip(
     exp_fitted = [exponential(x, e) for x in list(range(x_max))]
     print(f"sum square error {sum((y_fitted - y)**2 for y_fitted, y in zip(exp_fitted, ys)):.2e}")
 
-    popt, pcov = optimize.curve_fit(polynomial, xs, ys)
+    popt, pcov = optimize.curve_fit(polynomial2, xs, ys)
     f, g, h = popt
-    print(f"{label} e exponential errors = {np.sqrt(np.diag(pcov))}")
-    pol_fitted = [polynomial(x, f, g, h) for x in list(range(x_max))]
+    print(f"{label} e polynomial2 errors = {np.sqrt(np.diag(pcov))}")
+    pol_fitted = [polynomial2(x, f, g, h) for x in list(range(x_max))]
     print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(pol_fitted, ys)):.2e}")
-    print(f"fitted polynomial: {f} * x ** 2 + {g} * x + {h}")
+    print(f"fitted polynomial2: {f} * x ** 2 + {g} * x + {h}")
+
+    popt, pcov = optimize.curve_fit(unknown_order, xs, ys)
+    i, j, k = popt
+    print(f"{label} e unknown_order errors = {np.sqrt(np.diag(pcov))}")
+    unknown_order_fitted = [unknown_order(x, i, j, k) for x in list(range(x_max))]
+    print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(unknown_order_fitted, ys)):.2e}")
+    print(f"fitted unknown_order: {i} * x ** {j} + {k}")
+
+    popt, pcov = optimize.curve_fit(polynomial3, xs, ys)
+    l, m, n, o = popt
+    print(f"{label} e polynomial3 errors = {np.sqrt(np.diag(pcov))}")
+    polynomial3_fitted = [polynomial3(x, l, m, n, o) for x in list(range(x_max))]
+    print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(polynomial3_fitted, ys)):.2e}")
+    print(f"fitted polynomial3: {l} * x ** 3 + {m} * x ** 2 + {n} * x + {o}")
+
+    popt, pcov = optimize.curve_fit(xlogx, xs, ys)
+    p, q = popt
+    print(f"{label} e xlogx errors = {np.sqrt(np.diag(pcov))}")
+    xlogx_fitted = [xlogx(x, p, q) for x in list(range(x_max))]
+    print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(xlogx_fitted, ys)):.2e}")
+    print(f"fitted xlogx: {p} * xlog(x) + {q}")
+
     fig = plt.figure()
     plt.plot(xs, ys, 'o', label='data')
     plt.plot(list(range(x_max)), first_order_fitted,
@@ -236,7 +270,13 @@ for xs, ys, label in zip(
     plt.plot(list(range(x_max)), exp_fitted,
              label='exponential')
     plt.plot(list(range(x_max)), pol_fitted,
-             label='polynomial')
+             label='polynomial2')
+    plt.plot(list(range(x_max)), unknown_order_fitted,
+             label='unknown_order')
+    plt.plot(list(range(x_max)), polynomial3_fitted,
+             label='polynomial3_fitted')
+    plt.plot(list(range(x_max)), xlogx_fitted,
+             label='xlogx_fitted')
     plt.legend()
     plt.gca().set_yscale('log')
     plt.title(label)
