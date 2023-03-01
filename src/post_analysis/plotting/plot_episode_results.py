@@ -296,10 +296,10 @@ def _plot_all_agents_res(
     fig.tight_layout()
     title = f"subplots example day all agents {title_repeat}"
     title_display = "subplots example day"
-    subtitles = ["A", "B", "C", "D", "E", "F", "G", "H"]
-    for r in range(4):
-        for c in range(2):
-            axs[r, c].set_title(subtitles[r + c * 4])
+    subtitles = ["a", "b", "b", "d", "e", "f", "g", "h"]
+    for c in range(2):
+        for r in range(4):
+            axs[r, c].set_title(subtitles[c + r * 2])
     formatting_figure(
         prm, fig=fig, title=title,
         legend=False,
