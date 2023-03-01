@@ -764,7 +764,7 @@ class Action_translator:
 
     def _flex_q_car_actions(self, res, time_step):
         """Compute the flexible battery reactive power action from the optimisation result."""
-        no_flex_actions = self._get_no_flex_actions('q_car_action')
+        no_flex_actions = self._get_no_flex_actions('flexible_q_car_action')
         flexible_q_car_actions = np.zeros(self.n_homes)
         for home in range(self.n_homes):
             if res['q_car_flex'][home, time_step] > 1e-3:
