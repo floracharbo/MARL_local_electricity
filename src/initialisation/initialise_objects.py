@@ -438,7 +438,7 @@ def _dims_states_actions(rl, syst):
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
-    rl['low_actions'] = np.array(rl['low_actions'][0: rl["dim_actions_1"]])
+    rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
 
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
