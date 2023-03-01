@@ -119,6 +119,7 @@ def _make_action_space(rl):
             high=np.array(rl["high_action"], dtype=np.float32),
             shape=(rl["dim_actions"],), dtype=np.float32)
     rl["action_space"] = [action_space] * rl["n_homes"]
+    rl['min_actions'] = np.array(rl['min_actions'][0: rl["dim_actions_1"]])
 
     ttype = th.FloatTensor if not rl["use_cuda"] else th.cuda.FloatTensor
     mult_coef_tensor = ttype(rl["n_homes"], rl["dim_actions"])
