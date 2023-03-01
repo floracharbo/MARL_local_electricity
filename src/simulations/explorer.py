@@ -918,8 +918,10 @@ class Explorer:
         ]
         if self.prm["grd"]['compare_pandapower_optimisation']:
             loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
+            q_car = res["q_car_flex"][:, time_step]
+            q_house = res["netq_flex"][:, time_step] - q_car
         else:
-            loaded_buses, sgen_buses = None, None
+            loaded_buses, sgen_buses, q_car, q_house = None, None, None, None
 
         record_output = []
         for entry in [
@@ -934,7 +936,8 @@ class Explorer:
             self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
             break_down_rewards,
             loaded_buses, sgen_buses,
-            res['q_ext_grid'][time_step]
+            res['q_ext_grid'][time_step],
+            q_car, q_house
         ]
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)

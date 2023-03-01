@@ -300,7 +300,7 @@ class LocalElecEnv:
         if h == 2:
             self.slid_day = False
         home_vars, loads, hourly_line_losses, voltage_squared, \
-            q_ext_grid, constraint_ok = self.policy_to_rewardvar(
+            q_ext_grid, constraint_ok, q_car,  q_house = self.policy_to_rewardvar(
                 action, E_req_only=E_req_only)
         netp0 = self.prm['loads']['netp0'][:, h]
         if not constraint_ok:
@@ -365,7 +365,8 @@ class LocalElecEnv:
                     self.cintensity[self.time_step].copy(),
                     break_down_rewards,
                     loaded_buses, sgen_buses,
-                    q_ext_grid
+                    q_ext_grid,
+                    q_car, q_house
                 ]
 
                 return [next_state, self.done, reward, break_down_rewards,
@@ -565,7 +566,7 @@ class LocalElecEnv:
                 # if agents decide on reactive power of battery
                 q_car_flex = flexible_q_car_action
             # run pandapower simulation
-            voltage_squared, hourly_line_losses, q_ext_grid = \
+            voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
                 self.network._power_flow_res_with_pandapower(
                     home_vars, netp0, q_car_flex)
         else:
@@ -575,9 +576,11 @@ class LocalElecEnv:
 
         if sum(bool_penalty) > 0:
             constraint_ok = False
+        
+        q_house = netq_flex - q_car_flex
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
-                q_ext_grid, constraint_ok)
+                q_ext_grid, constraint_ok, q_car_flex,  q_house)
 
     def get_state_vals(
             self,

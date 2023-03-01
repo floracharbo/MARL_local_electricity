@@ -250,6 +250,7 @@ class Network:
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw >= 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
+        hourly_reactive_power_losses = sum(self.net.res_line['ql_mvar']) * 1e3
         voltage = np.array(self.net.res_bus['vm_pu'])
         pij = self.net.res_line.p_from_mw * 1e3
         qij = self.net.res_line.q_from_mvar * 1e3
@@ -257,7 +258,7 @@ class Network:
         duration_pp = end - start
         self.timer_pp.append(duration_pp)
 
-        return hourly_line_losses, voltage, pij, qij
+        return hourly_line_losses, voltage, pij, qij, hourly_reactive_power_losses
 
     def _assign_power_to_load_or_sgen(self, power, house_index, type):
         # pandapower uses MW while the simulations uses kW
@@ -284,21 +285,20 @@ class Network:
         netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
         netq_passive = q_heat_home_car_passive
 
-        #  import/export external grid
-        q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
-            + sum(q_heat_home_flex)
-
-        hourly_line_losses, voltage, _, _ = self.pf_simulation(
+        hourly_line_losses, voltage, _, _, reactive_power_losses = self.pf_simulation(
             home_vars['netp'], netp0, netq_flex, netq_passive
         )
+        #  import/export external grid
+        q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
+            + sum(q_heat_home_flex) + reactive_power_losses
         voltage_squared = np.square(voltage)
 
-        return voltage_squared, hourly_line_losses, q_ext_grid
+        return voltage_squared, hourly_line_losses, q_ext_grid, netq_flex
 
     def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_passive):
         replace_with_pp_simulation = False
         # Results from pandapower
-        hourly_line_losses_pp, voltage_pp, pij_pp_kW, qij_pp_kW = self.pf_simulation(
+        hourly_line_losses_pp, voltage_pp, pij_pp_kW, qij_pp_kW, _ = self.pf_simulation(
             res["netp"][:, time_step],
             netp0[:, time_step],
             netq_flex[:, time_step],
