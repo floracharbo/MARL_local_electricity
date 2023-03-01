@@ -105,6 +105,9 @@ class EnvSpaces:
         self.current_date0 = env.prm['syst']['date0_dtm']
         self.c_max = env.prm["car"]["c_max"]
 
+        self.reactive_power_for_voltage_control = \
+            env.prm['grd']['reactive_power_for_voltage_control']
+
         self.get_state_vals = env.get_state_vals
 
         self.car = env.car
@@ -143,7 +146,10 @@ class EnvSpaces:
         columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
-        n_other_states = rl["n_other_states"]
+        if not self.reactive_power_for_voltage_control:
+            n_other_states = rl["n_other_states"]
+        else:
+            n_other_states = 4
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
         max_flexibility = \
             prm['car']['c_max'] / prm['car']['eta_ch'] \
@@ -176,7 +182,7 @@ class EnvSpaces:
             ["bool_flex", 0, 1, 2, 1],
             ["avail_car_step", 0, 1, 2, 1],
             ["avail_car_prev", 0, 1, 2, 1],
-            ["car_tau", 0, prm["car"]["c_max"], 3, 0],
+            ["car_tau", 0, prm["car"]["c_max"], n_other_states, 0],
             # clusters - for whole day
             ["loads_clus_step", 0, n_clus['loads'] - 1, n_clus['loads'], 1],
             ["loads_clus_prev", 0, n_clus["loads"] - 1, n_clus["loads"], 1],
@@ -203,7 +209,7 @@ class EnvSpaces:
             ["flexible_cons_action", 0, 1, rl["n_discrete_actions"], 0],
             ["flexible_heat_action", 0, 1, rl["n_discrete_actions"], 0],
             ["battery_action", -1, 1, rl["n_discrete_actions"], 0],
-            ["q_car_action", -1, 1, rl["n_discrete_actions"], 0]
+            ["flexible_q_car_action", -1, 1, rl["n_discrete_actions"], 0],
         ]
 
         self.space_info = pd.DataFrame(info, columns=columns)
@@ -217,7 +223,7 @@ class EnvSpaces:
          self.multipliers, self.global_multipliers, self.n, self.discrete,
          self.possible] = [{} for _ in range(9)]
         action_space = ["action"] if self.aggregate_actions \
-            else ["flexible_cons_action", "flexible_heat_action", "battery_action"]
+            else ["flexible_cons_action", "flexible_heat_action", "battery_action", "flexible_q_car_action"]
         for space, descriptors in zip(["state", "action"],
                                       [state_space, action_space]):
             # looping through state and action spaces
