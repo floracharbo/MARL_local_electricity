@@ -624,7 +624,7 @@ def plot_reactive_power(
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
         for method in methods_to_plot:
-            fig, ax1 = plt.subplots(figsize=(8, 6))
+            fig, ax1 = plt.subplots(figsize=(18, 12))
             ax2 = ax1.twinx()
             flex_reactive_power = last['q_ext_grid'][method]
             q_house = np.sum(last['q_house'][method], axis=1)
@@ -653,8 +653,8 @@ def plot_reactive_power(
             ax1.spines['left'].set_color('forestgreen')
             ax1.yaxis.label.set_color('coral')
             ax2.yaxis.label.set_color('forestgreen')
-            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
-            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+            ax1.legend(loc='center', bbox_to_anchor=(0.5, 0.90))
+            ax2.legend(loc='center', bbox_to_anchor=(0.5, 0.77))
             plt.tight_layout()
             title = f'Reactive power and total costs, repeat{repeat}, {method}'
             title_and_save(title, fig, prm)
@@ -668,7 +668,7 @@ def plot_indiv_reactive_power(
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
         for method in methods_to_plot:
-            fig, ax1 = plt.subplots(figsize=(8, 6))
+            fig, ax1 = plt.subplots(figsize=(18, 12))
             ax2 = ax1.twinx()
             q_car = last['q_car'][method]
             break_down_rewards = last['break_down_rewards'][method]
@@ -694,8 +694,8 @@ def plot_indiv_reactive_power(
             ax1.spines['left'].set_color('forestgreen')
             ax1.yaxis.label.set_color('coral')
             ax2.yaxis.label.set_color('forestgreen')
-            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
-            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+            ax1.legend(loc='center', bbox_to_anchor=(0.5, 0.90))
+            ax2.legend(loc='center', bbox_to_anchor=(0.5, 0.77))
             plt.tight_layout()
             title = f'Indiv reactive power and total costs, repeat{repeat}, {method}'
             title_and_save(title, fig, prm)
@@ -865,29 +865,15 @@ def map_over_undervoltage(
                 sc = plot.create_bus_collection(net, net.ext_grid.bus.values, patch_type="poly3",
                                                 size=.7, color="grey", zorder=11)
 
-                # Plot all the loads
+                # Plot all the loads and generations
                 ldA = plot.create_bus_collection(
                     net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
                     patch_type="poly3", size=1.4, color="r", zorder=11
                 )
-                for bus, i in zip(last['loaded_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])):
-                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
-                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
-                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
-                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
-                    plot.plt.annotate(f"Generation bus, \n Voltage is {voltage} \n Q_house is {q_house}, \n Q-car is {q_car}",
-                                      xy=(x, y), xytext=(x+10, y+10),  fontsize=20)
                 ldB = plot.create_bus_collection(
                     net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
                     patch_type="poly3", size=1.4, color="g", zorder=11
                 )
-                for bus, i in zip(last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])):
-                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
-                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
-                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
-                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
-                    plot.plt.annotate(f"Generation bus, \n Voltage is {voltage} \n Q_house is {q_house}, \n Q-car is {q_car}",
-                                      xy=(x, y), xytext=(x+4, y+4))
 
                 # Plot over and under voltages
                 overvoltage_bus_index, undervoltage_bus_index = \
@@ -906,6 +892,34 @@ def map_over_undervoltage(
                 # Draw all the collected plots
                 ax = plot.draw_collections([lcd, bc, tlc, tpc, sc, ldA, ldB, over, under],
                                            figsize=(20, 20))
+
+                # Add legend to homes
+                
+                for bus, i in zip(
+                    last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
+                    ):
+                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+                    plot.plt.annotate(
+                        f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
+                        f"\n Q_house is {round(q_house, 3)} kVAR"
+                        f"\n Q_car is {round(q_car, 3)} kVAR",
+                        xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
+                for bus, i in zip(
+                    last['loaded_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
+                    ):
+                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+                    plot.plt.annotate(
+                        f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
+                        f"\n Q_house is {round(q_house, 3)} kVAR"
+                        f"\n Q_car is {round(q_car, 3)} kVAR",
+                        xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
+
                 # Save
                 title = f'map_over_under_voltage{repeat}_{method}'
                 title_and_save(title, ax.figure, prm)

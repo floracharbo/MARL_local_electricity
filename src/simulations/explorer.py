@@ -629,8 +629,8 @@ class Explorer:
         # check tot cons
         for home in self.homes:
             fixed_flex = sum(flex[home][time_step]) \
-                   + self.env.heat.E_heat_min[home] \
-                   + self.env.heat.potential_E_flex()[home]
+                         + self.env.heat.E_heat_min[home] \
+                         + self.env.heat.potential_E_flex()[home]
             assert res["totcons"][home][time_step] <= \
                    fixed_flex + 1e-2, \
                    f"cons {res['totcons'][home][time_step]} more than sum fixed + flex" \
