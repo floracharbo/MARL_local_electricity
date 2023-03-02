@@ -16,7 +16,7 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['optimizer']
+COLUMNS_OF_INTEREST = ['init_weights_zero']
 
 FILTER = {
     # 'supervised_loss': False,
@@ -53,12 +53,12 @@ def fix_learning_specific_values(log):
             if log['syst-error_with_opt_to_rl_discharge'].loc[i]:
                 log.loc[i, 'syst-error_with_opt_to_rl_discharge'] = False
 
-    gaussian_params = ['start_steps', 'act_noise']
-    for param in gaussian_params:
-        log[f'RL-{param}'] = log.apply(lambda x: 0 if x['RL-exploration_mode'] != 'gaussian' else x[f'RL-{param}'])
-    ou_params = ['ou_theta', 'ou_sigma', 'ou_noise_scale', 'ou_stop_episode']
-    for param in ou_params:
-        log[f'RL-{param}'] = log.apply(lambda x: 0 if x['RL-exploration_mode'] != 'ornstein_uhlenbeck' else x[f'RL-{param}'])
+    # gaussian_params = ['start_steps', 'act_noise']
+    # for param in gaussian_params:
+    #     log[f'RL-{param}'] = np.where(log['RL-exploration_mode'] != 'gaussian', 0, log[f"RL-{param}"])
+    # ou_params = ['ou_theta', 'ou_sigma', 'ou_noise_scale', 'ou_stop_episode']
+    # for param in ou_params:
+    #     log[f'RL-{param}'] = np.where(log['RL-exploration_mode'] != 'ornstein_uhlenbeck', 0, log[f'RL-{param}'])
 
     return log
 
@@ -123,7 +123,7 @@ def get_list_all_fields(results_path):
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
-        'n_opti_constraints', 'dim_states_1'
+        'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param', 'facmac-critic_lr_decay_param'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -652,6 +652,9 @@ def compare_all_runs_for_column_of_interest(
                 column_of_interest[0: 16] == 'supervised_loss_weight'
                 and not log['supervised_loss'].loc[row]
             )
+            relevant_eps = not (
+                column_of_interest == 'facmac-epsilon' and log['facmac-epsilon_decay'].loc[row]
+            )
 
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
@@ -698,7 +701,8 @@ def compare_all_runs_for_column_of_interest(
                 and relevant_facmac \
                 and relevant_supervised_loss \
                 and n_homes_on_laptop_only \
-                and n_homes_facmac_traj_only
+                and n_homes_facmac_traj_only \
+                and relevant_eps
             if new_row and only_col_of_interest_changes and relevant_data:
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])

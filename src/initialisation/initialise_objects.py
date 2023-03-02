@@ -382,7 +382,8 @@ def _exploration_parameters(rl):
 
     type_learning = rl["type_learning"]
     if type_learning in ["DDQN", "DQN", "q_learning", "facmac"]:
-        if rl[type_learning]["control_eps"] == 1 \
+        if 'control_eps' in rl[type_learning] \
+                and rl[type_learning]["control_eps"] == 1 \
                 and "baseline" not in rl["evaluation_methods"]:
             rl["evaluation_methods"].append("baseline")
         if rl[type_learning]["epsilon_end"] == "best":

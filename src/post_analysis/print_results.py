@@ -25,21 +25,16 @@ def _print_savings(metrics, prm):
     for method in metrics['end']['ave'].keys():
         if method != 'baseline':
             values = []
-            # method = \
-            #     method \
-            #     if prm['syst']['n_homes'] > 1 or method in ['opt', 'baseline'] or prm['RL']['type_learning'] == 'facmac' \
-            #     else method[: -1] + 'd'
-            for p in ['ave', 'p50']:
-                A = metrics['end'][p][method] - metrics['end'][p]['baseline']
-                values.append(A)
-                values.append(A / (- metrics['end'][p]['baseline']) * 100)
-                if 'opt' in metrics['end'][p]:
-                    values.append(
-                        A / (metrics['end'][p]['opt'] - metrics['end'][p]['baseline']) * 100
-                    )
-                print(f"{method}, {p}")
-                for value, label in zip(values, labels):
-                    print(f"{label}: {value}")
+            A = metrics['end']['ave'][method] - metrics['end']['ave']['baseline']
+            values.append(A)
+            values.append(A / (- metrics['end']['ave']['baseline']) * 100)
+            if 'opt' in metrics['end']['ave']:
+                values.append(
+                    A / (metrics['end']['ave']['opt'] - metrics['end']['ave']['baseline']) * 100
+                )
+            print(f"ave {method}")
+            for value, label in zip(values, labels):
+                print(f"{label}: {value}")
 
 def _print_stats(f, prm, record, metrics):
     # 8 - print stats
