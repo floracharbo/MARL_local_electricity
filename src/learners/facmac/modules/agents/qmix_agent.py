@@ -20,7 +20,10 @@ class QMIXRNNAgent(nn.Module):
 
     def init_hidden(self):
         # make hidden states on same device as model
-        return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
+        if self.rl['init_weights_zero']:
+            return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
+        else:
+            return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros'])
 
     def forward(self, inputs, hidden_state):
         x = F.relu(self.fc1(inputs))

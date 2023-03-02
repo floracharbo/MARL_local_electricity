@@ -130,6 +130,7 @@ activation: 'relu' # activation function for DDPG; default was 'relu'
 init_weight_mult: 1 # intiialisation of network weights multiplier
 LSTM: False # replacing intermediate dense layers with LSTM
 dim_out_layer12: 256 # dumensionality of the output space of the first two layer of both actor and critic networks
+init_weights_zero: True
 DDPG:
         critic_lr: 0.002 # initially 0.002,
         rdn_eps_greedy: False
