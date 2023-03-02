@@ -167,15 +167,15 @@ for line_label in labels.keys():
             color=colour
         )
         ys_time[line_label] = time_end
-        if line_label == 'FH':
-            function = first_order
-            label = 'first order: ' + r'$y = ax + b$'
-        else:
-            function = polynomial2
-            label = 'second order: ' + r'$y = ax^2 + bx + c$'
+        function = polynomial2
+        # if line_label == 'FH':
+        #     label = 'first order: ' + r'$y = ax + b$'
+        # else:
+        #     label = 'second order: ' + r'$y = ax^2 + bx + c$'
         popt, pcov = optimize.curve_fit(function, n_homes, time_end)
         coeffs = popt
         f_fitted = [function(x, *coeffs) for x in list(range(x_max))]
+        label = r'$y = $' + f'{coeffs[0]}' + f'$x^2 $' + f'{coeffs[1]}' + r'$x $' + f'{coeffs[2]}'
         plt.plot(list(range(x_max)), f_fitted, label=label, color=colour, linestyle=ls)
         print(f"{line_label}: ")
         print(f"times : {time_end}")
