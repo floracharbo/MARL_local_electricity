@@ -327,11 +327,11 @@ def _plot_all_agents_res(
     if sum_agents:
         title += f" sum_agents"
     title_display = "subplots example day"
-    subtitles = ["a", "b", "b", "d", "e", "f", "g", "h"]
-    for r in range(n_rows):
-        for c in range(n_cols):
+    subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    for c in range(n_cols):
+        for r in range(n_rows):
             ax = axs[r] if n_cols == 1 else axs[r, c]
-            ax.set_title(subtitles[r + c * n_rows])
+            ax.set_title(subtitles[c + r * n_rows])
     formatting_figure(
         prm, fig=fig, title=title,
         legend=False,
@@ -480,10 +480,9 @@ def _plot_indiv_agent_res(
             if reduced_version:
                 title += '_reduced_version'
             subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
-
-            for r in range(n_rows):
-                for c in range(n_cols):
-                    axs[r, c].set_title(subtitles[r + c * n_rows])
+            for c in range(n_cols):
+                for r in range(n_rows):
+                    axs[r, c].set_title(subtitles[c + r * n_cols])
             formatting_figure(
                 prm, fig=fig, title=title,
                 legend=False,
