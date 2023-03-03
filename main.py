@@ -17,7 +17,7 @@ from src.simulations.runner import run
 # q learning / facmac no traj / facmac traj / facmac supervised no traj / facmac supervised traj
 settings = {
     'RL': {
-        'state_space': [['flexibility', 'grdC_n2']] * 6 * 5,
+        'state_space': ['grdC'] * 6 + [['flexibility', 'grdC_n2']] * 6 * 4,
         'n_epochs': 20,
         'n_repeats': 3,
         'type_learning': ['q_learning'] * 6 + ['facmac'] * 6 * 4,
@@ -33,7 +33,7 @@ settings = {
 }
 
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
-RUN_MODE = 1
+RUN_MODE = 2
 no_runs = [282]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
