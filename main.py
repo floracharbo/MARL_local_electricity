@@ -31,11 +31,6 @@ settings = {
         'n_homes': [1, 3, 5, 10, 20, 50] * 5,
     }
 }
-trajectory = settings['RL']['trajectory']
-settings['RL']['evaluation_methods'] = None if settings['RL']['type_learning'] == 'q_learning' else 'env_r_c'
-settings['RL']['obs_agent_id'] = False if trajectory else True
-settings['RL']['nn_type'] = 'cnn' if trajectory else 'linear'
-settings['RL']['rnn_hidden_dim'] = 1e3 if trajectory else 5e2
 
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 RUN_MODE = 1

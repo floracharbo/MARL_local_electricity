@@ -566,6 +566,12 @@ def run(run_mode, settings, no_runs=None):
             # obtain run-specific settings
 
             settings_i = get_settings_i(settings, i)
+            trajectory = settings_i['RL']['trajectory']
+            settings_i['RL']['evaluation_methods'] = None if settings_i['RL'][
+                                                               'type_learning'] == 'q_learning' else 'env_r_c'
+            settings_i['RL']['obs_agent_id'] = False if trajectory else True
+            settings_i['RL']['nn_type'] = 'cnn' if trajectory else 'linear'
+            settings_i['RL']['rnn_hidden_dim'] = 1e3 if trajectory else 5e2
             # initialise learning parameters, system parameters and recording
             prm, record = initialise_objects(prm, settings=settings_i)
 
