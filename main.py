@@ -14,7 +14,7 @@ from src.simulations.runner import run
 
 # Enter experiment-specific settings in the dictionary below if using different parameters
 # to the default parameters in config_files/default_input_parameters, using the example syntax below.
-q learning / facmac no traj / facmac traj / facmac supervised no traj / facmac supervised traj
+# q learning / facmac no traj / facmac traj / facmac supervised no traj / facmac supervised traj
 settings = {
     'RL': {
         'state_space': [['flexibility', 'grdC_n2']] * 6 * 5,
