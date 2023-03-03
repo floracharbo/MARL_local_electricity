@@ -16,12 +16,15 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['init_weights_zero']
+COLUMNS_OF_INTEREST = ['n_homes']
 
 FILTER = {
     # 'supervised_loss': False,
     # 'facmac-beta_to_alpha': 0.1,
-    'SoC0': 1
+    'SoC0': 1,
+    'grdC_n': 2,
+    'error_with_opt_to_rl_discharge': False,
+    'facmac-hysteretic': True,
 }
 
 def rename_runs(results_path):
@@ -123,7 +126,7 @@ def get_list_all_fields(results_path):
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
-        'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param', 'facmac-critic_lr_decay_param'
+        'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param', 'facmac-critic_lr_decay_param',
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -685,17 +688,19 @@ def compare_all_runs_for_column_of_interest(
                     if i_col not in indexes_ignore
                 )
 
-            n_homes_on_laptop_only = not (
-                column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
-            )
+            n_homes_on_laptop_only = True
             if FILTER_N_HOMES:
                 n_homes_facmac_traj_only = not (
                     column_of_interest == 'n_homes'
                     and current_setup[other_columns.index('type_learning')] == 'facmac'
                     and not current_setup[other_columns.index('trajectory')]
                 )
+                n_homes_on_laptop_only = not (
+                    column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
+                )
             else:
                 n_homes_facmac_traj_only = True
+                n_homes_on_laptop_only = True
             relevant_data = \
                 relevant_cnn \
                 and relevant_facmac \

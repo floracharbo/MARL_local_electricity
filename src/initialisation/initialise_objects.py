@@ -386,33 +386,31 @@ def _exploration_parameters(rl):
                 and rl[type_learning]["control_eps"] == 1 \
                 and "baseline" not in rl["evaluation_methods"]:
             rl["evaluation_methods"].append("baseline")
-        if (
-            "epsilon_end" in rl[type_learning]
-            and rl[type_learning]["epsilon_end"] == "best"
-        ):
-            # take result of sensitivity analysis
-            if rl[type_learning]["control_eps"] < 2:
-                rl[type_learning]["epsilon_end"] \
-                    = rl[type_learning]["best_eps_end"][
-                    rl[type_learning]["control_eps"]]
-            else:
-                rl[type_learning]["epsilon_end"] = 1e-2  # not going to use it
+        if "epsilon_end" in rl[type_learning]:
+            if rl[type_learning]["epsilon_end"] == "best":
+                # take result of sensitivity analysis
+                if rl[type_learning]["control_eps"] < 2:
+                    rl[type_learning]["epsilon_end"] \
+                        = rl[type_learning]["best_eps_end"][
+                        rl[type_learning]["control_eps"]]
+                else:
+                    rl[type_learning]["epsilon_end"] = 1e-2  # not going to use it
 
-        if isinstance(rl[type_learning]["epsilon_end"], float):
-            rl[type_learning]["epsilon_decay_param"] = \
-                (rl[type_learning]["epsilon_end"]
-                 / rl[type_learning]["epsilon0"]) \
-                ** (1 / (rl[type_learning]["end_decay"]
-                         - rl[type_learning]["start_decay"]))
-        else:
-            rl[type_learning]["epsilon_decay_param"] = {}
-            epsilon_end = rl[type_learning]["epsilon_end"]
-            epsilon0 = rl[type_learning]["epsilon0"]
-            for exploration_method in epsilon_end:
-                rl[type_learning]["epsilon_decay_param"][exploration_method] \
-                    = (epsilon_end[exploration_method] / epsilon0) \
-                    ** (1 / rl["tot_learn_cycles"])
-    if type_learning == 'facmac' and rl['facmac']['lr_decay']:
+            if isinstance(rl[type_learning]["epsilon_end"], float):
+                rl[type_learning]["epsilon_decay_param"] = \
+                    (rl[type_learning]["epsilon_end"]
+                     / rl[type_learning]["epsilon0"]) \
+                    ** (1 / (rl[type_learning]["end_decay"]
+                             - rl[type_learning]["start_decay"]))
+            else:
+                rl[type_learning]["epsilon_decay_param"] = {}
+                epsilon_end = rl[type_learning]["epsilon_end"]
+                epsilon0 = rl[type_learning]["epsilon0"]
+                for exploration_method in epsilon_end:
+                    rl[type_learning]["epsilon_decay_param"][exploration_method] \
+                        = (epsilon_end[exploration_method] / epsilon0) \
+                        ** (1 / rl["tot_learn_cycles"])
+    if type_learning == 'facmac' and "lr_decay" in rl['facmac'] and rl['facmac']['lr_decay']:
         rl['facmac']['lr_decay_param'] = (rl['facmac']['lr_end'] / rl['facmac']['lr0']) ** (1 / rl['n_epochs'])
         rl['facmac']['critic_lr_decay_param'] = (rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']) ** (1 / rl['n_epochs'])
 
@@ -445,7 +443,8 @@ def _dims_states_actions(rl, syst):
     rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
-    rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
+    if syst['run_mode'] == 1:
+        rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
 
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]

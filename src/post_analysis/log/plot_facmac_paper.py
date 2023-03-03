@@ -175,7 +175,7 @@ for line_label in labels.keys():
         popt, pcov = optimize.curve_fit(function, n_homes, time_end)
         coeffs = popt
         f_fitted = [function(x, *coeffs) for x in list(range(x_max))]
-        label = r'$y = $' + f'{coeffs[0]}' + f'$x^2 $' + f'{coeffs[1]}' + r'$x $' + f'{coeffs[2]}'
+        label = r'$y = $' + f'{coeffs[0]:.2f}' + f'$x^2 $' + f' + {coeffs[1]:.2f}' + r'$x $' + f' + {coeffs[2]:.2f}'
         plt.plot(list(range(x_max)), f_fitted, label=label, color=colour, linestyle=ls)
         print(f"{line_label}: ")
         print(f"times : {time_end}")
