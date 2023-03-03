@@ -479,7 +479,7 @@ def _plot_indiv_agent_res(
             title_display = "subplots example day"
             if reduced_version:
                 title += '_reduced_version'
-            subtitles = ["a", "b", "b", "d", "e", "f", "g", "h"]
+            subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
 
             for r in range(n_rows):
                 for c in range(n_cols):
