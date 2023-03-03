@@ -28,7 +28,7 @@ settings = {
     },
     'syst': {
         'force_optimisation': True,
-        'N': [1, 3, 5, 10, 20, 50] * 5,
+        'n_homes': [1, 3, 5, 10, 20, 50] * 5,
     }
 }
 trajectory = settings['RL']['trajectory']
