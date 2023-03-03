@@ -386,7 +386,10 @@ def _exploration_parameters(rl):
                 and rl[type_learning]["control_eps"] == 1 \
                 and "baseline" not in rl["evaluation_methods"]:
             rl["evaluation_methods"].append("baseline")
-        if rl[type_learning]["epsilon_end"] == "best":
+        if (
+            "epsilon_end" in rl[type_learning]
+            and rl[type_learning]["epsilon_end"] == "best"
+        ):
             # take result of sensitivity analysis
             if rl[type_learning]["control_eps"] < 2:
                 rl[type_learning]["epsilon_end"] \
