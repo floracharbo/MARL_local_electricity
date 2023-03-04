@@ -425,9 +425,11 @@ class Network:
         # update variable values given updated losses and voltages
         res["grid"][time_step] = grid_pp
         res["grid2"][time_step] = grid_pp ** 2
+        res["q_ext_grid"][time_step] = q_ext_grid_pp
         res['voltage'][:, time_step] = voltage_pp[1:]
         res['voltage_squared'][:, time_step] = np.square(voltage_pp[1:])
-        res["hourly_line_losses"][time_step] += delta_hourly_line_losses
+        res["hourly_reactive_losses"][time_step] += delta_hourly_reactive_line_losses
+        res["hourly_line_losses"][time_step] += delta_hourly_active_line_losses
         res["v_line"][:, time_step] = np.matmul(
             self.out_incidence_matrix.T,
             res["voltage_squared"][:, time_step])
