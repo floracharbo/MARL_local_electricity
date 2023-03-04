@@ -298,11 +298,13 @@ class Network:
     def _check_voltage_differences(self, res, time_step, netp0, netq_flex, netq_passive):
         replace_with_pp_simulation = False
         # Results from pandapower
-        hourly_line_losses_pp, voltage_pp, pij_pp_kW, qij_pp_kW, _ = self.pf_simulation(
-            res["netp"][:, time_step],
-            netp0[:, time_step],
-            netq_flex[:, time_step],
-            netq_passive[:, time_step])
+        hourly_line_losses_pp, voltage_pp, pij_pp_kW, \
+            qij_pp_kW, reactive_power_losses = self.pf_simulation(
+                res["netp"][:, time_step],
+                netp0[:, time_step],
+                netq_flex[:, time_step],
+                netq_passive[:, time_step]
+                )
 
         # Voltage test
         all_abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
@@ -339,7 +341,7 @@ class Network:
 
         return [
             replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp,
-            voltage_pp, pij_pp_kW, qij_pp_kW, q_ext_grid
+            voltage_pp, pij_pp_kW, qij_pp_kW, reactive_power_losses
         ]
 
     def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
@@ -380,14 +382,14 @@ class Network:
         # Compare hourly results from network modelling in optimizer and pandapower
         start = time.time()
         replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-            pij_pp_kW, qij_pp_kW, q_ext_grid = self._check_voltage_differences(
+            pij_pp_kW, qij_pp_kW, reactive_power_losses = self._check_voltage_differences(
                 res, time_step, netp0, netq_flex, netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(
             res, hourly_line_losses_pp, time_step)
         if replace_with_pp_simulation or line_losses_method == 'iteration':
             res = self._replace_res_values_with_pp_simulation(
                 res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
-                voltage_pp, pij_pp_kW, qij_pp_kW, q_ext_grid
+                voltage_pp, pij_pp_kW, qij_pp_kW, reactive_power_losses
             )
         end = time.time()
         duration_comparison = end - start
@@ -397,14 +399,15 @@ class Network:
 
     def _replace_res_values_with_pp_simulation(
             self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp,
-            pij_pp_kW, qij_pp_kW, q_ext_grid
+            pij_pp_kW, qij_pp_kW, reactive_power_losses
     ):
         # corrected hourly_line_losses and grid values
         self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
-        delta_hourly_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
-        grid_pp = res["grid"][time_step] + delta_hourly_line_losses
-        q_ext_grid_pp = res["q_ext_grid"][time_step]
+        delta_hourly_active_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
+        grid_pp = res["grid"][time_step] + delta_hourly_active_line_losses
+        delta_hourly_reactive_line_losses = reactive_power_losses - res["hourly_reactive_losses"][time_step]
+        q_ext_grid_pp = res["q_ext_grid"][time_step] + delta_hourly_reactive_line_losses
 
         hourly_grid_energy_costs_pp = grdCt * (
             grid_pp + q_ext_grid_pp + self.loss * grid_pp ** 2

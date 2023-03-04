@@ -12,11 +12,12 @@ import copy
 
 import numpy as np
 import picos as pic
+import math
 
 from src.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
     save_results)
-from src.utilities.userdeftools import calculate_reactive_power, comb
+from src.utilities.userdeftools import comb
 
 
 class Optimiser:

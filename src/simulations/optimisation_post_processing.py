@@ -772,6 +772,9 @@ def res_post_processing(res, prm, input_hourly_lij):
         res['p_solar_flex'] = grd['gen'][:, 0: N]
         res['q_solar_flex'] = calculate_reactive_power(
             grd['gen'][:, 0: N], grd['pf_flexible_homes'])
+        res["hourly_reactive_losses"] = \
+            np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N]) \
+                * grd['per_unit_to_kW_conversion'], axis=0)
     else:
         res['voltage_squared'] = np.empty((1, N))
         res['voltage_costs'] = 0

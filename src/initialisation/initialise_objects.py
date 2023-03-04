@@ -597,10 +597,6 @@ def _naming_file_extension_network_parameters(grd):
                 default_grd[lower_quantity] != grd[lower_quantity]
                 and grd[upper_quantity] != grd[lower_quantity]
             ):
-            if (
-                    default_grd[lower_quantity] != grd[lower_quantity]
-                    and grd[upper_quantity] != grd[lower_quantity]
-            ):
                 file_extension += f"_{grd[lower_quantity]}"
             if default_grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_upper}']:
                 file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
@@ -608,14 +604,9 @@ def _naming_file_extension_network_parameters(grd):
                 default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
                 and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
             ):
-            if (
-                    default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
-                    and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
-            ):
                 file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
 
             if management == 'manage_voltage':
-                if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
                 if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
                     file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
                 if grd['reactive_power_for_voltage_control']:
