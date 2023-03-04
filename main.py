@@ -19,7 +19,7 @@ settings = {
     'RL': {
         'state_space': ['grdC'] * 6 + [['flexibility', 'grdC_n2']] * 6 * 4,
         'n_epochs': 20,
-        'n_repeats': 3,
+        'n_repeats': 10,
         'type_learning': ['q_learning'] * 6 + ['facmac'] * 6 * 4,
         'trajectory': [False] * 6 * 2 + [True] * 6 + [False] * 6 + [True] * 6,
         'supervised_loss': [False] * 6 * 3 + [True] * 6 * 2,
