@@ -627,7 +627,7 @@ def _update_res_variables(
         res['grid'] = new_grid
         res['grid2'] = np.square(res['grid'])
         new_grid_energy_costs = np.sum(
-            np.multiply(grd['C'][0: N], (res['grid'] + grd['loss'] * res['grid2']))
+            np.multiply(grd['C'][0: N], (res['grid'] + res['q_ext_grid'] + grd['loss'] * res['grid2']))
         )
         delta = new_grid_energy_costs - res['grid_energy_costs']
         res['grid_energy_costs'] = new_grid_energy_costs
@@ -785,7 +785,7 @@ def res_post_processing(res, prm, input_hourly_lij):
         res['netp0'] = np.zeros([1, N])
 
     res['hourly_grid_energy_costs'] = grd['C'][0: N] * (
-        res["grid"] + grd["loss"] * res["grid2"]
+        res["grid"] + res["q_ext_grid"] + grd["loss"] * res["grid2"]
     )
     res['hourly_battery_degradation_costs'] = car["C"] * (
         np.sum(res["discharge_tot"] + res["charge"], axis=0)

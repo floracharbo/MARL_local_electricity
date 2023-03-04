@@ -311,7 +311,8 @@ class LocalElecEnv:
             reward, break_down_rewards = self.get_reward(
                 netp=home_vars['netp'],
                 hourly_line_losses=hourly_line_losses,
-                voltage_squared=voltage_squared
+                voltage_squared=voltage_squared,
+                q_ext_grid=q_ext_grid
             )
 
             # ----- update environment variables and state
@@ -396,6 +397,7 @@ class LocalElecEnv:
             time_step: int = None,
             voltage_squared: list = None,
             hourly_line_losses: int = 0,
+            q_ext_grid: int = 0,
     ) -> Tuple[list, list]:
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
@@ -442,7 +444,7 @@ class LocalElecEnv:
             distribution_network_export_costs = self.prm['grd']['export_C'] * netpvar
         if not self.prm['grd']['penalise_individual_exports']:
             distribution_network_export_costs = 0
-        grid_energy_costs = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
+        grid_energy_costs = grdCt * (grid + q_ext_grid + self.prm['grd']['loss'] * grid ** 2)
         cost_distribution_network_losses = grdCt * hourly_line_losses
         indiv_grid_energy_costs = [wholesalet * netp[home] for home in self.homes]
         battery_degradation_costs = self.prm['car']['C'] \

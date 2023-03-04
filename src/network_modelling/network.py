@@ -339,7 +339,7 @@ class Network:
 
         return [
             replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp,
-            voltage_pp, pij_pp_kW, qij_pp_kW
+            voltage_pp, pij_pp_kW, qij_pp_kW, q_ext_grid
         ]
 
     def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
@@ -380,14 +380,14 @@ class Network:
         # Compare hourly results from network modelling in optimizer and pandapower
         start = time.time()
         replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-            pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
+            pij_pp_kW, qij_pp_kW, q_ext_grid = self._check_voltage_differences(
                 res, time_step, netp0, netq_flex, netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(
             res, hourly_line_losses_pp, time_step)
         if replace_with_pp_simulation or line_losses_method == 'iteration':
             res = self._replace_res_values_with_pp_simulation(
                 res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
-                voltage_pp, pij_pp_kW, qij_pp_kW
+                voltage_pp, pij_pp_kW, qij_pp_kW, q_ext_grid
             )
         end = time.time()
         duration_comparison = end - start
@@ -397,16 +397,17 @@ class Network:
 
     def _replace_res_values_with_pp_simulation(
             self, res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt, voltage_pp,
-            pij_pp_kW, qij_pp_kW
+            pij_pp_kW, qij_pp_kW, q_ext_grid
     ):
         # corrected hourly_line_losses and grid values
         self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
         delta_hourly_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
         grid_pp = res["grid"][time_step] + delta_hourly_line_losses
+        q_ext_grid_pp = res["q_ext_grid"][time_step]
 
         hourly_grid_energy_costs_pp = grdCt * (
-            grid_pp + self.loss * grid_pp ** 2
+            grid_pp + q_ext_grid_pp + self.loss * grid_pp ** 2
         )
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]

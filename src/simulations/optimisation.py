@@ -439,7 +439,7 @@ class Optimiser:
             voltage_costs == pic.sum(overvoltage_costs + undervoltage_costs)
         )
 
-        return p, voltage_costs
+        return p, voltage_costs, q_ext_grid
 
     def _grid_constraints(self, p, charge, discharge_other, totcons):
         # variables
@@ -470,19 +470,20 @@ class Optimiser:
             [grid2[time_step] >= grid[time_step] * grid[time_step] for time_step in range(self.N)]
         )
 
-        # grid costs
-        p.add_constraint(
-            grid_energy_costs
-            == (self.grd['C'][0: self.N] | (grid + self.grd['loss'] * grid2))
-        )
-
         if self.grd['manage_voltage']:
-            p, voltage_costs = self._power_flow_equations(
+            p, voltage_costs, q_ext_grid = self._power_flow_equations(
                 p, netp, grid, hourly_line_losses_pu,
                 charge, discharge_other, totcons)
         else:
             p.add_constraint(hourly_line_losses_pu == 0)
             voltage_costs = 0
+            q_ext_grid = 0
+
+        # grid costs
+        p.add_constraint(
+            grid_energy_costs
+            == (self.grd['C'][0: self.N] | (grid + q_ext_grid + self.grd['loss'] * grid2))
+        )
 
         return p, netp, grid, grid_energy_costs, voltage_costs
 
