@@ -841,6 +841,7 @@ class Explorer:
                 passive_vars=self.env.get_passive_vars(time_step),
                 hourly_line_losses=res['hourly_line_losses'][time_step],
                 voltage_squared=res['voltage_squared'][:, time_step],
+                q_ext_grid=res['q_ext_grid'][time_step]
             )
             step_vals_i["indiv_grid_battery_costs"] = - np.array(
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
@@ -1025,7 +1026,7 @@ class Explorer:
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
             home_vars, loads, hourly_line_losses, voltage_squared, \
-                _, constraint_ok = \
+                q_ext_grid, constraint_ok, _, _ = \
                 env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self.env.get_passive_vars(time_step)
@@ -1036,7 +1037,8 @@ class Explorer:
                 time_step=time_step,
                 passive_vars=passive_vars,
                 hourly_line_losses=hourly_line_losses,
-                voltage_squared=voltage_squared
+                voltage_squared=voltage_squared,
+                q_ext_grid=q_ext_grid
             )
 
             if not constraint_ok:
