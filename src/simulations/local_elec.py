@@ -538,7 +538,7 @@ class LocalElecEnv:
 
         #  ----------- meet consumption + check constraints ---------------
         constraint_ok = True
-        loads, home_vars, bool_penalty, flexible_q_car_action = \
+        loads, home_vars, bool_penalty, flexible_q_car = \
             self.action_translator.actions_to_env_vars(loads, home_vars, action, date, h)
         share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
         for home in self.homes:
@@ -560,11 +560,11 @@ class LocalElecEnv:
         if self.prm['grd']['manage_voltage']:
             if not self.reactive_power_for_voltage_control:
                 # retrieve info from battery if not a decision variable
-                self.car.active_reactive_power_car()
+                self.car.car_reactive_power_fixed_pf()
                 q_car_flex = self.car.q_car_flex
             else:
                 # if agents decide on reactive power of battery
-                q_car_flex = flexible_q_car_action
+                q_car_flex = flexible_q_car
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
                 self.network._power_flow_res_with_pandapower(

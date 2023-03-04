@@ -330,11 +330,10 @@ class Action_translator:
                     # reactive power battery between -1 and 1 where
                     # -1 max export
                     # 1 max import
-                    indiv_q_car = self._calculate_flexible_q_car(
-                        indiv_flexible_store_action=res['ds'],
-                        indiv_flexible_q_car_action=flexible_q_car_action)
-                    flexible_q_car[home] = indiv_q_car
-                    res['q'] = indiv_q_car
+                    res['q'] = flexible_q_car_action \
+                        * np.sqrt(self.max_apparent_power_car**2 - res['ds']**2)
+                    flexible_q_car[home] = res['q']
+                    
 
                 res['dp'] = home_vars['netp'][home]
 
@@ -374,23 +373,6 @@ class Action_translator:
 
         return loads, home_vars, bool_penalty, flexible_q_car
 
-    def _calculate_flexible_q_car(self, indiv_flexible_store_action, indiv_flexible_q_car_action):
-        if indiv_flexible_q_car_action > 0:
-            charge = indiv_flexible_store_action
-            max_q_car_import = np.sqrt(self.max_apparent_power_car**2 - charge**2)
-            indiv_flexible_q_car = \
-                indiv_flexible_q_car_action * (max_q_car_import - self.min_q_car_import) \
-                + self.min_q_car_import
-        elif indiv_flexible_q_car_action < 0:
-            discharge = indiv_flexible_store_action
-            max_q_car_export = - np.sqrt(self.max_apparent_power_car**2 - discharge**2)
-            indiv_flexible_q_car = \
-                - abs(self.min_q_car_export
-                      - indiv_flexible_q_car_action * abs(self.min_q_car_export - max_q_car_export))
-        else:
-            indiv_flexible_q_car = 0
-
-        return indiv_flexible_q_car
 
     def _flexible_store_action_to_ds(self, home, flexible_store_action, res):
         """Convert flexible store action to change in storage level ds."""

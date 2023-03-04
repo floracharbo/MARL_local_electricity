@@ -451,7 +451,7 @@ class Battery:
                 self.q_car_flex[home] = res[home]['q']
         if not self.reactive_power_for_voltage_control:
             # calculate active and reactive power for all homes with fixed pf
-            self.active_reactive_power_car()
+            self.car_reactive_power_fixed_pf()
         apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
         assert all(apparent_power_car <= self.max_apparent_power_car**2 + 1e-2), \
             f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
@@ -709,6 +709,6 @@ class Battery:
 
         return feasible
 
-    def active_reactive_power_car(self):
+    def car_reactive_power_fixed_pf(self):
         self.q_car_flex = calculate_reactive_power(
             self.p_car_flex, self.pf_flexible_homes)
