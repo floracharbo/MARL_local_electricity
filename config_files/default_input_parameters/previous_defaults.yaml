@@ -22,6 +22,7 @@ timestamp_changes:
   4: 1676539869.830251
   5: 1676808012.192225
   6: 1677252123.77234
+  7: 1677590232.949602
 
 'RL-n_hidden_layers': [1, 1]
 'RL-aggregate_actions': [1, True]
@@ -41,3 +42,4 @@ timestamp_changes:
 'RL-facmac-hysteretic': [4, False]
 'RL-facmac-beta_to_alpha': [5, 0.5]
 syst-error_with_opt_to_rl_discharge: [6, True]
+grd-tol_rel_voltage_diff: [7, 1.e-2]

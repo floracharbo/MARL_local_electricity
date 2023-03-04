@@ -16,13 +16,15 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-# COLUMNS_OF_INTEREST = ['state_space']
-COLUMNS_OF_INTEREST = None
+COLUMNS_OF_INTEREST = ['n_homes']
 
 FILTER = {
     # 'supervised_loss': False,
-    'facmac-beta_to_alpha': 0.1,
-    'SoC0': 1
+    # 'facmac-beta_to_alpha': 0.1,
+    'SoC0': 1,
+    'grdC_n': 2,
+    'error_with_opt_to_rl_discharge': False,
+    'facmac-hysteretic': True,
 }
 
 def rename_runs(results_path):
@@ -53,6 +55,13 @@ def fix_learning_specific_values(log):
                 log.loc[i, 'syst-force_optimisation'] = True
             if log['syst-error_with_opt_to_rl_discharge'].loc[i]:
                 log.loc[i, 'syst-error_with_opt_to_rl_discharge'] = False
+
+    # gaussian_params = ['start_steps', 'act_noise']
+    # for param in gaussian_params:
+    #     log[f'RL-{param}'] = np.where(log['RL-exploration_mode'] != 'gaussian', 0, log[f"RL-{param}"])
+    # ou_params = ['ou_theta', 'ou_sigma', 'ou_noise_scale', 'ou_stop_episode']
+    # for param in ou_params:
+    #     log[f'RL-{param}'] = np.where(log['RL-exploration_mode'] != 'ornstein_uhlenbeck', 0, log[f'RL-{param}'])
 
     return log
 
@@ -117,7 +126,7 @@ def get_list_all_fields(results_path):
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
-        'n_opti_constraints', 'dim_states_1'
+        'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param', 'facmac-critic_lr_decay_param',
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -646,12 +655,16 @@ def compare_all_runs_for_column_of_interest(
                 column_of_interest[0: 16] == 'supervised_loss_weight'
                 and not log['supervised_loss'].loc[row]
             )
+            relevant_eps = not (
+                column_of_interest == 'facmac-epsilon' and log['facmac-epsilon_decay'].loc[row]
+            )
 
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
                     other_columns, current_setup, row_setup, initial_setup_row,
                     row, indexes_columns_ignore_q_learning
                 )
+
             elif column_of_interest == 'type_learning':
                 only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
                     other_columns, current_setup, row_setup
@@ -675,23 +688,26 @@ def compare_all_runs_for_column_of_interest(
                     if i_col not in indexes_ignore
                 )
 
-            n_homes_on_laptop_only = not (
-                column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
-            )
+            n_homes_on_laptop_only = True
             if FILTER_N_HOMES:
                 n_homes_facmac_traj_only = not (
                     column_of_interest == 'n_homes'
                     and current_setup[other_columns.index('type_learning')] == 'facmac'
                     and not current_setup[other_columns.index('trajectory')]
                 )
+                n_homes_on_laptop_only = not (
+                    column_of_interest == 'n_homes' and current_setup[other_columns.index('server')]
+                )
             else:
                 n_homes_facmac_traj_only = True
+                n_homes_on_laptop_only = True
             relevant_data = \
                 relevant_cnn \
                 and relevant_facmac \
                 and relevant_supervised_loss \
                 and n_homes_on_laptop_only \
-                and n_homes_facmac_traj_only
+                and n_homes_facmac_traj_only \
+                and relevant_eps
             if new_row and only_col_of_interest_changes and relevant_data:
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])
@@ -738,10 +754,18 @@ def compare_all_runs_for_column_of_interest(
                         current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
                         else len(setups)
-                    axs[ax_i].plot(
+                    p = axs[ax_i].plot(
                         values_of_interest_sorted_k[k],
                         best_scores_sorted[k]['ave'],
-                        label=label, linestyle=ls
+                        'o', label=label, linestyle=ls,
+                        markerfacecolor='None'
+                    )
+                    colour = p[0].get_color()
+                    i_best = np.argmax(best_scores_sorted[k]['ave'])
+                    axs[ax_i].plot(
+                        values_of_interest_sorted_k[k][i_best],
+                        best_scores_sorted[k]['ave'][i_best],
+                        'o', markerfacecolor=colour, markeredgecolor=colour
                     )
                     axs[ax_i].fill_between(
                         values_of_interest_sorted_k[k],
@@ -751,11 +775,12 @@ def compare_all_runs_for_column_of_interest(
                     )
                     if column_of_interest == 'n_epochs':
                         axs[ax_i].set_yscale('log')
-
                 axs[2].plot(
-                    values_of_interest_sorted, time_best_score_sorted,
+                    values_of_interest_sorted, time_best_score_sorted, 'o',
                     label=label,
-                    linestyle=ls
+                    linestyle=ls,
+                    markerfacecolor='None',
+                    color=colour
                 )
                 for i in range(len(values_of_interest_sorted) - 1):
                     if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
@@ -814,9 +839,19 @@ def adapt_figure_for_state_space(state_space_vals, axs):
         best_sorted = [best[i] for i in i_sorted]
         env_sorted = [env[i] for i in i_sorted]
         time_sorted = [time[i] for i in i_sorted]
-        axs[0].plot(x_labels_sorted, best_sorted, label=i + 1)
-        axs[1].plot(x_labels_sorted, env_sorted, label=i + 1)
-        axs[2].plot(x_labels_sorted, time_sorted, label=i + 1)
+        p = axs[0].plot(x_labels_sorted, best_sorted, 'o', label=i + 1, markerfacecolor='None')
+        i_best = np.argmax(best_sorted)
+        axs[0].plot(
+            x_labels_sorted[i_best], best_sorted[i_best],
+            'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
+        )
+        p = axs[1].plot(x_labels_sorted, env_sorted, 'o', label=i + 1, markerfacecolor='None')
+        i_best = np.argmax(env_sorted)
+        axs[0].plot(
+            x_labels_sorted[i_best], env_sorted[i_best],
+            'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
+        )
+        axs[2].plot(x_labels_sorted, time_sorted, 'o', label=i + 1, markerfacecolor='None')
 
     return fig, axs
 
@@ -940,7 +975,7 @@ def plot_sensitivity_analyses(new_columns, log):
                 axs[0].axes.xaxis.set_ticklabels([])
                 axs[1].axes.xaxis.set_ticklabels([])
                 plt.xticks(rotation=90)
-            elif column_of_interest == 'rnn_hidden_dim':
+            elif column_of_interest in ['rnn_hidden_dim', 'lr']:
                 axs[0].set_xscale('log')
                 axs[1].set_xscale('log')
                 axs[2].set_xscale('log')

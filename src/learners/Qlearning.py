@@ -254,12 +254,12 @@ class TabularQLearner:
     def epsilon_decay(self, repeat, epoch, mean_eval_rewards):
         mean_eval_rewards = mean_eval_rewards[repeat]
         decrease_eps = {}
-        if self.rl['control_eps'] == 2:
+        if self.rl['q_learning']['control_eps'] == 2:
             self._reward_based_eps_control(mean_eval_rewards)
 
         else:
             for method in self.rl['eval_action_choice']:
-                if self.rl['control_eps'] == 1:
+                if self.rl['q_learning']['control_eps'] == 1:
                     decrease_eps = self._control_decrease_eps(
                         method, epoch, mean_eval_rewards, decrease_eps
                     )

@@ -51,21 +51,26 @@ def _plot_last_epochs_actions(
 def _plot_all_agents_mean_res(
         entries, all_methods_to_plot, axs, all_T_air,
         prm, lw_mean, all_cum_rewards, labels,
-        rows, columns, all_vals, list_repeat, linestyles
+        rows, columns, all_vals, list_repeat, linestyles, sum_agents=False
 ):
     means = {entry: {} for entry in ["T_air", "cum_rewards"] + entries}
     for method in all_methods_to_plot:
-        axs[1, 1].step(range(prm['syst']['N']), np.mean(all_T_air[method], axis=0),
-                       where="post", label=method,
-                       color=prm["save"]["colourse"][method],
-                       lw=lw_mean, alpha=1)
-        means["T_air"][method] = np.mean(all_T_air[method], axis=0)
-
-        axs[3, 0].plot([- 0.01] + list(range(prm['syst']['N'])),
-                       [0] + list(np.mean(all_cum_rewards[method], axis=0)),
-                       label=labels[method],
-                       color=prm["save"]["colourse"][method],
-                       lw=lw_mean, alpha=1)
+        if not sum_agents:
+            axs[1, 1].step(range(prm['syst']['N']), np.mean(all_T_air[method], axis=0),
+                           where="post", label=method,
+                           color=prm["save"]["colourse"][method],
+                           lw=lw_mean, alpha=1)
+            means["T_air"][method] = np.mean(all_T_air[method], axis=0)
+        if sum_agents:
+            ax = axs[2]
+        else:
+            ax = axs[3, 0]
+        ax.plot(
+            [- 0.01] + list(range(prm['syst']['N'])),
+            [0] + list(np.mean(all_cum_rewards[method], axis=0)),
+            label=labels[method],
+            color=prm["save"]["colourse"][method], lw=lw_mean, alpha=1
+        )
         means["cum_rewards"][method] = np.mean(all_T_air[method], axis=0)
         for r, c, e in zip(rows, columns, entries):
             xs = list(range(prm['syst']['N']))
@@ -76,7 +81,6 @@ def _plot_all_agents_mean_res(
                     list_repeat, means, e, method, prm, all_vals,
                     axs[r, c], xs, lw_mean, linestyles
                 )
-
             else:
                 n = len(all_vals[e][method][list_repeat[0]][0])
                 all_vals_e_t_step_mean = np.zeros(n)
@@ -89,16 +93,21 @@ def _plot_all_agents_mean_res(
                     all_vals_e_t_step_mean[step] = np.mean(
                         np.mean(all_vals_e_t_step)
                     )
-                axs[r, c].step(xs, all_vals_e_t_step_mean,
-                               where="post", label=method,
-                               color=prm["save"]["colourse"][method],
-                               lw=lw_mean, alpha=1)
+                ys = all_vals_e_t_step_mean * prm['syst']['n_homes'] if sum_agents else all_vals_e_t_step_mean
+                ax = axs[r] if sum_agents else axs[r, c]
+                ax.step(
+                    xs, ys,
+                    where="post", label=method,
+                    color=prm["save"]["colourse"][method],
+                    lw=lw_mean, alpha=1
+                )
                 means[e][method] = all_vals_e_t_step_mean
+
     return axs
 
 
-def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N):
-    ax = axs[2, 1]
+def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1):
+    ax = axs[row, col]
     ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
     for band in bands_car_availability:
         ax.axvspan(band[0], band[1], alpha=0.3, color="grey")
@@ -137,10 +146,13 @@ def _plot_indoor_air_temp(
 
 def _plot_cum_rewards(
         axs, last, methods_to_plot, labels, prm, row=0,
-        col=0, alpha=1, lw=2, display_labels=True
+        col=0, alpha=1, lw=2, display_labels=True, sum_agents=False
 ):
     cumrewards = {}
-    ax = axs[row, col]
+    if sum_agents:
+        ax = axs[row]
+    else:
+        ax = axs[row, col]
 
     for method in methods_to_plot:
         cumrewards[method] = [
@@ -161,8 +173,11 @@ def _plot_cum_rewards(
 def _plot_grid_price(
         title_ylabel_dict, N, axs=None, cintensity_kg=None,
         row=0, col=0, last=None, colours_non_methods=None,
-        lw=None, display_legend=True):
-    ax = axs[row, col]
+        lw=None, display_legend=True, sum_agents=False):
+    if sum_agents:
+        ax = axs[row]
+    else:
+        ax = axs[row, col]
     ax.step(range(N), last["wholesale"]["baseline"],
             where="post", label="Wholesale",
             color=colours_non_methods[2], lw=lw)
@@ -171,7 +186,7 @@ def _plot_grid_price(
     if display_legend:
         ax.set_ylabel("Grid price [£/kWh]")
         ax.legend(fancybox=True, loc="best")
-    ax2 = axs[row, col].twinx()
+    ax2 = ax.twinx()
     ax2.step(range(N), cintensity_kg, where="post",
              label=title_ylabel_dict["cintensity"][0],
              color=colours_non_methods[1], lw=lw)
@@ -188,7 +203,7 @@ def _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, title_ylabel_dict,
         axs, colours_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
-        rows, columns, entries, all_vals
+        rows, columns, entries, all_vals, sum_agents=False
 ):
     for repeat in list_repeat:
         last, cintensity_kg, methods_to_plot = _get_repeat_data(
@@ -196,24 +211,28 @@ def _plot_all_agents_all_repeats_res(
         _plot_grid_price(
             title_ylabel_dict, prm['syst']['N'], axs=axs, cintensity_kg=cintensity_kg,
             row=0, col=0, last=last,
-            colours_non_methods=colours_non_methods, lw=lw_indiv)
+            colours_non_methods=colours_non_methods, lw=lw_indiv,
+            sum_agents=sum_agents
+        )
 
+        row = 2 if sum_agents else 3
         cum_rewards_repeat = _plot_cum_rewards(
-            axs, last, methods_to_plot, labels, prm, row=3,
+            axs, last, methods_to_plot, labels, prm, row=row,
             col=0, alpha=alpha_not_indiv, lw=lw_all,
-            display_labels=False)
+            display_labels=False, sum_agents=sum_agents
+        )
         for method in all_methods_to_plot:
             all_cum_rewards[method].append(cum_rewards_repeat[method])
-        for home in range(prm["syst"]["n_homes"]):
-            T_air_a = _plot_indoor_air_temp(
-                axs, methods_to_plot, last, title_ylabel_dict,
-                prm, home, row=1, col=1, alpha=alpha_not_indiv,
-                display_labels=False, lw=lw_all)
-            # returned is home dictionary per method of
-            # 24 h profie for that last epoch
-            for method in methods_to_plot:
-                all_T_air[method].append(T_air_a[method])
-
+        if not sum_agents:
+            for home in range(prm["syst"]["n_homes"]):
+                T_air_a = _plot_indoor_air_temp(
+                    axs, methods_to_plot, last, title_ylabel_dict,
+                    prm, home, row=1, col=1, alpha=alpha_not_indiv,
+                    display_labels=False, lw=lw_all)
+                # returned is home dictionary per method of
+                # 24 h profie for that last epoch
+                for method in methods_to_plot:
+                    all_T_air[method].append(T_air_a[method])
         for r, c, e in zip(rows, columns, entries):
             for home in range(prm["syst"]["n_homes"]):
                 for method in methods_to_plot:
@@ -222,16 +241,18 @@ def _plot_all_agents_all_repeats_res(
                     if e == "store":
                         xs = [-0.01] + xs
                         ys = [prm["car"]["store0"][home]] + ys
-                    axs[r, c].step(xs, ys, where="post",
-                                   color=prm["save"]["colourse"][method],
-                                   lw=lw_all, alpha=alpha_not_indiv)
+                    if not sum_agents:
+                        axs[r, c].step(xs, ys, where="post",
+                                       color=prm["save"]["colourse"][method],
+                                       lw=lw_all, alpha=alpha_not_indiv)
                     all_vals[e][method][repeat].append(ys)
-                axs[r, c].set_ylabel(
-                    f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
-                if r == 2:
-                    axs[r, c].set_xlabel("Time [h]")
+                if not sum_agents:
+                    axs[r, c].set_ylabel(
+                        f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
+                    if r == 2:
+                        axs[r, c].set_xlabel("Time [h]")
 
-    return axs, all_T_air, all_vals
+    return axs, all_T_air, all_vals, all_cum_rewards
 
 
 def _get_bands_car_availability(availabilities_car, home, N):
@@ -254,7 +275,7 @@ def _get_bands_car_availability(availabilities_car, home, N):
 def _plot_all_agents_res(
         list_repeat, lw_all, prm, lw_all_list_repeat,
         all_methods_to_plot, title_ylabel_dict, colours_non_methods, labels,
-        lw_indiv, alpha_not_indiv, lw_mean, linestyles
+        lw_indiv, alpha_not_indiv, lw_mean, linestyles, sum_agents=False
 ):
     # do one figure with all agents and repeats
     title_repeat = "all_repeats" if list_repeat is None \
@@ -268,12 +289,20 @@ def _plot_all_agents_res(
     # Indoor temperature
     # Cumulative rewards
     # Battery level
-    fig, axs = plt.subplots(4, 2, figsize=(13, 13))
+    if not sum_agents:
+        n_rows, n_cols = 4, 2
+        rows = [1, 2, 0, 2]
+        columns = [0, 0, 1, 1]
+        entries = ["action", "totcons", "tot_E_heat", "store"]
+    else:
+        n_rows, n_cols = 3, 1
+        rows = [1]
+        columns = [0]
+        entries = ["netp"]
+
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(13, 13))
     all_cum_rewards = {method: [] for method in all_methods_to_plot}
     all_T_air = {method: [] for method in all_methods_to_plot}
-    rows = [1, 2, 0, 2]
-    columns = [0, 0, 1, 1]
-    entries = ["action", "totcons", "tot_E_heat", "store"]
     all_vals = initialise_dict(
         entries, second_level_entries=all_methods_to_plot
     )
@@ -281,25 +310,28 @@ def _plot_all_agents_res(
         for method in all_methods_to_plot:
             all_vals[e][method] = {repeat: [] for repeat in range(prm["RL"]["n_repeats"])}
 
-    axs, all_T_air, all_vals = _plot_all_agents_all_repeats_res(
+    axs, all_T_air, all_vals, all_cum_rewards = _plot_all_agents_all_repeats_res(
         list_repeat, all_methods_to_plot, title_ylabel_dict,
         axs, colours_non_methods, lw_indiv, labels,
         alpha_not_indiv, prm, lw_all, all_cum_rewards, all_T_air,
-        rows, columns, entries, all_vals
+        rows, columns, entries, all_vals, sum_agents=sum_agents
     )
     axs = _plot_all_agents_mean_res(
         entries, all_methods_to_plot, axs, all_T_air,
         prm, lw_mean, all_cum_rewards, labels,
-        rows, columns, all_vals, list_repeat, linestyles
+        rows, columns, all_vals, list_repeat, linestyles, sum_agents=sum_agents
     )
 
     fig.tight_layout()
     title = f"subplots example day all agents {title_repeat}"
+    if sum_agents:
+        title += f" sum_agents"
     title_display = "subplots example day"
-    subtitles = ["A", "B", "C", "D", "E", "F", "G", "H"]
-    for r in range(4):
-        for c in range(2):
-            axs[r, c].set_title(subtitles[r + c * 4])
+    subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    for c in range(n_cols):
+        for r in range(n_rows):
+            ax = axs[r] if n_cols == 1 else axs[r, c]
+            ax.set_title(subtitles[c + r * n_rows])
     formatting_figure(
         prm, fig=fig, title=title,
         legend=False,
@@ -336,6 +368,7 @@ def _plot_indiv_agent_res(
         prm, all_methods_to_plot, title_ylabel_dict,
         colours_non_methods, lw_indiv, labels, linestyles
 ):
+    reduced_version = True
     # Grid price / intensity
     # Heating E
     # Action variable
@@ -344,6 +377,7 @@ def _plot_indiv_agent_res(
     # EV load / availability
     # Cumulative rewards
     # Battery level
+
     for repeat in range(prm["RL"]["n_repeats"]):
         last, cintensity_kg, methods_to_plot = \
             _get_repeat_data(repeat, all_methods_to_plot, prm["paths"]["folder_run"])
@@ -353,15 +387,23 @@ def _plot_indiv_agent_res(
             last["batch"][e] for e in ["loads_car", "avail_car"]
         ]
 
-        for home in range(
-            min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
-        ):
+        if reduced_version:
+            n_rows, n_cols = 2, 2
+            figsize = (13, 7)
+        else:
+            n_rows, n_cols = 4, 2
+            figsize = (13, 13)
+
+        # for home in range(
+        #     min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
+        # ):
+        for home in range(50):
             xs = range(len(loads_car[home]))
             bands_car_availability = _get_bands_car_availability(
                 availabilities_car, home, prm['syst']['N']
             )
 
-            fig, axs = plt.subplots(4, 2, figsize=(13, 13))
+            fig, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
 
             # carbon intensity, wholesale price and grid cost coefficient
             _plot_grid_price(
@@ -369,25 +411,36 @@ def _plot_indiv_agent_res(
                 row=0, col=0, last=last,
                 colours_non_methods=colours_non_methods, lw=lw_indiv)
 
+            if reduced_version:
+                row, col = 0, 1
+            else:
+                row, col = 2, 1
             axs = _plot_ev_loads_and_availability(
                 axs, xs, loads_car, home, bands_car_availability, prm['syst']['N'],
+                row=row, col=col
             )
 
             # cum rewards
-            _plot_cum_rewards(
-                axs, last, methods_to_plot, labels, prm,
-                row=3, col=0, lw=lw_indiv)
+            if not reduced_version:
+                _plot_cum_rewards(
+                    axs, last, methods_to_plot, labels, prm,
+                    row=3, col=0, lw=lw_indiv)
 
-            # indoor air temp
-            _plot_indoor_air_temp(
-                axs, methods_to_plot, last,
-                title_ylabel_dict, prm, home,
-                row=1, col=1, lw=lw_indiv
-            )
+                # indoor air temp
+                _plot_indoor_air_temp(
+                    axs, methods_to_plot, last,
+                    title_ylabel_dict, prm, home,
+                    row=1, col=1, lw=lw_indiv
+                )
 
-            rows = [1, 2, 0, 3]
-            columns = [0, 0, 1, 1]
-            entries = ["action", "totcons", "tot_E_heat", "store"]
+            if reduced_version:
+                rows = [1, 1]
+                columns = [0, 1]
+                entries = ["totcons",  "store"]
+            else:
+                rows = [1, 2, 0, 3]
+                columns = [0, 0, 1, 1]
+                entries = ["action", "totcons", "tot_E_heat", "store"]
             for r, c, e in zip(rows, columns, entries):
                 ax = axs[r, c]
                 for method in methods_to_plot:
@@ -398,7 +451,6 @@ def _plot_indiv_agent_res(
                         ax = _plot_indiv_agent_res_action(
                             prm, ys, xs, lw_indiv, linestyles, method, ax
                         )
-
                     else:
                         if e == "store" and method == "opt":
                             ys = ys + [prm["car"]["store0"][home]]
@@ -406,21 +458,31 @@ def _plot_indiv_agent_res(
                             ys = [prm["car"]["store0"][home]] + ys
                         else:
                             ys = [0] + ys
-                        ax.step(xs, ys, where="post", label=method,
-                                color=prm["save"]["colourse"][method],
+                        if reduced_version and method != 'baseline':
+                            colour = (192/255, 0, 0)
+                        else:
+                            colour = prm["save"]["colourse"][method]
+                        if reduced_version and method != 'baseline':
+                            label = 'MARL policy'
+                        else:
+                            label = method
+                        ax.step(xs, ys, where="post", label=label,
+                                color=colour,
                                 lw=lw_indiv)
                 axs[r, c].set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
-                axs[3, c].set_xlabel("Time [h]")
+                axs[n_rows - 1, c].set_xlabel("Time [h]")
+            axs[n_rows - 1, 1].legend()
 
             fig.tight_layout()
             title = f"subplots example day repeat {repeat} home {home}"
             title_display = "subplots example day"
-            subtitles = ["A", "B", "C", "D", "E", "F", "G", "H"]
-
-            for r in range(4):
-                for c in range(2):
-                    axs[r, c].set_title(subtitles[r + c * 4])
+            if reduced_version:
+                title += '_reduced_version'
+            subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
+            for c in range(n_cols):
+                for r in range(n_rows):
+                    axs[r, c].set_title(subtitles[c + r * n_cols])
             formatting_figure(
                 prm, fig=fig, title=title,
                 legend=False,
@@ -429,7 +491,7 @@ def _plot_indiv_agent_res(
             )
 
 
-def plot_res(prm, indiv=True, list_repeat=None):
+def plot_res(prm, indiv=True, list_repeat=None, sum_agents=False):
     # indiv = plot figure for one agent at a time
     # if false, do all the lines on the same plot in light
     # with one thick line average
@@ -498,7 +560,7 @@ def plot_res(prm, indiv=True, list_repeat=None):
         _plot_all_agents_res(
             list_repeat, lw_all, prm, lw_all_list_repeat,
             all_methods_to_plot, title_ylabel_dict, colours_non_methods, labels,
-            lw_indiv, alpha_not_indiv, lw_mean, linestyles
+            lw_indiv, alpha_not_indiv, lw_mean, linestyles, sum_agents=sum_agents
         )
 
 

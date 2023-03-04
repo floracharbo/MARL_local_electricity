@@ -143,7 +143,6 @@ class EnvSpaces:
         if self.i0_costs == 12 * 24:
             np.save("max_bat_dem_agg", max_bat_dem_agg)
             print("save max_bat_dem_agg")
-        columns = ["name", "min", "max", "n", "discrete"]
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
         if not self.reactive_power_for_voltage_control:
@@ -156,6 +155,7 @@ class EnvSpaces:
             + prm['car']['d_max'] \
             + max_normcons * f_max["loads"] * prm['loads']['flex'][0] * 0.75
         n_clus = prm['n_clus']
+        columns = ["name", "min", "max", "n", "discrete"]
         info = [
             ["None", 0, 0, 1, 1],
             ["hour", 0, prm['syst']['N'], n_other_states, 0],
@@ -206,9 +206,9 @@ class EnvSpaces:
 
             # action
             ["action", 0, 1, rl["n_discrete_actions"], 0],
-            ["flexible_cons_action", 0, 1, rl["n_discrete_actions"], 0],
-            ["flexible_heat_action", 0, 1, rl["n_discrete_actions"], 0],
-            ["battery_action", -1, 1, rl["n_discrete_actions"], 0],
+            ["flexible_cons_action", rl['all_low_actions'][0], 1, rl["n_discrete_actions"], 0],
+            ["flexible_heat_action", rl['all_low_actions'][1], 1, rl["n_discrete_actions"], 0],
+            ["battery_action", rl['all_low_actions'][2], 1, rl["n_discrete_actions"], 0],
             ["flexible_q_car_action", -1, 1, rl["n_discrete_actions"], 0],
         ]
 
@@ -693,7 +693,11 @@ class EnvSpaces:
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
             if not (0 <= normalised_val <= 1):
-                print()
+                print(f"val {val} normalised_val {normalised_val} max_home {max_home} descriptor {descriptor}")
+                if abs(normalised_val) < abs(normalised_val - 1):
+                    normalised_val = 0
+                else:
+                    normalised_val = 1
             assert 0 <= normalised_val <= 1, \
                 f"val {normalised_val} max_home {max_home} descriptor {descriptor}"
         else:

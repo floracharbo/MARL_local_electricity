@@ -212,7 +212,8 @@ class ActionSelector:
         if self.rl['action_selector'] == "gumbel":
             actions = self.mac[method].select_actions(
                 self.episode_batch[method], t_ep=step, t_env=t_env,
-                test_mode=evaluation, explore=(not evaluation))
+                test_mode=evaluation
+            )
             action = th.argmax(actions, dim=-1).long()
         else:
             action = self.mac[method].select_actions(
@@ -220,9 +221,10 @@ class ActionSelector:
                 t_env=t_env, test_mode=evaluation
             )
 
-        action = [[float(action[0][home][i])
-                   for i in range(self.rl['dim_actions'])]
-                  for home in self.homes]
+        action = [
+            [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
+            for home in self.homes
+        ]
 
         return action
 

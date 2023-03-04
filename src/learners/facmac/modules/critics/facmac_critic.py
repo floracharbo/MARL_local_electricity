@@ -36,8 +36,7 @@ class FACMACCritic(nn.Module):
             )
         if self.rl['nn_type_critic'] == 'cnn':
             inputs = inputs.view(inputs.size()[0], 1, inputs.size()[1])
-
-        x = F.relu(self.fc1(inputs))
+        x = F.relu(self.fc1(inputs.type(th.float32)))
         for i in range(len(self.layers)):
             if self.rl['nn_type_critic'] == 'cnn' and i == self.rl['n_cnn_layers_critic'] - 1:
                 x = nn.Flatten()(x)

@@ -443,6 +443,7 @@ class Network:
 
         res["hourly_grid_energy_costs"][time_step] = hourly_grid_energy_costs_pp
         res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
+        res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
         res["network_costs"] += delta_voltage_costs * self.weight_network_costs

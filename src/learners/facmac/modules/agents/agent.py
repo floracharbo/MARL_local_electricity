@@ -89,13 +89,25 @@ class Agent(nn.Module):
 
     def init_hidden(self):
         # make hidden states on same device as model
-        if self.rl['data_parallel']:
-            return self.fc1.module.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
-        elif self.rl['nn_type'] in ['lstm', 'rnn']:
-            self.hidden = None
-            return (
-                self.fc1.weight_hh_l0.new(1, self.rl['rnn_hidden_dim']).zero_(),
-                self.fc1.weight_ih_l0.new(1, self.rl['rnn_hidden_dim']).zero_()
-            )
+        if self.rl['init_weights_zero']:
+            if self.rl['data_parallel']:
+                return self.fc1.module.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
+            elif self.rl['nn_type'] in ['lstm', 'rnn']:
+                self.hidden = None
+                return (
+                    self.fc1.weight_hh_l0.new(1, self.rl['rnn_hidden_dim']).zero_(),
+                    self.fc1.weight_ih_l0.new(1, self.rl['rnn_hidden_dim']).zero_()
+                )
+            else:
+                return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
         else:
-            return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
+            if self.rl['data_parallel']:
+                return self.fc1.module.weight.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros'])
+            elif self.rl['nn_type'] in ['lstm', 'rnn']:
+                self.hidden = None
+                return (
+                    self.fc1.weight_hh_l0.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros']),
+                    self.fc1.weight_ih_l0.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros'])
+                )
+            else:
+                return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros'])

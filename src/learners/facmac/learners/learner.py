@@ -20,6 +20,8 @@ class Learner:
         self.agent_params = list(mac.parameters())
         self.named_params = dict(mac.named_parameters())
         self.cuda_available = True if th.cuda.is_available() else False
+        self.lr = rl['facmac']['lr0'] if rl['facmac']['lr_decay'] else rl['lr']
+        self.critic_lr = rl['facmac']['critic_lr0'] if rl['facmac']['lr_decay'] else rl['facmac']['critic_lr']
 
         if self.__name__[0:6] == 'MADDPG':
             self.maddpg_init(mac, scheme, rl)
@@ -53,24 +55,24 @@ class Learner:
 
         if self.rl['optimizer'] == "rmsprop":
             self.agent_optimiser = RMSprop(params=self.agent_params,
-                                           lr=rl['lr'],
+                                           lr=self.lr,
                                            alpha=self.rl['optim_alpha'],
                                            eps=self.rl['optim_eps'])
         elif self.rl['optimizer'] == "adam":
             self.agent_optimiser = Adam(params=self.agent_params,
-                                        lr=rl['lr'],
+                                        lr=self.lr,
                                         eps=self.rl['optimizer_epsilon'])
         else:
             raise Exception(f"unknown optimizer {self.rl['optimizer']}")
 
         if self.rl['optimizer'] == "rmsprop":
             self.critic_optimiser = RMSprop(params=self.critic_params,
-                                            lr=self.rl['facmac']['critic_lr'],
+                                            lr=self.critic_lr,
                                             alpha=self.rl['optim_alpha'],
                                             eps=self.rl['optim_eps'])
         elif self.rl['optimizer'] == "adam":
             self.critic_optimiser = Adam(params=self.critic_params,
-                                         lr=self.rl['facmac']['critic_lr'],
+                                         lr=self.critic_lr,
                                          eps=self.rl['optimizer_epsilon'])
         else:
             raise Exception(f"unknown optimizer {self.rl['optimizer']}")

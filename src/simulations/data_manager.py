@@ -43,8 +43,8 @@ class DataManager:
             if self.prm['grd']['manage_agg_power'] or self.prm['grd']['manage_voltage'] \
             else None
         if (
-                self.prm['grd']['manage_voltage']
-                and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']
+            self.prm['grd']['manage_voltage']
+            and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']
         ):
             compare_optimiser_pandapower = self.env.network.compare_optimiser_pandapower
         else:

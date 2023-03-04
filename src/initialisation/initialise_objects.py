@@ -386,33 +386,38 @@ def _exploration_parameters(rl):
     rl["T_decay_param"] = (rl["Tend"] / rl["T0"]) ** (1 / rl["n_epochs"])
 
     type_learning = rl["type_learning"]
-    if type_learning in ["DDQN", "DQN", "q_learning"]:
-        if rl[type_learning]["control_eps"] == 1 \
+    if type_learning in ["DDQN", "DQN", "q_learning", "facmac"]:
+        if 'control_eps' in rl[type_learning] \
+                and rl[type_learning]["control_eps"] == 1 \
                 and "baseline" not in rl["evaluation_methods"]:
             rl["evaluation_methods"].append("baseline")
-        if rl[type_learning]["epsilon_end"] == "best":
-            # take result of sensitivity analysis
-            if rl[type_learning]["control_eps"] < 2:
-                rl[type_learning]["epsilon_end"] \
-                    = rl[type_learning]["best_eps_end"][
-                    rl[type_learning]["control_eps"]]
-            else:
-                rl[type_learning]["epsilon_end"] = 1e-2  # not going to use it
+        if "epsilon_end" in rl[type_learning]:
+            if rl[type_learning]["epsilon_end"] == "best":
+                # take result of sensitivity analysis
+                if rl[type_learning]["control_eps"] < 2:
+                    rl[type_learning]["epsilon_end"] \
+                        = rl[type_learning]["best_eps_end"][
+                        rl[type_learning]["control_eps"]]
+                else:
+                    rl[type_learning]["epsilon_end"] = 1e-2  # not going to use it
 
-        if isinstance(rl[type_learning]["epsilon_end"], float):
-            rl[type_learning]["epsilon_decay_param"] = \
-                (rl[type_learning]["epsilon_end"]
-                 / rl[type_learning]["epsilon0"]) \
-                ** (1 / (rl[type_learning]["end_decay"]
-                         - rl[type_learning]["start_decay"]))
-        else:
-            rl[type_learning]["epsilon_decay_param"] = {}
-            epsilon_end = rl[type_learning]["epsilon_end"]
-            epsilon0 = rl[type_learning]["epsilon0"]
-            for exploration_method in epsilon_end:
-                rl[type_learning]["epsilon_decay_param"][exploration_method] \
-                    = (epsilon_end[exploration_method] / epsilon0) \
-                    ** (1 / rl["tot_learn_cycles"])
+            if isinstance(rl[type_learning]["epsilon_end"], float):
+                rl[type_learning]["epsilon_decay_param"] = \
+                    (rl[type_learning]["epsilon_end"]
+                     / rl[type_learning]["epsilon0"]) \
+                    ** (1 / (rl[type_learning]["end_decay"]
+                             - rl[type_learning]["start_decay"]))
+            else:
+                rl[type_learning]["epsilon_decay_param"] = {}
+                epsilon_end = rl[type_learning]["epsilon_end"]
+                epsilon0 = rl[type_learning]["epsilon0"]
+                for exploration_method in epsilon_end:
+                    rl[type_learning]["epsilon_decay_param"][exploration_method] \
+                        = (epsilon_end[exploration_method] / epsilon0) \
+                        ** (1 / rl["tot_learn_cycles"])
+    if type_learning == 'facmac' and "lr_decay" in rl['facmac'] and rl['facmac']['lr_decay']:
+        rl['facmac']['lr_decay_param'] = (rl['facmac']['lr_end'] / rl['facmac']['lr0']) ** (1 / rl['n_epochs'])
+        rl['facmac']['critic_lr_decay_param'] = (rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']) ** (1 / rl['n_epochs'])
 
     # for key in ["epsilon_end", "T", "tauMT", "tauLT",
     #             "control_window_eps", "epsilon_decay_param"]:
@@ -449,6 +454,8 @@ def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
 
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
+    if syst['run_mode'] == 1:
+        rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
 
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
@@ -463,7 +470,7 @@ def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
             rl[key] *= syst["N"]
         if syst['run_mode'] == 1:
             for key in ["low_action", "high_action"]:
-                rl[key] *= syst["N"]
+                rl[key] = np.tile(rl[key], syst["N"])
 
 
 def _remove_states_incompatible_with_trajectory(rl):
@@ -587,6 +594,10 @@ def _naming_file_extension_network_parameters(grd):
             if default_grd[upper_quantity] != grd[upper_quantity]:
                 file_extension += f"_{management}_limit" + str(grd[upper_quantity])
             if (
+                default_grd[lower_quantity] != grd[lower_quantity]
+                and grd[upper_quantity] != grd[lower_quantity]
+            ):
+            if (
                     default_grd[lower_quantity] != grd[lower_quantity]
                     and grd[upper_quantity] != grd[lower_quantity]
             ):
@@ -594,12 +605,17 @@ def _naming_file_extension_network_parameters(grd):
             if default_grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_upper}']:
                 file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
             if (
+                default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
+                and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
+            ):
+            if (
                     default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
                     and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
             ):
                 file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
 
             if management == 'manage_voltage':
+                if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
                 if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
                     file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
                 if grd['reactive_power_for_voltage_control']:
@@ -702,6 +718,9 @@ def _update_grd_prm(prm):
     grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
     grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
     grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
+    grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
+    grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
+    grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
@@ -728,6 +747,7 @@ def _update_grd_prm(prm):
         grd['penalise_individual_exports'] = False
     else:
         grd['reactive_power_for_voltage_control'] = False
+
 
 
 def _syst_info(prm):

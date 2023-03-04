@@ -22,7 +22,7 @@ weight_network_costs: 1 # Reward weight of network costs voltage_costs and impor
 base_power: 1000000 # base power for per unit system in W, as defined in pandapower
 base_voltage: 416 # base voltage for per unit system in V
 subset_line_losses_modelled: 30 # Number of lines accounted for in losses
-tol_rel_voltage_diff: 0.001
+tol_rel_voltage_diff: 1.e-3
 tol_rel_voltage_costs: 1.e-2
 tol_abs_line_losses: 1.e-2
 reactive_power_for_voltage_control: False
