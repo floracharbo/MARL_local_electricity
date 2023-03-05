@@ -191,7 +191,7 @@ class ActionSelector:
         return action
 
     def _select_action_facmac(
-            self, current_state, tf_prev_state, step, evaluation, method, t_env
+        self, current_state, tf_prev_state, step, evaluation, method, t_env
     ):
         pre_transition_data = {"avail_actions": [self.rl['avail_actions']], }
         if self.rl['trajectory']:
