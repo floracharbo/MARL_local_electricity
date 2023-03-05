@@ -15,7 +15,8 @@ class BasicMAC:
         input_shape = self._get_input_shape(scheme)
         self.N = N
         self._build_agents(input_shape)
-        self.agent_output_type = rl['agent_output_type']
+        for attribute in ['agent_output_type', 'action_selection_its', 'state_exec_to_train', 'action_train_to_exec']:
+            setattr(self, attribute, rl[attribute])
         self.hidden_states = None
         self.epsilon = rl['facmac']['epsilon0'] if rl['facmac']['epsilon_decay'] else rl['facmac']['epsilon']
 
