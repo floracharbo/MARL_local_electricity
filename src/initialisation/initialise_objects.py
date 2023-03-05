@@ -325,11 +325,11 @@ def _update_bat_prm(prm):
         car["cap"]) if isinstance(car["cap"], list)\
         else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
-        for passive_ext in ["", "P"]:
-            car["own_car" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
-                if isinstance(car["own_car" + passive_ext], (int, float))\
-                and car["own_car" + passive_ext] == 1 \
-                else np.array(car["own_car" + passive_ext])
+        for ext in syst['n_homes_extensions_all']:
+            car["own_car" + ext] = np.ones(syst["n_homes" + ext]) \
+                if isinstance(car["own_car" + ext], (int, float))\
+                and car["own_car" + ext] == 1 \
+                else np.array(car["own_car" + ext])
         car["cap"] = np.where(car["own_car"], car["cap"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
@@ -338,10 +338,11 @@ def _update_bat_prm(prm):
     car["min_charge"] = [car["cap"][home] * max(car["SoCmin"], car["baseld"])
                          for home in range(syst["n_homes"])]
     car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
-    if "capP" not in car:
-        car["capP"] = np.full(syst["n_homesP"], car["cap"][0])
-    car["store0P"] = car["SoC0"] * car["capP"]
-    car["min_chargeP"] = car["capP"] * max(car["SoCmin"], car["baseld"])
+    for ext in syst['n_homes_extensions']:
+        if car["cap" + ext] is None:
+            car["cap" + ext] = np.full(syst["n_homes" + ext], car["cap"][0])
+        car["store0" + ext] = car["SoC0"] * car["cap" + ext]
+        car["min_charge" + ext] = car["cap" + ext] * max(car["SoCmin"], car["baseld"])
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -500,6 +501,31 @@ def _expand_grdC_states(rl):
     return rl
 
 
+def rl_apply_n_homes_test(syst, rl):
+    if syst['n_homes_test'] != syst['n_homes']:
+        if rl['homes_exec_per_home_train'] is None:
+            rl['homes_exec_per_home_train'] = [[] for home_train in range(syst['n_homes'])]
+            home_train = 0
+            for home_exec in range(syst['n_homes_test']):
+                rl['homes_exec_per_home_train'][home_train].append(home_exec)
+                home_train = home_train + 1 if home_train + 1 < syst['n_homes'] else 0
+        rl['action_selection_its'] = np.max(
+            [len(homes_exec_per_home_train) for homes_exec_per_home_train in syst['homes_exec_per_home_train']]
+        )
+        rl['action_train_to_exec'] = np.zeros((rl['action_selection_its'], syst['n_hones'], syst['n_homes_test']))
+        # actions[n_homes_test] = actions[n_homes_train] x [n_homes_train x n_homes_test]
+        # states[n_homes_train] = actions[n_homes_test] x [n_homes_test x n_homes_train]
+        for it in range(rl['action_selection_its']):
+            for home_train in syst['n_homes']:
+                if len(rl['homes_exec_per_home_train'][home_train]) >= it:
+                    rl['action_train_to_exec'][
+                        it, home_train, rl['homes_exec_per_home_train'][home_train][it]
+                    ] = 1
+            rl['state_exec_to_train'][it] = np.transpose(rl['action_train_to_exec'][it])
+
+    return rl
+
+
 def _update_rl_prm(prm, initialise_all):
     """
     Compute parameters relating to RL experiments.
@@ -533,10 +559,10 @@ def _update_rl_prm(prm, initialise_all):
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
 
-    for passive_ext in ["P", ""]:
-        rl["default_action" + passive_ext] = [
+    for ext in syst['n_homes_extensions_all']:
+        rl["default_action" + ext] = [
             [rl["default_action"] for _ in range(rl["dim_actions"])]
-            for _ in range(syst["n_homes" + passive_ext])
+            for _ in range(syst["n_homes" + ext])
         ]
 
     _exploration_parameters(rl)
@@ -561,6 +587,8 @@ def _update_rl_prm(prm, initialise_all):
 
     if rl['trajectory']:
         rl['gamma'] = 0
+
+    rl_apply_n_homes_test(syst, rl)
 
     return rl
 
@@ -733,22 +761,28 @@ def _syst_info(prm):
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
+    if syst['n_homes_test'] is None:
+        syst['n_homes_test'] = syst['n_homes']
+    syst['n_homes_extensions'] = ["P"]
+    if syst['n_homes_test'] != syst['n_homes']:
+        syst['n_homes_extensions'].append("_test")
+    syst["n_homes_extensions_all"] = syst['n_homes_extensions'] + [""]
     syst['timestamp'] = datetime.datetime.now().timestamp()
     syst['share_active'] = syst['n_homes'] / syst['n_homes_all']
     syst['interval_to_month'] = prm['syst']['H'] * 365 / 12
 
 
 def _homes_info(loads, syst, gen, heat):
-    for passive_ext in ["", "P"]:
-        gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-            if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
-        heat["own_heat" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
-            if isinstance(heat["own_heat" + passive_ext], int) \
-            and heat["own_heat" + passive_ext] == 1 \
-            else np.array(heat["own_heat" + passive_ext])
-        for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
+    for ext in syst['n_homes_extensions_all']:
+        gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \
+            if gen["own_PV" + ext] == 1 else gen["own_PV" + ext]
+        heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) \
+            if isinstance(heat["own_heat" + ext], int) \
+            and heat["own_heat" + ext] == 1 \
+            else np.array(heat["own_heat" + ext])
+        for ownership in ["own_loads" + ext, "own_flex" + ext]:
             if ownership in loads:
-                loads[ownership] = np.ones(syst["n_homes" + passive_ext]) * loads[ownership] \
+                loads[ownership] = np.ones(syst["n_homes" + ext]) * loads[ownership] \
                     if isinstance(loads[ownership], int) else loads[ownership]
 
 
@@ -789,10 +823,10 @@ def initialise_prm(prm, no_run, initialise_all=True):
         syst = _load_data_dictionaries(paths, syst)
         _update_grd_prm(prm)
         loads["share_flex"], loads["max_delay"] = loads["flex"]
-        for passive_ext in ['', 'P']:
-            loads["share_flexs" + passive_ext] = [
-                0 if not loads["own_flex" + passive_ext][home] else loads["share_flex"]
-                for home in range(syst["n_homes" + passive_ext])
+        for ext in syst['n_homes_extensions_all']:
+            loads["share_flexs" + ext] = [
+                0 if not loads["own_flex" + ext][home] else loads["share_flex"]
+                for home in range(syst["n_homes" + ext])
             ]
 
     # car avail, type, factors

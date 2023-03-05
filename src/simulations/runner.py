@@ -139,9 +139,9 @@ class Runner:
             self.record.save(end_of='repeat')
             repeat += 1
 
-        for passive_ext in ['P', '']:
-            if len(self.explorer.data.seeds[passive_ext]) > len(self.rl['seeds'][passive_ext]):
-                self.rl['seeds'][passive_ext] = self.explorer.seeds[passive_ext].copy()
+        for ext in self.prm['syst']['n_homes_extensions_all']:
+            if len(self.explorer.data.seeds[ext]) > len(self.rl['seeds'][ext]):
+                self.rl['seeds'][ext] = self.explorer.seeds[ext].copy()
 
     def _initialise_buffer_learner_mac_facmac(self, method):
         rl = self.rl
