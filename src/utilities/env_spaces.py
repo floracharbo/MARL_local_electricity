@@ -212,6 +212,9 @@ class EnvSpaces:
             ["flexible_q_car_action", rl['all_low_actions'][3], 1, rl["n_discrete_actions"], 0],
         ]
 
+        if not self.reactive_power_for_voltage_control:
+            info = [i for i in info if i[0] != "flexible_q_car_action"]
+
         self.space_info = pd.DataFrame(info, columns=columns)
 
     def descriptor_for_info_lookup(self, descriptor):
@@ -222,9 +225,15 @@ class EnvSpaces:
         [self.descriptors, self.granularity, self.maxval, self.minval,
          self.multipliers, self.global_multipliers, self.n, self.discrete,
          self.possible] = [{} for _ in range(9)]
-        action_space = ["action"] if self.aggregate_actions \
-            else ["flexible_cons_action", "flexible_heat_action",
+        if self.aggregate_actions:
+            action_space = ["action"]
+        elif self.reactive_power_for_voltage_control:
+                action_space = ["flexible_cons_action", "flexible_heat_action",
                   "battery_action", "flexible_q_car_action"]
+        else:
+            action_space = ["flexible_cons_action", "flexible_heat_action",
+                  "battery_action"]
+    
         for space, descriptors in zip(["state", "action"],
                                       [state_space, action_space]):
             # looping through state and action spaces
