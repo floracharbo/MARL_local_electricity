@@ -141,6 +141,7 @@ def _make_action_space(rl):
     rl["actions_min_cpu"] = action_min_tensor.cpu()
     rl["actions_min_numpy"] = action_min_tensor.cpu().numpy()
     rl["avail_actions"] = np.ones((rl["n_homes"], rl["dim_actions"]))
+    rl["avail_actions_test"] = np.ones((rl["n_homes_test"], rl["dim_actions"]))
 
     # make conversion functions globally available
     rl["actions2unit"] = _actions_to_unit_box
@@ -164,7 +165,8 @@ def _make_scheme(rl):
 
     # Default/Base scheme
     rl["scheme"] = {
-        "state": {"vshape": rl["state_shape"]},
+        "state": {"vshape": rl["state_shape"], "vshape_test": rl["state_shape_test"]},
+
         "obs": {"vshape": rl["obs_shape"], "group": "agents"},
         "actions":
             {"vshape": (actions_vshape,),
@@ -180,9 +182,11 @@ def _make_scheme(rl):
              "dtype": th.int},
         "reward": {"vshape": (1,)},
         "terminated": {"vshape": (1,), "dtype": th.uint8},
+        # "episode_const": True,
     }
     rl["groups"] = {
-        "agents": rl["n_homes"]
+        "agents": rl["n_homes"],
+        "agents_test": rl["n_homes_test"],
     }
 
     if not rl["actions_dtype"] == np.float32:
@@ -214,12 +218,14 @@ def _facmac_initialise(prm):
         corresponding to prm["RL"]; with updated parameters
     """
     rl = prm["RL"]
-    rl["n_homes"] = prm["syst"]["n_homes"]
+    for n_homes in ['n_homes', 'n_homes_test']:
+        rl[n_homes] = prm["syst"][n_homes]
 
     rl["obs_shape"] = len(rl["state_space"])
     if rl['trajectory']:
         rl['obs_shape'] *= prm['syst']['N']
     rl["state_shape"] = rl["obs_shape"] * rl["n_homes"]
+    rl["state_shape_test"] = rl["obs_shape"] * rl["n_homes_test"]
 
     if not prm['syst']["server"]:
         rl["use_cuda"] = False
@@ -510,18 +516,27 @@ def rl_apply_n_homes_test(syst, rl):
                 rl['homes_exec_per_home_train'][home_train].append(home_exec)
                 home_train = home_train + 1 if home_train + 1 < syst['n_homes'] else 0
         rl['action_selection_its'] = np.max(
-            [len(homes_exec_per_home_train) for homes_exec_per_home_train in syst['homes_exec_per_home_train']]
+            [len(homes_exec_per_home_train) for homes_exec_per_home_train in rl['homes_exec_per_home_train']]
         )
-        rl['action_train_to_exec'] = np.zeros((rl['action_selection_its'], syst['n_hones'], syst['n_homes_test']))
+        rl['action_train_to_exec'] = np.zeros((rl['action_selection_its'], syst['n_homes'], syst['n_homes_test']))
+        rl['state_exec_to_train'] = np.zeros((rl['action_selection_its'], syst['n_homes_test'], syst['n_homes']))
         # actions[n_homes_test] = actions[n_homes_train] x [n_homes_train x n_homes_test]
         # states[n_homes_train] = actions[n_homes_test] x [n_homes_test x n_homes_train]
         for it in range(rl['action_selection_its']):
-            for home_train in syst['n_homes']:
-                if len(rl['homes_exec_per_home_train'][home_train]) >= it:
+            for home_train in range(syst['n_homes']):
+                if len(rl['homes_exec_per_home_train'][home_train]) > it:
                     rl['action_train_to_exec'][
                         it, home_train, rl['homes_exec_per_home_train'][home_train][it]
                     ] = 1
             rl['state_exec_to_train'][it] = np.transpose(rl['action_train_to_exec'][it])
+    else:
+        rl['action_selection_its'] = 1
+        rl['action_train_to_exec'] = np.ones((rl['action_selection_its'], syst['n_homes'], syst['n_homes_test']))
+        rl['state_exec_to_train'] = np.ones((rl['action_selection_its'], syst['n_homes_test'], syst['n_homes']))
+
+    if rl['type_learning'] == 'facmac':
+        for info in ['action_train_to_exec', 'state_exec_to_train']:
+            rl[info] = th.Tensor(rl[info])
 
     return rl
 
@@ -560,10 +575,7 @@ def _update_rl_prm(prm, initialise_all):
         rl["instant_feedback"] = True
 
     for ext in syst['n_homes_extensions_all']:
-        rl["default_action" + ext] = [
-            [rl["default_action"] for _ in range(rl["dim_actions"])]
-            for _ in range(syst["n_homes" + ext])
-        ]
+        rl["default_action" + ext] = np.full((syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"])
 
     _exploration_parameters(rl)
 
@@ -693,8 +705,10 @@ def opt_res_seed_save_paths(prm):
 
     if os.path.exists(paths["seeds_file"]):
         rl["seeds"] = np.load(paths["seeds_file"], allow_pickle=True).item()
+        if "_test" not in rl['seeds']:
+            rl['seeds']['_test'] = []
     else:
-        rl["seeds"] = {"P": [], "": []}
+        rl["seeds"] = {ext: [] for ext in syst['n_homes_extensions_all']}
     rl["init_len_seeds"] = {}
     for passive_str in ["", "P"]:
         rl["init_len_seeds"][passive_str] = len(rl["seeds"][passive_str])
