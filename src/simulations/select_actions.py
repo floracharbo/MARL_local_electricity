@@ -77,7 +77,7 @@ class ActionSelector:
             )
         elif rl['type_learning'] == 'facmac':
             if ext == '_test':
-                action = np.zeros((self.n_homes_test , rl['dim_actions']))
+                action = np.zeros((self.n_homes_test, rl['dim_actions']))
                 for it in range(rl['action_selection_its']):
                     current_state_it = np.zeros((self.n_homes, rl['dim_states']))
                     for i in range(rl['dim_states']):
