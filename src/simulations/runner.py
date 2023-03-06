@@ -154,7 +154,8 @@ class Runner:
             rl['env_info']["episode_limit"] + 1 if rl['runner_scope'] == "episodic" else 2,
             preprocess=rl['preprocess'],
             device="cpu" if rl['buffer_cpu_only']
-            else rl['device'])
+            else rl['device'],
+        )
 
         # Setup multiagent controller here
         self.mac[method] = mac_REGISTRY[rl['mac']](
@@ -433,8 +434,8 @@ class Runner:
     ):
         if set_date:
             date0, delta, i0_costs = self._set_date(
-                repeat, epoch, i_explore, date0, delta,
-                i0_costs, new_env)
+                repeat, epoch, i_explore, date0, delta, i0_costs, new_env
+            )
 
         # exploration - obtain experience
         exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=evaluation)
