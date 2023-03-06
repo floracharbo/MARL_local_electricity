@@ -51,6 +51,7 @@ class LocalElecEnv:
         self.labels_day_trans = prm['syst']['labels_day_trans']
         self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
+        self.ext = ''
 
         if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
             self.network = Network(prm)
@@ -102,15 +103,25 @@ class LocalElecEnv:
                 factors0=prm['syst']['f0'],
                 clusters0=prm['syst']['clus0'],
                 prm=prm,
-                other_prm={'car': {'cap': prm['car']['capP']}},
+                other_prm={
+                    'car': {
+                        'cap': prm['car']['capP'],
+                        'own_car': prm['car']['own_carP']
+                    }
+                },
             )
         if prm['syst']['n_homes_test'] != prm['syst']['n_homes']:
             self.test_hedge = HEDGE(
-                n_homes=prm['syst']['n_homesP'],
+                n_homes=prm['syst']['n_homes_test'],
                 factors0=prm['syst']['f0'],
                 clusters0=prm['syst']['clus0'],
                 prm=prm,
-                other_prm={'car': {'cap': prm['car']['capP']}},
+                other_prm={
+                    'car': {
+                        'cap': prm['car']['cap_test'],
+                        'own_car': prm['car']['own_car_test'],
+                    }
+                },
             )
 
     def reset(
@@ -130,7 +141,7 @@ class LocalElecEnv:
         self.n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.prm['syst']['n_homes']
 
         # different agent caracteristics for passive and active homes
-        self.set_passive_active(passive)
+        self.set_passive_active(passive, evaluation)
 
         # initialise environment time
         self.date = self.date0
@@ -530,7 +541,6 @@ class LocalElecEnv:
             for home in self.homes:
                 if action[home] is None:
                     print(f'action[{home}] is None, action = {action[home]}')
-
             self.heat.current_temperature_bounds(h)
         else:
             date, action, gens, loads = other_input
