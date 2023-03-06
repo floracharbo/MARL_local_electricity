@@ -453,7 +453,6 @@ class ReplayBuffer(EpisodeBatch):
             scheme, groups, buffer_size, max_seq_length,
             preprocess=preprocess, device=device, out_device=out_device)
         # same as self.batch_size but more explicit
-        print("init ReplayBuffer")
         self.buffer_size = buffer_size
         self.buffer_index = 0
         self.episodes_in_buffer = 0
