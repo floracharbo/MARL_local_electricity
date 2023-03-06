@@ -73,7 +73,7 @@ class DataManager:
         # ind_seed from the seed multiplier value and epoch, repeat and
         # how many i have thrown out because it was infeasible during training
         # instead of looking at the n-th seed, look at the(n+d_ind_seed)th seed
-        self.d_ind_seed = {'P': 0, '': 0}
+        self.d_ind_seed = {ext: 0 for ext in self.prm['syst']['n_homes_extensions_all']}
 
         self.timer_optimisation = []
         self.timer_feasible_data = []
@@ -159,7 +159,7 @@ class DataManager:
             )
 
         # turn input data into usable format for optimisation problem
-        data_feasibles = self._format_data_optimiser(batch, passive=passive)
+        data_feasibles = self._format_data_optimiser(batch, passive=passive, test=evaluation)
         if not all(data_feasibles):
             batch, data_feasibles = self._loop_replace_data(data_feasibles, passive, evaluation)
 
@@ -227,7 +227,7 @@ class DataManager:
             )
             new_res = False
         # turn input data into optimisation problem format
-        data_feasibles = self._format_data_optimiser(batch, passive=passive)
+        data_feasibles = self._format_data_optimiser(batch, passive=passive, test=evaluation)
         if not all(data_feasibles):
             batch, data_feasibles = self._loop_replace_data(data_feasibles, passive, evaluation)
             feasibility_checked = False
@@ -413,7 +413,7 @@ class DataManager:
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
-                batch, passive=passive
+                batch, passive=passive, test=evaluation
             )
             homes = [i for i, ok in enumerate(data_feasibles) if not ok]
             if its > 50:
@@ -514,7 +514,7 @@ class DataManager:
             self.prm[data_file] for data_file in ['grd', 'loads', 'syst', 'car', 'heat']
         ]
         passive_ext = 'P' if passive else ''
-        test_ext = '_test' if test else ''
+        test_ext = '_test' if test and syst['n_homes_test'] != syst['n_homes'] else ''
         ext = passive_ext + test_ext
         # format battery info
         bat_entries = ['avail_car', 'loads_car']
