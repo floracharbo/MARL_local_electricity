@@ -5,11 +5,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandapower.plotting as plot
 import seaborn as sns
+import math
 
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
                                                        title_and_save)
 from src.utilities.userdeftools import (data_source, initialise_dict,
-                                        reward_type, calculate_reactive_power)
+                                        reward_type)
 
 
 def _plot_last_epochs_actions(
@@ -680,7 +681,7 @@ def plot_imp_exp_violations(
 
 def plot_reactive_power(
         prm, all_methods_to_plot, folder_run):
-    """ Plots all reactive power [kWh] and voltage costs """
+    """ Plots total_reactive_power [kWh] and voltage penalties for last day """
     plt.rcParams['font.size'] = '16'
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
@@ -688,9 +689,9 @@ def plot_reactive_power(
         for method in methods_to_plot:
             fig, ax1 = plt.subplots(figsize=(18, 12))
             ax2 = ax1.twinx()
-            passive_reactive_power = np.sum(
-                calculate_reactive_power(last['netp0'], prm['grd']['pf_flexible_homes']), axis=1
-                )
+            total_reactive_power = last['q_ext_grid'][method]
+            q_passive = np.sum(last['netp0'][method], axis=1) * \
+                math.tan(math.acos(grd['pf_passive_homes']))
             q_house = np.sum(last['q_house'][method], axis=1)
             q_car = np.sum(last['q_car'][method], axis=1)
             break_down_rewards = last['break_down_rewards'][method]
@@ -699,9 +700,10 @@ def plot_reactive_power(
                 break_down_rewards[step][i_voltage_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(passive_reactive_power, label='Reactive passive', color='salmon')
+            ax1.plot(total_reactive_power, label='Reactive power', color='salmon')
             ax1.plot(q_house, label='Reactive power house')
             ax1.plot(q_car, label='Reactive power car')
+            ax1.plot(q_car, label='Reactive power passive')
             ax2.bar(
                 range(prm['syst']['N']),
                 voltage_costs,
@@ -726,7 +728,7 @@ def plot_reactive_power(
 
 def plot_indiv_reactive_power(
         prm, all_methods_to_plot, folder_run):
-    """ Plots flexible car reactive power [kWh] and voltage costs """
+    """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
     plt.rcParams['font.size'] = '16'
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
