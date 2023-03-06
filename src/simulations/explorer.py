@@ -647,13 +647,11 @@ class Explorer:
             f"{np.sum(batch['loads'][:, 0: self.N])}"
 
         gc_i = prm["grd"]["C"][time_step] * (
-            res['grid'][time_step] + res['q_ext_grid'][time_step]
-            + prm["grd"]['loss'] * res['grid2'][time_step]
+            res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
         )
         gc_per_start_i = [
             prm["grd"]["Call"][i + time_step] * (
-                res['grid'][time_step] + res['q_ext_grid'][time_step]
-                + prm["grd"]['loss'] * res['grid2'][time_step]
+                res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
             )
             for i in range(len(prm['grd']['Call']) - self.N)
         ]
@@ -777,7 +775,7 @@ class Explorer:
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
             [self.prm["grd"]["C"][time_step_] * (
-                res['grid'][time_step_] + res['q_ext_grid'][time_step_]
+                res['grid'][time_step_]
                 + self.prm["grd"]['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
         )

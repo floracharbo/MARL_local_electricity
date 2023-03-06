@@ -708,10 +708,10 @@ def _update_grd_prm(prm):
     grd["loss"] = grd["R"] / (grd["V"] ** 2)
     grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
     grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
-    grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
+    grd['active_to_reactive_flex'] = math.tan(math.acos(grd['pf_flexible_homes']))
+    grd['active_to_reactive_passive'] = math.tan(math.acos(grd['pf_passive_homes']))
     grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
     grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
-    grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]

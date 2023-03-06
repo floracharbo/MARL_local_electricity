@@ -9,7 +9,7 @@ import seaborn as sns
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
                                                        title_and_save)
 from src.utilities.userdeftools import (data_source, initialise_dict,
-                                        reward_type)
+                                        reward_type, calculate_reactive_power)
 
 
 def _plot_last_epochs_actions(
@@ -680,7 +680,7 @@ def plot_imp_exp_violations(
 
 def plot_reactive_power(
         prm, all_methods_to_plot, folder_run):
-    """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
+    """ Plots all reactive power [kWh] and voltage costs """
     plt.rcParams['font.size'] = '16'
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
@@ -688,7 +688,9 @@ def plot_reactive_power(
         for method in methods_to_plot:
             fig, ax1 = plt.subplots(figsize=(18, 12))
             ax2 = ax1.twinx()
-            flex_reactive_power = last['q_ext_grid'][method]
+            passive_reactive_power = np.sum(
+                calculate_reactive_power(last['netp0'], prm['grd']['pf_flexible_homes']), axis=1
+                )
             q_house = np.sum(last['q_house'][method], axis=1)
             q_car = np.sum(last['q_car'][method], axis=1)
             break_down_rewards = last['break_down_rewards'][method]
@@ -697,7 +699,7 @@ def plot_reactive_power(
                 break_down_rewards[step][i_voltage_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(flex_reactive_power, label='Reactive power', color='salmon')
+            ax1.plot(passive_reactive_power, label='Reactive passive', color='salmon')
             ax1.plot(q_house, label='Reactive power house')
             ax1.plot(q_car, label='Reactive power car')
             ax2.bar(
@@ -724,7 +726,7 @@ def plot_reactive_power(
 
 def plot_indiv_reactive_power(
         prm, all_methods_to_plot, folder_run):
-    """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
+    """ Plots flexible car reactive power [kWh] and voltage costs """
     plt.rcParams['font.size'] = '16'
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(

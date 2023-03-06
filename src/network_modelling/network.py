@@ -301,9 +301,9 @@ class Network:
         hourly_line_losses_pp, voltage_pp, pij_pp_kW, \
             qij_pp_kW, reactive_power_losses = self.pf_simulation(
                 res["netp"][:, time_step],
-                netp0[:, time_step],
+                netp0,
                 netq_flex[:, time_step],
-                netq_passive[:, time_step]
+                netq_passive
                 )
 
         # Voltage test
@@ -369,11 +369,11 @@ class Network:
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = calculate_reactive_power(
-                netp0, self.grd['pf_passive_homes']
+                netp0, self.pf_passive_homes
             )
         else:
-            netq_passive = np.zeros([1, self.N])
-            netp0 = np.zeros([1, self.N])
+            netq_passive = 0
+            netp0 = 0
 
         # q_car_flex will be a decision variable
         q_heat_home_flex = calculate_reactive_power(res['totcons'], self.pf_flexible_homes)
@@ -410,7 +410,7 @@ class Network:
         q_ext_grid_pp = res["q_ext_grid"][time_step] + delta_hourly_reactive_line_losses
 
         hourly_grid_energy_costs_pp = grdCt * (
-            grid_pp + q_ext_grid_pp + self.loss * grid_pp ** 2
+            grid_pp + self.loss * grid_pp ** 2
         )
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
@@ -448,7 +448,6 @@ class Network:
 
         res["hourly_grid_energy_costs"][time_step] = hourly_grid_energy_costs_pp
         res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
-        res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
         res["network_costs"] += delta_voltage_costs * self.weight_network_costs
@@ -465,7 +464,8 @@ class Network:
             + res['hourly_distribution_network_export_costs'][time_step]
         assert abs(sum_indiv_components - res['hourly_total_costs'][time_step]) < 1e-4, \
             "total hourly costs do not add up"
-        control_sum_grid = sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step]
+        control_sum_grid = sum(res['netp'][:, time_step]) \
+            + res['hourly_line_losses'][time_step] + sum(res['netp0'][:, time_step])
         assert abs(res['grid'][time_step] - control_sum_grid) < 1e-3
 
         return res

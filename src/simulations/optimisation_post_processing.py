@@ -296,6 +296,7 @@ def check_constraints_hold(res, prm):
         abs(
             res['grid']
             - np.sum(res['netp'], axis=0)
+            - loads['hourly_tot_netp0']
             - res['hourly_line_losses_pu'] * prm['grd']['per_unit_to_kW_conversion']
         ) < 1e-3
     )
@@ -613,21 +614,21 @@ def _update_res_variables(
             + res['totcons'][home, time_step]
         res['netq_flex'][home, time_step] = \
             res['q_car_flex'][home, time_step] \
-            + res['totcons'][home, time_step] * grd['active_to_reactive'] \
-            - grd['gen'][home, time_step] * grd['active_to_reactive']
+            + res['totcons'][home, time_step] * grd['active_to_reactive_flex'] \
+            - grd['gen'][home, time_step] * grd['active_to_reactive_flex']
         if grd['penalise_individual_exports']:
             res['netp_export'][home, time_step] = np.where(
                 res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
             )
     new_grid = \
-        np.sum(res['netp'], axis=0) \
+        np.sum(res['netp'], axis=0) + loads['hourly_tot_netp0'] \
         + res['hourly_line_losses_pu'] * grd['per_unit_to_kW_conversion']
     if np.any(abs(res['grid'] - new_grid) > 1e-3) or len(time_steps_grid) > 0:
         # update grid and grid2 and grid_energy_costs and pi
         res['grid'] = new_grid
         res['grid2'] = np.square(res['grid'])
         new_grid_energy_costs = np.sum(
-            np.multiply(grd['C'][0: N], (res['grid'] + res['q_ext_grid'] + grd['loss'] * res['grid2']))
+            np.multiply(grd['C'][0: N], (res['grid'] + grd['loss'] * res['grid2']))
         )
         delta = new_grid_energy_costs - res['grid_energy_costs']
         res['grid_energy_costs'] = new_grid_energy_costs
@@ -784,11 +785,13 @@ def res_post_processing(res, prm, input_hourly_lij):
 
     if syst['n_homesP'] > 0:
         res['netp0'] = loads['netp0']
+        res['netq0'] = loads['netp0'] * grd['active_to_reactive_passive']
     else:
         res['netp0'] = np.zeros([1, N])
+        res['netq0'] = np.zeros([1, N])
 
     res['hourly_grid_energy_costs'] = grd['C'][0: N] * (
-        res["grid"] + res["q_ext_grid"] + grd["loss"] * res["grid2"]
+        res["grid"] + grd["loss"] * res["grid2"]
     )
     res['hourly_battery_degradation_costs'] = car["C"] * (
         np.sum(res["discharge_tot"] + res["charge"], axis=0)

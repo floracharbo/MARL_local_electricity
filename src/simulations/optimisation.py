@@ -65,8 +65,10 @@ class Optimiser:
         opti_voltages = copy.deepcopy(res['voltage'])
         opti_losses = copy.deepcopy(res['hourly_line_losses'])
         for time_step in range(self.N):
-            # net0 = self.loads['netp0'][time_step]
-            netp0 = np.zeros([1, self.N])
+            if self.n_homesP > 0:
+                netp0 = self.loads['netp0'][:, time_step]
+            else:
+                netp0 = np.zeros([1, self.N])
             grdCt = self.grd['C'][time_step]
             res = self.compare_optimiser_pandapower(
                 res, time_step, netp0, grdCt, self.grd['line_losses_method'])
@@ -85,8 +87,10 @@ class Optimiser:
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
-                # net0 = self.loads['netp0'][time_step]
-                netp0 = np.zeros([1, self.N])
+                if self.n_homesP > 0:
+                    netp0 = self.loads['netp0'][time_step]
+                else:
+                    netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
                 res = self.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt, self.grd['line_losses_method'])
@@ -206,43 +210,20 @@ class Optimiser:
         p.add_list_of_constraints(
             [pi[:, time_step]
                 == self.grd['flex_buses'] * netp[:, time_step] * self.kW_to_per_unit_conversion
-                # + self.grd['passive_buses']
-                # * self.loads['active_power_passive_homes'][t]
-                # * self.kW_to_per_unit_conversion
+                 + self.loads['active_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
 
         p.add_constraint(
             netq_flex
             == q_car_flex
-            + (totcons - self.grd['gen'][:, 0: self.N]) * self.grd['active_to_reactive']
+            + (totcons - self.grd['gen'][:, 0: self.N]) * self.grd['active_to_reactive_flex']
         )
 
         p.add_list_of_constraints(
             [qi[:, time_step]
                 == self.grd['flex_buses'] * netq_flex[:, time_step] * self.kW_to_per_unit_conversion
-                # + self.grd['passive_buses']
-                # * netq_passive[:, time_step]
-                # * self.kW_to_per_unit_conversion
+                 + self.loads['reactive_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
-
-        # external grid between bus 1 and 2
-        if self.grd['line_losses_method'] == 'iteration':
-            p.add_list_of_constraints(
-                [q_ext_grid[time_step]
-                    == pic.sum(netq_flex[:, time_step])
-                    + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
-                    * self.per_unit_to_kW_conversion
-                    # + pic.sum(netq_passive[:, time_step])
-                    for time_step in range(self.N)])
-        else:
-            p.add_list_of_constraints(
-                [q_ext_grid[time_step]
-                    == pic.sum(netq_flex[:, time_step])
-                    + pic.sum(np.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
-                    * self.per_unit_to_kW_conversion
-                    # + pic.sum(netq_passive[:, time_step])
-                    for time_step in range(self.N)]
-            )
 
         p.add_list_of_constraints(
             [
@@ -270,7 +251,7 @@ class Optimiser:
                     == pic.sum(netq_flex[:, time_step])
                     + pic.sum(np.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
                     * self.per_unit_to_kW_conversion
-                    # + pic.sum(netq_passive[:, time_step])
+                    + sum(self.prm['loads']['q_heat_home_car_passive'][:, time_step])
                     for time_step in range(self.N)])
             # active power flow
             p.add_list_of_constraints(
@@ -357,7 +338,7 @@ class Optimiser:
                     == pic.sum(netq_flex[:, time_step])
                     + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
                     * self.per_unit_to_kW_conversion
-                    # + pic.sum(netq_passive[:, time_step])
+                    + sum(self.prm['loads']['q_heat_home_car_passive'][:, time_step])
                     for time_step in range(self.N)])
 
             # active power flow
@@ -471,18 +452,17 @@ class Optimiser:
         )
 
         if self.grd['manage_voltage']:
-            p, voltage_costs, q_ext_grid = self._power_flow_equations(
+            p, voltage_costs, _ = self._power_flow_equations(
                 p, netp, grid, hourly_line_losses_pu,
                 charge, discharge_other, totcons)
         else:
             p.add_constraint(hourly_line_losses_pu == 0)
             voltage_costs = 0
-            q_ext_grid = 0
 
         # grid costs
         p.add_constraint(
             grid_energy_costs
-            == (self.grd['C'][0: self.N] | (grid + q_ext_grid + self.grd['loss'] * grid2))
+            == (self.grd['C'][0: self.N] | (grid + self.grd['loss'] * grid2))
         )
 
         return p, netp, grid, grid_energy_costs, voltage_costs
