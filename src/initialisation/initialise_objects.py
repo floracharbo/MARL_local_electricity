@@ -141,7 +141,6 @@ def _make_action_space(rl):
     rl["actions_min_cpu"] = action_min_tensor.cpu()
     rl["actions_min_numpy"] = action_min_tensor.cpu().numpy()
     rl["avail_actions"] = np.ones((rl["n_homes"], rl["dim_actions"]))
-    rl["avail_actions_test"] = np.ones((rl["n_homes_test"], rl["dim_actions"]))
 
     # make conversion functions globally available
     rl["actions2unit"] = _actions_to_unit_box
@@ -165,8 +164,7 @@ def _make_scheme(rl):
 
     # Default/Base scheme
     rl["scheme"] = {
-        "state": {"vshape": rl["state_shape"], "vshape_test": rl["state_shape_test"]},
-
+        "state": {"vshape": rl["state_shape"], },
         "obs": {"vshape": rl["obs_shape"], "group": "agents"},
         "actions":
             {"vshape": (actions_vshape,),

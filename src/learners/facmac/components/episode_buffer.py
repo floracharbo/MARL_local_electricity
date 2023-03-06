@@ -12,17 +12,19 @@ from src.learners.facmac.utils.rl_utils import preprocess_scheme
 
 class EpisodeBatch:
 
-    def __init__(self,
-                 scheme,
-                 groups,
-                 batch_size,
-                 max_seq_length,
-                 data=None,
-                 preprocess=None,
-                 device="cpu",
-                 out_device=None):
-
+    def __init__(
+            self,
+            scheme,
+            groups,
+            batch_size,
+            max_seq_length,
+            data=None,
+            preprocess=None,
+            device="cpu",
+            out_device=None,
+    ):
         self.scheme = scheme.copy()
+        self.scheme['state']['vshape'] = self.scheme['state']['vshape']
         self.groups = groups
         self.batch_size = batch_size
         self.max_seq_length = max_seq_length
@@ -38,12 +40,20 @@ class EpisodeBatch:
             self.data.episode_data = {}
             self._setup_data(
                 self.scheme, self.groups, batch_size,
-                max_seq_length, self.preprocess)
+                max_seq_length, self.preprocess
+            )
 
-    def _setup_data(self, scheme, groups, batch_size,
-                    max_seq_length, preprocess):
+    def _setup_data(self, scheme=None, groups=None, batch_size=None,
+                    max_seq_length=None, preprocess=None):
+        if scheme is None:
+            scheme = self.scheme
+            del scheme['filled']
+        groups = self.groups if groups is None else groups
+        batch_size = self.batch_size if batch_size is None else batch_size
+        max_seq_length = self.max_seq_length if max_seq_length is None else max_seq_length
+        preprocess = self.preprocess if preprocess is None else preprocess
+
         self.scheme = preprocess_scheme(scheme, preprocess)
-
         assert "filled" not in scheme, \
             '"filled" is a reserved key for masking.'
         scheme.update({
@@ -98,7 +108,6 @@ class EpisodeBatch:
                     k_ = 'reward'
                 else:
                     k_ = k
-
                 if k_ in self.data.transition_data:
                     target = self.data.transition_data
                     if mark_filled:
@@ -112,12 +121,10 @@ class EpisodeBatch:
                 else:
                     raise KeyError(f"{k} not found in transition "
                                    f"or episode data")
-
                 dtype = self.scheme[k].get("dtype", th.float32)
 
                 v = np.array(v, dtype=float)  # get np.nan from None
                 v = th.tensor(v, dtype=dtype, device=self.device)
-
                 target[k_][_slices] = v.view_as(target[k_][_slices])
                 if k_ in self.preprocess:
                     new_k = self.preprocess[k][0]
@@ -154,7 +161,8 @@ class EpisodeBatch:
                  for key in item if "group" in self.scheme[key]}
             ret = EpisodeBatch(
                 new_scheme, new_groups, self.batch_size,
-                self.max_seq_length, data=new_data, device=self.device)
+                self.max_seq_length, data=new_data, device=self.device
+            )
 
             return ret.to(self.device)
         else:
@@ -170,7 +178,8 @@ class EpisodeBatch:
 
             ret = EpisodeBatch(
                 self.scheme, self.groups, ret_bs,
-                ret_max_t, data=new_data, device=self.device)
+                ret_max_t, data=new_data, device=self.device
+            )
             return ret.to(self.device)
 
     def _get_num_items(self, indexing_item, max_size):
@@ -436,98 +445,6 @@ class CompressibleBatchTensor:
     pass
 
 
-class CompressibleEpisodeBatch(EpisodeBatch):
-
-    def __init__(self, scheme, groups, batch_size, max_seq_length,
-                 data, preprocess, device, out_device,
-                 chunk_size=10, algo="zstd"):
-        self.out_device = out_device
-        self.chunk_size = chunk_size
-        self.algo = algo
-        EpisodeBatch.__init__(self,
-                              scheme=scheme,
-                              groups=groups,
-                              batch_size=batch_size,
-                              max_seq_length=max_seq_length,
-                              data=None,
-                              preprocess=preprocess,
-                              device=device)
-        pass
-
-    def _setup_data(self, scheme, groups, batch_size,
-                    max_seq_length, preprocess):
-        super()._setup_data(
-            scheme, groups, batch_size=1, max_seq_length=1,
-            preprocess=preprocess)
-
-        # "filled" is a reserved key for masking.'
-        scheme.update({
-            "filled": {"vshape": (1,), "dtype": th.long},
-        })
-
-        for field_key, field_info in scheme.items():
-            assert "vshape" in field_info, \
-                f"Scheme must define vshape for {field_key}"
-            vshape = field_info["vshape"]
-            episode_const = field_info.get("episode_const", False)
-            group = field_info.get("group", None)
-            dtype = field_info.get("dtype", th.float32)
-
-            if isinstance(vshape, int):
-                vshape = (vshape,)
-
-            if group:
-                assert group in groups, \
-                    f"Group {group} must have its number of members " \
-                    f"defined in _groups_"
-                shape = (groups[group], *vshape)
-            else:
-                shape = vshape
-
-            if episode_const:
-                self.data.episode_data[field_key] = CompressibleBatchTensor(
-                    batch_size=batch_size, shape=shape, dtype=dtype,
-                    device=self.device, out_device=self.out_device,
-                    chunk_size=self.chunk_size, algo=self.algo)
-            else:
-                self.data.transition_data[field_key] = CompressibleBatchTensor(
-                    batch_size=batch_size, shape=(max_seq_length, *shape),
-                    dtype=dtype, device=self.device,
-                    out_device=self.out_device,
-                    chunk_size=self.chunk_size, algo=self.algo)
-
-    def get_compression_stats(self):
-        stats = {}
-
-        stats_list_ep = {}
-        for k, v in self.data.episode_data.items():
-            stats_list_ep[k] = v.get_compression_stats()
-
-        stats_list_trans = {}
-        for k, v in self.data.transition_data.items():
-            stats_list_trans[k] = v.get_compression_stats()
-
-        stats["fill_level"] = (
-            np.mean([v["fill_level"] for _, v in stats_list_trans.items()])
-        ).item()
-        sum_compressed = np.sum(
-            [v["predicted_full_size_compressed"]
-             for _, v in stats_list_trans.items()])
-        sum_uncompressed = np.sum(
-            [v["predicted_full_size_uncompressed"]
-             for _, v in stats_list_trans.items()]
-        )
-        stats["compression_ratio"] \
-            = sum_compressed.item() / sum_uncompressed.item()
-        stats["predicted_full_size_compressed"] = (
-            np.sum([v["predicted_full_size_compressed"]
-                    for _, v in stats_list_trans.items()])).item()
-        stats["predicted_full_size_uncompressed"] = (
-            np.sum([v["predicted_full_size_uncompressed"]
-                    for _, v in stats_list_trans.items()])).item()
-        return stats
-
-
 class ReplayBuffer(EpisodeBatch):
 
     def __init__(self, scheme, groups, buffer_size, max_seq_length,
@@ -536,6 +453,7 @@ class ReplayBuffer(EpisodeBatch):
             scheme, groups, buffer_size, max_seq_length,
             preprocess=preprocess, device=device, out_device=out_device)
         # same as self.batch_size but more explicit
+        print("init ReplayBuffer")
         self.buffer_size = buffer_size
         self.buffer_index = 0
         self.episodes_in_buffer = 0
@@ -592,26 +510,3 @@ class ReplayBuffer(EpisodeBatch):
             f"ReplayBuffer {self.episodes_in_buffer}/{self.buffer_size} " \
             f"episodes. Keys:{self.scheme.keys()} Groups:{self.groups.keys()}"
 
-
-class CompressibleReplayBuffer(CompressibleEpisodeBatch, ReplayBuffer):
-
-    def __init__(self, scheme, groups, buffer_size,
-                 max_seq_length, preprocess=None, device="cpu",
-                 out_device="cpu", chunk_size=10, algo="zstd"):
-
-        CompressibleEpisodeBatch.__init__(
-            self, scheme=scheme, groups=groups, batch_size=buffer_size,
-            max_seq_length=max_seq_length, data=None,
-            preprocess=preprocess, device=device,
-            out_device=out_device, chunk_size=chunk_size, algo=algo)
-
-        # same as self.batch_size but more explicit
-        self.buffer_size = buffer_size
-        self.buffer_index = 0
-        self.episodes_in_buffer = 0
-        self.out_device = out_device
-        self.chunk_size = chunk_size
-        self.algo = algo
-        pass
-
-    pass

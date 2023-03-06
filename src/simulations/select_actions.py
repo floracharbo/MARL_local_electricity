@@ -17,16 +17,17 @@ from src.utilities.env_spaces import granularity_to_multipliers
 class ActionSelector:
     """Select actions for exploration."""
 
-    def __init__(self, prm, learner, episode_batch, env):
+    def __init__(self, prm, learner, episode_batch, episode_batch_test, env):
         """Initialise ActionSelector instance."""
         self.prm = prm
         self.learner = learner
-        self.n_agents = prm["syst"]["n_homes"]
-        self.N = prm['syst']['N']
+        for attribute in ['n_homes', 'n_homes_test', 'N']:
+            setattr(self, attribute, prm['syst'][attribute])
         self.rl = prm["RL"]
         self.env = env
         self.homes = range(prm["syst"]["n_homes"])
         self.episode_batch = episode_batch
+        self.episode_batch_test = episode_batch_test
 
     def _format_tf_prev_state(
             self,
@@ -52,7 +53,8 @@ class ActionSelector:
             eps_greedy: bool,
             rdn_eps_greedy: bool,
             rdn_eps_greedy_indiv: bool,
-            t_env
+            t_env: int,
+            ext: str = ""
     ) -> Tuple[list, list]:
         """Select exploration action."""
         rl = self.rl
@@ -62,8 +64,8 @@ class ActionSelector:
             tf_prev_state = None
         # action choice for current time step
         action_dict = {
-            'baseline': self.rl['default_action'],
-            'random': np.random.random(np.shape(self.rl['default_action'])),
+            'baseline': self.rl['default_action' + ext],
+            'random': np.random.random(np.shape(self.rl['default_action' + ext])),
         }
         if rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and rl['trajectory']:
             action = actions[:, step]
@@ -75,9 +77,26 @@ class ActionSelector:
                 rdn_eps_greedy_indiv, method
             )
         elif rl['type_learning'] == 'facmac':
-            action = self._select_action_facmac(
-                current_state, tf_prev_state, step, evaluation, method, t_env
-            )
+            if ext == '_test':
+                action = np.zeros((self.n_homes_test , rl['dim_actions']))
+                for it in range(rl['action_selection_its']):
+                    current_state_it = np.zeros((self.n_homes, rl['dim_states']))
+                    for i in range(rl['dim_states']):
+                        current_state_it[:, i] = np.matmul(current_state[:, i], rl['state_exec_to_train'][it])
+                    tf_prev_state_it = self._format_tf_prev_state(current_state_it)
+
+                    action_it = self._select_action_facmac(
+                        current_state_it, tf_prev_state_it, step, evaluation, method, t_env
+                    )
+                    for home_train in range(self.n_homes):
+                        home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
+                        assert len(home_execs) <= 1
+                        if len(home_execs) > 0:
+                            action[home_execs[0]] == action_it[home_train]
+            else:
+                action = self._select_action_facmac(
+                    current_state, tf_prev_state, step, evaluation, method, t_env
+                )
         else:
             ind_current_state = self.env.spaces.get_space_indexes(
                 all_vals=current_state, indiv_indexes=True)
@@ -106,11 +125,11 @@ class ActionSelector:
         return action, tf_prev_state
 
     def trajectory_actions(self, method, rdn_eps_greedy_indiv,
-                           eps_greedy, rdn_eps_greedy, evaluation, t_env):
+                           eps_greedy, rdn_eps_greedy, evaluation, t_env, ext):
         """Select actions for all episode time steps."""
         env, rl = self.env, self.rl
         states = np.zeros(
-            (self.N + 1, self.n_agents, len(self.rl['state_space'])))
+            (self.N + 1, self.n_homes, len(self.rl['state_space'])))
 
         for time_step in range(self.N + 1):
             inputs_state_val = [
@@ -125,7 +144,7 @@ class ActionSelector:
         if method == 'baseline':
             actions = self.rl['default_action']
             if self.rl['type_env'] == "discrete":
-                ind_actions = np.ones(self.n_agents) * (env.spaces.n["actions"] - 1)
+                ind_actions = np.ones(self.n_homes) * (env.spaces.n["actions"] - 1)
             else:
                 ind_actions = None
 
@@ -148,12 +167,12 @@ class ActionSelector:
             tf_prev_state = self._format_tf_prev_state(states)
             step = 0
             actions = self._select_action_facmac(
-                states, tf_prev_state, step, evaluation, method, t_env
+                states, tf_prev_state, step, evaluation, method, t_env, ext
             )
             ind_actions = None
 
         n_actions = 1 if self.rl['aggregate_actions'] else 3
-        actions = np.reshape(actions, (self.n_agents, self.N, n_actions))
+        actions = np.reshape(actions, (self.n_homes, self.N, n_actions))
 
         return actions, ind_actions, states
 
