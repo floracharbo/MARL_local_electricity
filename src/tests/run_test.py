@@ -51,7 +51,7 @@ def patch_find_feasible_data(
         seed=0, load_data=True, passive=False, evaluation=evaluation
     )
     data_feasibles = self._format_data_optimiser(
-        batch, passive=passive
+        batch, passive=passive, test=evaluation
     )
     data_feasible = True
     pp_simulation_required = False
