@@ -17,7 +17,7 @@ from src.utilities.env_spaces import granularity_to_multipliers
 class ActionSelector:
     """Select actions for exploration."""
 
-    def __init__(self, prm, learner, episode_batch, episode_batch_test, env):
+    def __init__(self, prm, learner, episode_batch, env):
         """Initialise ActionSelector instance."""
         self.prm = prm
         self.learner = learner
@@ -27,7 +27,6 @@ class ActionSelector:
         self.env = env
         self.homes = range(prm["syst"]["n_homes"])
         self.episode_batch = episode_batch
-        self.episode_batch_test = episode_batch_test
 
     def _format_tf_prev_state(
             self,
