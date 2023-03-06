@@ -37,4 +37,3 @@ n_homes_test: ~
 force_optimisation: False # force optimisation to be run even if it is not necessary (for timing purposes)
 tol_constraints: 5.e-3
 error_with_opt_to_rl_discharge: False
-homes_exec_per_home_train: ~
