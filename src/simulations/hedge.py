@@ -111,6 +111,7 @@ class HEDGE:
                  for p in self.profs["loads"][day_type][
                      clusters["loads"][home]][i_profiles["loads"][home]]]
                 for home in homes]
+
         if "gen" in self.data_types:
             gen_profs = self.profs["gen"][i_month]
             day["gen"] = [

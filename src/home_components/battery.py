@@ -697,8 +697,10 @@ class Battery:
             date = self.date0 + datetime.timedelta(hours=time_step * self.dt)
             bool_penalty = self.min_max_charge_t(
                 time_step, date, print_error=False,
-                simulation=False)
+                simulation=False
+            )
             feasible[bool_penalty] = False
+
             self.update_step()
             time_step += 1
 
