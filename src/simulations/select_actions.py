@@ -81,7 +81,9 @@ class ActionSelector:
                 for it in range(rl['action_selection_its']):
                     current_state_it = np.zeros((self.n_homes, rl['dim_states']))
                     for i in range(rl['dim_states']):
-                        current_state_it[:, i] = np.matmul(current_state[:, i], rl['state_exec_to_train'][it])
+                        current_state_it[:, i] = np.matmul(
+                            current_state[:, i], rl['state_exec_to_train'][it]
+                        )
                     tf_prev_state_it = self._format_tf_prev_state(current_state_it)
 
                     action_it = self._select_action_facmac(

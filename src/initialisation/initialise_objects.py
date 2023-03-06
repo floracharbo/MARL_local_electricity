@@ -416,8 +416,12 @@ def _exploration_parameters(rl):
                         = (epsilon_end[exploration_method] / epsilon0) \
                         ** (1 / rl["tot_learn_cycles"])
     if type_learning == 'facmac' and "lr_decay" in rl['facmac'] and rl['facmac']['lr_decay']:
-        rl['facmac']['lr_decay_param'] = (rl['facmac']['lr_end'] / rl['facmac']['lr0']) ** (1 / rl['n_epochs'])
-        rl['facmac']['critic_lr_decay_param'] = (rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']) ** (1 / rl['n_epochs'])
+        rl['facmac']['lr_decay_param'] = (
+            rl['facmac']['lr_end'] / rl['facmac']['lr0']
+        ) ** (1 / rl['n_epochs'])
+        rl['facmac']['critic_lr_decay_param'] = (
+            rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']
+        ) ** (1 / rl['n_epochs'])
 
     # for key in ["epsilon_end", "T", "tauMT", "tauLT",
     #             "control_window_eps", "epsilon_decay_param"]:
@@ -514,10 +518,17 @@ def rl_apply_n_homes_test(syst, rl):
                 rl['homes_exec_per_home_train'][home_train].append(home_exec)
                 home_train = home_train + 1 if home_train + 1 < syst['n_homes'] else 0
         rl['action_selection_its'] = np.max(
-            [len(homes_exec_per_home_train) for homes_exec_per_home_train in rl['homes_exec_per_home_train']]
+            [
+                len(homes_exec_per_home_train)
+                for homes_exec_per_home_train in rl['homes_exec_per_home_train']
+            ]
         )
-        rl['action_train_to_exec'] = np.zeros((rl['action_selection_its'], syst['n_homes'], syst['n_homes_test']))
-        rl['state_exec_to_train'] = np.zeros((rl['action_selection_its'], syst['n_homes_test'], syst['n_homes']))
+        rl['action_train_to_exec'] = np.zeros(
+            (rl['action_selection_its'], syst['n_homes'], syst['n_homes_test'])
+        )
+        rl['state_exec_to_train'] = np.zeros(
+            (rl['action_selection_its'], syst['n_homes_test'], syst['n_homes'])
+        )
         # actions[n_homes_test] = actions[n_homes_train] x [n_homes_train x n_homes_test]
         # states[n_homes_train] = actions[n_homes_test] x [n_homes_test x n_homes_train]
         for it in range(rl['action_selection_its']):
@@ -529,8 +540,12 @@ def rl_apply_n_homes_test(syst, rl):
             rl['state_exec_to_train'][it] = np.transpose(rl['action_train_to_exec'][it])
     else:
         rl['action_selection_its'] = 1
-        rl['action_train_to_exec'] = np.ones((rl['action_selection_its'], syst['n_homes'], syst['n_homes_test']))
-        rl['state_exec_to_train'] = np.ones((rl['action_selection_its'], syst['n_homes_test'], syst['n_homes']))
+        rl['action_train_to_exec'] = np.ones(
+            (rl['action_selection_its'], syst['n_homes'], syst['n_homes_test'])
+        )
+        rl['state_exec_to_train'] = np.ones(
+            (rl['action_selection_its'], syst['n_homes_test'], syst['n_homes'])
+        )
 
     if rl['type_learning'] == 'facmac':
         for info in ['action_train_to_exec', 'state_exec_to_train']:
@@ -573,7 +588,9 @@ def _update_rl_prm(prm, initialise_all):
         rl["instant_feedback"] = True
 
     for ext in syst['n_homes_extensions_all']:
-        rl["default_action" + ext] = np.full((syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"])
+        rl["default_action" + ext] = np.full(
+            (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
+        )
 
     _exploration_parameters(rl)
 

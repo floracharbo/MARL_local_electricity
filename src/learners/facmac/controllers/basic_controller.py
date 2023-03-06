@@ -19,7 +19,9 @@ class BasicMAC:
         self.N = N
         self._build_agents(input_shape)
         self.hidden_states = None
-        self.epsilon = rl['facmac']['epsilon0'] if rl['facmac']['epsilon_decay'] else rl['facmac']['epsilon']
+        self.epsilon = \
+            rl['facmac']['epsilon0'] if rl['facmac']['epsilon_decay'] \
+            else rl['facmac']['epsilon']
 
     def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None),
                        test_mode=False, explore=False, ext=None):
@@ -28,7 +30,9 @@ class BasicMAC:
         rdn_eps = np.random.rand()
         rdn_action = np.random.rand((self.rl['dim_actions']))
         if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.epsilon:
-            chosen_actions = th.tensor(self.rl['low_action']) + rdn_action * (1 - self.rl['low_action'])
+            chosen_actions = \
+                th.tensor(self.rl['low_action']) \
+                + rdn_action * (1 - self.rl['low_action'])
         else:
             agent_outputs = self.forward(ep_batch, t_ep)
 

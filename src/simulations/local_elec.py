@@ -138,7 +138,9 @@ class LocalElecEnv:
             self.envseed = self._seed(seed)
             self.random_seeds_use[seed] = 0
 
-        self.n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.prm['syst']['n_homes']
+        self.n_homes = \
+            self.prm['syst']['n_homes_test'] if evaluation \
+            else self.prm['syst']['n_homes']
 
         # different agent caracteristics for passive and active homes
         self.set_passive_active(passive, evaluation)
@@ -194,7 +196,10 @@ class LocalElecEnv:
     def set_passive_active(self, passive: bool = False, evaluation: bool = False):
         """Update environment properties for passive or active case."""
         passive_ext = 'P' if passive else ''
-        test_ext = '_test' if evaluation and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] else ''
+        test_ext = \
+            '_test' if evaluation \
+            and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
+            else ''
         self.ext = passive_ext + test_ext
         self.n_homes = self.prm['syst']['n_homes' + self.ext]
         self.homes = range(self.n_homes)
@@ -582,7 +587,6 @@ class LocalElecEnv:
             self.car.active_reactive_power_car()
             # q_car_flex will be a decision variable
             # p_car_flex is needed to set apparent power limits
-            p_car_flex = self.car.p_car_flex
             q_car_flex = self.car.q_car_flex
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid = \

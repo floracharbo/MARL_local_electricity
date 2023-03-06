@@ -102,12 +102,20 @@ class Agent(nn.Module):
                 return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).zero_()
         else:
             if self.rl['data_parallel']:
-                return self.fc1.module.weight.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros'])
+                return self.fc1.module.weight.new(1, self.rl['rnn_hidden_dim']).normal_(
+                    mean=0.0, std=self.rl['hyper_initialization_nonzeros']
+                )
             elif self.rl['nn_type'] in ['lstm', 'rnn']:
                 self.hidden = None
                 return (
-                    self.fc1.weight_hh_l0.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros']),
-                    self.fc1.weight_ih_l0.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros'])
+                    self.fc1.weight_hh_l0.new(1, self.rl['rnn_hidden_dim']).normal_(
+                        mean=0.0, std=self.rl['hyper_initialization_nonzeros']
+                    ),
+                    self.fc1.weight_ih_l0.new(1, self.rl['rnn_hidden_dim']).normal_(
+                        mean=0.0, std=self.rl['hyper_initialization_nonzeros']
+                    )
                 )
             else:
-                return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).normal_(mean=0.0, std=self.rl['hyper_initialization_nonzeros'])
+                return self.fc1.weight.new(1, self.rl['rnn_hidden_dim']).normal_(
+                    mean=0.0, std=self.rl['hyper_initialization_nonzeros']
+                )

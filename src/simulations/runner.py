@@ -331,8 +331,9 @@ class Runner:
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             try:
-                                list_train_stepvals[method][e][i_explore * self.N: (i_explore + 1) * self.N] \
-                                    = train_steps_vals[i_explore][method][e]
+                                list_train_stepvals[method][e][
+                                    i_explore * self.N: (i_explore + 1) * self.N
+                                ] = train_steps_vals[i_explore][method][e]
                             except Exception:
                                 # these may be recorded differently for optimisation,
                                 # e.g. no grid_energy_costs, etc.
@@ -418,7 +419,8 @@ class Runner:
             if self.rl['facmac']['epsilon_decay']:
                 for method in self.mac:
                     self.mac[method].epsilon *= self.rl['facmac']['epsilon_decay_param'][method]
-                    self.learner[method].target_mac.epsilon *= self.rl['facmac']['epsilon_decay_param'][method]
+                    self.learner[method].target_mac.epsilon \
+                        *= self.rl['facmac']['epsilon_decay_param'][method]
             if self.rl['facmac']['lr_decay']:
                 for method in self.learner:
                     self.learner[method].lr *= self.rl['facmac']['lr_decay_param']
