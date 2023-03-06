@@ -94,7 +94,6 @@ class CQMixMAC(BasicMAC):
             raise Exception("No CQMIX agent selected (naf, icnn, qtopt)!")
 
         action_space = self.rl['action_space']
-
         rdn_eps = np.random.rand()
         rdn_action = th.rand((ep_batch[bs].batch_size, self.n_homes, self.rl['dim_actions']))
         if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.epsilon:
@@ -103,21 +102,14 @@ class CQMixMAC(BasicMAC):
         elif self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
             hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] \
                 else self.hidden_states[bs]
-            chosen_actions = th.zeros(self.rl['low_action'].size())
-            # [1, 10, 500]
-            for it in self.action_selection_its:
-                hidden_states_it = self.state_exec_to_train[it] * hidden_states
-                chosen_actions_it = self.forward(
+            chosen_actions = self.forward(
                     ep_batch[bs], t_ep,
-                    hidden_states=hidden_states_it,
+                    hidden_states=hidden_states,
                     test_mode=test_mode, select_actions=True
-                )["actions"]
-                # just to make sure detach
-                chosen_actions_it = chosen_actions.view(
-                    ep_batch[bs].batch_size, self.n_homes,
-                    self.rl['dim_actions']
-                ).detach()
-                chosen_actions += self.action_train_to_exec[it] * chosen_actions_it
+                )["actions"].view(
+                ep_batch[bs].batch_size, self.n_homes,
+                self.rl['dim_actions']
+            ).detach()
 
         elif self.rl['agent_facmac'] == "icnn":
             inputs = self._build_inputs(ep_batch[bs], t_ep)
