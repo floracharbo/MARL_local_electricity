@@ -977,7 +977,7 @@ def map_over_undervoltage(
                     voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
                     x, y = net.bus_geodata.loc[bus, ["x", "y"]]
                     plot.plt.annotate(
-                        f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
+                        f"Load bus, \n Voltage is {round(voltage, 3)} p.u."
                         f"\n Q_house is {round(q_house, 3)} kVAR"
                         f"\n Q_car is {round(q_car, 3)} kVAR",
                         xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)

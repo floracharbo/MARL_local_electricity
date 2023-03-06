@@ -550,6 +550,12 @@ def _update_rl_prm(prm, initialise_all):
             [rl["default_action"] for _ in range(rl["dim_actions"])]
             for _ in range(syst["n_homes" + passive_ext])
         ]
+    
+    if prm["grd"]["reactive_power_for_voltage_control"]:
+        reactive_power_default = rl["default_action"][0][0] * \
+            math.tan(math.acos(prm['grd']['pf_flexible_homes']))
+        for default_action in rl["default_action"]:
+            default_action[3] = reactive_power_default
 
     _exploration_parameters(rl)
 
@@ -706,9 +712,6 @@ def _update_grd_prm(prm):
 
     # grid loss
     grd["loss"] = grd["R"] / (grd["V"] ** 2)
-    grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
-    grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
-    grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
     grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
     grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
     grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
