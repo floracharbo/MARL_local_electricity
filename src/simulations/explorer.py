@@ -50,12 +50,13 @@ class Explorer:
         self.res_path = prm["paths"]["opt_res"]
         for info in ["D", "solver", "N"]:
             setattr(self, info, prm["syst"][info])
-        self.episode_batch = {}
-
         self.data = DataManager(env, prm, self)
+
+        self.episode_batch = {}
         self.action_selector = ActionSelector(
             prm, learner, self.episode_batch, env
         )
+
         self.action_selector.mac = mac
 
         self.learning_manager = LearningManager(
@@ -284,7 +285,7 @@ class Explorer:
             action, _ = self.action_selector.select_action(
                 method, step, actions, evaluation,
                 current_state, eps_greedy, rdn_eps_greedy,
-                rdn_eps_greedy_indiv, self.t_env
+                rdn_eps_greedy_indiv, self.t_env, ext=self.env.ext,
             )
 
             # interact with environment to get rewards
@@ -350,7 +351,7 @@ class Explorer:
     ):
         env.set_passive_active(passive=False, evaluation=evaluation)
         rl = self.rl
-        if evaluation and self.n_homes_test != self.n_homes:
+        if evaluation and self.prm['syst']['n_homes_test'] != self.n_homes:
             self.data.ext = "_test"
         else:
             self.data.ext = ""
@@ -415,7 +416,7 @@ class Explorer:
                 if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
                     actions, _, states = self.action_selector.trajectory_actions(
                         method, rdn_eps_greedy_indiv, eps_greedy,
-                        rdn_eps_greedy, evaluation, self.t_env
+                        rdn_eps_greedy, evaluation, self.t_env, self.env.ext
                     )
                 state = env.get_state_vals(inputs=inputs_state_val)
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
@@ -465,6 +466,7 @@ class Explorer:
 
         # initialise output
         step_vals = initialise_dict(methods)
+
         self._init_facmac_mac(methods, new_episode_batch, epoch)
 
         # passive consumers
@@ -697,7 +699,7 @@ class Explorer:
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
-            self, evaluation, exploration_method, time_step, step_vals, epoch
+            self, evaluation, exploration_method, time_step, step_vals, epoch, ext
     ):
         rl = self.prm["RL"]
         if (rl["type_learning"] in ["DQN", "DDQN", "DDPG", "facmac"]
@@ -882,7 +884,7 @@ class Explorer:
 
             # instant learning feedback
             self._instant_feedback_steps_opt(
-                evaluation, method, time_step, step_vals, epoch
+                evaluation, method, time_step, step_vals, epoch, self.env.ext
             )
 
             # record if last epoch
