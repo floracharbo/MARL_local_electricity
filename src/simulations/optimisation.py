@@ -167,15 +167,13 @@ class Optimiser:
             'undervoltage_costs', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
 
-        # active and reactive loads
-        # flex houses: car
         p.add_constraint(p_car_flex == charge / self.car['eta_ch'] - discharge_other)
-        p.add_constraint(p_car_flex <= self.car['max_active_power_car'])
 
         # if we don't allow the use of the battery reactive power for control
         # then we restain it by using the power factor
         if self.reactive_power_for_voltage_control:
             for time_step in range(self.N):
+
                 p.add_list_of_constraints([
                     p_car_flex2[home, time_step] >= p_car_flex[home, time_step]
                     * p_car_flex[home, time_step] for home in range(self.n_homes)
