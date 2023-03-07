@@ -172,6 +172,8 @@ class ActionSelector:
                 states, tf_prev_state, step, evaluation, method, t_env, ext
             )
             ind_actions = None
+        
+        #n_actions = rl['dim_actions_1']
 
         if self.rl["aggregate_actions"]:
             n_actions = 1

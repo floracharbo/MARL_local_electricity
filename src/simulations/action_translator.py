@@ -326,8 +326,9 @@ class Action_translator:
                     # reactive power battery between -1 and 1 where
                     # -1 max export
                     # 1 max import
-                    res['q'] = flexible_q_car_action \
-                        * np.sqrt(self.max_apparent_power_car**2 - res['ds']**2)
+                    res['q'] = flexible_q_car_action * np.sqrt(
+                        self.max_apparent_power_car**2 - (charge - discharge + res['l_ch'])**2
+                        )
                     flexible_q_car[home] = res['q']
 
                 res['dp'] = home_vars['netp'][home]
@@ -750,9 +751,9 @@ class Action_translator:
             flexible_q_car_actions[home] = res['q_car_flex'][home, time_step] / max_q_car_flexibility
         # if action is close to zero, consider it to be zero
         flexible_q_car_actions[home] = \
-            0 if -1e-3 <= res['q_car_flex'][home, time_step] <= 1e-3 else flexible_q_car_actions[home]
+            0 if abs(res['q_car_flex'][home, time_step]) < 1e-3 else flexible_q_car_actions[home]
         q_car_bool_flex = \
-            (res['q_car_flex'][:, time_step] > 1e-3) | (res['q_car_flex'][:, time_step] < -1e-3)
+            (max_q_car_flexibility > 1e-3) | (max_q_car_flexibility < -1e-3)
 
         q_car_actions = np.where(
             q_car_bool_flex,

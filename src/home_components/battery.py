@@ -445,8 +445,7 @@ class Battery:
                 + self.loss_dis[home] + self.loads_car[home]
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
-            self.p_car_flex[home] = np.array(self.charge[home]/self.eta_ch) \
-                                    - np.array(self.discharge[home])
+            self.p_car_flex[home] = self.charge[home]/self.eta_ch - self.discharge[home]
             if self.reactive_power_for_voltage_control:
                 # reactive power is a decision variable
                 self.q_car_flex[home] = res[home]['q']
