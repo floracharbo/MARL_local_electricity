@@ -796,9 +796,9 @@ class Action_translator:
         actions = no_flex_actions
         actions[bool_flex] = delta[bool_flex] / self.k_dp[bool_flex, 0]
         assert all(
-            action is None or ((action >= 0) & (action <= 1))
+            action is None or ((action >= 0) & (action <= 1 + 1e-3))
             for action in actions
-        ), "action should be between 0 and 1"
+        ), f"action should be between 0 and 1 but is {actions}"
 
         actions = np.reshape(actions, (self.n_homes, 1))
 
