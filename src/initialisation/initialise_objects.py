@@ -232,7 +232,8 @@ def _facmac_initialise(prm):
 
     rl["device"] = "cuda" if rl["use_cuda"] else "cpu"
 
-    _make_action_space(rl)
+    if prm['syst']['run_mode'] == 1:
+        _make_action_space(rl)
     _make_scheme(rl)
 
     return prm
@@ -445,10 +446,9 @@ def _dims_states_actions(rl, syst):
     rl["dim_actions_1"] = rl["dim_actions"]
     if syst['run_mode'] == 1:
         rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
-
-    if not rl["aggregate_actions"]:
-        rl["low_action"] = rl["low_actions"]
-        rl["high_action"] = rl["high_actions"]
+        if not rl["aggregate_actions"]:
+            rl["low_action"] = rl["low_actions"]
+            rl["high_action"] = rl["high_actions"]
     if "trajectory" not in rl:
         rl["trajectory"] = False
     if rl["distr_learning"] == "joint":
