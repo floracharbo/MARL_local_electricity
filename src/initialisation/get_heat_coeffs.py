@@ -130,11 +130,11 @@ def _get_building_characteristics(heat):
 
 
 def _get_required_temperatures(heat, syst):
-    n_homes = min(1, syst['n_homes'])
-    day_T_req = np.ones((n_homes, syst['H'])) * heat['Ts']
+    n_homes = max(1, syst['n_homes'])
+    day_T_req = np.full((n_homes, syst['H']), heat['Ts'])
     if len(np.shape(heat['hrs_c'][0])) == 1:
         # if hours comfort only specified once -> same for all
-        heat['hrs_c'] = [heat['hrs_c'] for _ in range(syst['n_homes'])]
+        heat['hrs_c'] = [heat['hrs_c'] for _ in range(n_homes)]
 
     for home in range(n_homes):
         for interval in heat['hrs_c'][home]:
@@ -142,15 +142,14 @@ def _get_required_temperatures(heat, syst):
                 interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
             ] = np.full((interval[1] - interval[0]) * syst['n_int_per_hr'], heat['Tc'])
 
-    if syst['n_homes'] > 0:
-        heat['T_req'] = day_T_req
+    days_T_req = np.tile(day_T_req, syst['D'])
+    days_T_req = np.concatenate((days_T_req, day_T_req[:, 0: 2]), axis=1)
 
-    for day in range(syst['D'] - 1):
-        heat['T_req'] = np.concatenate((heat['T_req'], day_T_req), axis=1)
+    heat['T_req'] = days_T_req if syst['n_homes'] > 0 else np.zeros((0, syst['N'] + 2))
 
-    heat['T_req'] = np.concatenate((heat['T_req'], day_T_req[:, 0:2]), axis=1)
     for ext in syst['n_homes_extensions']:
-        heat['T_req' + 'P'] = np.full((syst['n_homes' + ext], syst['N'] + 2), day_T_req)
+        heat['T_req' + ext] = np.tile(days_T_req[0], (syst['n_homes' + ext], 1))
+
     for ext in syst['n_homes_extensions_all']:
         heat['T_UB' + ext] = heat['T_req' + ext] + heat['dT']
         for home in range(syst['n_homes' + ext]):
@@ -158,14 +157,14 @@ def _get_required_temperatures(heat, syst):
             # temperature increases
             for time_step in range(syst['N']):
                 for dt in range(1, 6):
-                    if time_step < syst['N'] - 1 - dt \
-                            and heat['T_UB' + ext][home][time_step + dt] > heat['T_UB' + ext][home][time_step]:
+                    if (
+                        time_step < syst['N'] - 1 - dt
+                        and heat['T_UB' + ext][home][time_step + dt] > heat['T_UB' + ext][home][time_step]
+                    ):
                         heat['T_UB' + ext][home][time_step] = heat['T_UB' + ext][home][time_step + dt]
-
         heat['T_LB' + ext] = heat['T_req' + ext] - heat['dT']
 
     return heat
-
 
 
 def get_heat_coeffs(heat, syst, paths):
@@ -226,8 +225,8 @@ def get_heat_coeffs(heat, syst, paths):
     t_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
     for ext in syst['n_homes_extensions_all']:
         for label, value in zip(['T_coeff', 'T_air_coeff'], [t_coeff_0, t_air_coeff_0]):
-            heat[label + ext] = np.repeat(
-                value, repeats=syst["n_homes" + ext], axis=0
+            heat[label + ext] = np.tile(
+                value, (syst["n_homes" + ext], 1)
             )
 
     return heat
