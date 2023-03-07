@@ -23,6 +23,7 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
+from src.utilities.userdeftools import calculate_reactive_power
 
 
 class LocalElecEnv:
@@ -590,8 +591,7 @@ class LocalElecEnv:
         if self.prm['grd']['manage_voltage']:
             if not self.reactive_power_for_voltage_control:
                 # retrieve info from battery if not a decision variable
-                self.car.car_reactive_power_fixed_pf()
-                q_car_flex = self.car.q_car_flex
+                q_car_flex = calculate_reactive_power(self.car.p_car_flex, self.car.pf_flexible_homes)
             else:
                 # if agents decide on reactive power of battery
                 q_car_flex = flexible_q_car

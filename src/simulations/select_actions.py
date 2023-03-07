@@ -172,15 +172,11 @@ class ActionSelector:
                 states, tf_prev_state, step, evaluation, method, t_env, ext
             )
             ind_actions = None
-        
-        #n_actions = rl['dim_actions_1']
 
         if self.rl["aggregate_actions"]:
             n_actions = 1
-        elif self.reactive_power_for_voltage_control:
-            n_actions = 4
         else:
-            n_actions = 3
+            n_actions = rl['dim_actions_1']
 
         actions = np.reshape(actions, (self.n_homes, self.N, n_actions))
 

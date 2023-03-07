@@ -116,13 +116,9 @@ def _make_action_space(rl, reactive_power_for_voltage_control):
     if rl["discretize_actions"]:
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
-        if reactive_power_for_voltage_control:
-            n_actions = 4
-        else:
-            n_actions = 3
         action_space = spaces.Box(
-            low=np.array(rl["low_action"][0:n_actions], dtype=np.float32),
-            high=np.array(rl["high_action"][0:n_actions], dtype=np.float32),
+            low=np.array(rl["low_action"], dtype=np.float32),
+            high=np.array(rl["high_action"], dtype=np.float32),
             shape=(rl["dim_actions"],), dtype=np.float32)
     rl["action_space"] = [action_space] * rl["n_homes"]
 
@@ -465,6 +461,7 @@ def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
     rl["dim_actions_1"] = rl["dim_actions"]
     if syst['run_mode'] == 1:
         rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
+        rl['high_actions'] = np.array(rl['high_actions'][0: rl["dim_actions_1"]])
 
     if not rl["aggregate_actions"]:
         rl["low_action"] = rl["low_actions"]
