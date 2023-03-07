@@ -445,13 +445,16 @@ class Battery:
                 + self.loss_dis[home] + self.loads_car[home]
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
-            self.p_car_flex[home] = self.charge[home]/self.eta_ch - self.discharge[home]
+            self.p_car_flex[home] = np.array(self.charge[home]/self.eta_ch) - np.array(self.discharge[home])
+            assert self.p_car_flex[home] ** 2 < self.max_apparent_power_car + 1e-3, \
+                f"home = {home}, p_car_flex = {self.p_car_flex[home]} too large for " \
+                f"self.max_apparent_power_car {self.max_apparent_power_car}"
             if self.reactive_power_for_voltage_control:
                 # reactive power is a decision variable
                 self.q_car_flex[home] = res[home]['q']
         if not self.reactive_power_for_voltage_control:
             # calculate active and reactive power for all homes with fixed pf
-            self.car_reactive_power_fixed_pf()
+            self.q_car_flex = calculate_reactive_power(self.p_car_flex, self.pf_flexible_homes)
         apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
         assert all(apparent_power_car <= self.max_apparent_power_car**2 + 1e-2), \
             f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
@@ -711,6 +714,3 @@ class Battery:
 
         return feasible
 
-    def car_reactive_power_fixed_pf(self):
-        self.q_car_flex = calculate_reactive_power(
-            self.p_car_flex, self.pf_flexible_homes)
