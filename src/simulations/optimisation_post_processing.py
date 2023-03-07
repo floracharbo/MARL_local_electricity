@@ -44,13 +44,12 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
     if grd['line_losses_method'] == 'iteration':
         res['lij'] = input_hourly_lij
     for time_step in range(N):
-        assert np.all(
-            abs(
-               res['pi'][:, time_step]
-               - np.matmul(grd['flex_buses'], res['netp'][:, time_step])
-               * grd['kW_to_per_unit_conversion']
-               ) < 1e-3
+        abs_diffs = abs(
+            res['pi'][:, time_step]
+            - np.matmul(grd['flex_buses'], res['netp'][:, time_step])
+            * grd['kW_to_per_unit_conversion']
         )
+        assert np.all(abs_diffs < 1e-3)
         abs_pi_lij_constraint = abs(
             res['pi'][1:, time_step]
             - (

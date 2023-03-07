@@ -50,12 +50,13 @@ class Explorer:
         self.res_path = prm["paths"]["opt_res"]
         for info in ["D", "solver", "N"]:
             setattr(self, info, prm["syst"][info])
-        self.episode_batch = {}
-
         self.data = DataManager(env, prm, self)
+
+        self.episode_batch = {}
         self.action_selector = ActionSelector(
             prm, learner, self.episode_batch, env
         )
+
         self.action_selector.mac = mac
 
         self.learning_manager = LearningManager(
@@ -80,7 +81,7 @@ class Explorer:
         seed_ind = self.ind_seed_deterministic \
             if self.rl["deterministic"] == 1 \
             else self.data.get_seed_ind(repeat, epoch, i_explore)
-        seed_ind += self.data.d_ind_seed[self.data.passive_ext]
+        seed_ind += self.data.d_ind_seed[self.data.ext]
         env.set_passive_active(passive=True)
         method = "baseline"
         done = 0
@@ -96,7 +97,7 @@ class Explorer:
     def _passive_get_steps(
             self, env, repeat, epoch, i_explore, methods, step_vals
     ):
-        self.data.passive_ext = "P"
+        self.data.ext = "P"
         self._init_passive_data()
         if self.prm['syst']['n_homesP'] == 0:
             return step_vals
@@ -113,7 +114,7 @@ class Explorer:
 
         # reset environment
         env.reset(
-            seed=self.data.seed[self.data.passive_ext], load_data=True, passive=True
+            seed=self.data.seed[self.data.ext], load_data=True, passive=True
         )
 
         # interact with environment in a passive way for each step
@@ -132,8 +133,8 @@ class Explorer:
                     self.prm["loads"][info][:, env.time_step] = val
             if not sequence_feasible:
                 # if data is not feasible, make new data
-                if seed_ind < len(self.data.seeds[self.data.passive_ext]):
-                    self.data.d_ind_seed[self.data.passive_ext] += 1
+                if seed_ind < len(self.data.seeds[self.data.ext]):
+                    self.data.d_ind_seed[self.data.ext] += 1
                     seed_ind += 1
                 else:
                     for info in ["factors", "cluss", "batch"]:
@@ -143,14 +144,14 @@ class Explorer:
                         )
                         for filename in files:
                             os.remove(filename)
-                    self.data.d_seed[self.data.passive_ext] += 1
+                    self.data.d_seed[self.data.ext] += 1
 
                 print("infeasible in loop passive")
 
-                self.data.seeds[self.data.passive_ext] = np.delete(
-                    self.data.seeds[self.data.passive_ext],
-                    len(self.data.seeds[self.data.passive_ext]) - 1)
-                self.data.d_ind_seed[self.data.passive_ext] += 1
+                self.data.seeds[self.data.ext] = np.delete(
+                    self.data.seeds[self.data.ext],
+                    len(self.data.seeds[self.data.ext]) - 1)
+                self.data.d_ind_seed[self.data.ext] += 1
                 seed_ind += 1
                 self.data.deterministic_created = False
 
@@ -161,7 +162,7 @@ class Explorer:
 
                 self._init_passive_data()
 
-                env.reset(seed=self.data.seed[self.data.passive_ext],
+                env.reset(seed=self.data.seed[self.data.ext],
                           load_data=True, passive=True)
 
                 inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
@@ -284,7 +285,7 @@ class Explorer:
             action, _ = self.action_selector.select_action(
                 method, step, actions, evaluation,
                 current_state, eps_greedy, rdn_eps_greedy,
-                rdn_eps_greedy_indiv, self.t_env
+                rdn_eps_greedy_indiv, self.t_env, ext=self.env.ext,
             )
 
             # interact with environment to get rewards
@@ -348,9 +349,13 @@ class Explorer:
             self, env, repeat, epoch, i_explore, methods,
             step_vals, evaluation
     ):
-        env.set_passive_active(passive=False)
+        env.set_passive_active(passive=False, evaluation=evaluation)
         rl = self.rl
-        self.data.passive_ext = ""
+        if evaluation and self.prm['syst']['n_homes_test'] != self.n_homes:
+            self.data.ext = "_test"
+        else:
+            self.data.ext = ""
+
         self.n_homes = self.prm["syst"]["n_homes"]
         self.homes = range(self.n_homes)
         # initialise data
@@ -363,7 +368,7 @@ class Explorer:
         # seed_mult = 1 # for initial passive consumers
         seed_ind = self.ind_seed_deterministic if rl["deterministic"] == 1 \
             else self.data.get_seed_ind(repeat, epoch, i_explore)
-        seed_ind += self.data.d_ind_seed[self.data.passive_ext]
+        seed_ind += self.data.d_ind_seed[self.data.ext]
 
         [_, batch], step_vals = self.data.find_feasible_data(
             seed_ind, methods, step_vals, evaluation, epoch
@@ -388,12 +393,13 @@ class Explorer:
                 method = methods_nonopt[i_t]
                 i_t += 1
                 self.data.get_seed(seed_ind)
-                set_seeds_rdn(self.data.seed[self.data.passive_ext])
+                set_seeds_rdn(self.data.seed[self.data.ext])
 
                 # reset environment with adequate data
                 env.reset(
-                    seed=self.data.seed[self.data.passive_ext],
-                    load_data=True, E_req_only=method == "baseline"
+                    seed=self.data.seed[self.data.ext],
+                    load_data=True, E_req_only=method == "baseline",
+                    evaluation=evaluation
                 )
                 # get data from environment
                 inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
@@ -410,7 +416,7 @@ class Explorer:
                 if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
                     actions, _, states = self.action_selector.trajectory_actions(
                         method, rdn_eps_greedy_indiv, eps_greedy,
-                        rdn_eps_greedy, evaluation, self.t_env
+                        rdn_eps_greedy, evaluation, self.t_env, self.env.ext
                     )
                 state = env.get_state_vals(inputs=inputs_state_val)
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
@@ -439,7 +445,7 @@ class Explorer:
                     evaluation, epoch
                 )
 
-        step_vals["seed"] = self.data.seed[self.data.passive_ext]
+        step_vals["seed"] = self.data.seed[self.data.ext]
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
             self.t_env += self.N
@@ -460,6 +466,7 @@ class Explorer:
 
         # initialise output
         step_vals = initialise_dict(methods)
+
         self._init_facmac_mac(methods, new_episode_batch, epoch)
 
         # passive consumers
@@ -695,7 +702,7 @@ class Explorer:
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
-            self, evaluation, exploration_method, time_step, step_vals, epoch
+            self, evaluation, exploration_method, time_step, step_vals, epoch, ext
     ):
         rl = self.prm["RL"]
         if (rl["type_learning"] in ["DQN", "DDQN", "DDPG", "facmac"]
@@ -882,7 +889,7 @@ class Explorer:
 
             # instant learning feedback
             self._instant_feedback_steps_opt(
-                evaluation, method, time_step, step_vals, epoch
+                evaluation, method, time_step, step_vals, epoch, self.env.ext
             )
 
             # record if last epoch
