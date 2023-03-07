@@ -119,7 +119,7 @@ class Explorer:
 
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
-            action = np.ones((self.n_homes, self.prm['RL']['dim_actions_1']))
+            action = self.rl['default_action' + self.env.ext]
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
                 action, record=record,
@@ -295,8 +295,9 @@ class Explorer:
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
             )
-            [state, done, reward, break_down_rewards, bool_flex,
-             constraint_ok, record_output] = env.step(
+            [
+                state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
+            ] = env.step(
                 action, record=record, evaluation=evaluation, E_req_only=method == "baseline"
             )
             if record:
@@ -321,15 +322,16 @@ class Explorer:
 
                 # if instant feedback,
                 # learn right away at the end of the step
-                if not evaluation and not self.rl['trajectory']:
-                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
-                        self.learning_manager.learning(
-                            current_state, state, action, reward, done,
-                            eval_method, step, step_vals, epoch
-                        )
-                self.learning_manager.q_learning_instant_feedback(
-                    evaluation, method, step_vals, step
-                )
+                if self.n_homes > 0:
+                    if not evaluation and not self.rl['trajectory']:
+                        for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
+                            self.learning_manager.learning(
+                                current_state, state, action, reward, done,
+                                eval_method, step, step_vals, epoch
+                            )
+                    self.learning_manager.q_learning_instant_feedback(
+                        evaluation, method, step_vals, step
+                    )
 
                 if self.rl['trajectory']:
                     if type(reward) in [float, int, np.float64]:
@@ -349,6 +351,8 @@ class Explorer:
             self, env, repeat, epoch, i_explore, methods,
             step_vals, evaluation
     ):
+        self.n_homes = self.prm["syst"]["n_homes"]
+        self.homes = range(self.n_homes)
         env.set_passive_active(passive=False, evaluation=evaluation)
         rl = self.rl
         if evaluation and self.prm['syst']['n_homes_test'] != self.n_homes:
@@ -356,8 +360,7 @@ class Explorer:
         else:
             self.data.ext = ""
 
-        self.n_homes = self.prm["syst"]["n_homes"]
-        self.homes = range(self.n_homes)
+
         # initialise data
         methods_nonopt = [method for method in methods if method != "opt"]
         method0 = methods_nonopt[0]
@@ -460,7 +463,7 @@ class Explorer:
         """
         eval0 = evaluation
         self.data.seed_ind = {}
-        self.data.seed = {"P": 0, "": 0}
+        self.data.seed = {ext: 0 for ext in self.prm['syst']['n_homes_extensions_all']}
         # create link to objects/data needed in method
         env = copy.deepcopy(self.env) if parallel else self.env
 
@@ -485,7 +488,7 @@ class Explorer:
         return step_vals, self.episode_batch
 
     def _check_rewards_match(self, method, evaluation, step_vals, sequence_feasible):
-        if "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
+        if self.n_homes > 0 and "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
             # rewards should not be better than optimal rewards
             # assert np.mean(step_vals[method]["reward"]) \
             #        < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
