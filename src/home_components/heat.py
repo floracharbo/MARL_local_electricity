@@ -72,6 +72,8 @@ class Heat:
         self.E_flex = None
 
         self.reset(prm, i0_costs, ext, E_req_only)
+        for attribute in ['T_air', 'tot_E', 'T_next']:
+            setattr(self, attribute, np.full(self.n_homes, np.nan))
 
     def reset(self, prm, i0_costs=None, ext=None, E_req_only=None):
         """
