@@ -744,7 +744,8 @@ class Action_translator:
         no_flex_actions = self._get_no_flex_actions('flexible_q_car_action')
         flexible_q_car_actions = np.zeros(self.n_homes)
         for home in range(self.n_homes):
-            active_power = res['charge'][home, time_step] - res['discharge_other'][home, time_step]
+            active_power = res['charge'][home, time_step] / self.car.eta_ch \
+                           - res['discharge_other'][home, time_step]
             max_q_car_flexibility = np.sqrt(self.max_apparent_power_car**2 - active_power**2)
             flexible_q_car_actions[home] = res['q_car_flex'][home, time_step] / max_q_car_flexibility
         # if action is close to zero, consider it to be zero

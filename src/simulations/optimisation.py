@@ -218,25 +218,6 @@ class Optimiser:
                 # * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
 
-        # external grid between bus 1 and 2
-        if self.grd['line_losses_method'] == 'iteration':
-            p.add_list_of_constraints(
-                [q_ext_grid[time_step]
-                    == pic.sum(netq_flex[:, time_step])
-                    + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
-                    * self.per_unit_to_kW_conversion
-                    # + pic.sum(netq_passive[:, time_step])
-                    for time_step in range(self.N)])
-        else:
-            p.add_list_of_constraints(
-                [q_ext_grid[time_step]
-                    == pic.sum(netq_flex[:, time_step])
-                    + pic.sum(np.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
-                    * self.per_unit_to_kW_conversion
-                    # + pic.sum(netq_passive[:, time_step])
-                    for time_step in range(self.N)]
-            )
-
         p.add_list_of_constraints(
             [
                 pij[0, time_step] == grid[time_step] * self.kW_to_per_unit_conversion
@@ -475,7 +456,7 @@ class Optimiser:
         # grid costs
         p.add_constraint(
             grid_energy_costs
-            == (self.grd['C'][0: self.N] | (grid + q_ext_grid + self.grd['loss'] * grid2))
+            == (self.grd['C'][0: self.N] | (grid + self.grd['loss'] * grid2))
         )
 
         return p, netp, grid, grid_energy_costs, voltage_costs

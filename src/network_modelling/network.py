@@ -413,7 +413,7 @@ class Network:
         q_ext_grid_pp = res["q_ext_grid"][time_step] + delta_hourly_reactive_line_losses
 
         hourly_grid_energy_costs_pp = grdCt * (
-            grid_pp + q_ext_grid_pp + self.loss * grid_pp ** 2
+            grid_pp + self.loss * grid_pp ** 2
         )
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
