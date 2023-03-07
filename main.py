@@ -28,7 +28,7 @@ settings = {
     },
     'syst': {
         'force_optimisation': True,
-        'n_homes': [50] + [1, 3, 5, 10, 20, 50] * 3,
+        'n_homes': [30] + [1, 3, 5, 10, 20, 30] * 3,
     }
 }
 
