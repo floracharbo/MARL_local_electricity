@@ -67,7 +67,7 @@ class LocalElecEnv:
             n_homes=prm['syst']['n_homes'],
             factors0=prm['syst']['f0'],
             clusters0=prm['syst']['clus0'],
-            prm=prm,
+            prm=prm
         )
         self.spaces = EnvSpaces(self)
         self.spaces.new_state_space(self.rl['state_space'])
@@ -105,10 +105,11 @@ class LocalElecEnv:
                 prm=prm,
                 other_prm={
                     'car': {
-                        'cap': prm['car']['capP'],
+                        'cap': prm['car']['capsP'],
                         'own_car': prm['car']['own_carP']
                     }
                 },
+                ext='P'
             )
         if prm['syst']['n_homes_test'] != prm['syst']['n_homes']:
             self.test_hedge = HEDGE(
@@ -118,10 +119,11 @@ class LocalElecEnv:
                 prm=prm,
                 other_prm={
                     'car': {
-                        'cap': prm['car']['cap_test'],
+                        'cap': prm['car']['caps_test'],
                         'own_car': prm['car']['own_car_test'],
                     }
                 },
+                ext='_test'
             )
 
     def reset(
@@ -185,11 +187,10 @@ class LocalElecEnv:
             self._load_next_day(i_load=i)
 
         self.car.add_batch(self.batch)
-        self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
+        if self.prm['syst']['n_homes' + self.ext] > 0:
+            self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
         self._loads_test()
         self.batch_flex = copy.deepcopy(self.batch['flex'])
-
-        assert not np.all(self.batch['flex'] == 0), "no flex in batch"
 
         return self.save_file, self.batch
 
@@ -325,9 +326,8 @@ class LocalElecEnv:
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, hourly_line_losses, voltage_squared, \
-            q_ext_grid, constraint_ok = self.policy_to_rewardvar(
-                action, E_req_only=E_req_only)
+        home_vars, loads, hourly_line_losses, voltage_squared, q_ext_grid, constraint_ok \
+            = self.policy_to_rewardvar(action, E_req_only=E_req_only)
         netp0 = self.prm['loads']['netp0'][:, h]
         if not constraint_ok:
             print('constraint false not returning to original values')
@@ -542,7 +542,19 @@ class LocalElecEnv:
             loads, home_vars = self.get_loads_fixed_flex_gen(date, h)
 
             if action is None:
-                return None
+                hourly_line_losses = 0
+                voltage_squared, q_ext_grid = None, None
+                home_vars['bool_flex'] = False
+                constraint_ok = True
+                for info in ['netp', 'tot_cons']:
+                    home_vars[info] = np.zeros(self.n_homes)
+                for info in ['flex_cons', 'tot_cons_loads']:
+                    loads[info] = np.zeros(self.n_homes)
+
+                return (
+                    home_vars, loads, hourly_line_losses, voltage_squared, q_ext_grid, constraint_ok
+                )
+
             for home in self.homes:
                 if action[home] is None:
                     print(f'action[{home}] is None, action = {action[home]}')
@@ -700,16 +712,17 @@ class LocalElecEnv:
         """
         if not self.load_data or len(homes) > 0:
             homes = homes if len(homes) > 0 else self.homes
-            if self.ext == '':
-                day = self.hedge.make_next_day(homes)
-            elif self.ext == 'P':
-                day = self.passive_hedge.make_next_day(homes)
-            elif self.ext == '_test':
-                day = self.test_hedge.make_next_day(homes)
+            if len(homes) > 0:
+                if self.ext == '':
+                    day = self.hedge.make_next_day(homes)
+                elif self.ext == 'P':
+                    day = self.passive_hedge.make_next_day(homes)
+                elif self.ext == '_test':
+                    day = self.test_hedge.make_next_day(homes)
 
-            for e in day.keys():
-                self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
-            self._loads_to_flex(homes, i_load=i_load)
+                for e in day.keys():
+                    self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
+                self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
             for info in ['batch', 'i0_costs']:
@@ -723,12 +736,9 @@ class LocalElecEnv:
                         ).item()
                     )
             self.update_i0_costs()
-            assert len(self.batch['loads'][0]) <= 2 * self.N, \
-                "there used to be _correct_len_batch here"
             self.dloaded += self.prm['syst']['D']
 
         assert len(self.batch) > 0, "empty batch"
-        assert len(self.batch['avail_car'][0]) > 0, "empty avail_car batch"
 
     def _loads_to_flex(self, homes: list = None, i_load: int = 0):
         """Apply share of flexible loads to new day loads data."""
@@ -993,7 +1003,7 @@ class LocalElecEnv:
         for i in range(2):
             self._load_next_day(i_load=i)
 
-        if not passive:
+        if not passive and self.n_homes > 0:
             self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
 
         for e in ['batch', 'i0_costs']:
