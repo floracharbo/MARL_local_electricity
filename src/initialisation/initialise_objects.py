@@ -339,23 +339,13 @@ def _update_bat_prm(prm):
     car = _load_bat_factors_parameters(paths, car)
 
     # battery characteristics
-<<<<<<< HEAD
     car["min_charge"] = car["caps"] * max(car["SoCmin"], car["baseld"])
     car["store0"] = car["caps"] * car["SoC0"]
-    if "capP" not in car:
-        car["capP"] = np.full(syst["n_homesP"], car["cap"])
-    car["store0P"] = car["SoC0"] * car["capP"]
-    car["min_chargeP"] = car["capP"] * max(car["SoCmin"], car["baseld"])
-=======
-    car["min_charge"] = [car["cap"][home] * max(car["SoCmin"], car["baseld"])
-                         for home in range(syst["n_homes"])]
-    car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
     for ext in syst['n_homes_extensions']:
-        if car["cap" + ext] is None:
-            car["cap" + ext] = np.full(syst["n_homes" + ext], car["cap"][0])
+        if "cap" + ext not in car:
+            car["cap" + ext] = np.full(syst["n_homes" + ext], car["cap"])
         car["store0" + ext] = car["SoC0"] * car["cap" + ext]
         car["min_charge" + ext] = car["cap" + ext] * max(car["SoCmin"], car["baseld"])
->>>>>>> main
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
