@@ -342,7 +342,9 @@ class Network:
             voltage_pp, pij_pp_kW, qij_pp_kW
         ]
 
-    def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
+    def _check_losses_differences(
+            self, res, hourly_line_losses_pp, time_step, replace_with_pp_simulation
+    ):
         # Line losses test
         abs_loss_error = abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)
         if abs_loss_error > self.tol_abs_line_losses:
@@ -358,8 +360,7 @@ class Network:
                     f"To increase accuracy, the user could increase the subset_line_losses_modelled"
                     f" (currently: {self.subset_line_losses_modelled} lines)\n"
                 )
-        else:
-            replace_with_pp_simulation = False
+
         return replace_with_pp_simulation
 
     def compare_optimiser_pandapower(
@@ -379,11 +380,13 @@ class Network:
 
         # Compare hourly results from network modelling in optimizer and pandapower
         start = time.time()
-        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-        pij_pp_kW, qij_pp_kW = self._check_voltage_differences(
-            res, time_step, netp0, netq_flex, netq_passive)
+        [
+            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp,
+            pij_pp_kW, qij_pp_kW
+        ] = self._check_voltage_differences(res, time_step, netp0, netq_flex, netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(
-            res, hourly_line_losses_pp, time_step)
+            res, hourly_line_losses_pp, time_step, replace_with_pp_simulation
+        )
         if replace_with_pp_simulation or line_losses_method == 'iteration':
             res = self._replace_res_values_with_pp_simulation(
                 res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
@@ -458,7 +461,11 @@ class Network:
             + res['hourly_distribution_network_export_costs'][time_step]
         assert abs(sum_indiv_components - res['hourly_total_costs'][time_step]) < 1e-4, \
             "total hourly costs do not add up"
-        assert abs(res['grid'][time_step] - (sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step])) < 1e-3
+        abs_diff = abs(
+            res['grid'][time_step]
+            - (sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step])
+        )
+        assert abs_diff < 1e-3
 
         return res
 

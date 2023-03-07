@@ -65,15 +65,15 @@ class DataManager:
         # d_seed is the difference between the rank of the n-th seed (n)
         # and the n-th seed value (e.g. the 2nd seed might be = 3, d_seed = 1)
         self.d_seed = {}
-        for passive_ext in ['P', '']:
-            self.d_seed[passive_ext] = self.seeds[passive_ext][-1] - \
-                (len(self.seeds[passive_ext]) - 1) if len(self.seeds[passive_ext]) > 0 else 0
+        for ext in prm['syst']['n_homes_extensions_all']:
+            self.d_seed[ext] = self.seeds[ext][-1] - \
+                (len(self.seeds[ext]) - 1) if len(self.seeds[ext]) > 0 else 0
 
         # d_ind_seed is the difference between the current
         # ind_seed from the seed multiplier value and epoch, repeat and
         # how many i have thrown out because it was infeasible during training
         # instead of looking at the n-th seed, look at the(n+d_ind_seed)th seed
-        self.d_ind_seed = {'P': 0, '': 0}
+        self.d_ind_seed = {ext: 0 for ext in self.prm['syst']['n_homes_extensions_all']}
 
         self.timer_optimisation = []
         self.timer_feasible_data = []
@@ -83,7 +83,7 @@ class DataManager:
         self.n_cons_constraint_violations = 0
         self.max_cons_slack = -1
 
-    def format_grd(self, batch, passive_ext):
+    def format_grd(self, batch, ext):
         """Format network parameters in preparation for optimisation."""
         # Willingness to delay (WTD)
         grd, loads, syst, car = [
@@ -103,17 +103,17 @@ class DataManager:
                         min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0)
 
         # make ntw matrices
-        grd['Bcap'] = np.zeros((syst['n_homes' + passive_ext], syst['N']))
-        grd['loads'] = np.zeros((loads['n_types'], syst['n_homes' + passive_ext], syst['N']))
+        grd['Bcap'] = np.zeros((syst['n_homes' + ext], syst['N']))
+        grd['loads'] = np.zeros((loads['n_types'], syst['n_homes' + ext], syst['N']))
         grd['flex'] = np.zeros(
-            (syst['N'], loads['n_types'], syst['n_homes' + passive_ext], syst['N']))
+            (syst['N'], loads['n_types'], syst['n_homes' + ext], syst['N']))
 
-        grd['gen'] = np.zeros((syst['n_homes' + passive_ext], syst['N'] + 1))
-        share_flexs = loads['share_flexs' + passive_ext]
-        for home in range(syst['n_homes' + passive_ext]):
+        grd['gen'] = np.zeros((syst['n_homes' + ext], syst['N'] + 1))
+        share_flexs = loads['share_flexs' + ext]
+        for home in range(syst['n_homes' + ext]):
             grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
             for time_step in range(syst['N']):
-                grd['Bcap'][home, time_step] = car['cap' + passive_ext][home]
+                grd['Bcap'][home, time_step] = car['cap' + ext][home]
                 for load_type in range(loads['n_types']):
                     potential_delay_t = int(potential_delay[load_type][time_step])
                     grd['loads'][0][home][time_step] \
@@ -142,24 +142,26 @@ class DataManager:
             grd['line_losses_method'] = self.prm['grd']['line_losses_method']
             grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
 
-    def _passive_find_feasible_data(self):
+    def _passive_find_feasible_data(self, evaluation):
         passive = True
 
         file_id_path = self.paths['opt_res'] / f"batch{self.file_id()}"
         if file_id_path.is_file():
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
-                seed=self.seed[self.passive_ext], load_data=True,
-                passive=passive)
+                seed=self.seed[self.ext], load_data=True,
+                passive=passive, evaluation=False
+            )
         else:
             # presave data to be used for multiple methods
             batch = self._env_make_data(
-                int(self.seed[self.passive_ext]), passive=passive)
+                int(self.seed[self.ext]), passive=passive, evaluation=evaluation
+            )
 
         # turn input data into usable format for optimisation problem
-        data_feasibles = self._format_data_optimiser(batch, passive=passive)
+        data_feasibles = self._format_data_optimiser(batch, passive=passive, test=evaluation)
         if not all(data_feasibles):
-            batch, data_feasibles = self._loop_replace_data(data_feasibles, passive)
+            batch, data_feasibles = self._loop_replace_data(data_feasibles, passive, evaluation)
 
         data_feasible = all(data_feasibles)
         res = None
@@ -204,8 +206,9 @@ class DataManager:
         if new_data_needed:
             # pre-save data to be used for multiple methods
             batch = self._env_make_data(
-                int(self.seed[self.passive_ext]),
-                passive=passive
+                int(self.seed[self.ext]),
+                passive=passive,
+                evaluation=evaluation
             )
             assert batch['loads'][0, 0] == self.env.batch['loads'][0, 0]
 
@@ -219,14 +222,14 @@ class DataManager:
                     res['house_cons'] = res['totcons'] - res['E_heat']
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
-                seed=self.seed[self.passive_ext],
-                load_data=True, passive=passive
+                seed=self.seed[self.ext],
+                load_data=True, passive=passive, evaluation=evaluation,
             )
             new_res = False
         # turn input data into optimisation problem format
-        data_feasibles = self._format_data_optimiser(batch, passive=passive)
+        data_feasibles = self._format_data_optimiser(batch, passive=passive, test=evaluation)
         if not all(data_feasibles):
-            batch, data_feasibles = self._loop_replace_data(data_feasibles, passive)
+            batch, data_feasibles = self._loop_replace_data(data_feasibles, passive, evaluation)
             feasibility_checked = False
 
         if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
@@ -289,14 +292,14 @@ class DataManager:
             # try solving problem else making new data until problem solved
             iteration += 1
             feasibility_checked = self.get_seed(seed_ind)
-            set_seeds_rdn(self.seed[self.passive_ext])
+            set_seeds_rdn(self.seed[self.ext])
             self.res_name = \
                 f"res_P{int(self.seed['P'])}_" \
                 f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
 
             if passive:
                 seed_data, new_res, data_feasible \
-                    = self._passive_find_feasible_data()
+                    = self._passive_find_feasible_data(evaluation)
             else:
                 [seed_data, new_res, data_feasible, step_vals,
                  feasibility_checked] = self._active_find_feasible_data(
@@ -308,8 +311,8 @@ class DataManager:
                 seed_ind = self.infeasible_tidy_files_seeds(seed_ind)
 
         if not feasibility_checked:
-            self.seeds[self.passive_ext] = np.append(
-                self.seeds[self.passive_ext], self.seed[self.passive_ext]
+            self.seeds[self.ext] = np.append(
+                self.seeds[self.ext], self.seed[self.ext]
             )
 
         if new_res:
@@ -325,19 +328,19 @@ class DataManager:
 
     def get_seed(self, seed_ind: int) -> bool:
         """Given the seed_ind, compute the random seed."""
-        if seed_ind < len(self.seeds[self.passive_ext]):
+        if seed_ind < len(self.seeds[self.ext]):
             feasibility_checked = True
-            self.seed[self.passive_ext] = self.seeds[self.passive_ext][seed_ind]
+            self.seed[self.ext] = self.seeds[self.ext][seed_ind]
         else:
-            self.seed[self.passive_ext] = seed_ind + self.d_seed[self.passive_ext]
+            self.seed[self.ext] = seed_ind + self.d_seed[self.ext]
             feasibility_checked = False
 
         return feasibility_checked
 
     def infeasible_tidy_files_seeds(self, seed_ind):
         """If data is infeasible, update seeds and remove saved files."""
-        if seed_ind < len(self.seeds[self.passive_ext]):
-            self.d_ind_seed[self.passive_ext] += 1
+        if seed_ind < len(self.seeds[self.ext]):
+            self.d_ind_seed[self.ext] += 1
             seed_ind += 1
         else:
             for seeded_data in ['factors', 'clusters', 'batch']:
@@ -350,7 +353,7 @@ class DataManager:
                 str(self.paths['opt_res'] / self.res_name))
             for file_name in file_names:
                 os.remove(file_name)
-            self.d_seed[self.passive_ext] += 1
+            self.d_seed[self.ext] += 1
 
         return seed_ind
 
@@ -379,7 +382,7 @@ class DataManager:
 
     def file_id(self):
         """Generate string to identify the run in saved files."""
-        return f"{int(self.seed[self.passive_ext])}{self.passive_ext}" \
+        return f"{int(self.seed[self.ext])}{self.ext}" \
                f"{self.prm['paths']['opt_res_file']}"
 
     def _loop_replace_data(
@@ -388,6 +391,7 @@ class DataManager:
             passive: bool,
             # factors: dict,
             # clusters: dict
+            evaluation: bool,
     ) -> Tuple[dict, dict, dict, np.ndarray]:
         """Replace the data for infeasible homes."""
         its = 0
@@ -400,7 +404,7 @@ class DataManager:
             # [factors, clusters] = self._load_res()
 
             self.batch_file, batch = self.env.reset(
-                seed=self.seed[self.passive_ext], load_data=True, passive=passive
+                seed=self.seed[self.ext], load_data=True, passive=passive, evaluation=evaluation
             )
 
             assert all(
@@ -409,7 +413,7 @@ class DataManager:
 
             # turn input data into usable format for optimisation problem
             data_feasibles = self._format_data_optimiser(
-                batch, passive=passive
+                batch, passive=passive, test=evaluation
             )
             homes = [i for i, ok in enumerate(data_feasibles) if not ok]
             if its > 50:
@@ -435,7 +439,8 @@ class DataManager:
     def _env_make_data(
             self,
             seed: int,
-            passive: bool = False
+            passive: bool = False,
+            evaluation: bool = False
     ) -> List[dict]:
         """
         Instruct env to load/ make data given deterministic. Save and clean up.
@@ -450,14 +455,15 @@ class DataManager:
             # deterministic
             load_data = True
             batch_file, batch = self.env.reset(
-                seed=seed, load_data=load_data, passive=passive
+                seed=seed, load_data=load_data, passive=passive, evaluation=evaluation
             )
 
         elif self.rl['deterministic'] > 0 and not self.deterministic_created:
             # rl['deterministic'] 1: deterministic / 2: deterministic noisy
             load_data = False
             batch_file, batch = self.env.reset(
-                seed=seed, load_data=load_data, passive=passive)
+                seed=seed, load_data=load_data, passive=passive, evaluation=evaluation
+            )
             np.save(f'deterministic_prms_seedind{self.ind_seed_deterministic}',
                     [batch_file, batch])
             self.deterministic_created = True
@@ -467,7 +473,8 @@ class DataManager:
             load_data = True
             batch_file, batch = self.env.reset(
                 seed=seed, load_data=load_data,
-                add_noise=True, passive=passive)
+                add_noise=True, passive=passive, evaluation=evaluation
+            )
 
         else:
             # inderterministic
@@ -475,7 +482,7 @@ class DataManager:
             # do not load data for env reset - instead make new data
             load_data = False
             batch_file, batch = self.env.reset(
-                seed=seed, load_data=load_data, passive=passive
+                seed=seed, load_data=load_data, passive=passive, evaluation=evaluation
             )
 
         # for subsequent methods, on reinitialisation, it will use this data
@@ -498,7 +505,8 @@ class DataManager:
     def _format_data_optimiser(
             self,
             batch: dict,
-            passive: bool = False
+            passive: bool = False,
+            test: bool = False,
     ) -> np.ndarray:
         """Turn input data into usable format for optimisation problem."""
         # initialise dicts
@@ -506,24 +514,25 @@ class DataManager:
             self.prm[data_file] for data_file in ['grd', 'loads', 'syst', 'car', 'heat']
         ]
         passive_ext = 'P' if passive else ''
-
+        test_ext = '_test' if test and syst['n_homes_test'] != syst['n_homes'] else ''
+        ext = passive_ext + test_ext
         # format battery info
         bat_entries = ['avail_car', 'loads_car']
         for bat_entry in bat_entries:
-            car['batch_' + bat_entry] = np.zeros((syst['n_homes' + passive_ext], syst['N'] + 1))
+            car['batch_' + bat_entry] = np.zeros((syst['n_homes' + ext], syst['N'] + 1))
 
         bat_entries += ['bat_dem_agg']
-        car['bat_dem_agg'] = np.zeros((syst['n_homes' + passive_ext], syst['N'] + 1))
-        for home in range(syst["n_homes" + passive_ext]):
+        car['bat_dem_agg'] = np.zeros((syst['n_homes' + ext], syst['N'] + 1))
+        for home in range(syst["n_homes" + ext]):
             for info in self.env.car.batch_entries:
                 car['batch_' + info][home] = \
                     batch[info][home, 0: len(car['batch_' + info][home])]
 
         loads['n_types'] = 2
 
-        self.format_grd(batch, passive_ext)
+        self.format_grd(batch, ext)
 
-        feasible = self.env.car.check_feasible_bat(self.prm, passive_ext)
+        feasible = self.env.car.check_feasible_bat(self.prm, ext)
 
         heat['T_out'] = self.env.heat.T_out
 

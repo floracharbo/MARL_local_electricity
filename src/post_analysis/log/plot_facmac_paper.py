@@ -168,10 +168,6 @@ for line_label in labels.keys():
         )
         ys_time[line_label] = time_end
         function = polynomial2
-        # if line_label == 'FH':
-        #     label = 'first order: ' + r'$y = ax + b$'
-        # else:
-        #     label = 'second order: ' + r'$y = ax^2 + bx + c$'
         popt, pcov = optimize.curve_fit(function, n_homes, time_end)
         coeffs = popt
         f_fitted = [function(x, *coeffs) for x in list(range(x_max))]
@@ -179,7 +175,8 @@ for line_label in labels.keys():
         plt.plot(list(range(x_max)), f_fitted, label=label, color=colour, linestyle=ls)
         print(f"{line_label}: ")
         print(f"times : {time_end}")
-        print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(f_fitted, time_end)):.2e}")
+        sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(f_fitted, time_end))
+        print(f"sum square error {sum_square_error:.2e}")
         print(f"{label} a, b first errors = {np.sqrt(np.diag(pcov))}")
 
 axs[0].set_ylabel("Savings [£/home/month]")
@@ -192,7 +189,7 @@ axs[1].set_xlabel("Number of homes")
 axs[0].legend(fancybox=True)
 axs[1].legend(fancybox=True)
 fig.savefig(
-    f"outputs/results_analysis/facmac_results2.pdf",
+    "outputs/results_analysis/facmac_results2.pdf",
     bbox_inches='tight', format='pdf', dpi=1200
 )
 plt.close('all')
@@ -201,82 +198,34 @@ xs_facmac = [1, 3, 5, 10, 20, 50]
 ys_facmac = [26.50374389, 38.85938716, 49.69802213, 73.43057513, 123.11931181, 281.53323126]
 xs_iql = [1, 3, 5, 10, 20, 50]
 # ys_iql = [133.11673403, 302.6728189, 328.64307976, 710.36226296, 1860.68218756, 8911.68623304]
-ys_iql = [ 132.52754283, 297.46064401, 508.72118497, 1051.24059987, 2497.18453503, 9999.79186893]
+ys_iql = [132.52754283, 297.46064401, 508.72118497, 1051.24059987, 2497.18453503, 9999.79186893]
 for xs, ys, label in zip(
     [xs_facmac, xs_iql],
     [ys_facmac, ys_iql],
     ['facmac', 'iql']
 ):
-    popt, pcov = optimize.curve_fit(first_order, xs, ys)
-    a, b = popt
-    print(f"{label} a, b first errors = {np.sqrt(np.diag(pcov))}")
-    first_order_fitted = [first_order(x, a, b) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y)**2 for y_fitted, y in zip(first_order_fitted, ys)):.2e}")
-
-    popt, pcov = optimize.curve_fit(second_order, xs, ys)
-    c = popt[0]
-    print(f"{label} c,d second errors b = {np.sqrt(np.diag(pcov))}")
-    second_order_fitted = [second_order(x, c) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y)**2 for y_fitted, y in zip(second_order_fitted, ys)):.2e}")
-
-    popt, pcov = optimize.curve_fit(second_order_b, xs, ys)
-    f, g = popt
-    print(f"{label} c,d second errors b = {np.sqrt(np.diag(pcov))}")
-    second_order_b_fitted = [second_order_b(x, f, g) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y)**2 for y_fitted, y in zip(second_order_b_fitted, ys)):.2e}")
-
-    popt, pcov = optimize.curve_fit(exponential, xs, ys)
-    e = popt[0]
-    print(f"{label} e exponential errors = {np.sqrt(np.diag(pcov))}")
-    exp_fitted = [exponential(x, e) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y)**2 for y_fitted, y in zip(exp_fitted, ys)):.2e}")
-
-    popt, pcov = optimize.curve_fit(polynomial2, xs, ys)
-    f, g, h = popt
-    print(f"{label} e polynomial2 errors = {np.sqrt(np.diag(pcov))}")
-    pol_fitted = [polynomial2(x, f, g, h) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(pol_fitted, ys)):.2e}")
-    print(f"fitted polynomial2: {f} * x ** 2 + {g} * x + {h}")
-
-    popt, pcov = optimize.curve_fit(unknown_order, xs, ys)
-    i, j, k = popt
-    print(f"{label} e unknown_order errors = {np.sqrt(np.diag(pcov))}")
-    unknown_order_fitted = [unknown_order(x, i, j, k) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(unknown_order_fitted, ys)):.2e}")
-    print(f"fitted unknown_order: {i} * x ** {j} + {k}")
-
-    popt, pcov = optimize.curve_fit(polynomial3, xs, ys)
-    l, m, n, o = popt
-    print(f"{label} e polynomial3 errors = {np.sqrt(np.diag(pcov))}")
-    polynomial3_fitted = [polynomial3(x, l, m, n, o) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(polynomial3_fitted, ys)):.2e}")
-    print(f"fitted polynomial3: {l} * x ** 3 + {m} * x ** 2 + {n} * x + {o}")
-
-    popt, pcov = optimize.curve_fit(xlogx, xs, ys)
-    p, q = popt
-    print(f"{label} e xlogx errors = {np.sqrt(np.diag(pcov))}")
-    xlogx_fitted = [xlogx(x, p, q) for x in list(range(x_max))]
-    print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(xlogx_fitted, ys)):.2e}")
-    print(f"fitted xlogx: {p} * xlog(x) + {q}")
-
     fig = plt.figure()
     plt.plot(xs, ys, 'o', label='data')
-    plt.plot(list(range(x_max)), first_order_fitted,
-             label='first order')
-    plt.plot(list(range(x_max)), second_order_fitted,
-             label='second order')
-    plt.plot(list(range(x_max)), second_order_b_fitted,
-             label='second order + b')
-    plt.plot(list(range(x_max)), exp_fitted,
-             label='exponential')
-    plt.plot(list(range(x_max)), pol_fitted,
-             label='polynomial2')
-    plt.plot(list(range(x_max)), unknown_order_fitted,
-             label='unknown_order')
-    plt.plot(list(range(x_max)), polynomial3_fitted,
-             label='polynomial3_fitted')
-    plt.plot(list(range(x_max)), xlogx_fitted,
-             label='xlogx_fitted')
+
+    functions = [
+        first_order, second_order, second_order_b, exponential, polynomial2, polynomial3,
+        unknown_order, xlogx
+    ]
+    labels_functions = [
+        'first_order', 'second_order', 'second_order_b', 'exponential', 'polynomial2',
+        'polynomial3', 'unknown_order', 'xlogx'
+    ]
+    for function, label_func in zip(functions, labels_functions):
+        params, pcov = optimize.curve_fit(function, xs, ys)
+        print(f"{label} params {label_func} = {np.sqrt(np.diag(pcov))}")
+        fitted = [function(x, *params) for x in list(range(1, x_max))]
+        sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
+        print(f"sum square error {sum_square_error:.2e}")
+        print(f"params {label} {label_func}: {params}")
+
+        plt.plot(list(range(x_max)), function,
+                 label=label_func)
+
     plt.legend()
     plt.gca().set_yscale('log')
     plt.title(label)

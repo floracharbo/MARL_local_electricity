@@ -16,16 +16,20 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['n_homes']
+# COLUMNS_OF_INTEREST = ['n_homes']
+COLUMNS_OF_INTEREST = None
 
 FILTER = {
     # 'supervised_loss': False,
     # 'facmac-beta_to_alpha': 0.1,
     'SoC0': 1,
-    'grdC_n': 2,
+    # 'grdC_n': 2,
     'error_with_opt_to_rl_discharge': False,
-    'facmac-hysteretic': True,
+    'server': True,
+    'n_repeats': 10,
+    # 'facmac-hysteretic': True,
 }
+
 
 def rename_runs(results_path):
     folders = os.listdir(results_path)
@@ -58,10 +62,14 @@ def fix_learning_specific_values(log):
 
     # gaussian_params = ['start_steps', 'act_noise']
     # for param in gaussian_params:
-    #     log[f'RL-{param}'] = np.where(log['RL-exploration_mode'] != 'gaussian', 0, log[f"RL-{param}"])
+    #     log[f'RL-{param}'] = np.where(
+    #     log['RL-exploration_mode'] != 'gaussian', 0, log[f"RL-{param}"]
+    #     )
     # ou_params = ['ou_theta', 'ou_sigma', 'ou_noise_scale', 'ou_stop_episode']
     # for param in ou_params:
-    #     log[f'RL-{param}'] = np.where(log['RL-exploration_mode'] != 'ornstein_uhlenbeck', 0, log[f'RL-{param}'])
+    #     log[f'RL-{param}'] = np.where(
+    #     log['RL-exploration_mode'] != 'ornstein_uhlenbeck', 0, log[f'RL-{param}']
+    #     )
 
     return log
 
@@ -100,9 +108,10 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
                 key, subkey, subsubkey = replace_ntw[subkey]
             else:
                 print(f"{(key, subkey)} not in replace_ntw")
+        discard_n_homes_test = key == 'RL' and subkey == 'n_homes_test'
         if (
-                (is_short_type(subval) or subkey == "state_space")
-                and f"{key}-{subkey}" not in columns0
+            not discard_n_homes_test and f"{key}-{subkey}" not in columns0
+            and (subkey[0: len("own_")] == 'own_' or is_short_type(subval) or subkey == "state_space")
         ):
             columns0.append(f"{key}-{subkey}")
         elif isinstance(subval, dict):
@@ -126,7 +135,8 @@ def get_list_all_fields(results_path):
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
-        'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param', 'facmac-critic_lr_decay_param',
+        'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
+        'facmac-critic_lr_decay_param', 'RL-n_homes_test'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -316,6 +326,27 @@ def get_n_epochs_supervised_loss(prm, key, subkey):
     return prm
 
 
+def get_own_items(prm, key, subkey):
+    potential_exts = ['P', '_test']
+    ext = ''
+    for potential_ext in potential_exts:
+        if subkey[- len(potential_ext):] == potential_ext:
+            ext = potential_ext
+    if subkey not in prm[key]:
+        prm[key][subkey] = 0
+    elif prm[key][subkey] is None:
+        prm[key][subkey] = 1
+    elif isinstance(prm[key][subkey], (np.ndarray, list)):
+        prm[key][subkey] = \
+            sum(prm[key][subkey]) / prm['syst']['n_homes' + ext] \
+            if prm['syst']['n_homes' + ext] > 0 \
+            else 0
+    elif prm[key][subkey] != 1:
+        print(f"prm[{key}][{subkey}] = {prm[key][subkey]}")
+
+    return prm
+
+
 def data_specific_modifications(prm, key, subkey, subsubkey):
     previous_ntw = {
         'export_C': 'C',
@@ -340,8 +371,12 @@ def data_specific_modifications(prm, key, subkey, subsubkey):
 
     if subkey == 'grdC_n':
         prm = get_grdC_n(prm, key, subkey, str_state_space)
-    elif subkey == 'beta_to_alpha' \
-            and not prm['RL'][prm['RL']['type_learning']]['hysteretic']:
+    elif subkey[0: len('own_')] == 'own_':
+        prm = get_own_items(prm, key, subkey)
+    elif (
+        subkey == 'beta_to_alpha'
+        and not prm['RL'][prm['RL']['type_learning']]['hysteretic']
+    ):
         prm[key][subkey] = 1
     elif subkey == 'n_epochs_supervised_loss':
         prm = get_n_epochs_supervised_loss(prm, key, subkey)
@@ -433,7 +468,10 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
         'syst-n_homes', 'syst-share_active', 'syst-force_optimisation'
     ]
     for column in columns0:
-        unique_value = len(log[column][log[column].notnull()].unique()) == 1
+        try:
+            unique_value = len(log[column][log[column].notnull()].unique()) == 1
+        except Exception as ex:
+            print(ex)
         if column not in do_not_remove and unique_value:
             log.drop([column], axis=1, inplace=True)
         else:
@@ -678,15 +716,17 @@ def compare_all_runs_for_column_of_interest(
                     indexes_ignore = indexes_columns_ignore_q_learning
                 else:
                     indexes_ignore = []
-
-                only_col_of_interest_changes = all(
-                    current_col == row_col or (
-                        (not isinstance(current_col, str) and np.isnan(current_col))
-                        and (not isinstance(row_col, str) and np.isnan(row_col))
+                try:
+                    only_col_of_interest_changes = all(
+                        current_col == row_col or (
+                            (not isinstance(current_col, str) and np.isnan(current_col))
+                            and (not isinstance(row_col, str) and np.isnan(row_col))
+                        )
+                        for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
+                        if i_col not in indexes_ignore
                     )
-                    for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
-                    if i_col not in indexes_ignore
-                )
+                except Exception as ex:
+                    print(ex)
 
             n_homes_on_laptop_only = True
             if FILTER_N_HOMES:
@@ -784,8 +824,11 @@ def compare_all_runs_for_column_of_interest(
                 )
                 for i in range(len(values_of_interest_sorted) - 1):
                     if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
-                        print(F"we have two values for {column_of_interest} = {values_of_interest_sorted[i]}, "
-                              F"runs {runs_sorted[i]} and {runs_sorted[i+1]}")
+                        print(
+                            f"we have two values for {column_of_interest} = "
+                            f"{values_of_interest_sorted[i]}, "
+                            f"runs {runs_sorted[i]} and {runs_sorted[i+1]}"
+                        )
                 axs = annotate_run_nos(
                     axs, values_of_interest_sorted, best_scores_sorted['all']['ave'],
                     best_scores_sorted['env']['ave'], runs_sorted
@@ -801,7 +844,7 @@ def compare_all_runs_for_column_of_interest(
 
     if len(time_values) > 1:
         end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
-        if max(end_time_best_score_sorted)/min(end_time_best_score_sorted) > 30:
+        if max(end_time_best_score_sorted) / min(end_time_best_score_sorted) > 30:
             axs[2].set_yscale('log')
 
     state_space_vals = [x_labels, best_values, env_values, time_values] \
@@ -956,7 +999,8 @@ def plot_sensitivity_analyses(new_columns, log):
         other_columns = [
             column for column in new_columns[2:]
             if column not in [
-                column_of_interest, 'nn_learned', 'time_end', 'machine_id', 'timestamp', 'n_homes_all'
+                column_of_interest, 'nn_learned', 'time_end', 'machine_id',
+                'timestamp', 'n_homes_all'
             ]
         ]
 
@@ -1031,12 +1075,14 @@ def remove_duplicates(log, columns0):
 
     return log, columns0
 
+
 def filter_current_analysis(log):
     for col, value in FILTER.items():
         log = log.drop(log[log[col] != value].index)
     log = log.reset_index()
 
     return log
+
 
 if __name__ == "__main__":
     results_path = Path("outputs/results")
