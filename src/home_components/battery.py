@@ -563,9 +563,9 @@ class Battery:
                 print(f'action[home] = {action[home]}')
                 bool_penalty[home] = True
 
-        if not type(self.store[0]) in [float, np.float64]:
-            print('not type(store[0]) in [float, np.float64]')
-            bool_penalty[home] = True
+            if not type(self.store[home]) in [float, np.float64]:
+                print('not type(store[home]]) in [float, np.float64]')
+                bool_penalty[home] = True
 
         return bool_penalty
 

@@ -44,7 +44,6 @@ class Optimiser:
         if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res = self._solve_line_losses_iteration()
             pp_simulation_required = False
-
         else:
             res, pp_simulation_required = self._problem()
             res = res_post_processing(res, prm, self.input_hourly_lij)
