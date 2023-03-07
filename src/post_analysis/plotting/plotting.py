@@ -81,7 +81,7 @@ def plotting(record, spaces, prm, f):
     # 1 - plot non-moving  average results 25th, 50th,
     # 75th percentile for all repeat
     diff_to_opt = False
-    if sum(method for method in prm['RL']['evaluation_methods'] if method != 'baseline') > 0:
+    if sum(1 for method in prm['RL']['evaluation_methods'] if method != 'baseline') > 0:
         for moving_average in [False, True]:
             # for diff_to_opt in [False, True]:
             lower_bound, upper_bound = plot_results_all_repeats(
