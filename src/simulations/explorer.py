@@ -920,12 +920,12 @@ class Explorer:
             self.prm["grd"][e][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
         ]
+        q_car = res["q_car_flex"][:, time_step]
+        q_house = res["netq_flex"][:, time_step] - q_car
         if self.prm["grd"]['compare_pandapower_optimisation']:
             loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
-            q_car = res["q_car_flex"][:, time_step]
-            q_house = res["netq_flex"][:, time_step] - q_car
         else:
-            loaded_buses, sgen_buses, q_car, q_house = None, None, None, None
+            loaded_buses, sgen_buses, = None, None
 
         record_output = []
         for entry in [
