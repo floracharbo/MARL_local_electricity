@@ -216,8 +216,6 @@ def _facmac_initialise(prm):
         corresponding to prm["RL"]; with updated parameters
     """
     rl = prm["RL"]
-    for n_homes in ['n_homes', 'n_homes_test']:
-        rl[n_homes] = prm["syst"][n_homes]
 
     rl["obs_shape"] = len(rl["state_space"])
     if rl['trajectory']:
@@ -342,10 +340,15 @@ def _update_bat_prm(prm):
     car["min_charge"] = car["caps"] * max(car["SoCmin"], car["baseld"])
     car["store0"] = car["caps"] * car["SoC0"]
     for ext in syst['n_homes_extensions']:
-        if "cap" + ext not in car:
-            car["cap" + ext] = np.full(syst["n_homes" + ext], car["cap"])
-        car["store0" + ext] = car["SoC0"] * car["cap" + ext]
-        car["min_charge" + ext] = car["cap" + ext] * max(car["SoCmin"], car["baseld"])
+        if "cap" + ext in car and isinstance(car["cap"], list):
+            car["caps" + ext] = car['cap' + ext]
+        elif "cap" + ext not in car or car["cap" + ext] is None:
+            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap"])
+        else:
+            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap" + ext])
+
+        car["store0" + ext] = car["SoC0"] * car["caps" + ext]
+        car["min_charge" + ext] = car["caps" + ext] * max(car["SoCmin"], car["baseld"])
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -569,6 +572,9 @@ def _update_rl_prm(prm, initialise_all):
         correpsonding to prm["RL"]; with updated parameters
     """
     rl, syst, heat = [prm[key] for key in ["RL", "syst", "heat"]]
+    for n_homes in ['n_homes', 'n_homes_test']:
+        rl[n_homes] = syst[n_homes]
+    rl = _make_type_eval_list(rl)
     rl = _format_rl_parameters(rl)
     rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
@@ -789,6 +795,7 @@ def _syst_info(prm):
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
+    assert syst['n_homes_all'] > 0, "No homes in the system"
     if syst['n_homes_test'] is None:
         syst['n_homes_test'] = syst['n_homes']
     syst['n_homes_extensions'] = ["P"]
@@ -838,8 +845,6 @@ def initialise_prm(prm, no_run, initialise_all=True):
         prm[key] if key in prm else None
         for key in ["paths", "syst", "loads", "gen", "save", "heat"]
     ]
-
-    _make_type_eval_list(prm["RL"])
 
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
@@ -902,6 +907,8 @@ def _filter_type_learning_facmac(rl):
                     f"with facmac and has been removed"
                 )
 
+    return rl
+
 
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning
@@ -911,6 +918,8 @@ def _filter_type_learning_competitive(rl):
             or (reward_type(method) != "A" and distr_learning(method) != "c")
         ]
 
+    return rl
+
 
 def _add_n_start_opt_explo(rl, evaluation_methods_list):
     if rl['n_start_opt_explo'] is not None and rl['n_start_opt_explo'] > 0:
@@ -919,6 +928,16 @@ def _add_n_start_opt_explo(rl, evaluation_methods_list):
                 evaluation_methods_list[i] += f"_{rl['n_start_opt_explo']}_opt"
 
     return evaluation_methods_list
+
+
+def _filter_type_evals_no_active_homes(rl):
+    if rl['n_homes'] == 0:
+        rl["evaluation_methods"] = [
+            method for method in rl["evaluation_methods"]
+            if method in ["random", "baseline"]
+        ]
+
+    return rl
 
 
 def _make_type_eval_list(rl, large_q_bool=False):
@@ -962,7 +981,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = _add_n_start_opt_explo(rl, evaluation_methods_list)
 
     rl["evaluation_methods"] = list(dict.fromkeys(evaluation_methods_list))
-    _filter_type_learning_competitive(rl)
+    rl = _filter_type_learning_competitive(rl)
 
     rl["exploration_methods"] = [
         method for method in rl["evaluation_methods"]
@@ -978,7 +997,8 @@ def _make_type_eval_list(rl, large_q_bool=False):
     assert len(rl["eval_action_choice"]) > 0, \
         "not valid eval_type with action_choice"
 
-    _filter_type_learning_facmac(rl)
+    rl = _filter_type_learning_facmac(rl)
+    rl = _filter_type_evals_no_active_homes(rl)
 
     rl["type_Qs"] \
         = rl["eval_action_choice"] + [
@@ -988,4 +1008,6 @@ def _make_type_eval_list(rl, large_q_bool=False):
         )
     ]
 
-    print(f"evaluation_methods {evaluation_methods_list}")
+    print(f"rl['evaluation_methods'] {rl['evaluation_methods']}")
+
+    return rl
