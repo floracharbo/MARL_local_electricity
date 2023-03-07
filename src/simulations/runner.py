@@ -88,7 +88,7 @@ class Runner:
                         )
                     train_steps_vals.append(steps_vals)
 
-                    if self.rl['type_learning'] == 'facmac':
+                    if self.rl['type_learning'] == 'facmac' and self.n_homes > 0:
                         # insert episode batch in buffer, sample, train
                         self._facmac_episode_batch_insert_and_sample(epoch)
 
