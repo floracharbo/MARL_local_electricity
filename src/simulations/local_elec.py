@@ -51,6 +51,7 @@ class LocalElecEnv:
         self.labels_day_trans = prm['syst']['labels_day_trans']
         self.n_homes = prm['syst']['n_homes']
         self.homes = range(self.n_homes)
+        self.ext = ''
 
         if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
             self.network = Network(prm)
@@ -102,7 +103,25 @@ class LocalElecEnv:
                 factors0=prm['syst']['f0'],
                 clusters0=prm['syst']['clus0'],
                 prm=prm,
-                other_prm={'car': {'caps': prm['car']['capsP']}},
+                other_prm={
+                    'car': {
+                        'cap': prm['car']['capP'],
+                        'own_car': prm['car']['own_carP']
+                    }
+                },
+            )
+        if prm['syst']['n_homes_test'] != prm['syst']['n_homes']:
+            self.test_hedge = HEDGE(
+                n_homes=prm['syst']['n_homes_test'],
+                factors0=prm['syst']['f0'],
+                clusters0=prm['syst']['clus0'],
+                prm=prm,
+                other_prm={
+                    'car': {
+                        'cap': prm['car']['cap_test'],
+                        'own_car': prm['car']['own_car_test'],
+                    }
+                },
             )
 
     def reset(
@@ -111,6 +130,7 @@ class LocalElecEnv:
             load_data: bool = False,
             passive: bool = False,
             E_req_only: bool = False,
+            evaluation: bool = False,
     ) -> Tuple[str, dict]:
         """Reset environment for new day with new data."""
         self.tot_cons_loads = []
@@ -118,8 +138,12 @@ class LocalElecEnv:
             self.envseed = self._seed(seed)
             self.random_seeds_use[seed] = 0
 
+        self.n_homes = \
+            self.prm['syst']['n_homes_test'] if evaluation \
+            else self.prm['syst']['n_homes']
+
         # different agent caracteristics for passive and active homes
-        self.set_passive_active(passive)
+        self.set_passive_active(passive, evaluation)
 
         # initialise environment time
         self.date = self.date0
@@ -143,7 +167,7 @@ class LocalElecEnv:
         self.batch_file = self.batchfile0
         self.save_file = self.batch_file
         self.no_name_file = str(int(seed))
-        self.heat = Heat(self.prm, self.i0_costs, self.passive_ext, E_req_only)
+        self.heat = Heat(self.prm, self.i0_costs, self.ext, E_req_only)
         self.spaces.E_heat_min_max = self.heat.E_heat_min_max
         self.car.reset(self.prm)
         self.action_translator.heat = self.heat
@@ -169,18 +193,23 @@ class LocalElecEnv:
 
         return self.save_file, self.batch
 
-    def set_passive_active(self, passive: bool = False):
+    def set_passive_active(self, passive: bool = False, evaluation: bool = False):
         """Update environment properties for passive or active case."""
-        self.passive_ext = 'P' if passive else ''
-        self.n_homes = self.prm['syst']['n_homes' + self.passive_ext]
+        passive_ext = 'P' if passive else ''
+        test_ext = \
+            '_test' if evaluation \
+            and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
+            else ''
+        self.ext = passive_ext + test_ext
+        self.n_homes = self.prm['syst']['n_homes' + self.ext]
         self.homes = range(self.n_homes)
         setattr(self.action_translator, 'n_homes', getattr(self, 'n_homes'))
         setattr(self.spaces, 'n_homes', getattr(self, 'n_homes'))
         self.T_air = [
-            self.prm['heat']['T_req' + self.passive_ext][home][0]
+            self.prm['heat']['T_req' + self.ext][home][0]
             for home in self.homes
         ]
-        self.car.set_passive_active(passive, self.prm)
+        self.car.set_passive_active(self.ext, self.prm)
 
     def update_date(self, i0_costs: int, date0: datetime = None):
         """Update new date for new day."""
@@ -396,7 +425,7 @@ class LocalElecEnv:
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
             netp0, discharge_tot0, charge0 = passive_vars
-        elif self.passive_ext == 'P':
+        elif self.ext == 'P':
             netp0, discharge_tot0, charge0 = [
                 np.zeros(self.prm['syst']['n_homesP']) for _ in range(3)
             ]
@@ -517,7 +546,6 @@ class LocalElecEnv:
             for home in self.homes:
                 if action[home] is None:
                     print(f'action[{home}] is None, action = {action[home]}')
-
             self.heat.current_temperature_bounds(h)
         else:
             date, action, gens, loads = other_input
@@ -537,7 +565,7 @@ class LocalElecEnv:
         loads, home_vars, bool_penalty = self.action_translator.actions_to_env_vars(
             loads, home_vars, action, date, h
         )
-        share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
+        share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in self.homes:
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
                 f"home = {home}, no flex cons at last time step"
@@ -559,7 +587,6 @@ class LocalElecEnv:
             self.car.active_reactive_power_car()
             # q_car_flex will be a decision variable
             # p_car_flex is needed to set apparent power limits
-            p_car_flex = self.car.p_car_flex
             q_car_flex = self.car.q_car_flex
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid = \
@@ -639,7 +666,7 @@ class LocalElecEnv:
         return transition_type_
 
     def _file_id(self):
-        return f"{self.no_name_file}{self.passive_ext}{self.opt_res_file}"
+        return f"{self.no_name_file}{self.ext}{self.opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:
         """Given probability of each choice and a random number, select."""
@@ -656,13 +683,13 @@ class LocalElecEnv:
                     transition_type[0:2] \
                     if transition_type not in self.p_trans[data_type] \
                     else transition_type
-                clus_a = self.clus[data_type + self.passive_ext][home]
+                clus_a = self.clus[data_type + self.ext][home]
                 ps = self.p_trans[data_type][transition_type_][clus_a]
                 cump = [sum(ps[0:i]) for i in range(1, len(ps))] + [1]
                 rdn = self.np_random.rand()
-                self.clus[data_type + self.passive_ext][home] = \
+                self.clus[data_type + self.ext][home] = \
                     [c > rdn for c in cump].index(True)
-                self.cluss[home][data_type].append(self.clus[data_type + self.passive_ext][home])
+                self.cluss[home][data_type].append(self.clus[data_type + self.ext][home])
 
     def _load_next_day(self, homes: list = [], i_load=0):
         """
@@ -673,10 +700,13 @@ class LocalElecEnv:
         """
         if not self.load_data or len(homes) > 0:
             homes = homes if len(homes) > 0 else self.homes
-            if self.passive_ext == '':
+            if self.ext == '':
                 day = self.hedge.make_next_day(homes)
-            else:
+            elif self.ext == 'P':
                 day = self.passive_hedge.make_next_day(homes)
+            elif self.ext == '_test':
+                day = self.test_hedge.make_next_day(homes)
+
             for e in day.keys():
                 self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
             self._loads_to_flex(homes, i_load=i_load)
@@ -703,7 +733,7 @@ class LocalElecEnv:
     def _loads_to_flex(self, homes: list = None, i_load: int = 0):
         """Apply share of flexible loads to new day loads data."""
         homes = self.homes if len(homes) == 0 else homes
-        share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
+        share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for time_step in range(self.N):
@@ -787,7 +817,7 @@ class LocalElecEnv:
                 print(f"negative tot_cons {home_vars['tot_cons'][home]} home = {home}")
                 bool_penalty[home] = True
 
-            share_flexs = self.prm['loads']['share_flexs' + self.passive_ext]
+            share_flexs = self.prm['loads']['share_flexs' + self.ext]
             if last_step \
                     and home_vars['tot_cons'][home] < \
                     self.batch['loads'][home, h] * (1 - share_flexs[home]):
@@ -798,7 +828,7 @@ class LocalElecEnv:
         return bool_penalty
 
     def _compute_dT_next(self, home, hour):
-        T_req = self.prm['heat']['T_req' + self.passive_ext][home]
+        T_req = self.prm['heat']['T_req' + self.ext][home]
         t_change_T_req = [
             time_step for time_step in range(hour + 1, self.N) if T_req[time_step] != T_req[hour]
         ]
@@ -828,7 +858,7 @@ class LocalElecEnv:
             "store0": store[home],
             "grdC": self.prm['grd']['C'][time_step],
             "day_type": idt,
-            "dT": self.prm["heat"]["T_req" + self.passive_ext][home][hour] - self.T_air[home],
+            "dT": self.prm["heat"]["T_req" + self.ext][home][hour] - self.T_air[home],
         }
         dict_functions_home = {
             "bool_flex": self.action_translator.aggregate_action_bool_flex,

@@ -48,10 +48,10 @@ def patch_find_feasible_data(
 
     self.res_name = names_files['res']
     self.batch_file, batch = self.env.reset(
-        seed=0, load_data=True, passive=False
+        seed=0, load_data=True, passive=False, evaluation=evaluation
     )
     data_feasibles = self._format_data_optimiser(
-        batch, passive=passive
+        batch, passive=passive, test=evaluation
     )
     data_feasible = True
     pp_simulation_required = False

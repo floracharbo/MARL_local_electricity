@@ -14,6 +14,7 @@ eff: 1
 intervals_fprob: 50
 own_car: 1  # 1 if all have EVs, else array of ownership
 own_carP: 1  # 1 if all passive homes have EVs, else array of ownership
+own_car_test: 1
 n_clus: 3  # excluding no trip days
 max_active_power_car : 6.6 # Max active power delivered by and to the car battery by a convetional charger in kW
 # from 'Reactive power support in residential LV distribution grids through electric vehicle charging', 2015
@@ -21,3 +22,5 @@ max_active_power_car : 6.6 # Max active power delivered by and to the car batter
 max_apparent_power_car: 7.0 # Max apparent power delivered by and to the car battery by a convetional charger in kVA
 # considering a power factor of 0.95 (see IEEE Low Voltage Test Feeder): apparent power = active power / 0.95
 # for a supercharger, max_apparent_power_car = 150 / 0.95 = 158 kVA (Tesla V2)
+capP: ~
+cap_test: ~

@@ -10,29 +10,36 @@ from src.learners.facmac.modules.agents import REGISTRY as agent_REGISTRY
 # This multi-agent controller shares parameters between agents
 class BasicMAC:
     def __init__(self, scheme, groups, rl, N):
-        self.n_homes = rl['n_homes']
         self.rl = rl
+        for attribute in [
+            'agent_output_type', 'n_homes', 'n_homes_test'
+        ]:
+            setattr(self, attribute, rl[attribute])
         input_shape = self._get_input_shape(scheme)
         self.N = N
         self._build_agents(input_shape)
-        self.agent_output_type = rl['agent_output_type']
         self.hidden_states = None
-        self.epsilon = rl['facmac']['epsilon0'] if rl['facmac']['epsilon_decay'] else rl['facmac']['epsilon']
+        self.epsilon = \
+            rl['facmac']['epsilon0'] if rl['facmac']['epsilon_decay'] \
+            else rl['facmac']['epsilon']
 
     def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None),
-                       test_mode=False, explore=False):
+                       test_mode=False, explore=False, ext=None):
         # Only select actions for the selected batch elements in bs
         avail_actions = ep_batch["avail_actions"][:, t_ep]
         rdn_eps = np.random.rand()
         rdn_action = np.random.rand((self.rl['dim_actions']))
         if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.epsilon:
-            chosen_actions = th.tensor(self.rl['low_action']) + rdn_action * (1 - self.rl['low_action'])
+            chosen_actions = \
+                th.tensor(self.rl['low_action']) \
+                + rdn_action * (1 - self.rl['low_action'])
         else:
             agent_outputs = self.forward(ep_batch, t_ep)
 
             chosen_actions = self.action_selector.select_action(
                 agent_outputs[bs], avail_actions[bs], t_env,
-                test_mode=test_mode, explore=explore)
+                test_mode=test_mode, explore=explore
+            )
 
         return chosen_actions
 
