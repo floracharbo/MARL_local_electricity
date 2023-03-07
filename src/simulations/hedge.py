@@ -42,12 +42,14 @@ class HEDGE:
         clusters0: Optional[dict] = None,
         prm: Optional[dict] = None,
         other_prm: Optional[dict] = None,
+        ext=''
     ):
         """Initialise HEDGE object and initial properties."""
         # update object properties
         self.labels_day = ["wd", "we"]
         self.n_homes = n_homes
         self.homes = range(self.n_homes)
+        self.ext = ext
         # load input data
         self._load_input_data(prm, other_prm, factors0, clusters0)
 
@@ -59,7 +61,7 @@ class HEDGE:
                     prm[key][subkey] = subval
         # add relevant parameters to object properties
         self.car = prm["car"]
-        self.store0 = self.car["SoC0"] * np.array(self.car['caps'])
+        self.store0 = self.car["SoC0"] * np.array(self.car['caps' + self.ext])
 
         return prm
 
@@ -397,7 +399,7 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            while np.max(day["loads_car"][i_home]) > self.car['caps'][home] and it < 100:
+            while np.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home] and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:
@@ -695,7 +697,7 @@ class HEDGE:
             time_step: int,
             avail_car_: list
     ) -> bool:
-        if trip_load > self.car['caps'] + 1e-2:
+        if trip_load > self.car['caps' + self.ext] + 1e-2:
             # load during trip larger than whole
             feasible = False
         elif (
@@ -735,7 +737,7 @@ class HEDGE:
                             time_step: int,
                             ) -> bool:
         feasible = True
-        if min_charge_t > self.car['caps'] + 1e-2:
+        if min_charge_t > self.car['caps' + self.ext] + 1e-2:
             feasible = False  # min_charge_t larger than total cap
         if min_charge_t > self.car["store0"] \
                 - sum(day["loads_car"][home][0: time_step]) \
