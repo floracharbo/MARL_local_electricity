@@ -139,9 +139,9 @@ class Runner:
             self.record.save(end_of='repeat')
             repeat += 1
 
-        for passive_ext in ['P', '']:
-            if len(self.explorer.data.seeds[passive_ext]) > len(self.rl['seeds'][passive_ext]):
-                self.rl['seeds'][passive_ext] = self.explorer.seeds[passive_ext].copy()
+        for ext in self.prm['syst']['n_homes_extensions_all']:
+            if len(self.explorer.data.seeds[ext]) > len(self.rl['seeds'][ext]):
+                self.rl['seeds'][ext] = self.explorer.seeds[ext].copy()
 
     def _initialise_buffer_learner_mac_facmac(self, method):
         rl = self.rl
@@ -154,7 +154,8 @@ class Runner:
             rl['env_info']["episode_limit"] + 1 if rl['runner_scope'] == "episodic" else 2,
             preprocess=rl['preprocess'],
             device="cpu" if rl['buffer_cpu_only']
-            else rl['device'])
+            else rl['device'],
+        )
 
         # Setup multiagent controller here
         self.mac[method] = mac_REGISTRY[rl['mac']](
@@ -330,8 +331,9 @@ class Runner:
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             try:
-                                list_train_stepvals[method][e][i_explore * self.N: (i_explore + 1) * self.N] \
-                                    = train_steps_vals[i_explore][method][e]
+                                list_train_stepvals[method][e][
+                                    i_explore * self.N: (i_explore + 1) * self.N
+                                ] = train_steps_vals[i_explore][method][e]
                             except Exception:
                                 # these may be recorded differently for optimisation,
                                 # e.g. no grid_energy_costs, etc.
@@ -417,7 +419,8 @@ class Runner:
             if self.rl['facmac']['epsilon_decay']:
                 for method in self.mac:
                     self.mac[method].epsilon *= self.rl['facmac']['epsilon_decay_param'][method]
-                    self.learner[method].target_mac.epsilon *= self.rl['facmac']['epsilon_decay_param'][method]
+                    self.learner[method].target_mac.epsilon \
+                        *= self.rl['facmac']['epsilon_decay_param'][method]
             if self.rl['facmac']['lr_decay']:
                 for method in self.learner:
                     self.learner[method].lr *= self.rl['facmac']['lr_decay_param']
@@ -433,8 +436,8 @@ class Runner:
     ):
         if set_date:
             date0, delta, i0_costs = self._set_date(
-                repeat, epoch, i_explore, date0, delta,
-                i0_costs, new_env)
+                repeat, epoch, i_explore, date0, delta, i0_costs, new_env
+            )
 
         # exploration - obtain experience
         exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=evaluation)

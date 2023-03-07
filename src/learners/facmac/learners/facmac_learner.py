@@ -77,7 +77,8 @@ class FACMACLearner(Learner):
         for t in range(batch.max_seq_length):
             agent_target_outs = self.target_mac.select_actions(
                 batch, t_ep=t, t_env=None, test_mode=True,
-                critic=self.target_critic)
+                critic=self.target_critic,
+            )
             assert not th.isnan(agent_target_outs[0][0][0]), \
                 "agent_target_outs nan"
             target_actions.append(agent_target_outs)

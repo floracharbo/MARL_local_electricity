@@ -204,7 +204,8 @@ class Action_translator:
 
                 # assert action_points[i][home] < 1 + 5e-3, \
                 #     f"action_points[{i}][{home}] {action_points[i][home]} > 1 " \
-                #     f"mask {mask[home]} d['dp'][i][mask] {d['dp'][i][mask][home]} a_dp {a_dp[home]} b_dp {b_dp[home]}"
+                #     f"mask {mask[home]} d['dp'][i][mask] {d['dp'][i][mask][home]}
+                #     a_dp {a_dp[home]} b_dp {b_dp[home]}"
                 if - 1e-4 < action_points[i][home] < 0:
                     action_points[i][home] = 0
                 if 1 < action_points[i][home] < 1 + 5e-3:

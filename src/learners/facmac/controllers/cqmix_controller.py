@@ -94,11 +94,12 @@ class CQMixMAC(BasicMAC):
             raise Exception("No CQMIX agent selected (naf, icnn, qtopt)!")
 
         action_space = self.rl['action_space']
-
         rdn_eps = np.random.rand()
         rdn_action = th.rand((ep_batch[bs].batch_size, self.n_homes, self.rl['dim_actions']))
         if not test_mode and self.rl['exploration_mode'] == 'eps_greedy' and rdn_eps < self.epsilon:
-            chosen_actions = th.tensor(self.rl['low_action']) + rdn_action * (1 - self.rl['low_action'])
+            chosen_actions = \
+                th.tensor(self.rl['low_action']) \
+                + rdn_action * (1 - self.rl['low_action'])
         # Note batch_size_run is set to be 1 in our experiments
         elif self.rl['agent_facmac'] in ["naf", "mlp", "rnn"]:
             hidden_states = self.hidden_states_ih[bs] if self.rl['nn_type'] in ['lstm', 'rnn'] \
@@ -107,13 +108,10 @@ class CQMixMAC(BasicMAC):
                 ep_batch[bs], t_ep,
                 hidden_states=hidden_states,
                 test_mode=test_mode, select_actions=True
-            )["actions"]
-            # just to make sure detach
-            chosen_actions = chosen_actions.view(
-                ep_batch[bs].batch_size, self.n_homes,
-                self.rl['dim_actions']
+            )["actions"].view(
+                ep_batch[bs].batch_size, self.n_homes, self.rl['dim_actions']
             ).detach()
-            pass
+
         elif self.rl['agent_facmac'] == "icnn":
             inputs = self._build_inputs(ep_batch[bs], t_ep)
             chosen_actions = self.agent.bundle_tuned2(observation=inputs)

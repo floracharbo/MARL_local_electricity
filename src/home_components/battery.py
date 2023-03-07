@@ -44,18 +44,18 @@ class Battery:
         From action_translator.actions_to_env_vars, check battery constraints.
     """
 
-    def __init__(self, prm, passive=False):
+    def __init__(self, prm, ext: str = ''):
         """
         Initialise Battery object.
 
         inputs:
         prm:
             input parameters
-        passive_ext:
+        ext:
             are the current agents passive? '' is not, 'P' if yes
-        """
+            are we looking at a different number of tested homes? '_test' if yes else ''        """
         # very large number for enforcing constraints
-        self.set_passive_active(passive, prm)
+        self.set_passive_active(ext, prm)
 
         self.pf_flexible_homes = prm['grd']['pf_flexible_homes']
         self.reactive_power_for_voltage_control = \
@@ -88,8 +88,8 @@ class Battery:
 
         # initial state
         self.store = np.where(
-            prm['car']['own_car' + self.passive_ext],
-            prm['car']['store0' + self.passive_ext],
+            prm['car']['own_car' + self.ext],
+            prm['car']['store0' + self.ext],
             0
         )
         # storage at the start of current time step
@@ -120,12 +120,12 @@ class Battery:
         self.start_store = self.prev_start_store
         self.update_step(time_step=self.prev_time_step, implement=False)
 
-    def set_passive_active(self, passive: bool, prm: dict):
-        self.passive_ext = 'P' if passive else ''
+    def set_passive_active(self, ext, prm: dict):
+        self.ext = ext
         # number of agents / households
-        self.n_homes = prm['syst']['n_homes' + self.passive_ext]
+        self.n_homes = prm['syst']['n_homes' + self.ext]
         for info in ['own_car', 'store0', 'cap', 'min_charge']:
-            setattr(self, info, prm['car'][info + self.passive_ext])
+            setattr(self, info, prm['car'][info + self.ext])
 
     def compute_battery_demand_aggregated_at_start_of_trip(
             self,
@@ -680,10 +680,10 @@ class Battery:
         if print_error:
             print(error_message)
 
-    def check_feasible_bat(self, prm, passive_ext):
+    def check_feasible_bat(self, prm, ext):
         """Check charging constraints for proposed data batch."""
-        feasible = np.ones(prm['syst']['n_homes' + passive_ext], dtype=bool)
-        for home in range(prm['syst']['n_homes' + passive_ext]):
+        feasible = np.ones(prm['syst']['n_homes' + ext], dtype=bool)
+        for home in range(prm['syst']['n_homes' + ext]):
             if prm['car']['d_max'] < np.max(prm['car']['batch_loads_car'][home]):
                 feasible[home] = False
                 for time_step in range(len(prm['car']['batch_loads_car'][home])):
@@ -697,8 +697,10 @@ class Battery:
             date = self.date0 + datetime.timedelta(hours=time_step * self.dt)
             bool_penalty = self.min_max_charge_t(
                 time_step, date, print_error=False,
-                simulation=False)
+                simulation=False
+            )
             feasible[bool_penalty] = False
+
             self.update_step()
             time_step += 1
 
