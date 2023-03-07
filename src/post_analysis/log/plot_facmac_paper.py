@@ -168,10 +168,6 @@ for line_label in labels.keys():
         )
         ys_time[line_label] = time_end
         function = polynomial2
-        # if line_label == 'FH':
-        #     label = 'first order: ' + r'$y = ax + b$'
-        # else:
-        #     label = 'second order: ' + r'$y = ax^2 + bx + c$'
         popt, pcov = optimize.curve_fit(function, n_homes, time_end)
         coeffs = popt
         f_fitted = [function(x, *coeffs) for x in list(range(x_max))]
@@ -179,7 +175,8 @@ for line_label in labels.keys():
         plt.plot(list(range(x_max)), f_fitted, label=label, color=colour, linestyle=ls)
         print(f"{line_label}: ")
         print(f"times : {time_end}")
-        print(f"sum square error {sum((y_fitted - y) ** 2 for y_fitted, y in zip(f_fitted, time_end)):.2e}")
+        sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(f_fitted, time_end))
+        print(f"sum square error {sum_square_error:.2e}")
         print(f"{label} a, b first errors = {np.sqrt(np.diag(pcov))}")
 
 axs[0].set_ylabel("Savings [£/home/month]")
@@ -192,7 +189,7 @@ axs[1].set_xlabel("Number of homes")
 axs[0].legend(fancybox=True)
 axs[1].legend(fancybox=True)
 fig.savefig(
-    f"outputs/results_analysis/facmac_results2.pdf",
+    "outputs/results_analysis/facmac_results2.pdf",
     bbox_inches='tight', format='pdf', dpi=1200
 )
 plt.close('all')
@@ -201,7 +198,7 @@ xs_facmac = [1, 3, 5, 10, 20, 50]
 ys_facmac = [26.50374389, 38.85938716, 49.69802213, 73.43057513, 123.11931181, 281.53323126]
 xs_iql = [1, 3, 5, 10, 20, 50]
 # ys_iql = [133.11673403, 302.6728189, 328.64307976, 710.36226296, 1860.68218756, 8911.68623304]
-ys_iql = [ 132.52754283, 297.46064401, 508.72118497, 1051.24059987, 2497.18453503, 9999.79186893]
+ys_iql = [132.52754283, 297.46064401, 508.72118497, 1051.24059987, 2497.18453503, 9999.79186893]
 for xs, ys, label in zip(
     [xs_facmac, xs_iql],
     [ys_facmac, ys_iql],
@@ -215,8 +212,8 @@ for xs, ys, label in zip(
         unknown_order, xlogx
     ]
     labels_functions = [
-        'first_order', 'second_order', 'second_order_b', 'exponential', 'polynomial2', 'polynomial3',
-        'unknown_order', 'xlogx'
+        'first_order', 'second_order', 'second_order_b', 'exponential', 'polynomial2',
+        'polynomial3', 'unknown_order', 'xlogx'
     ]
     for function, label_func in zip(functions, labels_functions):
         params, pcov = optimize.curve_fit(function, xs, ys)
