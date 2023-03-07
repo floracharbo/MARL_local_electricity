@@ -321,8 +321,8 @@ def _update_bat_prm(prm):
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
-    car["cap"] = np.array(
-        car["cap"]) if isinstance(car["cap"], list)\
+    car["caps"] = np.array(
+        car["cap"]) if isinstance(car["cap"], list) \
         else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
         for passive_ext in ["", "P"]:
@@ -330,16 +330,15 @@ def _update_bat_prm(prm):
                 if isinstance(car["own_car" + passive_ext], (int, float))\
                 and car["own_car" + passive_ext] == 1 \
                 else np.array(car["own_car" + passive_ext])
-        car["cap"] = np.where(car["own_car"], car["cap"], 0)
+        car["caps"] = np.where(car["own_car"], car["caps"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
 
     # battery characteristics
-    car["min_charge"] = [car["cap"][home] * max(car["SoCmin"], car["baseld"])
-                         for home in range(syst["n_homes"])]
-    car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
+    car["min_charge"] = car["caps"] * max(car["SoCmin"], car["baseld"])
+    car["store0"] = car["caps"] * car["SoC0"]
     if "capP" not in car:
-        car["capP"] = np.full(syst["n_homesP"], car["cap"][0])
+        car["capP"] = np.full(syst["n_homesP"], car["cap"])
     car["store0P"] = car["SoC0"] * car["capP"]
     car["min_chargeP"] = car["capP"] * max(car["SoCmin"], car["baseld"])
     car["phi0"] = np.arctan(car["c_max"])
@@ -616,11 +615,11 @@ def opt_res_seed_save_paths(prm):
     rl, heat, syst, grd, paths, car, loads = \
         [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
-    if np.all(car['cap'] == car['cap'][0]):
-        cap_str = car['cap'][0]
+    if np.all(car['caps'] == car['cap']):
+        cap_str = car['cap']
     else:
         caps = {}
-        for home, cap in enumerate(car['cap']):
+        for home, cap in enumerate(car['caps']):
             if cap not in caps:
                 caps[cap] = []
             caps[cap].append(home)

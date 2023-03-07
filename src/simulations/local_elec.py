@@ -102,7 +102,7 @@ class LocalElecEnv:
                 factors0=prm['syst']['f0'],
                 clusters0=prm['syst']['clus0'],
                 prm=prm,
-                other_prm={'car': {'cap': prm['car']['capP']}},
+                other_prm={'car': {'caps': prm['car']['capsP']}},
             )
 
     def reset(

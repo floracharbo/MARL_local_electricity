@@ -113,7 +113,7 @@ class DataManager:
         for home in range(syst['n_homes' + passive_ext]):
             grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
             for time_step in range(syst['N']):
-                grd['Bcap'][home, time_step] = car['cap' + passive_ext][home]
+                grd['Bcap'][home, time_step] = car['caps' + passive_ext][home]
                 for load_type in range(loads['n_types']):
                     potential_delay_t = int(potential_delay[load_type][time_step])
                     grd['loads'][0][home][time_step] \
