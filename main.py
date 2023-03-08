@@ -17,18 +17,18 @@ from src.simulations.runner import run
 # q learning / facmac no traj / facmac traj / facmac supervised no traj / facmac supervised traj
 settings = {
     'RL': {
-        'state_space': ['grdC'] * 1 + [['flexibility', 'grdC_n2']] * 6 * 3,
+        'state_space': [['flexibility', 'grdC_n2']],
         'n_epochs': 20,
         'n_repeats': 10,
-        'type_learning': ['q_learning'] * 1 + ['facmac'] * 6 * 3,
-        'trajectory': [False] * 7 + [True] * 6 + [False] * 6,
-        'supervised_loss': [False] * 13 + [True] * 6,
+        'type_learning': 'facmac',
+        'trajectory': [True],
+        'supervised_loss': [True],
         'act_noise': 0.01,
         'lr': 1e-2,
     },
     'syst': {
         'force_optimisation': True,
-        'n_homes': [30] + [1, 3, 5, 10, 20, 30] * 3,
+        'n_homes': [30],
     }
 }
 
