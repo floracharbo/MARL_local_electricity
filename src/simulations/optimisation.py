@@ -725,12 +725,11 @@ class Optimiser:
                 )
                 p.add_constraint(
                     T_air[home, :]
-                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
+                    == (heat['T_LB'][home, 0: self.N] + heat['T_UB'][home, 0: self.N]) / 2
                 )
                 p.add_constraint(
                     T[home, :]
-                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
-                    for time_step in range(self.N)
+                    == (heat['T_LB'][home, 0: self.N] + heat['T_UB'][home, 0: self.N]) / 2
                 )
 
         p.add_constraint(E_heat >= 0)

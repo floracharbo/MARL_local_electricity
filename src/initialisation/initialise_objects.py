@@ -882,7 +882,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
 
 def _filter_type_learning_facmac(rl):
     if rl["type_learning"] != "facmac":
-        return
+        return rl
 
     valid_types = {
         "exploration": ["env_r_c", "opt", "baseline"],
