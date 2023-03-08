@@ -16,8 +16,8 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-# COLUMNS_OF_INTEREST = ['n_homes']
-COLUMNS_OF_INTEREST = None
+COLUMNS_OF_INTEREST = ['n_homes']
+# COLUMNS_OF_INTEREST = None
 
 FILTER = {
     # 'supervised_loss': False,
@@ -30,6 +30,8 @@ FILTER = {
     # 'facmac-hysteretic': True,
 }
 
+best_score_type = 'p50'
+# p50 or ave
 
 def rename_runs(results_path):
     folders = os.listdir(results_path)
@@ -42,7 +44,7 @@ def rename_runs(results_path):
 def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted):
     new_values_of_interest_sorted = {}
     for k in ['all', 'env']:
-        i_not_nans = [i for i, y in enumerate(best_scores_sorted[k]['ave']) if not np.isnan(y)]
+        i_not_nans = [i for i, y in enumerate(best_scores_sorted[k][best_score_type]) if not np.isnan(y)]
         for key in best_scores_sorted[k]:
             best_scores_sorted[k][key] = [best_scores_sorted[k][key][i] for i in i_not_nans]
         new_values_of_interest_sorted[k] = [values_of_interest_sorted[i] for i in i_not_nans]
@@ -52,7 +54,7 @@ def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted
 
 def fix_learning_specific_values(log):
     """If there are no optimisations, this is equivalent to if we had forced optimisations."""
-    ave_opt_cols = [col for col in log.columns if col[0: len('ave_opt')] == 'ave_opt']
+    ave_opt_cols = [col for col in log.columns if col[0: len(f'{best_score_type}_opt')] == f'{best_score_type}_opt']
     for i in range(len(log)):
         if all(log[col].loc[i] is None for col in ave_opt_cols):
             if not log['syst-force_optimisation'].loc[i]:
@@ -100,7 +102,7 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
     if subkey == 'n_homes' and key != 'syst':
         return columns0
 
-    if subkey not in ignore:
+    if subkey not in ignore and f"{key}-{subkey}" not in ignore:
         if key == 'ntw':
             if subkey in ntw_to_grd:
                 key = 'grd'
@@ -136,7 +138,7 @@ def get_list_all_fields(results_path):
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
-        'facmac-critic_lr_decay_param', 'RL-n_homes_test'
+        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap',
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
@@ -174,7 +176,7 @@ def get_names_evaluation_methods(results_path, result_nos):
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
         metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-        keys_methods_run = list(metrics0['end_test_bl']['ave'].keys())
+        keys_methods_run = list(metrics0['end_test_bl'][best_score_type].keys())
         for method in keys_methods_run:
             if method not in keys_methods:
                 keys_methods.append(method)
@@ -398,11 +400,14 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
             return None
         if result_no == 802:
             prm['RL']['nn_learned'] = False
+        if 'cap' in prm['car'] and 'caps' not in prm['car']:
+            prm['car']['caps'] = prm['car']['cap']
         date_str = datetime.fromtimestamp(os.stat(path_prm).st_birthtime).strftime("%d/%m/%Y")
         row = [result_no, date_str]
         for column in columns0[2:]:
             key, subkey, subsubkey = get_key_subkeys_column(column)
             prm, key, subkey, subsubkey = data_specific_modifications(prm, key, subkey, subsubkey)
+
             if key is None:
                 row.append(None)
                 if column != 'RL-n_homes':
@@ -410,6 +415,10 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
             elif subsubkey is None:
                 if subkey == 'state_space' and subkey in prm[key]:
                     row.append(list_obs_to_str(prm[key][subkey]))
+                elif subkey == 'caps':
+                    x = prm[key][subkey]
+                    row.append(int(x[0]) if isinstance(x, np.ndarray) and all(
+                        x[i] == x[0] for i in range(len(x))) else str(x))
                 else:
                     row.append(prm[key][subkey] if subkey in prm[key] else None)
             else:
@@ -442,14 +451,14 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
         metrics = np.load(path_metrics, allow_pickle=True).item()
         for method in keys_methods:
             method_ = method
-            if method not in metrics['end_test_bl']['ave']:
+            if method not in metrics['end_test_bl'][best_score_type]:
                 potential_replacement = [
-                    method_metrics for method_metrics in metrics['end_test_bl']['ave']
+                    method_metrics for method_metrics in metrics['end_test_bl'][best_score_type]
                     if method_metrics[0: 3] == 'env' and method in method_metrics
                 ]
                 if len(potential_replacement) == 1:
                     method_ = potential_replacement[0]
-            for value in ['ave', 'p25', 'p75']:
+            for value in [best_score_type, 'p25', 'p75']:
                 row.append(
                     metrics['end_test_bl'][value][method_]
                     if method_ in metrics['end_test_bl'][value]
@@ -488,13 +497,16 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
 
 
 def compute_best_score_per_run(keys_methods, log):
+    for prefix in [f'{best_score_type}_', 'p25_', 'p75_']:
+        cols = [prefix + method for method in keys_methods]
+        log[cols] = log.apply(lambda row: 0 if row.n_homes == 0 else row[cols], axis=1)
     keys_methods_not_opt = [method for method in keys_methods if method != 'opt']
-    ave_cols_non_opt = [f"ave_{method}" for method in keys_methods_not_opt]
+    ave_cols_non_opt = [f"{best_score_type}_{method}" for method in keys_methods_not_opt]
     ave_cols_methods_env = [
-        f"ave_{method}" for method in keys_methods_not_opt if method[0: 3] == 'env'
+        f"{best_score_type}_{method}" for method in keys_methods_not_opt if method[0: 3] == 'env'
     ]
     ave_cols_methods_opt = [
-        f"ave_{method}" for method in keys_methods_not_opt if method[0: 3] == 'opt'
+        f"{best_score_type}_{method}" for method in keys_methods_not_opt if method[0: 3] == 'opt'
     ]
     initial_columns = log.columns
 
@@ -503,7 +515,8 @@ def compute_best_score_per_run(keys_methods, log):
         [ave_cols_non_opt, ave_cols_methods_opt, ave_cols_methods_env]
     ):
         log[score] = log[cols_methods].max(axis=1)
-        log[f'method_{score}'] = log[list(initial_columns) + [score]].apply(
+        cols_scores = [col for col in initial_columns if col[0: 4] == f'{best_score_type}_']
+        log[f'method_{score}'] = log[cols_scores + [score]].apply(
             lambda row: row[row == row[score]].index, axis=1
         )
         log[f"p25_{score}"] = log.apply(
@@ -511,6 +524,7 @@ def compute_best_score_per_run(keys_methods, log):
             if len(row[f'method_{score}']) > 0 else None,
             axis=1
         )
+
         log[f"p75_{score}"] = log.apply(
             lambda row: row[f"p75_{row[f'method_{score}'][0][4:]}"]
             if len(row[f'method_{score}']) > 0 else None,
@@ -671,7 +685,7 @@ def compare_all_runs_for_column_of_interest(
         values_of_interest = [log[column_of_interest].loc[initial_setup_row]]
         best_scores = {k: {} for k in ['all', 'env']}
         for k in ['all', 'env']:
-            best_scores[k]['ave'] = [log[f'best_score_{k}'].loc[initial_setup_row]]
+            best_scores[k][best_score_type] = [log[f'best_score_{k}'].loc[initial_setup_row]]
             for p in [25, 75]:
                 best_scores[k][f'p{p}'] = [log[f'p{p}_best_score_{k}'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
@@ -746,7 +760,7 @@ def compare_all_runs_for_column_of_interest(
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])
                 for k in ['all', 'env']:
-                    best_scores[k]['ave'].append(log[f'best_score_{k}'].loc[row])
+                    best_scores[k][best_score_type].append(log[f'best_score_{k}'].loc[row])
                     for p in [25, 75]:
                         best_scores[k][f'p{p}'].append(log[f'p{p}_best_score_{k}'].loc[row])
 
@@ -772,7 +786,7 @@ def compare_all_runs_for_column_of_interest(
                 values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
                 best_scores_sorted = {k: {} for k in ['all', 'env']}
                 for k in ['all', 'env']:
-                    best_scores_sorted[k]['ave'] = [best_scores[k]['ave'][i] for i in i_sorted]
+                    best_scores_sorted[k][best_score_type] = [best_scores[k][best_score_type][i] for i in i_sorted]
                     for p in [25, 75]:
                         best_scores_sorted[k][f'p{p}'] = [
                             best_scores[k][f'p{p}'][i] for i in i_sorted
@@ -790,15 +804,15 @@ def compare_all_runs_for_column_of_interest(
                         else len(setups)
                     p = axs[ax_i].plot(
                         values_of_interest_sorted_k[k],
-                        best_scores_sorted[k]['ave'],
+                        best_scores_sorted[k][best_score_type],
                         'o', label=label, linestyle=ls,
                         markerfacecolor='None'
                     )
                     colour = p[0].get_color()
-                    i_best = np.argmax(best_scores_sorted[k]['ave'])
+                    i_best = np.argmax(best_scores_sorted[k][best_score_type])
                     axs[ax_i].plot(
                         values_of_interest_sorted_k[k][i_best],
-                        best_scores_sorted[k]['ave'][i_best],
+                        best_scores_sorted[k][best_score_type][i_best],
                         'o', markerfacecolor=colour, markeredgecolor=colour
                     )
                     axs[ax_i].fill_between(
@@ -824,13 +838,13 @@ def compare_all_runs_for_column_of_interest(
                             f"runs {runs_sorted[i]} and {runs_sorted[i+1]}"
                         )
                 axs = annotate_run_nos(
-                    axs, values_of_interest_sorted, best_scores_sorted['all']['ave'],
-                    best_scores_sorted['env']['ave'], runs_sorted
+                    axs, values_of_interest_sorted, best_scores_sorted['all'][best_score_type],
+                    best_scores_sorted['env'][best_score_type], runs_sorted
                 )
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
-                    best_values.append(best_scores_sorted['all']['ave'])
-                    env_values.append(best_scores_sorted['env']['ave'])
+                    best_values.append(best_scores_sorted['all'][best_score_type])
+                    env_values.append(best_scores_sorted['env'][best_score_type])
                 time_values.append(time_best_score_sorted)
                 plotted_something = True
 
@@ -1091,7 +1105,7 @@ if __name__ == "__main__":
     keys_methods = get_names_evaluation_methods(results_path, result_nos)
     columns_results_methods = []
     for method in keys_methods:
-        for value in ['ave', 'p25', 'p75']:
+        for value in [best_score_type, 'p25', 'p75']:
             columns_results_methods.append(f"{value}_{method}")
 
     log_path = results_analysis_path / "log_runs.csv"
