@@ -540,24 +540,6 @@ class LocalElecEnv:
             date = self.date
             h = self._get_time_step()
             loads, home_vars = self.get_loads_fixed_flex_gen(date, h)
-
-            if action is None:
-                hourly_line_losses = 0
-                voltage_squared, q_ext_grid = None, None
-                home_vars['bool_flex'] = False
-                constraint_ok = True
-                for info in ['netp', 'tot_cons']:
-                    home_vars[info] = np.zeros(self.n_homes)
-                for info in ['flex_cons', 'tot_cons_loads']:
-                    loads[info] = np.zeros(self.n_homes)
-
-                return (
-                    home_vars, loads, hourly_line_losses, voltage_squared, q_ext_grid, constraint_ok
-                )
-
-            for home in self.homes:
-                if action[home] is None:
-                    print(f'action[{home}] is None, action = {action[home]}')
             self.heat.current_temperature_bounds(h)
         else:
             date, action, gens, loads = other_input
@@ -574,9 +556,16 @@ class LocalElecEnv:
 
         #  ----------- meet consumption + check constraints ---------------
         constraint_ok = True
-        loads, home_vars, bool_penalty = self.action_translator.actions_to_env_vars(
-            loads, home_vars, action, date, h
-        )
+        if action is None:
+            for info in ['flex_cons', 'tot_cons_loads']:
+                loads[info] = np.zeros(self.n_homes)
+            home_vars['bool_flex'] = False
+            for info in ['netp', 'tot_cons']:
+                home_vars[info] = np.zeros(self.n_homes)
+        else:
+            loads, home_vars, bool_penalty = self.action_translator.actions_to_env_vars(
+                loads, home_vars, action, date, h
+            )
         share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in self.homes:
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
@@ -603,7 +592,8 @@ class LocalElecEnv:
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid = \
                 self.network._power_flow_res_with_pandapower(
-                    home_vars, netp0, q_car_flex)
+                    home_vars, netp0, q_car_flex
+            )
         else:
             voltage_squared = None
             hourly_line_losses = 0
