@@ -145,10 +145,7 @@ class EnvSpaces:
             print("save max_bat_dem_agg")
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
-        if not self.reactive_power_for_voltage_control:
-            n_other_states = rl["n_other_states"]
-        else:
-            n_other_states = 4
+        n_other_states = rl["n_other_states"]
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
         max_flexibility = \
             prm['car']['c_max'] / prm['car']['eta_ch'] \

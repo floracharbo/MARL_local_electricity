@@ -602,7 +602,7 @@ def _update_rl_prm(prm, initialise_all):
         )
     
     if prm["grd"]["reactive_power_for_voltage_control"]:
-        reactive_power_default = rl["default_action"][0][0] * \
+        reactive_power_default = rl["default_action"][0][2] * \
             math.tan(math.acos(prm['grd']['pf_flexible_homes']))
         for default_action in rl["default_action"]:
             default_action[3] = reactive_power_default
