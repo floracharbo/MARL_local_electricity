@@ -59,7 +59,7 @@ class DataManager:
 
         self.seeds = prm['RL']['seeds']
         self.rl = prm['RL']
-        for info in ['force_optimisation', 'tol_constraints', 'N', 'n_homesP']:
+        for info in ['force_optimisation', 'tol_constraints', 'N', 'n_homesP', 'n_homes']:
             setattr(self, info, prm['syst'][info])
         self.line_losses_method = prm['grd']['line_losses_method']
         # d_seed is the difference between the rank of the n-th seed (n)
@@ -113,7 +113,7 @@ class DataManager:
         for home in range(syst['n_homes' + ext]):
             grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
             for time_step in range(syst['N']):
-                grd['Bcap'][home, time_step] = car['cap' + ext][home]
+                grd['Bcap'][home, time_step] = car['caps' + ext][home]
                 for load_type in range(loads['n_types']):
                     potential_delay_t = int(potential_delay[load_type][time_step])
                     grd['loads'][0][home][time_step] \
@@ -210,7 +210,6 @@ class DataManager:
                 passive=passive,
                 evaluation=evaluation
             )
-            assert batch['loads'][0, 0] == self.env.batch['loads'][0, 0]
 
         else:
             if opt_needed:
@@ -300,12 +299,15 @@ class DataManager:
             if passive:
                 seed_data, new_res, data_feasible \
                     = self._passive_find_feasible_data(evaluation)
-            else:
+            elif self.n_homes > 0:
                 [seed_data, new_res, data_feasible, step_vals,
                  feasibility_checked] = self._active_find_feasible_data(
                     type_actions, feasibility_checked, step_vals,
                     evaluation, epoch
                 )
+            else:
+                new_res = False
+                seed_data = [None, None]
 
             if not data_feasible:
                 seed_ind = self.infeasible_tidy_files_seeds(seed_ind)
@@ -539,16 +541,15 @@ class DataManager:
         # reactive power for passive homes
         self.prm['loads']['active_power_passive_homes'] = []
         self.prm['loads']['reactive_power_passive_homes'] = []
-        if self.n_homesP > 0:
+        if self.n_homesP > 0 and self.prm['grd']['manage_voltage']:
             self.prm['loads']['q_heat_home_car_passive'] = \
-                calculate_reactive_power(
-                    loads['netp0'], self.prm['grd']['pf_passive_homes'])
+                calculate_reactive_power(loads['netp0'], self.prm['grd']['pf_passive_homes'])
             for t in range(self.N):
                 self.prm['loads']['active_power_passive_homes'].append(
                     np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
                 self.prm['loads']['reactive_power_passive_homes'].append(
-                    np.matmul(self.env.network.passive_buses,
-                              self.prm['loads']['q_heat_home_car_passive'][:, t]))
+                    np.matmul(self.env.network.passive_buses, self.prm['loads']['q_heat_home_car_passive'][:, t])
+                )
         else:
             self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 0])
             self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 0])

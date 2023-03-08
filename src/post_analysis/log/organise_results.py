@@ -468,10 +468,7 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
         'syst-n_homes', 'syst-share_active', 'syst-force_optimisation'
     ]
     for column in columns0:
-        try:
-            unique_value = len(log[column][log[column].notnull()].unique()) == 1
-        except Exception as ex:
-            print(ex)
+        unique_value = len(log[column][log[column].notnull()].unique()) == 1
         if column not in do_not_remove and unique_value:
             log.drop([column], axis=1, inplace=True)
         else:
@@ -716,17 +713,14 @@ def compare_all_runs_for_column_of_interest(
                     indexes_ignore = indexes_columns_ignore_q_learning
                 else:
                     indexes_ignore = []
-                try:
-                    only_col_of_interest_changes = all(
-                        current_col == row_col or (
-                            (not isinstance(current_col, str) and np.isnan(current_col))
-                            and (not isinstance(row_col, str) and np.isnan(row_col))
-                        )
-                        for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
-                        if i_col not in indexes_ignore
+                only_col_of_interest_changes = all(
+                    current_col == row_col or (
+                        (not isinstance(current_col, str) and np.isnan(current_col))
+                        and (not isinstance(row_col, str) and np.isnan(row_col))
                     )
-                except Exception as ex:
-                    print(ex)
+                    for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
+                    if i_col not in indexes_ignore
+                )
 
             n_homes_on_laptop_only = True
             if FILTER_N_HOMES:

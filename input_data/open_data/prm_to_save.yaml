@@ -34,7 +34,7 @@ heat: []
 car: ['dep',
   'SoCmin',
   'SoC0',
-  'cap',
+  'caps',
   'baseld',
   'efftype',
   'C',

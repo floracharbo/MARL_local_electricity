@@ -81,35 +81,36 @@ def plotting(record, spaces, prm, f):
     # 1 - plot non-moving  average results 25th, 50th,
     # 75th percentile for all repeat
     diff_to_opt = False
-    for moving_average in [False, True]:
-        # for diff_to_opt in [False, True]:
-        lower_bound, upper_bound = plot_results_all_repeats(
-            prm, record,
-            moving_average=moving_average,
-            diff_to_opt=diff_to_opt
-        )
+    if sum(1 for method in prm['RL']['evaluation_methods'] if method != 'baseline') > 0:
+        for moving_average in [False, True]:
+            # for diff_to_opt in [False, True]:
+            lower_bound, upper_bound = plot_results_all_repeats(
+                prm, record,
+                moving_average=moving_average,
+                diff_to_opt=diff_to_opt
+            )
 
-    # 2 - bar plot metrics
-    barplot_metrics(prm, lower_bound, upper_bound)
+        # 2 - bar plot metrics
+        barplot_metrics(prm, lower_bound, upper_bound)
 
-    if prm['save']['plot_type'] > 0:
-        # 3 - plot distribution of daily savings
-        distribution_savings(prm, aggregate='daily')
-        distribution_savings(prm, aggregate='test_period')
+        if prm['save']['plot_type'] > 0:
+            # 3 - plot distribution of daily savings
+            distribution_savings(prm, aggregate='daily')
+            distribution_savings(prm, aggregate='test_period')
 
-        # 4 - heat map of reductions rel to baseline per data source,
-        # reward ref and MARL structure
-        heatmap_savings_per_method(prm)
+            # 4 - heat map of reductions rel to baseline per data source,
+            # reward ref and MARL structure
+            heatmap_savings_per_method(prm)
 
-        # 5 - do bar plot of all costs reduction rel to baseline,
-        barplot_breakdown_savings(record, prm, plot_type='savings')
+            # 5 - do bar plot of all costs reduction rel to baseline,
+            barplot_breakdown_savings(record, prm, plot_type='savings')
 
-        # 6 - do bar plot of all costs reduction rel to baseline,
-        barplot_breakdown_savings(record, prm, plot_type='costs')
+            # 6 - do bar plot of all costs reduction rel to baseline,
+            barplot_breakdown_savings(record, prm, plot_type='costs')
 
-        # 7 - plot individual savings as well as share battery
-        # vs energy costs in individual savings
-        barplot_indiv_savings(record, prm)
+            # 7 - plot individual savings as well as share battery
+            # vs energy costs in individual savings
+            barplot_indiv_savings(record, prm)
 
     # 8 - plotting results example day household variables
     if prm['save']['plot_profiles']:
