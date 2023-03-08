@@ -148,27 +148,31 @@ class Heat:
         # use inputs or current object variables
         homes = list(range(self.n_homes)) if home is None else [home]
         n_homes = len(homes)
-        if T_start is None:
-            T_start = self.T[homes]
-        if E_heat is None:
-            E_heat = self.E_heat_min[homes] + self.E_flex[homes]
-        if T_out_t is None:
-            T_out_t = self.T_out[self.time_step]
-        P_heat = E_heat * 1e3 * self.n_int_per_hr
-        M = np.ones((5, n_homes))
-        M[1, :] = T_start
-        M[2, :] *= T_out_t
-        M[3, :] *= 0
-        M[4, :] = P_heat
-        K = self.T_coeff[homes]
-        T_end = np.sum(np.multiply(K, M.T), axis=1)
+        if n_homes > 0:
+            if T_start is None:
+                T_start = self.T[homes]
+            if E_heat is None:
+                E_heat = self.E_heat_min[homes] + self.E_flex[homes]
+            if T_out_t is None:
+                T_out_t = self.T_out[self.time_step]
+            P_heat = E_heat * 1e3 * self.n_int_per_hr
+            M = np.ones((5, n_homes))
+            M[1, :] = T_start
+            M[2, :] *= T_out_t
+            M[3, :] *= 0
+            M[4, :] = P_heat
+            K = self.T_coeff[homes]
+            T_end = np.sum(np.multiply(K, M.T), axis=1)
 
-        K_air = self.T_air_coeff[homes]
-        T_air = np.sum(np.multiply(K_air, M.T), axis=1)
-        T_air = np.where(self.own_heat[homes], T_air, self.T_req[homes, self.time_step])
-        if update:
-            self.T_next = T_end
-            self.T_air = T_air
+            K_air = self.T_air_coeff[homes]
+            T_air = np.sum(np.multiply(K_air, M.T), axis=1)
+            T_air = np.where(self.own_heat[homes], T_air, self.T_req[homes, self.time_step])
+            if update:
+                self.T_next = T_end
+                self.T_air = T_air
+        else:
+            T_end = np.array([])
+            T_air = np.array([])
 
         return T_end, T_air
 
