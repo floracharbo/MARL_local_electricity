@@ -68,7 +68,7 @@ runs = {
 
     # 'FDO': list(range(257, 261)) + list(range(263, 265)),
     # 'FDO': list(range(528, 534)),
-    'FDO': list(range(582, 587)),
+    'FDO': list(range(582, 587)) + [697],
     # missing 30
 
     # 'FH': [126, 127, 128, 129, 130, 131],

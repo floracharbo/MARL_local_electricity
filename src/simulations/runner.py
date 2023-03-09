@@ -448,14 +448,13 @@ class Runner:
         return steps_vals, date0, delta, i0_costs, exploration_methods
 
     def _save_nn_model(self, model_save_time):
-        if self.rl['save_model'] and (
+        if self.prm["save"]["save_nns"] and (
                 self.explorer.t_env - model_save_time
                 >= self.rl['save_model_interval']
                 or model_save_time == 0):
             model_save_time = self.explorer.t_env
 
-            if self.prm['RL']['type_learning'] == 'facmac' \
-                    and self.prm["save"]["save_nns"]:
+            if self.prm['RL']['type_learning'] == 'facmac':
                 for evaluation_method in self.rl["evaluation_methods"]:
                     if evaluation_method not in self.learner:
                         continue

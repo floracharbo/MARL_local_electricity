@@ -156,12 +156,13 @@ def _get_required_temperatures(heat, syst):
             # allow for heating one hour before when specified
             # temperature increases
             for time_step in range(syst['N']):
+                T_UB = heat['T_UB' + ext][home]
                 for dt in range(1, 6):
                     if (
                         time_step < syst['N'] - 1 - dt
-                        and heat['T_UB' + ext][home][time_step + dt] > heat['T_UB' + ext][home][time_step]
+                        and T_UB[time_step + dt] > T_UB[time_step]
                     ):
-                        heat['T_UB' + ext][home][time_step] = heat['T_UB' + ext][home][time_step + dt]
+                        T_UB[time_step] = T_UB[time_step + dt]
         heat['T_LB' + ext] = heat['T_req' + ext] - heat['dT']
 
     return heat
