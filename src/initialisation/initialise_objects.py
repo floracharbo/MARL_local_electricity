@@ -692,8 +692,13 @@ def opt_res_seed_save_paths(prm):
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}_" \
+        f"_ntwn{syst['n_homes']}_cmax{car['c_max']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
+    if syst['n_homesP'] > 0:
+        paths["opt_res_file"] += f"_nP{syst['n_homesP']}"
+    if syst['n_homes_test'] != syst['n_homes']:
+        paths["opt_res_file"] += f"_ntest{syst['n_homes_test']}"
+
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
 
@@ -795,6 +800,7 @@ def _syst_info(prm):
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
+    syst['n_homes_all_test'] = syst['n_homes_test'] + syst['n_homesP']
     assert syst['n_homes_all'] > 0, "No homes in the system"
     if syst['n_homes_test'] is None:
         syst['n_homes_test'] = syst['n_homes']
@@ -803,7 +809,7 @@ def _syst_info(prm):
         syst['n_homes_extensions'].append("_test")
     syst["n_homes_extensions_all"] = syst['n_homes_extensions'] + [""]
     syst['timestamp'] = datetime.datetime.now().timestamp()
-    syst['share_active'] = syst['n_homes'] / syst['n_homes_all']
+    syst['share_active_test'] = syst['n_homes_test'] / syst['n_homes_all_test']
     syst['interval_to_month'] = prm['syst']['H'] * 365 / 12
 
 
