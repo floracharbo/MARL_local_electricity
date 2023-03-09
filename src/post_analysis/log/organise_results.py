@@ -16,7 +16,7 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['n_homes']
+COLUMNS_OF_INTEREST = ['n_homes', 'n_homesP', 'n_homes_test']
 # COLUMNS_OF_INTEREST = None
 
 FILTER = {
@@ -257,9 +257,9 @@ def add_default_values(log):
                 if log.loc[row, column] is None and column != 'syst-time_end':
                     log = fill_in_log_value_with_run_data(log, row, column, prm_default)
 
-    share_active_none = log['syst-share_active'].isnull()
-    log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
-        lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
+    share_active_none = log['syst-share_active_test'].isnull()
+    log.loc[share_active_none, 'syst-share_active_test'] = log.loc[share_active_none].apply(
+        lambda x: x['syst-n_homes_test'] / x['syst-n_homes_all_test'], axis=1
     )
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -474,7 +474,7 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
     new_columns = []
     do_not_remove = [
         'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
-        'syst-n_homes', 'syst-share_active', 'syst-force_optimisation'
+        'syst-n_homes', 'syst-share_active_test', 'syst-force_optimisation'
     ]
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
@@ -1008,7 +1008,7 @@ def plot_sensitivity_analyses(new_columns, log):
             column for column in new_columns[2:]
             if column not in [
                 column_of_interest, 'nn_learned', 'time_end', 'machine_id',
-                'timestamp', 'n_homes_all'
+                'timestamp', 'n_homes_all', 'n_homes_all_test'
             ]
         ]
 

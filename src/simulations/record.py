@@ -387,7 +387,7 @@ class Record:
                 self.monthly_mean_eval_rewards_per_home[method][repeat] = np.where(
                     self.mean_eval_rewards[repeat][method] is None,
                     None,
-                    self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all']
+                    self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all_test']
                     * self.interval_to_month
                 )
                 self.monthly_mean_end_eval_rewards_per_home[method][repeat] = np.mean(

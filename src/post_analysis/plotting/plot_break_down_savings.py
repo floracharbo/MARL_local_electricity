@@ -107,7 +107,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                     bars[i].append(
                         np.mean([[(record_obj[repeat]['baseline'][epoch]
                                 - record_obj[repeat][method][epoch])
-                                * mult / prm['syst']['n_homes_all']
+                                * mult / prm['syst']['n_homes_all_test']
                                 * prm['syst']['interval_to_month']
                                 for epoch in range(prm['RL']['start_end_eval'],
                                                    len(record_obj[repeat][method]))]
@@ -116,7 +116,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                     bars[i].append(
                         np.mean([[(record_obj[repeat][method][epoch])
                                 * prm['syst']['interval_to_month']
-                                * mult / prm['syst']['n_homes_all']
+                                * mult / prm['syst']['n_homes_all_test']
                                 for epoch in range(prm['RL']['start_end_eval'],
                                                    len(record_obj[repeat][method]))]
                                 for repeat in range(prm['RL']['n_repeats'])]))
@@ -191,14 +191,14 @@ def barplot_grid_energy_costs(record, prm, plot_type='savings'):
                 bars[i].append(
                     np.mean([[(record_obj[repeat]['baseline'][epoch]
                                - record_obj[repeat][method][epoch])
-                              * mult / prm['syst']['n_homes_all']
+                              * mult / prm['syst']['n_homes_all_test']
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  len(record_obj[repeat][method]))]
                              for repeat in range(prm['RL']['n_repeats'])]))
             else:
                 bars[i].append(
                     np.mean([[(record_obj[repeat][method][epoch])
-                              * mult / prm['syst']['n_homes_all']
+                              * mult / prm['syst']['n_homes_all_test']
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  len(record_obj[repeat][method]))]
                              for repeat in range(prm['RL']['n_repeats'])]))
@@ -260,19 +260,22 @@ def barplot_indiv_savings(record, prm):
             if method != 'baseline'
         ]
         savings_a, share_sc, std_savings = [
-            [[] for _ in range(prm['syst']['n_homes'])]
+            [[] for _ in range(prm['syst']['n_homes_test'])]
             for _ in range(3)
         ]
-        for home in range(prm['syst']['n_homes']):
+        for home in range(prm['syst']['n_homes_test']):
             for method in eval_not_baseline:
-                savings_battery_degradation_costs_a, savings_grid_energy_costs_a = [
-                    np.mean([[(reward[repeat]['baseline'][epoch][home]
-                               - reward[repeat][method][epoch])
-                              for epoch in range(prm['RL']['start_end_eval'],
-                                                 prm['RL']['n_epochs'])]
-                             for repeat in range(prm['RL']['n_repeats'])])
-                    for reward in [record.__dict__['indiv_grid_battery_costs'],
-                                   record.__dict__['indiv_grid_energy_costs']]]
+                try:
+                    savings_battery_degradation_costs_a, savings_grid_energy_costs_a = [
+                        np.mean([[(reward[repeat]['baseline'][epoch][home]
+                                   - reward[repeat][method][epoch])
+                                  for epoch in range(prm['RL']['start_end_eval'],
+                                                     prm['RL']['n_epochs'])]
+                                 for repeat in range(prm['RL']['n_repeats'])])
+                        for reward in [record.__dict__['indiv_grid_battery_costs'],
+                                       record.__dict__['indiv_grid_energy_costs']]]
+                except Exception as ex:
+                    print(ex)
                 share_sc[home].append(
                     savings_battery_degradation_costs_a
                     / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
@@ -292,7 +295,7 @@ def barplot_indiv_savings(record, prm):
                 std_savings[home].append(np.std(savings_a_all))
         for it in range(len(eval_not_baseline)):
             if eval_not_baseline[it] == 'opt_d_d':
-                savings_opt_d_d = [savings_a[home][it] for home in range(prm['syst']['n_homes'])]
+                savings_opt_d_d = [savings_a[home][it] for home in range(prm['syst']['n_homes_test'])]
                 print(f"savings per agent opt_d_d: {savings_opt_d_d}")
                 print(f"mean {np.mean(savings_opt_d_d)}, "
                       f"std {np.std(savings_opt_d_d)}, "
@@ -300,7 +303,7 @@ def barplot_indiv_savings(record, prm):
                       f"max {max(savings_opt_d_d)}")
 
         # plot total individual savings
-        labels = range(prm['syst']['n_homes'])
+        labels = range(prm['syst']['n_homes_test'])
         barWidth = 1 / (len(labels) + 1)
         rs = []
         rs.append(np.arange(len(prm['RL']['evaluation_methods']) - 1))

@@ -121,9 +121,11 @@ class Battery:
         self.update_step(time_step=self.prev_time_step, implement=False)
 
     def set_passive_active(self, ext, prm: dict):
+        print(f"set_passive_active ext {ext}")
         self.ext = ext
         # number of agents / households
         self.n_homes = prm['syst']['n_homes' + self.ext]
+        print(f"self.n_homes {self.n_homes}")
         for info in ['own_car', 'store0', 'caps', 'min_charge']:
             setattr(self, info, prm['car'][info + self.ext])
 
@@ -134,6 +136,14 @@ class Battery:
     ) -> dict:
         batch['bat_dem_agg'] = np.zeros((self.n_homes, len(batch['avail_car'][0])))
         for home in range(self.n_homes):
+            try:
+                a = self.own_car[home]
+            except Exception as ex:
+                print(ex)
+            try:
+                a = batch['avail_car'][home, 0]
+            except Exception as ex:
+                print(ex)
             if self.own_car[home]:
                 start_trip, end_trip = [], []
                 if batch['avail_car'][home, 0] == 0:
