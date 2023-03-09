@@ -327,7 +327,7 @@ class Action_translator:
                     # -1 max export
                     # 1 max import
                     res['q'] = flexible_q_car_action * np.sqrt(
-                        self.max_apparent_power_car**2 - (charge - discharge + res['l_ch'])**2
+                        (self.max_apparent_power_car + 1e-6)**2 - (charge - discharge + res['l_ch'])**2
                         )
                     flexible_q_car[home] = res['q']
 
