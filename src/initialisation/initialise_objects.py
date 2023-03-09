@@ -324,7 +324,7 @@ def _update_bat_prm(prm):
     car, syst, paths = [prm[key] for key in ["car", "syst", "paths"]]
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
-    if car['c_max']/car['eta_ch'] > car['max_apparent_power_car']:
+    if car['c_max'] / car['eta_ch'] > car['max_apparent_power_car']:
         car['c_max'] = car['max_apparent_power_car'] * car['eta_ch']
     # have list of car capacities based on capacity and ownership inputs
     car["cap"] = np.array(
