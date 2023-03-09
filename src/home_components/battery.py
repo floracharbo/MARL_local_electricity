@@ -121,11 +121,9 @@ class Battery:
         self.update_step(time_step=self.prev_time_step, implement=False)
 
     def set_passive_active(self, ext, prm: dict):
-        print(f"set_passive_active ext {ext}")
         self.ext = ext
         # number of agents / households
         self.n_homes = prm['syst']['n_homes' + self.ext]
-        print(f"self.n_homes {self.n_homes}")
         for info in ['own_car', 'store0', 'caps', 'min_charge']:
             setattr(self, info, prm['car'][info + self.ext])
 
@@ -136,14 +134,6 @@ class Battery:
     ) -> dict:
         batch['bat_dem_agg'] = np.zeros((self.n_homes, len(batch['avail_car'][0])))
         for home in range(self.n_homes):
-            try:
-                a = self.own_car[home]
-            except Exception as ex:
-                print(ex)
-            try:
-                a = batch['avail_car'][home, 0]
-            except Exception as ex:
-                print(ex)
             if self.own_car[home]:
                 start_trip, end_trip = [], []
                 if batch['avail_car'][home, 0] == 0:
@@ -325,9 +315,9 @@ class Battery:
                     f"time_step == {self.N - 1} and min_charge_t {min_charge_t[home]} " \
                     f"< {self.store0[home]} - {self.c_max}"
 
-        self.min_charge_t = min_charge_t
         absolute_max_charge_t = np.where(last_step and self.avail_car, self.store0, self.caps)
         self.max_charge_t = np.minimum(max_charge_for_final_step, absolute_max_charge_t)
+        self.min_charge_t = np.where(abs(min_charge_t - self.max_charge_t) < 1e-2, self.max_charge_t, min_charge_t)
 
         return bool_penalty
 
@@ -496,6 +486,20 @@ class Battery:
             self.avail_car,
             np.minimum(self.c_max, np.maximum(self.max_charge_t - self.start_store, 0))
         )
+        for home in range(len(s_add_0)):
+            if s_add_0[home] > potential_charge[home] + 1e-3:
+                print(f"home {home} "
+                      f"self.avail_car[home] {self.avail_car[home]} "
+                      f"self.min_charge_t[home] {self.min_charge_t[home]} "
+                      f"self.max_charge_t[home] {self.max_charge_t[home]} "
+                      f"self.start_store[home] {self.start_store[home]} "
+                      f"self.time_step {self.time_step} "
+                      f"self.store[home] {self.store[home]} "
+                      f"self.c_max {self.c_max} "
+                      f"potential_charge[home] {potential_charge[home]} "
+                      f"s_add_0[home] {s_add_0[home]}"
+                      )
+
         assert all(add <= potential + 1e-3 for add, potential in zip(s_add_0, potential_charge)
                    if potential > 0), f"s_add_0 {s_add_0} > potential_charge {potential_charge}"
         assert all(remove <= avail + 5e-2 for remove, avail in zip(s_remove_0, s_avail_dis)
