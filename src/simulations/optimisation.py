@@ -59,10 +59,9 @@ class Optimiser:
     def _solve_line_losses_iteration(self):
         it = 0
         self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
-        res, _, _, _ = self._problem()
+        res, _, constl_consa_constraints, constl_loads_constraints = self._problem()
         perform_checks = False
         res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
-        # print pi and qi
         opti_voltages = copy.deepcopy(res['voltage'])
         opti_losses = copy.deepcopy(res['hourly_line_losses'])
         for time_step in range(self.N):

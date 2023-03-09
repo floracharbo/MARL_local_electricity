@@ -787,6 +787,8 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             res['lij'] = input_hourly_lij
             res['v_line'] = np.matmul(
                 grd['out_incidence_matrix'].T, res['voltage_squared'])
+            # correct grid values if the constraint was not respected during iteration
+            res['grid'] = np.sum(res['netp'], axis=0) + res['hourly_line_losses']
         res['p_solar_flex'] = grd['gen'][:, 0: N]
         res['q_solar_flex'] = calculate_reactive_power(
             grd['gen'][:, 0: N], grd['pf_flexible_homes'])
