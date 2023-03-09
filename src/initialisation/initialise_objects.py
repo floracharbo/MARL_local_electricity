@@ -800,10 +800,11 @@ def _syst_info(prm):
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
-    syst['n_homes_all_test'] = syst['n_homes_test'] + syst['n_homesP']
-    assert syst['n_homes_all'] > 0, "No homes in the system"
     if syst['n_homes_test'] is None:
         syst['n_homes_test'] = syst['n_homes']
+    syst['n_homes_all_test'] = syst['n_homes_test'] + syst['n_homesP']
+    assert syst['n_homes_all'] > 0, "No homes in the system"
+    
     syst['n_homes_extensions'] = ["P"]
     if syst['n_homes_test'] != syst['n_homes']:
         syst['n_homes_extensions'].append("_test")
