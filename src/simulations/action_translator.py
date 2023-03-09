@@ -197,6 +197,8 @@ class Action_translator:
                         f"s_add_0 {s_add_0[home]}, "
                         f"s_remove_0 {s_remove_0[home]}, "
                         f"potential_charge {potential_charge[home]} "
+                        f"self.car.avail_car[home] {self.car.avail_car[home]}"
+                        f"loads['l_flex'] {loads['l_flex'][home]}"
                     )
                     np.save('loads_error', loads)
                     np.save('home_vars_error', home_vars)
