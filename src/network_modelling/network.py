@@ -376,16 +376,12 @@ class Network:
             netq_passive = np.zeros([1, self.N])
             netp0 = np.zeros([1, self.N])
 
-        # q_car_flex will be a decision variable
-        q_heat_home_flex = calculate_reactive_power(res['totcons'], self.pf_flexible_homes)
-        netq_flex = res['q_car_flex'] + q_heat_home_flex - res['q_solar_flex']
-
         # Compare hourly results from network modelling in optimizer and pandapower
         start = time.time()
         [
             replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
             pij_pp_kW, qij_pp_kW, reactive_power_losses
-        ] = self._check_voltage_differences(res, time_step, netp0, netq_flex, netq_passive)
+        ] = self._check_voltage_differences(res, time_step, netp0, res['netq_flex'], netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(
             res, hourly_line_losses_pp, time_step, replace_with_pp_simulation
         )
@@ -450,7 +446,6 @@ class Network:
         res["voltage_costs"] += delta_voltage_costs
 
         res["hourly_grid_energy_costs"][time_step] = hourly_grid_energy_costs_pp
-        res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
         res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
