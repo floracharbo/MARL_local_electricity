@@ -413,6 +413,17 @@ def data_specific_modifications(prm, key, subkey, subsubkey):
     return prm, key, subkey, subsubkey
 
 
+def get_caps_str(caps):
+    caps_str = ''
+    for cap in set(caps):
+        n_homes = caps.count(cap)
+        caps_str += f'{cap}_{n_homes}_'
+    if caps_str[-1] == '_':
+        caps_str = caps_str[:-1]
+
+    return caps_str
+
+
 def get_prm_data_for_a_result_no(results_path, result_no, columns0):
     path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
 
@@ -441,7 +452,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                 elif subkey == 'caps':
                     x = prm[key][subkey]
                     row.append(int(x[0]) if isinstance(x, np.ndarray) and all(
-                        x[i] == x[0] for i in range(len(x))) else str(x))
+                        x[i] == x[0] for i in range(len(x))) else get_caps_str(x))
                 else:
                     row.append(prm[key][subkey] if subkey in prm[key] else None)
             else:
