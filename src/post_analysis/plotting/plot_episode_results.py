@@ -720,7 +720,7 @@ def plot_reactive_power(
             title_and_save(title, fig, prm)
 
 
-def plot_reactive_power(
+def plot_indiv_reactive_power(
         prm, all_methods_to_plot, folder_run):
     """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
     plt.rcParams['font.size'] = '16'

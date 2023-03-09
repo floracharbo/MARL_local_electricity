@@ -84,7 +84,7 @@ runs = {
 }
 
 
-green = (117/255, 189/255, 167/255)
+green = (117 / 255, 189 / 255, 167 / 255)
 # '#ff7f00' colorblind orange
 # green = '#4daf4a'
 # colorblind green
@@ -96,7 +96,7 @@ grey = '#999999'
 #  '#e41a1c' colorblind red
 #  '#dede00' oclorbing yellow
 # blue = (80/255, 146/255, 182/255)
-blue = '#377eb8' #  colorblind blue
+blue = '#377eb8'  # colorblind blue
 red = (192 / 255, 0, 0)
 
 colours = {
@@ -120,6 +120,7 @@ best_score_type = 'p50'
 # p50 or ave
 
 metrics = [best_score_type, 'p25', 'p75']
+
 
 def exponential(x, a):
     return a ** x

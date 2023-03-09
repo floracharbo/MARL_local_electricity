@@ -292,7 +292,9 @@ def barplot_indiv_savings(record, prm):
                 std_savings[home].append(np.std(savings_a_all))
         for it in range(len(eval_not_baseline)):
             if eval_not_baseline[it] == 'opt_d_d':
-                savings_opt_d_d = [savings_a[home][it] for home in range(prm['syst']['n_homes_test'])]
+                savings_opt_d_d = [
+                    savings_a[home][it] for home in range(prm['syst']['n_homes_test'])
+                ]
                 print(f"savings per agent opt_d_d: {savings_opt_d_d}")
                 print(f"mean {np.mean(savings_opt_d_d)}, "
                       f"std {np.std(savings_opt_d_d)}, "
