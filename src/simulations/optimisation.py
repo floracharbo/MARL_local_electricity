@@ -47,11 +47,12 @@ class Optimiser:
 
         else:
             res, pp_simulation_required, _, _ = self._problem()
-            res = res_post_processing(res, prm, self.input_hourly_lij)
+            perform_checks = True
+            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
-            res = res_post_processing(res, prm, self.input_hourly_lij)
+            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
 
         return res, pp_simulation_required
 
@@ -59,7 +60,8 @@ class Optimiser:
         it = 0
         self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
         res, _, _, _ = self._problem()
-        res = res_post_processing(res, self.prm, self.input_hourly_lij)
+        perform_checks = False
+        res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
         # print pi and qi
         opti_voltages = copy.deepcopy(res['voltage'])
         opti_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -80,7 +82,7 @@ class Optimiser:
             it += 1
             self.input_hourly_lij = corr_lij
             res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints = self._problem()
-            res = res_post_processing(res, self.prm, self.input_hourly_lij)
+            res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
@@ -101,7 +103,8 @@ class Optimiser:
                 res, constl_consa_constraints, constl_loads_constraints,
                 self.prm, self.input_hourly_lij
             )
-        res = res_post_processing(res, self.prm, corr_lij)
+        perform_checks = True
+        res = res_post_processing(res, self.prm, res['lij'], perform_checks)
         return res, pp_simulation_required
 
     def _car_efficiency_iterations(self, prm, res):

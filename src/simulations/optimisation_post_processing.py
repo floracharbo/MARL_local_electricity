@@ -761,7 +761,7 @@ def check_and_correct_constraints(
     return res, pp_simulation_required
 
 
-def res_post_processing(res, prm, input_hourly_lij):
+def res_post_processing(res, prm, input_hourly_lij, perform_checks):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
@@ -827,31 +827,32 @@ def res_post_processing(res, prm, input_hourly_lij):
         + res['hourly_grid_energy_costs'] \
         + res['hourly_battery_degradation_costs'] \
         + res['hourly_distribution_network_export_costs']
+    
+    if perform_checks:
+        for key, val in res.items():
+            if key[0: len('hourly')] == 'hourly':
+                assert len(val) == N, f"np.shape(res[{key}]) = {np.shape(val)}"
 
-    for key, val in res.items():
-        if key[0: len('hourly')] == 'hourly':
-            assert len(val) == N, f"np.shape(res[{key}]) = {np.shape(val)}"
+        assert np.all(res['totcons'] > - 5e-3), f"min(res['totcons']) = {np.min(res['totcons'])}"
 
-    assert np.all(res['totcons'] > - 5e-3), f"min(res['totcons']) = {np.min(res['totcons'])}"
+        simultaneous_dis_charging = np.logical_and(res['charge'] > 1e-3, res['discharge_other'] > 1e-3)
+        assert not simultaneous_dis_charging.any(), \
+            "Simultaneous charging and discharging is happening" \
+            f"For charging of {res['charge'][simultaneous_dis_charging]}" \
+            f"and discharging of {res['discharge_other'][simultaneous_dis_charging]}"
 
-    simultaneous_dis_charging = np.logical_and(res['charge'] > 1e-3, res['discharge_other'] > 1e-3)
-    assert not simultaneous_dis_charging.any(), \
-        "Simultaneous charging and discharging is happening" \
-        f"For charging of {res['charge'][simultaneous_dis_charging]}" \
-        f"and discharging of {res['discharge_other'][simultaneous_dis_charging]}"
-
-    assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
-        f"negative flexible consumptions in the optimisation! " \
-        f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-    max_losses_condition = np.logical_and(
-        res['hourly_line_losses'] > 1,
-        res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses'])
-    )
-    assert np.all(~max_losses_condition), \
-        f"Hourly line losses are larger than 15% of the total import. " \
-        f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
-        f"Grid imp/exp: " \
-        f"{abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
+        assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
+            f"negative flexible consumptions in the optimisation! " \
+            f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
+        max_losses_condition = np.logical_and(
+            res['hourly_line_losses'] > 1,
+            res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses'])
+        )
+        assert np.all(~max_losses_condition), \
+            f"Hourly line losses are larger than 15% of the total import. " \
+            f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
+            f"Grid imp/exp: " \
+            f"{abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
 
     return res
 
