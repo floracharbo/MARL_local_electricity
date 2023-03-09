@@ -33,6 +33,7 @@ FILTER = {
 best_score_type = 'p50'
 # p50 or ave
 
+
 def rename_runs(results_path):
     folders = os.listdir(results_path)
     initial_numbers = sorted([int(folder[3:]) for folder in folders if folder[0: 3] == "run"])
@@ -44,7 +45,9 @@ def rename_runs(results_path):
 def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted):
     new_values_of_interest_sorted = {}
     for k in ['all', 'env']:
-        i_not_nans = [i for i, y in enumerate(best_scores_sorted[k][best_score_type]) if not np.isnan(y)]
+        i_not_nans = [
+            i for i, y in enumerate(best_scores_sorted[k][best_score_type]) if not np.isnan(y)
+        ]
         for key in best_scores_sorted[k]:
             best_scores_sorted[k][key] = [best_scores_sorted[k][key][i] for i in i_not_nans]
         new_values_of_interest_sorted[k] = [values_of_interest_sorted[i] for i in i_not_nans]
@@ -54,7 +57,10 @@ def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted
 
 def fix_learning_specific_values(log):
     """If there are no optimisations, this is equivalent to if we had forced optimisations."""
-    ave_opt_cols = [col for col in log.columns if col[0: len(f'{best_score_type}_opt')] == f'{best_score_type}_opt']
+    ave_opt_cols = [
+        col for col in log.columns
+        if col[0: len(f'{best_score_type}_opt')] == f'{best_score_type}_opt'
+    ]
     for i in range(len(log)):
         if all(log[col].loc[i] is None for col in ave_opt_cols):
             if not log['syst-force_optimisation'].loc[i]:
@@ -113,7 +119,11 @@ def add_subkey_to_list_columns(key, subkey, ignore, subval, columns0):
         discard_n_homes_test = key == 'RL' and subkey == 'n_homes_test'
         if (
             not discard_n_homes_test and f"{key}-{subkey}" not in columns0
-            and (subkey[0: len("own_")] == 'own_' or is_short_type(subval) or subkey == "state_space")
+            and (
+                subkey[0: len("own_")] == 'own_'
+                or is_short_type(subval)
+                or subkey == "state_space"
+            )
         ):
             columns0.append(f"{key}-{subkey}")
         elif isinstance(subval, dict):
@@ -799,7 +809,9 @@ def compare_all_runs_for_column_of_interest(
                 values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
                 best_scores_sorted = {k: {} for k in ['all', 'env']}
                 for k in ['all', 'env']:
-                    best_scores_sorted[k][best_score_type] = [best_scores[k][best_score_type][i] for i in i_sorted]
+                    best_scores_sorted[k][best_score_type] = [
+                        best_scores[k][best_score_type][i] for i in i_sorted
+                    ]
                     for p in [25, 75]:
                         best_scores_sorted[k][f'p{p}'] = [
                             best_scores[k][f'p{p}'][i] for i in i_sorted

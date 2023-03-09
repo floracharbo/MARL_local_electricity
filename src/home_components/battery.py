@@ -127,7 +127,6 @@ class Battery:
         for info in ['own_car', 'store0', 'caps', 'min_charge']:
             setattr(self, info, prm['car'][info + self.ext])
 
-
     def compute_battery_demand_aggregated_at_start_of_trip(
             self,
             batch: dict
@@ -317,7 +316,9 @@ class Battery:
 
         absolute_max_charge_t = np.where(last_step and self.avail_car, self.store0, self.caps)
         self.max_charge_t = np.minimum(max_charge_for_final_step, absolute_max_charge_t)
-        self.min_charge_t = np.where(abs(min_charge_t - self.max_charge_t) < 1e-2, self.max_charge_t, min_charge_t)
+        self.min_charge_t = np.where(
+            abs(min_charge_t - self.max_charge_t) < 1e-2, self.max_charge_t, min_charge_t
+        )
 
         return bool_penalty
 

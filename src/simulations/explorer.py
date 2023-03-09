@@ -324,7 +324,9 @@ class Explorer:
                 # learn right away at the end of the step
                 if self.n_homes > 0:
                     if not evaluation and not self.rl['trajectory']:
-                        for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
+                        for eval_method in methods_learning_from_exploration(
+                                method, epoch, self.rl
+                        ):
                             self.learning_manager.learning(
                                 current_state, state, action, reward, done,
                                 eval_method, step, step_vals, epoch
@@ -359,7 +361,6 @@ class Explorer:
             self.data.ext = "_test"
         else:
             self.data.ext = ""
-
 
         # initialise data
         methods_nonopt = [method for method in methods if method != "opt"]
