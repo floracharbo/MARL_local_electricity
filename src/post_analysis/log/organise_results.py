@@ -16,7 +16,7 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['n_homes', 'n_homesP', 'n_homes_test']
+COLUMNS_OF_INTEREST = ['n_homes_test']
 # COLUMNS_OF_INTEREST = None
 
 FILTER = {
@@ -25,8 +25,8 @@ FILTER = {
     'SoC0': 1,
     # 'grdC_n': 2,
     'error_with_opt_to_rl_discharge': False,
-    'server': True,
-    'n_repeats': 10,
+    # 'server': True,
+    # 'n_repeats': 10,
     # 'facmac-hysteretic': True,
 }
 
@@ -133,7 +133,7 @@ def get_list_all_fields(results_path):
         'tot_learn_cycles', 'start_end_eval', 'n_all_epochs', 'T_decay_param',
         'statecomb_str', 'init_len_seeds', 'opt_res_file', 'seeds_file', 'plot_type',
         'plot_profiles', 'plotting_batch', 'description_run', 'type_env', 'n_all_homes',
-        'obs_shape', 'results_file', 'n_actions', 'state_shape', 'agents',
+        'obs_shape', 'results_file', 'n_actions', 'state_shape', 'state_shape_test', 'agents',
         'save', 'groups', 'paths', 'end_decay', 'f_max-loads', 'f_min-loads', 'dt',
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
@@ -257,10 +257,23 @@ def add_default_values(log):
                 if log.loc[row, column] is None and column != 'syst-time_end':
                     log = fill_in_log_value_with_run_data(log, row, column, prm_default)
 
-    share_active_none = log['syst-share_active_test'].isnull()
-    log.loc[share_active_none, 'syst-share_active_test'] = log.loc[share_active_none].apply(
+    share_active_none = log['syst-share_active'].isnull()
+    log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
+        lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
+    )
+    n_homes_test_none = log['syst-n_homes_test'].isnull()
+    log.loc[n_homes_test_none, 'syst-n_homes_test'] = log.loc[n_homes_test_none].apply(
+        lambda x: x['syst-n_homes'], axis=1
+    )
+    n_homes_all_test_none = log['syst-n_homes_all_test'].isnull()
+    log.loc[n_homes_all_test_none, 'syst-n_homes_all_test'] = log.loc[n_homes_all_test_none].apply(
+        lambda x: x['syst-n_homes_test'] + x['syst-n_homesP'], axis=1
+    )
+    share_active_test_none = log['syst-share_active_test'].isnull()
+    log.loc[share_active_test_none, 'syst-share_active_test'] = log.loc[share_active_none].apply(
         lambda x: x['syst-n_homes_test'] / x['syst-n_homes_all_test'], axis=1
     )
+
     # then replace column by column the missing data with current defaults
     for column in log.columns:
         key, subkey, subsubkey = get_key_subkeys_column(column)
@@ -707,7 +720,6 @@ def compare_all_runs_for_column_of_interest(
             relevant_eps = not (
                 column_of_interest == 'facmac-epsilon' and log['facmac-epsilon_decay'].loc[row]
             )
-
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
                     other_columns, current_setup, row_setup, initial_setup_row,
@@ -758,6 +770,7 @@ def compare_all_runs_for_column_of_interest(
                 and relevant_eps
             if new_row and only_col_of_interest_changes and relevant_data:
                 rows_considered.append(row)
+
                 values_of_interest.append(log[column_of_interest].loc[row])
                 for k in ['all', 'env']:
                     best_scores[k][best_score_type].append(log[f'best_score_{k}'].loc[row])
@@ -1080,6 +1093,10 @@ def remove_duplicates(log, columns0):
         )
         log.drop(columns=['RL-server'], inplace=True)
         columns0.remove('RL-server')
+    for col in ['RL-eps', 'RL-alpha']:
+        if col in columns0:
+            log.drop(columns=[col], inplace=True)
+            columns0.remove(col)
 
     return log, columns0
 
