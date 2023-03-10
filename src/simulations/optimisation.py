@@ -53,7 +53,6 @@ class Optimiser:
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
             res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
-
         return res, pp_simulation_required
 
     def _solve_line_losses_iteration(self):
@@ -69,7 +68,7 @@ class Optimiser:
             netp0 = np.zeros([1, self.N])
             grdCt = self.grd['C'][time_step]
             res = self.compare_optimiser_pandapower(
-                res, time_step, netp0, grdCt, self.grd['line_losses_method'])
+                res, time_step, netp0, grdCt)
         corr_voltages = copy.deepcopy(res['voltage'])
         corr_losses = copy.deepcopy(res['hourly_line_losses'])
         corr_lij = copy.deepcopy(res['lij'])
@@ -89,7 +88,7 @@ class Optimiser:
                 netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
                 res = self.compare_optimiser_pandapower(
-                    res, time_step, netp0, grdCt, self.grd['line_losses_method'])
+                    res, time_step, netp0, grdCt)
             corr_voltages = copy.deepcopy(res['voltage'])
             corr_losses = copy.deepcopy(res['hourly_line_losses'])
             corr_lij = copy.deepcopy(res['lij'])
@@ -100,7 +99,7 @@ class Optimiser:
 
         res, pp_simulation_required = check_and_correct_constraints(
                 res, constl_consa_constraints, constl_loads_constraints,
-                self.prm, self.input_hourly_lij
+                self.prm, corr_lij
             )
         perform_checks = True
         res = res_post_processing(res, self.prm, res['lij'], perform_checks)

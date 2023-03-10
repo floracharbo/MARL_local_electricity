@@ -54,7 +54,7 @@ class Network:
             'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
             'penalty_export', 'reactive_power_for_voltage_control',
             'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff',
-            'tol_rel_voltage_costs', 'tol_abs_line_losses',
+            'tol_rel_voltage_costs', 'tol_abs_line_losses'
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -366,7 +366,7 @@ class Network:
         return replace_with_pp_simulation
 
     def compare_optimiser_pandapower(
-            self, res, time_step, netp0, grdCt, line_losses_method):
+            self, res, time_step, netp0, grdCt):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = calculate_reactive_power(
@@ -385,7 +385,7 @@ class Network:
         replace_with_pp_simulation = self._check_losses_differences(
             res, hourly_line_losses_pp, time_step, replace_with_pp_simulation
         )
-        if replace_with_pp_simulation or line_losses_method == 'iteration':
+        if replace_with_pp_simulation:
             res = self._replace_res_values_with_pp_simulation(
                 res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
                 voltage_pp, pij_pp_kW, qij_pp_kW, reactive_power_losses
@@ -463,6 +463,8 @@ class Network:
             + res['hourly_distribution_network_export_costs'][time_step]
         assert abs(sum_indiv_components - res['hourly_total_costs'][time_step]) < 1e-4, \
             "total hourly costs do not add up"
+        assert abs(res["total_costs"] - sum(res['hourly_total_costs'])) < 1e-3, \
+            "total costs do not match sum of hourly costs"
         abs_diff = abs(
             res['grid'][time_step]
             - (sum(res['netp'][:, time_step]) + res['hourly_line_losses'][time_step])

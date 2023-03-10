@@ -832,9 +832,8 @@ class Explorer:
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
                 grdCt = self.prm['grd']['C'][time_step]
-                line_losses_method = 'comparison'
                 res = self.env.network.compare_optimiser_pandapower(
-                    res, time_step, netp0, grdCt, line_losses_method
+                    res, time_step, netp0, grdCt
                 )
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
