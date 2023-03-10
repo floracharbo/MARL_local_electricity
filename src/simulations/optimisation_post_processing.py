@@ -788,6 +788,10 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             res['v_line'] = np.matmul(
                 grd['out_incidence_matrix'].T, res['voltage_squared'])
             res['grid'] = np.sum(res['netp'], axis=0) + res['hourly_line_losses']
+            res['hourly_reactive_line_losses'] = \
+                np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij']), axis=0) \
+                    * grd['per_unit_to_kW_conversion']
+            res['q_ext_grid'] = np.sum(res['netq_flex'], axis=0) + res['hourly_reactive_line_losses']
         res['p_solar_flex'] = grd['gen'][:, 0: N]
         res['q_solar_flex'] = calculate_reactive_power(
             grd['gen'][:, 0: N], grd['pf_flexible_homes'])

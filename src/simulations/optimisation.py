@@ -103,6 +103,8 @@ class Optimiser:
             )
         perform_checks = True
         res = res_post_processing(res, self.prm, res['lij'], perform_checks)
+        # update voltage and import/export costs
+        pp_simulation_required = True
         return res, pp_simulation_required
 
     def _car_efficiency_iterations(self, prm, res):
