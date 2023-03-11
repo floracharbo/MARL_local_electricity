@@ -1,8 +1,7 @@
 import numpy as np
-import picos as pic
-import copy
 
-from src.utilities.userdeftools import calculate_reactive_power
+from src.utilities.userdeftools import calculate_reactive_power, \
+    compute_import_export_costs, compute_voltage_costs
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):
@@ -798,6 +797,24 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res["hourly_reactive_losses"] = \
             np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N]) \
                 * grd['per_unit_to_kW_conversion'], axis=0)
+        for time_step in range(N):
+            res['hourly_import_export_costs'][time_step], _, _ = \
+                compute_import_export_costs(
+                res['grid'][time_step],
+                prm['grd']['max_grid_import'],
+                prm['grd']['max_grid_export'],
+                prm['grd']['penalty_import'],
+                prm['grd']['penalty_export'],
+                prm['grd']['manage_agg_power']
+            )
+            res['hourly_voltage_costs'][time_step] = \
+                compute_voltage_costs(
+                res['voltage_squared'][:, time_step],
+                prm['grd']['max_voltage'],
+                prm['grd']['min_voltage'],
+                prm['grd']['penalty_overvoltage'],
+                prm['grd']['penalty_undervoltage']
+            )
     else:
         res['voltage_squared'] = np.empty((1, N))
         res['voltage_costs'] = 0
@@ -834,7 +851,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         + res['hourly_distribution_network_export_costs']
     
     res['grid_energy_costs'] = sum(res['hourly_grid_energy_costs']) 
-    res['total_costs'] =  sum(res['hourly_total_costs'])
+    res['total_costs'] = sum(res['hourly_total_costs'])
     
     if perform_checks:
         for key, val in res.items():

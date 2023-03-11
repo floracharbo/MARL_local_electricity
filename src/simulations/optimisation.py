@@ -23,7 +23,7 @@ from src.utilities.userdeftools import comb
 class Optimiser:
     """The Optimiser object manages convex optimisations."""
 
-    def __init__(self, prm, compute_import_export_costs, compare_optimiser_pandapower):
+    def __init__(self, prm, compare_optimiser_pandapower):
         """Initialise solver object for doing optimisations."""
         for attribute in ['N', 'n_homes', 'tol_constraints', 'n_homesP']:
             setattr(self, attribute, prm['syst'][attribute])
@@ -34,7 +34,6 @@ class Optimiser:
             setattr(self, info, prm['grd'][info])
         self.save = prm["save"]
         self.paths = prm["paths"]
-        self.compute_import_export_costs = compute_import_export_costs
         self.compare_optimiser_pandapower = compare_optimiser_pandapower
         self.prm = prm
         self.input_hourly_lij = None
@@ -103,8 +102,6 @@ class Optimiser:
             )
         perform_checks = True
         res = res_post_processing(res, self.prm, res['lij'], perform_checks)
-        # update voltage and import/export costs
-        pp_simulation_required = True
         return res, pp_simulation_required
 
     def _car_efficiency_iterations(self, prm, res):

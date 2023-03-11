@@ -23,7 +23,8 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import calculate_reactive_power
+from src.utilities.userdeftools import calculate_reactive_power, \
+    compute_voltage_costs, compute_import_export_costs
 
 
 class LocalElecEnv:
@@ -454,12 +455,25 @@ class LocalElecEnv:
 
         # import and export limits
         if self.prm['grd']['manage_agg_power']:
-            import_export_costs, _, _ = self.network.compute_import_export_costs(grid)
+            import_export_costs, _, _ = compute_import_export_costs(
+                grid,
+                self.prm['grd']['max_grid_import'],
+                self.prm['grd']['max_grid_export'],
+                self.prm['grd']['penalty_import'],
+                self.prm['grd']['penalty_export'],
+                self.prm['grd']['manage_agg_power']
+            )          
         else:
             import_export_costs = 0
 
         if self.prm['grd']['manage_voltage']:
-            voltage_costs = self.network.compute_voltage_costs(voltage_squared)
+            voltage_costs = compute_voltage_costs(
+                voltage_squared,
+                self.prm['grd']['max_voltage'],
+                self.prm['grd']['min_voltage'],
+                self.prm['grd']['penalty_overvoltage'],
+                self.prm['grd']['penalty_undervoltage']
+                )
         else:
             voltage_costs = 0
 

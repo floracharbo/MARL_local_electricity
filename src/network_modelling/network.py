@@ -13,7 +13,8 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.utilities.userdeftools import calculate_reactive_power
+from src.utilities.userdeftools import calculate_reactive_power, \
+    compute_voltage_costs, compute_import_export_costs
 
 
 class Network:
@@ -318,7 +319,13 @@ class Network:
             replace_with_pp_simulation = True
 
         # Impact of voltage costs on total costs
-        hourly_voltage_costs_pp = self.compute_voltage_costs(np.square(voltage_pp))
+        hourly_voltage_costs_pp = compute_voltage_costs(
+            np.square(voltage_pp),
+            self.max_voltage,
+            self.min_voltage,
+            self.penalty_overvoltage,
+            self.penalty_undervoltage
+            )
         abs_rel_voltage_error = abs(
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
             / res['total_costs']
@@ -370,7 +377,7 @@ class Network:
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = calculate_reactive_power(
-                netp0, self.grd['pf_passive_homes']
+                netp0, self.pf_passive_homes
             )
         else:
             netq_passive = np.zeros([1, self.N])
@@ -414,7 +421,14 @@ class Network:
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp, _, _ = self.compute_import_export_costs(grid_pp)
+        import_export_costs_pp, _, _ = compute_import_export_costs(
+            grid_pp,
+            self.max_grid_import,
+            self.max_grid_export,
+            self.penalty_import,
+            self.penalty_export,
+            self.manage_agg_power
+        )
         delta_import_export_costs = \
             import_export_costs_pp - res['hourly_import_export_costs'][time_step]
 
@@ -449,7 +463,8 @@ class Network:
         res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
-        res["network_costs"] += delta_voltage_costs * self.weight_network_costs
+        res["network_costs"] += (delta_import_export_costs + delta_voltage_costs) \
+            * self.weight_network_costs
         res["hourly_total_costs"][time_step] += delta_total_costs
         res["total_costs"] += delta_total_costs
 
@@ -473,36 +488,3 @@ class Network:
 
         return res
 
-    def compute_import_export_costs(self, grid):
-        if self.manage_agg_power:
-            grid_in = np.where(np.array(grid) >= 0, grid, 0)
-            grid_out = np.where(np.array(grid) < 0, - grid, 0)
-            import_costs = np.where(
-                grid_in >= self.max_grid_import,
-                self.penalty_import * (grid_in - self.max_grid_import),
-                0
-            )
-            export_costs = np.where(
-                grid_out >= self.max_grid_export,
-                self.penalty_export * (grid_out - self.max_grid_export),
-                0
-            )
-            import_export_costs = import_costs + export_costs
-        else:
-            import_export_costs, import_costs, export_costs = 0, 0, 0
-
-        return import_export_costs, import_costs, export_costs
-
-    def compute_voltage_costs(self, voltage_squared):
-        over_voltage_costs = self.penalty_overvoltage * np.where(
-            voltage_squared > self.max_voltage ** 2,
-            voltage_squared - self.max_voltage ** 2,
-            0
-        )
-        under_voltage_costs = self.penalty_undervoltage * np.where(
-            voltage_squared < self.min_voltage ** 2,
-            self.min_voltage ** 2 - voltage_squared,
-            0
-        )
-
-        return np.sum(over_voltage_costs + under_voltage_costs)
