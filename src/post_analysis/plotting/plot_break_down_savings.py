@@ -120,11 +120,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                                 for epoch in range(prm['RL']['start_end_eval'],
                                                    len(record_obj[repeat][method]))]
                                 for repeat in range(prm['RL']['n_repeats'])]))
-            tots[method] = sum(
-                bars[i][-1] for i, label in enumerate(labels)
-                if label in ['distribution_network_export_costs', 'battery_degradation_costs',
-                             'grid_energy_costs', 'import_export_costs', 'voltage_costs']
-            )
+            tots[method] = bars[-1][-1]
             shares_reduc[method].append(
                 [bars[i][-1] / tots[method] if tots[method] > 0 else None
                     for i in range(len(labels))]
