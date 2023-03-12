@@ -1,6 +1,9 @@
 # battery
 dep: 0.0152 # 20.e-3 * 0.76 # 20e-3 * 0.76 GBP/kWh cost of battery depreciation from Mortsyn multiclass 2019 / 3.2p/kWh V2GB
 c_max: 6.6  # kWh max battery charge per time interval (based on kW charging rate)
+# Max active power delivered by and to the car battery by a convetional charger in kW
+# from 'Reactive power support in residential LV distribution grids through electric vehicle charging', 2015
+# for a supercharger, max_active_power_car = 150 kW (Tesla V2)
 d_max: 7 # kWh max battery discharge per time interval https://cleantechnica.com/2022/08/21/1st-vehicle-to-grid-system-on-nyc-grid-launches/
 cap: 39 # kWh (one number applies to all buses, or one per bus)
 SoCmin: 0.1 # minimum state of charge
@@ -14,10 +17,10 @@ eff: 1
 intervals_fprob: 50
 own_car: 1  # 1 if all have EVs, else array of ownership
 own_carP: 1  # 1 if all passive homes have EVs, else array of ownership
+own_car_test: 1
 n_clus: 3  # excluding no trip days
-max_active_power_car : 6.6 # Max active power delivered by and to the car battery by a convetional charger in kW
-# from 'Reactive power support in residential LV distribution grids through electric vehicle charging', 2015
-# for a supercharger, max_active_power_car = 150 kW (Tesla V2)
 max_apparent_power_car: 7.0 # Max apparent power delivered by and to the car battery by a convetional charger in kVA
 # considering a power factor of 0.95 (see IEEE Low Voltage Test Feeder): apparent power = active power / 0.95
 # for a supercharger, max_apparent_power_car = 150 / 0.95 = 158 kVA (Tesla V2)
+capP: ~
+cap_test: ~

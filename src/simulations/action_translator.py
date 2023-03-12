@@ -56,10 +56,6 @@ class Action_translator:
         ]:
             setattr(self, info, prm['grd'][info])
 
-        # no minimum requirements for reactive power import or export
-        self.min_q_car_import = 0
-        self.min_q_car_export = 0
-
     def optimisation_to_rl_env_action(self, time_step, date, netp, loads, home_vars, res):
         """
         From home energy values, get equivalent RL flexibility actions.
@@ -214,8 +210,8 @@ class Action_translator:
 
                 # assert action_points[i][home] < 1 + 5e-3, \
                 #     f"action_points[{i}][{home}] {action_points[i][home]} > 1 " \
-                #     f"mask {mask[home]} d['dp'][i][mask] {d['dp'][i][mask][home]} " \
-                #     f"a_dp {a_dp[home]} b_dp {b_dp[home]}"
+                #     f"mask {mask[home]} d['dp'][i][mask] {d['dp'][i][mask][home]}
+                #     a_dp {a_dp[home]} b_dp {b_dp[home]}"
                 if - 1e-4 < action_points[i][home] < 0:
                     action_points[i][home] = 0
                 if 1 < action_points[i][home] < 1 + 5e-3:
@@ -330,10 +326,10 @@ class Action_translator:
                     # reactive power battery between -1 and 1 where
                     # -1 max export
                     # 1 max import
-                    res['q'] = flexible_q_car_action \
-                        * np.sqrt(self.max_apparent_power_car**2 - res['ds']**2)
+                    res['q'] = flexible_q_car_action * np.sqrt(
+                        (self.max_apparent_power_car + 1e-6)**2 - (charge - discharge + res['l_ch'])**2
+                        )
                     flexible_q_car[home] = res['q']
-                    
 
                 res['dp'] = home_vars['netp'][home]
 
@@ -749,28 +745,15 @@ class Action_translator:
         no_flex_actions = self._get_no_flex_actions('flexible_q_car_action')
         flexible_q_car_actions = np.zeros(self.n_homes)
         for home in range(self.n_homes):
-            if res['q_car_flex'][home, time_step] > 1e-3:
-                charge = res['charge'][:, time_step]
-                max_q_car_import_flexibility = np.sqrt(self.max_apparent_power_car**2 - charge**2)
-                flexible_q_car_actions[home] = (
-                    res['q_car_flex'][home, time_step] - self.min_q_car_import
-                ) / (max_q_car_import_flexibility[home] - self.min_q_car_import)
-            # if some discharge flex is used, reactive power export available
-            elif res['q_car_flex'][home, time_step] > 1e-3:
-                discharge = res['discharge_other'][home, time_step]
-                max_q_car_export_flexibility = - np.sqrt(
-                    self.max_apparent_power_car**2 - discharge**2
-                )
-                flexible_q_car_actions[home] = \
-                    - abs(self.min_q_car_export - res['q_car_flex'][home, time_step]) \
-                    / abs(self.min_q_car_export - max_q_car_export_flexibility[home])
-            # if no charge flexibility is used, no reactive power flexibility can be used
-            else:
-                flexible_q_car_actions[home] = 0
-
-        q_car_bool_flex = (
-            res['q_car_flex'][:, time_step] > 1e-3) | (res['q_car_flex'][:, time_step] < -1e-3
-                                                       )
+            active_power = res['charge'][home, time_step] / self.car.eta_ch \
+                           - res['discharge_other'][home, time_step]
+            max_q_car_flexibility = np.sqrt(self.max_apparent_power_car**2 - active_power**2)
+            flexible_q_car_actions[home] = res['q_car_flex'][home, time_step] / max_q_car_flexibility
+        # if action is close to zero, consider it to be zero
+        flexible_q_car_actions[home] = \
+            0 if abs(res['q_car_flex'][home, time_step]) < 1e-3 else flexible_q_car_actions[home]
+        q_car_bool_flex = \
+            (max_q_car_flexibility > 1e-3) | (max_q_car_flexibility < -1e-3)
 
         q_car_actions = np.where(
             q_car_bool_flex,
@@ -815,9 +798,9 @@ class Action_translator:
         actions = no_flex_actions
         actions[bool_flex] = delta[bool_flex] / self.k_dp[bool_flex, 0]
         assert all(
-            action is None or ((action >= 0) & (action <= 1))
+            action is None or ((action >= 0) & (action <= 1 + 1e-3))
             for action in actions
-        ), "action should be between 0 and 1"
+        ), f"action should be between 0 and 1 but is {actions}"
 
         actions = np.reshape(actions, (self.n_homes, 1))
 

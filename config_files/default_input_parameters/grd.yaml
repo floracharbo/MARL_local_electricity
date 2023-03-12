@@ -23,8 +23,8 @@ base_power: 1000000 # base power for per unit system in W, as defined in pandapo
 base_voltage: 416 # base voltage for per unit system in V
 subset_line_losses_modelled: 30 # Number of lines accounted for in losses
 tol_rel_voltage_diff: 1.e-3
-tol_rel_voltage_costs: 1.e-2
-tol_abs_line_losses: 1.e-2
+tol_rel_voltage_costs: 1.e-3
+tol_abs_line_losses: 1.e-3
 reactive_power_for_voltage_control: False
 pf_passive_homes : 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes : 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder

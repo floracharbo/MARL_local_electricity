@@ -21,7 +21,9 @@ class Learner:
         self.named_params = dict(mac.named_parameters())
         self.cuda_available = True if th.cuda.is_available() else False
         self.lr = rl['facmac']['lr0'] if rl['facmac']['lr_decay'] else rl['lr']
-        self.critic_lr = rl['facmac']['critic_lr0'] if rl['facmac']['lr_decay'] else rl['facmac']['critic_lr']
+        self.critic_lr = \
+            rl['facmac']['critic_lr0'] if rl['facmac']['lr_decay'] \
+            else rl['facmac']['critic_lr']
 
         if self.__name__[0:6] == 'MADDPG':
             self.maddpg_init(mac, scheme, rl)

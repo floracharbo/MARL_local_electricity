@@ -263,3 +263,42 @@ def calculate_reactive_power(active_power, power_factor):
     the power factor"""
     reactive_power = np.array(active_power) * math.tan(math.acos(power_factor))
     return reactive_power
+
+
+def compute_import_export_costs(
+        grid, max_grid_import, max_grid_export, penalty_import, penalty_export, manage_agg_power
+    ):
+    if manage_agg_power:
+        grid_in = np.where(np.array(grid) >= 0, grid, 0)
+        grid_out = np.where(np.array(grid) < 0, - grid, 0)
+        import_costs = np.where(
+            grid_in >= max_grid_import,
+            penalty_import * (grid_in - max_grid_import),
+            0
+        )
+        export_costs = np.where(
+            grid_out >= max_grid_export,
+            penalty_export * (grid_out - max_grid_export),
+            0
+        )
+        import_export_costs = import_costs + export_costs
+    else:
+        import_export_costs, import_costs, export_costs = 0, 0, 0
+
+    return import_export_costs, import_costs, export_costs
+
+def compute_voltage_costs(
+        voltage_squared, max_voltage, min_voltage, penalty_overvoltage, penalty_undervoltage
+    ):
+    over_voltage_costs = penalty_overvoltage * np.where(
+        voltage_squared > max_voltage ** 2,
+        voltage_squared - max_voltage ** 2,
+        0
+    )
+    under_voltage_costs = penalty_undervoltage * np.where(
+        voltage_squared < min_voltage ** 2,
+        min_voltage ** 2 - voltage_squared,
+        0
+    )
+
+    return np.sum(over_voltage_costs + under_voltage_costs)

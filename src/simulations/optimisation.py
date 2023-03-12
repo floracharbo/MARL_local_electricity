@@ -23,7 +23,7 @@ from src.utilities.userdeftools import comb
 class Optimiser:
     """The Optimiser object manages convex optimisations."""
 
-    def __init__(self, prm, compute_import_export_costs, compare_optimiser_pandapower):
+    def __init__(self, prm, compare_optimiser_pandapower):
         """Initialise solver object for doing optimisations."""
         for attribute in ['N', 'n_homes', 'tol_constraints', 'n_homesP']:
             setattr(self, attribute, prm['syst'][attribute])
@@ -34,7 +34,6 @@ class Optimiser:
             setattr(self, info, prm['grd'][info])
         self.save = prm["save"]
         self.paths = prm["paths"]
-        self.compute_import_export_costs = compute_import_export_costs
         self.compare_optimiser_pandapower = compare_optimiser_pandapower
         self.prm = prm
         self.input_hourly_lij = None
@@ -43,25 +42,24 @@ class Optimiser:
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
         if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
-            res = self._solve_line_losses_iteration()
-            pp_simulation_required = False
+            res, pp_simulation_required = self._solve_line_losses_iteration()
 
         else:
-            res, pp_simulation_required = self._problem()
-            res = res_post_processing(res, prm, self.input_hourly_lij)
+            res, pp_simulation_required, _, _ = self._problem()
+            perform_checks = True
+            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
-            res = res_post_processing(res, prm, self.input_hourly_lij)
-
+            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
         return res, pp_simulation_required
 
     def _solve_line_losses_iteration(self):
         it = 0
         self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
-        res, _ = self._problem()
-        res = res_post_processing(res, self.prm, self.input_hourly_lij)
-        # print pi and qi
+        res, _, constl_consa_constraints, constl_loads_constraints = self._problem()
+        perform_checks = False
+        res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
         opti_voltages = copy.deepcopy(res['voltage'])
         opti_losses = copy.deepcopy(res['hourly_line_losses'])
         for time_step in range(self.N):
@@ -71,7 +69,7 @@ class Optimiser:
                 netp0 = np.zeros([1, self.N])
             grdCt = self.grd['C'][time_step]
             res = self.compare_optimiser_pandapower(
-                res, time_step, netp0, grdCt, self.grd['line_losses_method'])
+                res, time_step, netp0, grdCt)
         corr_voltages = copy.deepcopy(res['voltage'])
         corr_losses = copy.deepcopy(res['hourly_line_losses'])
         corr_lij = copy.deepcopy(res['lij'])
@@ -82,8 +80,8 @@ class Optimiser:
         while abs(delta_voltages).max() > self.grd['tol_voltage_iteration'] and it < 10:
             it += 1
             self.input_hourly_lij = corr_lij
-            res, _ = self._problem()
-            res = res_post_processing(res, self.prm, self.input_hourly_lij)
+            res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints = self._problem()
+            res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
@@ -93,7 +91,7 @@ class Optimiser:
                     netp0 = np.zeros([1, self.N])
                 grdCt = self.grd['C'][time_step]
                 res = self.compare_optimiser_pandapower(
-                    res, time_step, netp0, grdCt, self.grd['line_losses_method'])
+                    res, time_step, netp0, grdCt)
             corr_voltages = copy.deepcopy(res['voltage'])
             corr_losses = copy.deepcopy(res['hourly_line_losses'])
             corr_lij = copy.deepcopy(res['lij'])
@@ -102,7 +100,13 @@ class Optimiser:
             print(f"max hourly delta voltages iteration {it}: {abs(delta_voltages).max()}")
             print(f"max hourly delta losses iteration {it}: {abs(delta_losses).max()}")
 
-        return res
+        res, pp_simulation_required = check_and_correct_constraints(
+                res, constl_consa_constraints, constl_loads_constraints,
+                self.prm, corr_lij
+            )
+        perform_checks = True
+        res = res_post_processing(res, self.prm, res['lij'], perform_checks)
+        return res, pp_simulation_required
 
     def _car_efficiency_iterations(self, prm, res):
         init_eta = prm['car']['etach']
@@ -116,7 +120,7 @@ class Optimiser:
             eta_old = copy.deepcopy(prm['car']['etach'])
             print(f"prm['grd']['loads'][0][0][0] = "
                   f"{prm['grd']['loads'][0][0][0]}")
-            res, _ = self._problem()
+            res, _, _, _ = self._problem()
             print(f"res['constl(0, 0)'][0][0] "
                   f"= {res['constl(0, 0)'][0][0]}")
             if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
@@ -171,15 +175,13 @@ class Optimiser:
             'undervoltage_costs', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
 
-        # active and reactive loads
-        # flex houses: car
         p.add_constraint(p_car_flex == charge / self.car['eta_ch'] - discharge_other)
-        p.add_constraint(p_car_flex <= self.car['max_active_power_car'])
 
         # if we don't allow the use of the battery reactive power for control
         # then we restain it by using the power factor
         if self.reactive_power_for_voltage_control:
             for time_step in range(self.N):
+
                 p.add_list_of_constraints([
                     p_car_flex2[home, time_step] >= p_car_flex[home, time_step]
                     * p_car_flex[home, time_step] for home in range(self.n_homes)
@@ -196,17 +198,14 @@ class Optimiser:
             p.add_constraint(
                 q_car_flex2 <= self.car['batch_avail_car'][:, 0: self.N] * self.syst['M']
             )
-            # active and reactive power of the battery should have the same sign
-            for time_step in range(self.N):
-                p.add_list_of_constraints(
-                    p_car_flex[home, time_step] * q_car_flex[home, time_step]
-                    >= 0 for home in range(self.n_homes)
-                )
+
         else:
             p.add_constraint(
                 q_car_flex == p_car_flex * math.tan(math.acos(self.grd['pf_flexible_homes']))
             )
-
+            p.add_constraint(
+                p_car_flex <= self.car['max_apparent_power_car'] * self.car['eta_ch']
+            )
         p.add_list_of_constraints(
             [pi[:, time_step]
                 == self.grd['flex_buses'] * netp[:, time_step] * self.kW_to_per_unit_conversion
@@ -719,12 +718,11 @@ class Optimiser:
                 )
                 p.add_constraint(
                     T_air[home, :]
-                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
+                    == (heat['T_LB'][home, 0: self.N] + heat['T_UB'][home, 0: self.N]) / 2
                 )
                 p.add_constraint(
                     T[home, :]
-                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
-                    for time_step in range(self.N)
+                    == (heat['T_LB'][home, 0: self.N] + heat['T_UB'][home, 0: self.N]) / 2
                 )
 
         p.add_constraint(E_heat >= 0)
@@ -821,7 +819,7 @@ class Optimiser:
         if 'n_opti_constraints' not in self.syst:
             self.syst['n_opti_constraints'] = number_opti_constraints
 
-        if self.grd['manage_voltage']:
+        if self.grd['manage_voltage'] and self.grd['line_losses_method'] != 'iteration':
             res, pp_simulation_required = check_and_correct_constraints(
                 res, constl_consa_constraints, constl_loads_constraints,
                 self.prm, self.input_hourly_lij
@@ -832,4 +830,4 @@ class Optimiser:
 
         res['corrected_cons'] = pp_simulation_required
 
-        return res, pp_simulation_required
+        return res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints

@@ -145,10 +145,7 @@ class EnvSpaces:
             print("save max_bat_dem_agg")
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
-        if not self.reactive_power_for_voltage_control:
-            n_other_states = rl["n_other_states"]
-        else:
-            n_other_states = 4
+        n_other_states = rl["n_other_states"]
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
         max_flexibility = \
             prm['car']['c_max'] / prm['car']['eta_ch'] \
@@ -212,6 +209,9 @@ class EnvSpaces:
             ["flexible_q_car_action", rl['all_low_actions'][3], 1, rl["n_discrete_actions"], 0],
         ]
 
+        if not self.reactive_power_for_voltage_control:
+            info = [i for i in info if i[0] != "flexible_q_car_action"]
+
         self.space_info = pd.DataFrame(info, columns=columns)
 
     def descriptor_for_info_lookup(self, descriptor):
@@ -222,9 +222,15 @@ class EnvSpaces:
         [self.descriptors, self.granularity, self.maxval, self.minval,
          self.multipliers, self.global_multipliers, self.n, self.discrete,
          self.possible] = [{} for _ in range(9)]
-        action_space = ["action"] if self.aggregate_actions \
-            else ["flexible_cons_action", "flexible_heat_action",
+        if self.aggregate_actions:
+            action_space = ["action"]
+        elif self.reactive_power_for_voltage_control:
+                action_space = ["flexible_cons_action", "flexible_heat_action",
                   "battery_action", "flexible_q_car_action"]
+        else:
+            action_space = ["flexible_cons_action", "flexible_heat_action",
+                  "battery_action"]
+    
         for space, descriptors in zip(["state", "action"],
                                       [state_space, action_space]):
             # looping through state and action spaces
@@ -693,7 +699,10 @@ class EnvSpaces:
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
             if not (0 <= normalised_val <= 1):
-                print(f"val {val} normalised_val {normalised_val} max_home {max_home} descriptor {descriptor}")
+                print(
+                    f"val {val} normalised_val {normalised_val} "
+                    f"max_home {max_home} descriptor {descriptor}"
+                )
                 if abs(normalised_val) < abs(normalised_val - 1):
                     normalised_val = 0
                 else:

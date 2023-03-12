@@ -13,7 +13,8 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.utilities.userdeftools import calculate_reactive_power
+from src.utilities.userdeftools import calculate_reactive_power, \
+    compute_voltage_costs, compute_import_export_costs
 
 
 class Network:
@@ -54,7 +55,7 @@ class Network:
             'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
             'penalty_export', 'reactive_power_for_voltage_control',
             'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff',
-            'tol_rel_voltage_costs', 'tol_abs_line_losses',
+            'tol_rel_voltage_costs', 'tol_abs_line_losses'
         ]:
             setattr(self, info, prm['grd'][info])
 
@@ -318,7 +319,13 @@ class Network:
             replace_with_pp_simulation = True
 
         # Impact of voltage costs on total costs
-        hourly_voltage_costs_pp = self.compute_voltage_costs(np.square(voltage_pp))
+        hourly_voltage_costs_pp = compute_voltage_costs(
+            np.square(voltage_pp),
+            self.max_voltage,
+            self.min_voltage,
+            self.penalty_overvoltage,
+            self.penalty_undervoltage
+            )
         abs_rel_voltage_error = abs(
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
             / res['total_costs']
@@ -344,7 +351,9 @@ class Network:
             voltage_pp, pij_pp_kW, qij_pp_kW, reactive_power_losses
         ]
 
-    def _check_losses_differences(self, res, hourly_line_losses_pp, time_step):
+    def _check_losses_differences(
+            self, res, hourly_line_losses_pp, time_step, replace_with_pp_simulation
+    ):
         # Line losses test
         abs_loss_error = abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)
         if abs_loss_error > self.tol_abs_line_losses:
@@ -360,12 +369,11 @@ class Network:
                     f"To increase accuracy, the user could increase the subset_line_losses_modelled"
                     f" (currently: {self.subset_line_losses_modelled} lines)\n"
                 )
-        else:
-            replace_with_pp_simulation = False
+
         return replace_with_pp_simulation
 
     def compare_optimiser_pandapower(
-            self, res, time_step, netp0, grdCt, line_losses_method):
+            self, res, time_step, netp0, grdCt):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = calculate_reactive_power(
@@ -374,19 +382,16 @@ class Network:
         else:
             netq_passive = 0
             netp0 = 0
-
-        # q_car_flex will be a decision variable
-        q_heat_home_flex = calculate_reactive_power(res['totcons'], self.pf_flexible_homes)
-        netq_flex = res['q_car_flex'] + q_heat_home_flex - res['q_solar_flex']
-
         # Compare hourly results from network modelling in optimizer and pandapower
         start = time.time()
-        replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-            pij_pp_kW, qij_pp_kW, reactive_power_losses = self._check_voltage_differences(
-                res, time_step, netp0, netq_flex, netq_passive)
+        [
+            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
+            pij_pp_kW, qij_pp_kW, reactive_power_losses
+        ] = self._check_voltage_differences(res, time_step, netp0, res['netq_flex'], netq_passive)
         replace_with_pp_simulation = self._check_losses_differences(
-            res, hourly_line_losses_pp, time_step)
-        if replace_with_pp_simulation or line_losses_method == 'iteration':
+            res, hourly_line_losses_pp, time_step, replace_with_pp_simulation
+        )
+        if replace_with_pp_simulation:
             res = self._replace_res_values_with_pp_simulation(
                 res, time_step, hourly_line_losses_pp, hourly_voltage_costs_pp, grdCt,
                 voltage_pp, pij_pp_kW, qij_pp_kW, reactive_power_losses
@@ -415,7 +420,14 @@ class Network:
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp, _, _ = self.compute_import_export_costs(grid_pp)
+        import_export_costs_pp, _, _ = compute_import_export_costs(
+            grid_pp,
+            self.max_grid_import,
+            self.max_grid_export,
+            self.penalty_import,
+            self.penalty_export,
+            self.manage_agg_power
+        )
         delta_import_export_costs = \
             import_export_costs_pp - res['hourly_import_export_costs'][time_step]
 
@@ -450,7 +462,8 @@ class Network:
         res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
-        res["network_costs"] += delta_voltage_costs * self.weight_network_costs
+        res["network_costs"] += (delta_import_export_costs + delta_voltage_costs) \
+            * self.weight_network_costs
         res["hourly_total_costs"][time_step] += delta_total_costs
         res["total_costs"] += delta_total_costs
 
@@ -464,42 +477,14 @@ class Network:
             + res['hourly_distribution_network_export_costs'][time_step]
         assert abs(sum_indiv_components - res['hourly_total_costs'][time_step]) < 1e-4, \
             "total hourly costs do not add up"
-        control_sum_grid = sum(res['netp'][:, time_step]) \
-            + res['hourly_line_losses'][time_step] + sum(res['netp0'][:, time_step])
-        assert abs(res['grid'][time_step] - control_sum_grid) < 1e-3
+        assert abs(res["total_costs"] - sum(res['hourly_total_costs'])) < 1e-3, \
+            "total costs do not match sum of hourly costs"
+        abs_diff = abs(
+            res['grid'][time_step]
+            - (sum(res['netp'][:, time_step]) \
+            + res['hourly_line_losses'][time_step])
+        ) + sum(res['netp0'][:, time_step])
+        assert abs_diff < 1e-3
 
         return res
 
-    def compute_import_export_costs(self, grid):
-        if self.manage_agg_power:
-            grid_in = np.where(np.array(grid) >= 0, grid, 0)
-            grid_out = np.where(np.array(grid) < 0, - grid, 0)
-            import_costs = np.where(
-                grid_in >= self.max_grid_import,
-                self.penalty_import * (grid_in - self.max_grid_import),
-                0
-            )
-            export_costs = np.where(
-                grid_out >= self.max_grid_export,
-                self.penalty_export * (grid_out - self.max_grid_export),
-                0
-            )
-            import_export_costs = import_costs + export_costs
-        else:
-            import_export_costs, import_costs, export_costs = 0, 0, 0
-
-        return import_export_costs, import_costs, export_costs
-
-    def compute_voltage_costs(self, voltage_squared):
-        over_voltage_costs = self.penalty_overvoltage * np.where(
-            voltage_squared > self.max_voltage ** 2,
-            voltage_squared - self.max_voltage ** 2,
-            0
-        )
-        under_voltage_costs = self.penalty_undervoltage * np.where(
-            voltage_squared < self.min_voltage ** 2,
-            self.min_voltage ** 2 - voltage_squared,
-            0
-        )
-
-        return np.sum(over_voltage_costs + under_voltage_costs)

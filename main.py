@@ -17,18 +17,34 @@ from src.simulations.runner import run
 
 settings = {
     'RL': {
-       'state_space': [['grdC_n2', 'flexibility'], ['grdC']],
-       'n_epochs': 20,
-       'n_repeats': 3,
-       'type_learning': ['facmac'] * 2,
-       'evaluation_methods': [['env_r_c', 'opt_r_c']] * 2,
-       'facmac': {
-           'hysteretic': True,
-           'beta_to_alpha': 0.1,
-        },
+       'state_space': ['grdC'] * 2,
+       'n_epochs': 5,
+       'n_repeats': 2,
+       'type_learning': ['q_learning'] * 2,
+       'evaluation_methods': [['opt', 'opt_d_d', 'env_r_c']] * 2,
     },
     'syst': {
-       'n_homes': 10,
+       'n_homes': [5, 10],
+       'force_optimisation': True
+
+    },
+    'grd': {
+        'manage_agg_power': [True, True],
+        'max_grid_import': 15,
+        'max_grid_export': 15,
+        'penalty_import': 0.01,
+        'penalty_export': 0.01,
+        'manage_voltage': [True, True],
+        'penalty_overvoltage': 0.1,
+        'penalty_undervoltage': 0.1,
+        'max_voltage': 1.01,
+        'min_voltage': 0.99,
+        'weight_network_costs': 1,
+        'subset_line_losses_modelled': [100, 100],
+        'reactive_power_for_voltage_control': False,
+        'compare_pandapower_optimisation': [False, True],
+        'pf_flexible_homes': [0.95, 0.95],
+        'line_losses_method': ['iteration', 'iteration']
     }
 }
 

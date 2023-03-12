@@ -159,7 +159,8 @@ def _get_required_temperatures(heat, syst):
     heat['T_LB'] = heat['T_req'] - heat['dT']
 
     for e in ['T_req', 'T_LB', 'T_UB']:
-        heat[e + 'P'] = np.full((syst['n_homesP'], syst['N'] + 2), heat[e][0])
+        for ext in syst['n_homes_extensions']:
+            heat[e + ext] = np.full((syst['n_homes' + ext], syst['N'] + 2), heat[e][0])
 
     return heat
 
@@ -220,10 +221,10 @@ def get_heat_coeffs(heat, syst, paths):
 
     t_coeff_0 = np.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
     t_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
-    for passive_ext in ["", "P"]:
+    for ext in syst['n_homes_extensions_all']:
         for label, value in zip(['T_coeff', 'T_air_coeff'], [t_coeff_0, t_air_coeff_0]):
-            heat[label + passive_ext] = np.repeat(
-                value, repeats=syst["n_homes" + passive_ext], axis=0
+            heat[label + ext] = np.repeat(
+                value, repeats=syst["n_homes" + ext], axis=0
             )
 
     return heat
