@@ -21,7 +21,7 @@ class ActionSelector:
         """Initialise ActionSelector instance."""
         self.prm = prm
         self.learner = learner
-        for attribute in ['n_homes', 'n_homes_test', 'N']:
+        for attribute in ['n_homes', 'n_homes_test', 'n_homesP', 'N']:
             setattr(self, attribute, prm['syst'][attribute])
         self.rl = prm["RL"]
         self.env = env
@@ -95,7 +95,7 @@ class ActionSelector:
                             home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
                             assert len(home_execs) <= 1
                             if len(home_execs) > 0:
-                                action[home_execs[0]] == action_it[home_train]
+                                action[home_execs[0]] = action_it[home_train]
                 else:
                     action = self._select_action_facmac(
                         current_state, tf_prev_state, step, evaluation, method, t_env
@@ -142,7 +142,7 @@ class ActionSelector:
         for time_step in range(self.N + 1):
             inputs_state_val = [
                 time_step,
-                env.date + timedelta(hours=time_step * self.prm['syst']['dt']),
+                env.date0 + timedelta(hours=time_step * self.prm['syst']['dt']),
                 False,
                 env.batch['flex'][:, 0: 2],
                 env.car.store
@@ -169,11 +169,31 @@ class ActionSelector:
             actions, ind_actions = self._trajectory_actions_ddqn(eps_greedy, method)
 
         elif rl['type_learning'] == 'facmac':
-            tf_prev_state = self._format_tf_prev_state(states)
             step = 0
-            actions = self._select_action_facmac(
-                states, tf_prev_state, step, evaluation, method, t_env
-            )
+
+            if ext == '_test':
+                actions = np.zeros((self.n_homes_test, rl['dim_actions']))
+                for it in range(rl['action_selection_its']):
+                    state_it = np.zeros((self.N + 1, self.n_homes, rl['dim_states_1']))
+                    for i in range(rl['dim_states_1']):
+                        state_it[:, :, i] = np.matmul(
+                            states[:, :, i], rl['state_exec_to_train'][it]
+                        )
+                    tf_prev_state_it = self._format_tf_prev_state(state_it)
+
+                    action_it = self._select_action_facmac(
+                        state_it, tf_prev_state_it, step, evaluation, method, t_env
+                    )
+                    for home_train in range(self.n_homes):
+                        home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
+                        assert len(home_execs) <= 1
+                        if len(home_execs) > 0:
+                            actions[home_execs[0]] = action_it[home_train]
+            else:
+                tf_prev_state = self._format_tf_prev_state(states)
+                actions = self._select_action_facmac(
+                    states, tf_prev_state, step, evaluation, method, t_env
+                )
 
         n_actions = 1 if self.rl['aggregate_actions'] else 3
         actions = np.reshape(actions, (n_homes, self.N, n_actions))

@@ -120,12 +120,15 @@ class Explorer:
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
             if self.rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and self.rl['trajectory']:
-                actions, _, _ = self.action_selector.trajectory_actions('baseline')
+                actions, _, _ = self.action_selector.trajectory_actions('baseline', ext='P')
+                action = actions[:, env.time_step]
+            else:
+                action = self.rl['default_action' + self.env.ext]
 
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
-                action, record=record,
-                evaluation=evaluation, netp_storeout=True
+                    action, record=record,
+                    evaluation=evaluation, netp_storeout=True
             )
             if not done:
                 for info, val in zip(
