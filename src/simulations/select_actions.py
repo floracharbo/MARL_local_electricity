@@ -66,12 +66,13 @@ class ActionSelector:
             'baseline': self.rl['default_action' + ext],
             'random': np.random.random(np.shape(self.rl['default_action' + ext])),
         }
-        if method in action_dict:
+        if rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and rl['trajectory']:
+            action = actions[:, step]
+
+        elif method in action_dict:
             action = action_dict[method]
         elif self.n_homes > 0:
-            if rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and rl['trajectory']:
-                action = actions[:, step]
-            elif rl['type_learning'] == 'DDPG' and not rl['trajectory']:
+            if rl['type_learning'] == 'DDPG' and not rl['trajectory']:
                 action = self._select_action_DDPG(
                     tf_prev_state, eps_greedy, rdn_eps_greedy,
                     rdn_eps_greedy_indiv, method
@@ -128,13 +129,16 @@ class ActionSelector:
 
         return action, tf_prev_state
 
-    def trajectory_actions(self, method, rdn_eps_greedy_indiv,
-                           eps_greedy, rdn_eps_greedy, evaluation, t_env, ext):
+    def trajectory_actions(
+        self, method, rdn_eps_greedy_indiv=None, eps_greedy=None,
+        rdn_eps_greedy=None, evaluation=None, t_env=None, ext=None
+    ):
         """Select actions for all episode time steps."""
         env, rl = self.env, self.rl
+        n_homes = self.n_homes if ext is None else self.__dict__['n_homes' + ext]
         states = np.zeros(
-            (self.N + 1, self.n_homes, len(self.rl['state_space'])))
-
+            (self.N + 1, n_homes, len(self.rl['state_space']))
+        )
         for time_step in range(self.N + 1):
             inputs_state_val = [
                 time_step,
@@ -144,20 +148,17 @@ class ActionSelector:
                 env.car.store
             ]
             states[time_step] = env.get_state_vals(inputs=inputs_state_val)
+        ind_actions = None
 
         if method == 'baseline':
-            actions = self.rl['default_action']
+            actions = self.rl['default_action' + ext]
             if self.rl['type_env'] == "discrete":
-                ind_actions = np.ones(self.n_homes) * (env.spaces.n["actions"] - 1)
-            else:
-                ind_actions = None
+                ind_actions = np.ones(n_homes) * (env.spaces.n["actions"] - 1)
 
-        # with DDPG we input an array of states for each agent and time
         elif rl['type_learning'] == 'DDPG':
             actions, ind_actions = self._trajectory_actions_ddpg(
                 states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv, method
             )
-
         # with DQN we convert the list of states to a global state descriptor
         elif rl['type_learning'] == 'DQN':
             actions, ind_actions = self._trajectory_actions_dqn(
@@ -171,12 +172,11 @@ class ActionSelector:
             tf_prev_state = self._format_tf_prev_state(states)
             step = 0
             actions = self._select_action_facmac(
-                states, tf_prev_state, step, evaluation, method, t_env, ext
+                states, tf_prev_state, step, evaluation, method, t_env
             )
-            ind_actions = None
 
         n_actions = 1 if self.rl['aggregate_actions'] else 3
-        actions = np.reshape(actions, (self.n_homes, self.N, n_actions))
+        actions = np.reshape(actions, (n_homes, self.N, n_actions))
 
         return actions, ind_actions, states
 

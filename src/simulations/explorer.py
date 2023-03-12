@@ -119,7 +119,9 @@ class Explorer:
 
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
-            action = self.rl['default_action' + self.env.ext]
+            if self.rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and self.rl['trajectory']:
+                actions, _, _ = self.action_selector.trajectory_actions('baseline')
+
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
                 action, record=record,
@@ -420,7 +422,7 @@ class Explorer:
                 if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
                     actions, _, states = self.action_selector.trajectory_actions(
                         method, rdn_eps_greedy_indiv, eps_greedy,
-                        rdn_eps_greedy, evaluation, self.t_env, self.env.ext
+                        rdn_eps_greedy, evaluation, self.t_env, ext=self.data.ext
                     )
                 state = env.get_state_vals(inputs=inputs_state_val)
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
@@ -491,10 +493,10 @@ class Explorer:
     def _check_rewards_match(self, method, evaluation, step_vals, sequence_feasible):
         if self.n_homes > 0 and "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
             # rewards should not be better than optimal rewards
-            # assert np.mean(step_vals[method]["reward"]) \
-            #        < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
-            #        f"reward {method} {np.mean(step_vals[method]['reward'])} " \
-            #        f"better than opt {np.mean(step_vals['opt']['reward'])}"
+            assert np.mean(step_vals[method]["reward"]) \
+                   < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
+                   f"reward {method} {np.mean(step_vals[method]['reward'])} " \
+                   f"better than opt {np.mean(step_vals['opt']['reward'])}"
             if not (
                 np.mean(step_vals[method]["reward"]) < np.mean(step_vals["opt"]["reward"]) + 1e-3
             ):
