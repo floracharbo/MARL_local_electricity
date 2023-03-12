@@ -11,7 +11,7 @@ from scipy import optimize
 font = {'size': 14}
 matplotlib.rc('font', **font)
 
-compare_times = ['OMQ', 'FH']
+compare_times = ['OMQ', 'FD']
 labels = {
     'IQ': 'Independent Q-learning',
     'OIQ': 'Optimisation-informed independent Q-learning',
@@ -79,7 +79,8 @@ runs = {
     # 'FHO': [161, 162, 163, 164, 168, 169]
     # 'FHO': list(range(251, 257)),
     # 'FHO': list(range(522, 528)),
-    'FHO': list(range(522, 527)),
+    # 'FHO': list(range(522, 527)),
+    'FHO': list(range(771, 775)) + list(range(776, 778)),
 
 }
 
@@ -179,6 +180,7 @@ for line_label in labels.keys():
                     log['run'] == run, f'{metric}_{type_learning[line_label]}'
                 ].values[0]
                 time_end[i] = log.loc[log['run'] == run, 'time_end'].values[0]
+
     ls = '--' if opt_informed[line_label] else '-'
     label = None if opt_informed[line_label] else labels[line_label]
 
