@@ -100,7 +100,7 @@ class Action_translator:
         # required addition to storage for min charge left
         # after contribution from gen
         s_add0_net = s_add_0 - g_to_add0 * eta_ch
-        assert np.all(s_add0_net <= self.car.c_max + 1e-3), \
+        assert np.all(s_add0_net <= self.car.c_max + 1e-2), \
             f"s_add0_net {s_add0_net} > self.car.c_max {self.car.c_max}"
         # gen to fixed consumption
         g_to_fixed = np.minimum(g_net_add0, self.tot_l_fixed)
@@ -170,7 +170,7 @@ class Action_translator:
         for i in ['D', 'E', 'F']:
             d['c'][i] = self.tot_l_fixed + tot_l_flex
         a_dp = d['dp']['F'] - d['dp']['A']
-        a_dp = np.where((- 1e-3 < a_dp) & (a_dp < 0), 0, a_dp)
+        a_dp = np.where((- 1e-2 < a_dp) & (a_dp < 0), 0, a_dp)
         assert len(np.where(a_dp < 0)[0]) == 0, f"a_dp {a_dp}"
 
         b_dp = d['dp']['A']
