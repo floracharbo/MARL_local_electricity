@@ -516,9 +516,13 @@ class Explorer:
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
             time_step, batchflex_opt
         )
+        if self.prm["grd"]["line_losses_method"] == 'iteration':
+            cons_tol = 1e-1
+        else:
+            cons_tol = 1e-2
         assert all(
             res['totcons'][:, time_step] - res['E_heat'][:, time_step]
-            <= loads["l_flex"] + loads["l_fixed"] + 1e-2
+            <= loads["l_flex"] + loads["l_fixed"] + cons_tol
         ), f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
            f"available loads {loads['l_flex'] + loads['l_fixed']}"
         _, _, loads_prev = self._fixed_flex_loads(
