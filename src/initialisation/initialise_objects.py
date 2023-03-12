@@ -234,7 +234,8 @@ def _facmac_initialise(prm):
 
     rl["device"] = "cuda" if rl["use_cuda"] else "cpu"
 
-    _make_action_space(rl)
+    if prm['syst']['run_mode'] == 1:
+        _make_action_space(rl)
     _make_scheme(rl)
 
     return prm
@@ -328,11 +329,10 @@ def _update_bat_prm(prm):
         else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
         for ext in syst['n_homes_extensions_all']:
-            car["own_car" + ext] = np.ones(syst["n_homes" + ext]) \
-                if isinstance(car["own_car" + ext], (int, float))\
-                and car["own_car" + ext] == 1 \
+            car["own_car" + ext] \
+                = np.ones(syst["n_homes" + ext]) * car["own_car" + ext] \
+                if isinstance(car["own_car" + ext], (int, float)) \
                 else np.array(car["own_car" + ext])
-        car["caps"] = np.where(car["own_car"], car["caps"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
 
@@ -346,9 +346,11 @@ def _update_bat_prm(prm):
             car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap"])
         else:
             car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap" + ext])
-
         car["store0" + ext] = car["SoC0"] * car["caps" + ext]
         car["min_charge" + ext] = car["caps" + ext] * max(car["SoCmin"], car["baseld"])
+    for ext in syst['n_homes_extensions_all']:
+        for info in ['caps', 'store0', 'min_charge']:
+            car[info + ext] = np.where(car["own_car" + ext], car[info + ext], 0)
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -456,10 +458,9 @@ def _dims_states_actions(rl, syst):
     rl["dim_actions_1"] = rl["dim_actions"]
     if syst['run_mode'] == 1:
         rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
-
-    if not rl["aggregate_actions"]:
-        rl["low_action"] = rl["low_actions"]
-        rl["high_action"] = rl["high_actions"]
+        if not rl["aggregate_actions"]:
+            rl["low_action"] = rl["low_actions"]
+            rl["high_action"] = rl["high_actions"]
     if "trajectory" not in rl:
         rl["trajectory"] = False
     if rl["distr_learning"] == "joint":
@@ -592,10 +593,11 @@ def _update_rl_prm(prm, initialise_all):
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
 
-    for ext in syst['n_homes_extensions_all']:
-        rl["default_action" + ext] = np.full(
-            (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
-        )
+    if syst['run_mode'] == 1:
+        for ext in syst['n_homes_extensions_all']:
+            rl["default_action" + ext] = np.full(
+                (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
+            )
 
     _exploration_parameters(rl)
 
@@ -818,9 +820,8 @@ def _homes_info(loads, syst, gen, heat):
     for ext in syst['n_homes_extensions_all']:
         gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \
             if gen["own_PV" + ext] == 1 else gen["own_PV" + ext]
-        heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) \
+        heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) * heat["own_heat" + ext] \
             if isinstance(heat["own_heat" + ext], int) \
-            and heat["own_heat" + ext] == 1 \
             else np.array(heat["own_heat" + ext])
         for ownership in ["own_loads" + ext, "own_flex" + ext]:
             if ownership in loads:
