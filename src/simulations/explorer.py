@@ -119,7 +119,9 @@ class Explorer:
 
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
-            action = self.rl['default_action' + self.env.ext]
+            if self.rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and self.rl['trajectory']:
+                actions, _, _ = self.action_selector.trajectory_actions('baseline')
+
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
                 action, record=record,
@@ -419,7 +421,7 @@ class Explorer:
                 if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
                     actions, _, states = self.action_selector.trajectory_actions(
                         method, rdn_eps_greedy_indiv, eps_greedy,
-                        rdn_eps_greedy, evaluation, self.t_env, self.env.ext
+                        rdn_eps_greedy, evaluation, self.t_env, ext=self.data.ext
                     )
                 state = env.get_state_vals(inputs=inputs_state_val)
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
