@@ -691,7 +691,7 @@ def plot_reactive_power(
             ax2 = ax1.twinx()
             total_reactive_power = last['q_ext_grid'][method]
             q_passive = np.sum(last['netp0'][method], axis=1) * \
-                math.tan(math.acos(grd['pf_passive_homes']))
+                math.tan(math.acos(prm['grd']['pf_passive_homes']))
             q_house = np.sum(last['q_house'][method], axis=1)
             q_car = np.sum(last['q_car'][method], axis=1)
             break_down_rewards = last['break_down_rewards'][method]

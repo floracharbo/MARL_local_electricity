@@ -645,8 +645,8 @@ def _update_res_variables(
                 res['q_ext_grid'][time_step] = \
                     sum(res['netq_flex'][:, time_step]) \
                     + sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, time_step])) \
-                    * grd['per_unit_to_kW_conversion']
-                    # + pic.sum(netq_passive[:, time_step])
+                    * grd['per_unit_to_kW_conversion'] \
+                    + sum(loads['q_heat_home_car_passive'][:, time_step])
                 res['pi'][:, time_step] = \
                     np.matmul(grd['flex_buses'], res['netp'][:, time_step]) \
                     * grd['kW_to_per_unit_conversion']
@@ -781,17 +781,27 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['hourly_voltage_costs'] = np.sum(
             res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
         )
+        if syst['n_homesP'] > 0:
+            res['netp0'] = loads['netp0']
+            res['netq0'] = loads['netp0'] * grd['active_to_reactive_passive']
+        else:
+            res['netp0'] = np.zeros([1, N])
+            res['netq0'] = np.zeros([1, N])
         res['hourly_line_losses'] = \
             res['hourly_line_losses_pu'] * grd['per_unit_to_kW_conversion']
         if grd['line_losses_method'] == 'iteration':
             res['lij'] = input_hourly_lij
             res['v_line'] = np.matmul(
                 grd['out_incidence_matrix'].T, res['voltage_squared'])
-            res['grid'] = np.sum(res['netp'], axis=0) + res['hourly_line_losses']
+            res['grid'] = np.sum(res['netp'], axis=0) \
+                          + res['hourly_line_losses'] \
+                          + np.sum(res['netp0'], axis=0)
             res['hourly_reactive_line_losses'] = \
                 np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij']), axis=0) \
                     * grd['per_unit_to_kW_conversion']
-            res['q_ext_grid'] = np.sum(res['netq_flex'], axis=0) + res['hourly_reactive_line_losses']
+            res['q_ext_grid'] = np.sum(res['netq_flex'], axis=0) \
+                                + res['hourly_reactive_line_losses'] \
+                                + np.sum(res['netq0'], axis=0)
         res['p_solar_flex'] = grd['gen'][:, 0: N]
         res['q_solar_flex'] = calculate_reactive_power(
             grd['gen'][:, 0: N], grd['pf_flexible_homes'])
@@ -822,13 +832,6 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['hourly_voltage_costs'] = np.zeros(N)
         res['hourly_line_losses'] = np.zeros(N)
         res['q_ext_grid'] = np.zeros(N)
-
-    if syst['n_homesP'] > 0:
-        res['netp0'] = loads['netp0']
-        res['netq0'] = loads['netp0'] * grd['active_to_reactive_passive']
-    else:
-        res['netp0'] = np.zeros([1, N])
-        res['netq0'] = np.zeros([1, N])
 
     res['hourly_grid_energy_costs'] = grd['C'][0: N] * (
         res["grid"] + grd["loss"] * res["grid2"]

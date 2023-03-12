@@ -481,9 +481,10 @@ class Network:
             "total costs do not match sum of hourly costs"
         abs_diff = abs(
             res['grid'][time_step]
-            - (sum(res['netp'][:, time_step]) \
-            + res['hourly_line_losses'][time_step])
-        ) + sum(res['netp0'][:, time_step])
+            - sum(res['netp'][:, time_step]) \
+            - res['hourly_line_losses'][time_step]
+            - sum(res['netp0'][:, time_step])
+        )
         assert abs_diff < 1e-3
 
         return res
