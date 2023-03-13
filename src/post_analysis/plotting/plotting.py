@@ -15,7 +15,8 @@ from src.post_analysis.plotting.initialise_plotting_variables import \
     initialise_variables
 from src.post_analysis.plotting.plot_break_down_savings import (
     barplot_breakdown_savings, barplot_grid_energy_costs,
-    barplot_indiv_savings, distribution_savings, heatmap_savings_per_method)
+    barplot_indiv_savings, distribution_savings, heatmap_savings_per_method,
+    plot_voltage_statistics)
 from src.post_analysis.plotting.plot_episode_results import (
     map_over_undervoltage, plot_env_input, plot_imp_exp_check,
     plot_imp_exp_violations, plot_indiv_reactive_power, plot_reactive_power,
@@ -175,6 +176,7 @@ def plotting(record, spaces, prm, f):
             prm, all_methods_to_plot, folder_run)
         barplot_breakdown_savings(record, prm, plot_type='costs')
         barplot_grid_energy_costs(record, prm, plot_type='costs')
+        plot_voltage_statistics(record, prm)
         voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run)
         plot_reactive_power(prm, all_methods_to_plot, folder_run)
         plot_indiv_reactive_power(prm, all_methods_to_plot, folder_run)

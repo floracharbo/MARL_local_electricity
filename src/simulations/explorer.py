@@ -599,7 +599,7 @@ class Explorer:
             "bool_flex", "constraint_ok",
             "ind_global_action", "ind_global_state", "grid_energy_costs",
             "total_costs", "import_export_costs", "voltage_costs",
-            "mean_voltage_deviation", "max_voltage_deviation", "n_voltage_deviation_bus", "n_voltage_deviation_bus"
+            "mean_voltage_deviation", "max_voltage_deviation", "n_voltage_deviation_bus", "n_voltage_deviation_hour"
         ]
 
         for key_ in keys:
