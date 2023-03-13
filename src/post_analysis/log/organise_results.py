@@ -17,7 +17,7 @@ from tqdm import tqdm
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
-    'n_homes'
+    'assets'
 ]
 # COLUMNS_OF_INTEREST = None
 
@@ -27,6 +27,7 @@ FILTER = {
     'SoC0': 1,
     # 'grdC_n': 2,
     'error_with_opt_to_rl_discharge': False,
+    # 'n_homes': 10,
     # 'server': True,
     'n_repeats': 10,
     # 'facmac-hysteretic': True,
@@ -255,6 +256,21 @@ def save_default_values_to_run_data(log):
         with open(path_default, "wb") as file:
             pickle.dump(prm_default, file)
 
+def row_to_assets_str(row, columns0):
+    assets = ''
+    if row[columns0.index('car-own_car')] == 1:
+        assets += 'car, '
+    if row[columns0.index('loads-own_flex')] == 1:
+        assets += 'flex, '
+    if row[columns0.index('heat-own_heat')] == 1:
+        assets += 'heat, '
+    if len(assets) > 0:
+        assets = assets[:-2]
+    else:
+        assets = 'none'
+
+    return assets
+
 
 def add_default_values(log):
     file_name = ''
@@ -353,12 +369,14 @@ def get_n_epochs_supervised_loss(prm, key, subkey):
     return prm
 
 
-def get_own_items(prm, key, subkey):
+def get_own_items_from_prm(prm, key, subkey):
     potential_exts = ['P', '_test']
     ext = ''
     for potential_ext in potential_exts:
         if subkey[- len(potential_ext):] == potential_ext:
             ext = potential_ext
+
+
     if subkey not in prm[key]:
         prm[key][subkey] = 1
     elif prm[key][subkey] is None:
@@ -399,7 +417,7 @@ def data_specific_modifications(prm, key, subkey, subsubkey):
     if subkey == 'grdC_n':
         prm = get_grdC_n(prm, key, subkey, str_state_space)
     elif subkey[0: len('own_')] == 'own_':
-        prm = get_own_items(prm, key, subkey)
+        prm = get_own_items_from_prm(prm, key, subkey)
     elif (
         subkey == 'beta_to_alpha'
         and not prm['RL'][prm['RL']['type_learning']]['hysteretic']
@@ -443,8 +461,9 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
         for column in columns0[2:]:
             key, subkey, subsubkey = get_key_subkeys_column(column)
             prm, key, subkey, subsubkey = data_specific_modifications(prm, key, subkey, subsubkey)
-
-            if key is None:
+            if column == 'syst-assets':
+                row.append(row_to_assets_str(row, columns0))
+            elif key is None:
                 row.append(None)
                 if column != 'RL-n_homes':
                     print(f"column {column} does not correspond to a prm key")
@@ -470,6 +489,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                 if subkey == 'start_steps':
                     assert isinstance(val, int), f"start_steps is not an int: {val}"
                 row.append(val)
+
 
     else:
         row = None
@@ -754,16 +774,7 @@ def compare_all_runs_for_column_of_interest(
                 )
             else:
                 indexes_ignore = []
-                if column_of_interest == 'supervised_loss_weight':
-                    indexes_ignore.append(other_columns.index('supervised_loss'))
-                elif column_of_interest == 'state_space':
-                    indexes_ignore.append(other_columns.index('grdC_n'))
-                elif column_of_interest == 'share_active':
-                    indexes_ignore.append(other_columns.index('n_homes'))
-                    indexes_ignore.append(other_columns.index('n_homes_test'))
-                    indexes_ignore.append(other_columns.index('n_homesP'))
-                    indexes_ignore.append(other_columns.index('share_active_test'))
-                elif column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
+                if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
                     indexes_ignore.append(other_columns.index('n_homes_all'))
                     if column_of_interest in ['n_homesP', 'n_homes']:
                         indexes_ignore.append(other_columns.index('share_active'))
@@ -777,8 +788,18 @@ def compare_all_runs_for_column_of_interest(
                             row_setup[i_n_homes_test] = np.nan
                     if column_of_interest in ['n_homesP', 'n_homes_test']:
                         indexes_ignore.append(other_columns.index('share_active_test'))
-                if current_setup[other_columns.index('type_learning')] == 'q_learning':
-                    indexes_ignore.append(indexes_columns_ignore_q_learning)
+                else:
+                    ignore_cols = {
+                        'supervised_loss_weight': ['supervised_loss'],
+                        'state_space': ['grdC_n'],
+                        'share_active': ['n_homes', 'n_homes_test', 'n_homesP', 'share_active_test'],
+                        'assets': ['own_car', 'own_heat', 'own_loads', 'own_flex'],
+                    }
+                    if column_of_interest in ignore_cols:
+                        for ignore_col in ignore_cols[column_of_interest]:
+                            indexes_ignore.append(other_columns.index(ignore_col))
+                    if current_setup[other_columns.index('type_learning')] == 'q_learning':
+                        indexes_ignore.append(indexes_columns_ignore_q_learning)
 
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
@@ -1178,7 +1199,7 @@ if __name__ == "__main__":
         os.mkdir(results_analysis_path)
 
     columns0, result_nos = get_list_all_fields(results_path)
-
+    columns0.append('syst-assets')
     # get the names of all the evaluations methods
     keys_methods = get_names_evaluation_methods(results_path, result_nos)
     columns_results_methods = []
