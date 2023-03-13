@@ -33,12 +33,19 @@ class ActionSelector:
             current_state: list
     ) -> list:
         if self.rl['LSTM']:
-            tf_prev_state = [tf.expand_dims(
-                tf.convert_to_tensor(np.reshape(
-                    current_state[home], (1, 1))), 0)
-                for home in self.homes]
+            tf_prev_state = [
+                tf.expand_dims(
+                    tf.convert_to_tensor(
+                        np.reshape(current_state[home], (1, 1))
+                    ), 0
+                )
+                for home in self.homes
+            ]
+        elif self.rl['type_learning']== 'facmac':
+            tf_prev_state = th.Tensor(current_state)
         else:
             tf_prev_state = tf.convert_to_tensor(current_state)
+
 
         return tf_prev_state
 
@@ -236,12 +243,12 @@ class ActionSelector:
     def _select_action_facmac(
         self, current_state, tf_prev_state, step, evaluation, method, t_env
     ):
-        pre_transition_data = {"avail_actions": [self.rl['avail_actions']], }
+        pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
         if self.rl['trajectory']:
-            pre_transition_data["state"] = current_state[0: self.N]
+            pre_transition_data["state"] = tf_prev_state[0: self.N]
             pre_transition_data["obs"] = tf_prev_state[0: self.N]
         else:
-            pre_transition_data["state"] = current_state
+            pre_transition_data["state"] = tf_prev_state
             pre_transition_data["obs"] = tf_prev_state
 
         self.episode_batch[method].update(pre_transition_data, ts=step)
