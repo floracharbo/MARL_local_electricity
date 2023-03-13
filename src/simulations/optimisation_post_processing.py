@@ -1,7 +1,8 @@
 import numpy as np
 
 from src.utilities.userdeftools import calculate_reactive_power, \
-    compute_import_export_costs, compute_voltage_costs
+    compute_import_export_costs, compute_voltage_costs, \
+    mean_max_hourly_voltage_deviations
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):
@@ -776,17 +777,18 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['hourly_export_costs'] = np.zeros(N)
         res['hourly_import_export_costs'] = np.zeros(N)
 
+    if syst['n_homesP'] > 0:
+        res['netp0'] = loads['netp0']
+        res['netq0'] = loads['netp0'] * grd['active_to_reactive_passive']
+    else:
+        res['netp0'] = np.zeros([1, N])
+        res['netq0'] = np.zeros([1, N])
+
     if grd['manage_voltage']:
         res['voltage'] = np.sqrt(res['voltage_squared'])
         res['hourly_voltage_costs'] = np.sum(
             res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
         )
-        if syst['n_homesP'] > 0:
-            res['netp0'] = loads['netp0']
-            res['netq0'] = loads['netp0'] * grd['active_to_reactive_passive']
-        else:
-            res['netp0'] = np.zeros([1, N])
-            res['netq0'] = np.zeros([1, N])
         res['hourly_line_losses'] = \
             res['hourly_line_losses_pu'] * grd['per_unit_to_kW_conversion']
         if grd['line_losses_method'] == 'iteration':
@@ -825,6 +827,15 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
                 prm['grd']['min_voltage'],
                 prm['grd']['penalty_overvoltage'],
                 prm['grd']['penalty_undervoltage']
+            )
+            (res['mean_voltage_deviation'][time_step],
+            res['max_voltage_deviation'][time_step],
+            res['n_voltage_deviation_bus'][time_step],
+            res['n_voltage_deviation_hour'][time_step]) = \
+                mean_max_hourly_voltage_deviations(
+                res['voltage_squared'][:, time_step],
+                prm['grd']['max_voltage'],
+                prm['grd']['min_voltage'],
             )
     else:
         res['voltage_squared'] = np.empty((1, N))

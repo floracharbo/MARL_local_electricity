@@ -86,9 +86,9 @@ class Optimiser:
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
                 if self.n_homesP > 0:
-                    netp0 = self.loads['netp0'][time_step]
+                    netp0 = self.loads['netp0'][:, time_step]
                 else:
-                    netp0 = np.zeros([1, self.N])
+                    netp0 = np.zeros(1)
                 grdCt = self.grd['C'][time_step]
                 res = self.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt)

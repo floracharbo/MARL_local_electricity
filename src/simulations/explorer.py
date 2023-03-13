@@ -597,8 +597,11 @@ class Explorer:
         keys = [
             "state", "action", "reward", "indiv_grid_battery_costs", "diff_rewards",
             "bool_flex", "constraint_ok",
-            "ind_global_action", "ind_global_state"
+            "ind_global_action", "ind_global_state", "grid_energy_costs",
+            "total_costs", "import_export_costs", "voltage_costs",
+            "mean_voltage_deviation", "max_voltage_deviation", "n_voltage_deviation_bus", "n_voltage_deviation_bus"
         ]
+
         for key_ in keys:
             step_vals[method][key_].append(step_vals_i[key_])
 
@@ -927,8 +930,11 @@ class Explorer:
             self.prm["grd"][e][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
         ]
-        q_car = res["q_car_flex"][:, time_step]
-        q_house = res["netq_flex"][:, time_step] - q_car
+        if self.prm["grd"]['manage_voltage']:
+            q_car = res["q_car_flex"][:, time_step]
+            q_house = res["netq_flex"][:, time_step] - q_car
+        else:
+            q_car, q_house = None, None
         if self.prm["grd"]['compare_pandapower_optimisation']:
             loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
         else:

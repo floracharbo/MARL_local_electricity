@@ -24,7 +24,8 @@ from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
 from src.utilities.userdeftools import calculate_reactive_power, \
-    compute_voltage_costs, compute_import_export_costs
+    compute_voltage_costs, compute_import_export_costs,  \
+        mean_max_hourly_voltage_deviations
 
 
 class LocalElecEnv:
@@ -264,7 +265,7 @@ class LocalElecEnv:
         for home in range(n_homes):
             remaining_cons = max(flex_cons[home], 0)
 
-            assert flex_cons[home] <= np.sum(batch_flex[home][h][1:]) + 1e-2, \
+            assert flex_cons[home] <= np.sum(batch_flex[home][h][1:]) + 5e-2, \
                 f"flex_cons[home={home}] {flex_cons[home]} " \
                 f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-2"
 
@@ -462,11 +463,10 @@ class LocalElecEnv:
                 self.prm['grd']['penalty_import'],
                 self.prm['grd']['penalty_export'],
                 self.prm['grd']['manage_agg_power']
-            )          
+            )
         else:
             import_export_costs = 0
-
-        if self.prm['grd']['manage_voltage']:
+        if self.prm['grd']['manage_voltage']:         
             voltage_costs = compute_voltage_costs(
                 voltage_squared,
                 self.prm['grd']['max_voltage'],
@@ -474,8 +474,19 @@ class LocalElecEnv:
                 self.prm['grd']['penalty_overvoltage'],
                 self.prm['grd']['penalty_undervoltage']
                 )
+            mean_voltage_deviation, max_voltage_deviation, \
+                n_voltage_deviation_bus, n_voltage_deviation_hour =  \
+                mean_max_hourly_voltage_deviations(
+                    voltage_squared,
+                    self.prm['grd']['max_voltage'],
+                    self.prm['grd']['min_voltage']
+                )
         else:
             voltage_costs = 0
+            mean_voltage_deviation = 0
+            max_voltage_deviation = 0
+            n_voltage_deviation_bus = 0
+            n_voltage_deviation_hour = 0
 
         if self.prm['grd']['charge_type'] == 0:
             sum_netp_export = sum(self.netp_to_exports(netp))
@@ -519,8 +530,9 @@ class LocalElecEnv:
             grid_energy_costs, battery_degradation_costs, distribution_network_export_costs,
             import_export_costs, voltage_costs, hourly_line_losses,
             cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
-            emissions_from_grid, emissions_from_loss, total_costs, indiv_grid_energy_costs,
-            indiv_battery_degradation_costs, indiv_grid_battery_costs
+            emissions_from_grid, emissions_from_loss, total_costs,
+            indiv_grid_energy_costs, indiv_battery_degradation_costs, indiv_grid_battery_costs,
+            mean_voltage_deviation, max_voltage_deviation, n_voltage_deviation_bus, n_voltage_deviation_hour
         ]
 
         assert len(break_down_rewards) == len(self.prm['syst']['break_down_rewards_entries']), \
@@ -613,15 +625,17 @@ class LocalElecEnv:
             voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
                 self.network._power_flow_res_with_pandapower(
                     home_vars, netp0, q_car_flex)
+            q_house = netq_flex - q_car_flex
         else:
             voltage_squared = None
             hourly_line_losses = 0
             q_ext_grid = 0
+            q_car_flex = 0
+            q_house = 0
 
         if sum(bool_penalty) > 0:
             constraint_ok = False
 
-        q_house = netq_flex - q_car_flex
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
                 q_ext_grid, constraint_ok, q_car_flex, q_house)

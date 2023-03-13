@@ -302,3 +302,19 @@ def compute_voltage_costs(
     )
 
     return np.sum(over_voltage_costs + under_voltage_costs)
+
+def mean_max_hourly_voltage_deviations(
+        voltage_squared, max_voltage, min_voltage
+    ):
+    overvoltage_deviation = (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
+    undervoltage_deviation = (min_voltage - np.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
+    voltage_deviation = np.concatenate([overvoltage_deviation, undervoltage_deviation])
+    if len(voltage_deviation) > 0:
+        mean = np.mean(voltage_deviation)
+        max = np.max(voltage_deviation)
+        n_deviations_bus = len(voltage_deviation)
+        n_deviations_hour = 1
+    else:
+        mean, max, n_deviations_bus, n_deviations_hour = 0, 0, 0, 0
+
+    return mean, max, n_deviations_bus, n_deviations_hour
