@@ -25,7 +25,7 @@ class Record:
     def __init__(self, prm: dict, no_run: int = None):
         """Add relevant properties from prm to the object."""
         self.no_run = no_run
-        for attribute in ['n_homes', 'H', 'N', 'interval_to_month']:
+        for attribute in ['n_homes', 'n_homes_test', 'H', 'N', 'interval_to_month']:
             setattr(self, attribute, prm['syst'][attribute])
 
         self._add_rl_info_to_object(prm["RL"])
@@ -131,13 +131,13 @@ class Record:
             method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
-            shape = (self.n_all_epochs, self.n_homes) if reward[0: len('indiv')] == 'indiv' \
+            shape = (self.n_all_epochs, self.n_homes_test) if reward[0: len('indiv')] == 'indiv' \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
                 method: np.zeros(shape) for method in all_evaluation_methods
             }
         self.eval_actions[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N, self.n_homes, self.dim_actions_1))
+            method: np.zeros((self.n_all_epochs, self.N, self.n_homes_test, self.dim_actions_1))
             for method in all_evaluation_methods
         }
         self.train_actions[repeat] = {
@@ -387,7 +387,7 @@ class Record:
                 self.monthly_mean_eval_rewards_per_home[method][repeat] = np.where(
                     self.mean_eval_rewards[repeat][method] is None,
                     None,
-                    self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all']
+                    self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all_test']
                     * self.interval_to_month
                 )
                 self.monthly_mean_end_eval_rewards_per_home[method][repeat] = np.mean(
@@ -591,6 +591,7 @@ class Record:
                 else eval_steps[method][info]
             self.__dict__[info][self.repeat][method][epoch] = \
                 np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
+
         # we have done at least 6 steps
         if not end_test and len(all_mean_eval_t) > 5 and method != "opt":
             equal_consecutive = \

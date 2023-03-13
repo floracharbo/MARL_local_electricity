@@ -21,8 +21,8 @@ class ActionSelector:
         """Initialise ActionSelector instance."""
         self.prm = prm
         self.learner = learner
-        self.n_agents = prm["syst"]["n_homes"]
-        self.N = prm['syst']['N']
+        for attribute in ['n_homes', 'n_homes_test', 'n_homesP', 'N']:
+            setattr(self, attribute, prm['syst'][attribute])
         self.rl = prm["RL"]
         self.env = env
         self.homes = range(prm["syst"]["n_homes"])
@@ -52,7 +52,8 @@ class ActionSelector:
             eps_greedy: bool,
             rdn_eps_greedy: bool,
             rdn_eps_greedy_indiv: bool,
-            t_env
+            t_env: int,
+            ext: str = ""
     ) -> Tuple[list, list]:
         """Select exploration action."""
         rl = self.rl
@@ -62,79 +63,102 @@ class ActionSelector:
             tf_prev_state = None
         # action choice for current time step
         action_dict = {
-            'baseline': self.rl['default_action'],
-            'random': np.random.random(np.shape(self.rl['default_action'])),
+            'baseline': self.rl['default_action' + ext],
+            'random': np.random.random(np.shape(self.rl['default_action' + ext])),
         }
         if rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and rl['trajectory']:
             action = actions[:, step]
+
         elif method in action_dict:
             action = action_dict[method]
-        elif rl['type_learning'] == 'DDPG' and not rl['trajectory']:
-            action = self._select_action_DDPG(
-                tf_prev_state, eps_greedy, rdn_eps_greedy,
-                rdn_eps_greedy_indiv, method
-            )
-        elif rl['type_learning'] == 'facmac':
-            action = self._select_action_facmac(
-                current_state, tf_prev_state, step, evaluation, method, t_env
-            )
-        else:
-            ind_current_state = self.env.spaces.get_space_indexes(
-                all_vals=current_state, indiv_indexes=True)
-            if rl['type_learning'] == 'q_learning':
-                ind_action = [
-                    self.learner.sample_action(
-                        method, ind_current_state[home], home, eps_greedy=eps_greedy
-                    )[0]
-                    for home in self.homes
-                ]
-            elif rl['type_learning'] == 'DDQN':
-                ind_action = self._select_action_DDQN(
-                    ind_current_state, eps_greedy, method
+        elif self.n_homes > 0:
+            if rl['type_learning'] == 'DDPG' and not rl['trajectory']:
+                action = self._select_action_DDPG(
+                    tf_prev_state, eps_greedy, rdn_eps_greedy,
+                    rdn_eps_greedy_indiv, method
                 )
-            elif rl['type_learning'] == 'DQN':
-                ind_action = self._select_action_DQN(
-                    ind_current_state, eps_greedy, rdn_eps_greedy_indiv, method
-                )
+            elif rl['type_learning'] == 'facmac':
+                if ext == '_test':
+                    action = np.zeros((self.n_homes_test, rl['dim_actions']))
+                    for it in range(rl['action_selection_its']):
+                        current_state_it = np.zeros((self.n_homes, rl['dim_states']))
+                        for i in range(rl['dim_states']):
+                            current_state_it[:, i] = np.matmul(
+                                current_state[:, i], rl['state_exec_to_train'][it]
+                            )
+                        tf_prev_state_it = self._format_tf_prev_state(current_state_it)
 
-            action_indexes = [self.env.spaces.global_to_indiv_index(
-                "action", ind_action[a_]) for a_ in self.homes]
-            action = [self.env.spaces.index_to_val(
-                action_indexes[a_], typev="action")
-                for a_ in self.homes]
+                        action_it = self._select_action_facmac(
+                            current_state_it, tf_prev_state_it, step, evaluation, method, t_env
+                        )
+                        for home_train in range(self.n_homes):
+                            home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
+                            assert len(home_execs) <= 1
+                            if len(home_execs) > 0:
+                                action[home_execs[0]] = action_it[home_train]
+                else:
+                    action = self._select_action_facmac(
+                        current_state, tf_prev_state, step, evaluation, method, t_env
+                    )
+            else:
+                ind_current_state = self.env.spaces.get_space_indexes(
+                    all_vals=current_state, indiv_indexes=True)
+                if rl['type_learning'] == 'q_learning':
+                    ind_action = [
+                        self.learner.sample_action(
+                            method, ind_current_state[home], home, eps_greedy=eps_greedy
+                        )[0]
+                        for home in self.homes
+                    ]
+                elif rl['type_learning'] == 'DDQN':
+                    ind_action = self._select_action_DDQN(
+                        ind_current_state, eps_greedy, method
+                    )
+                elif rl['type_learning'] == 'DQN':
+                    ind_action = self._select_action_DQN(
+                        ind_current_state, eps_greedy, rdn_eps_greedy_indiv, method
+                    )
+
+                action_indexes = [self.env.spaces.global_to_indiv_index(
+                    "action", ind_action[a_]) for a_ in self.homes]
+                action = [self.env.spaces.index_to_val(
+                    action_indexes[a_], typev="action")
+                    for a_ in self.homes]
+        else:
+            action = None
 
         return action, tf_prev_state
 
-    def trajectory_actions(self, method, rdn_eps_greedy_indiv,
-                           eps_greedy, rdn_eps_greedy, evaluation, t_env):
+    def trajectory_actions(
+        self, method, rdn_eps_greedy_indiv=None, eps_greedy=None,
+        rdn_eps_greedy=None, evaluation=None, t_env=None, ext=None
+    ):
         """Select actions for all episode time steps."""
         env, rl = self.env, self.rl
+        n_homes = self.n_homes if ext is None else self.__dict__['n_homes' + ext]
         states = np.zeros(
-            (self.N + 1, self.n_agents, len(self.rl['state_space'])))
-
+            (self.N + 1, n_homes, len(self.rl['state_space']))
+        )
         for time_step in range(self.N + 1):
             inputs_state_val = [
                 time_step,
-                env.date + timedelta(hours=time_step * self.prm['syst']['dt']),
+                env.date0 + timedelta(hours=time_step * self.prm['syst']['dt']),
                 False,
                 env.batch['flex'][:, 0: 2],
                 env.car.store
             ]
             states[time_step] = env.get_state_vals(inputs=inputs_state_val)
+        ind_actions = None
 
         if method == 'baseline':
-            actions = self.rl['default_action']
+            actions = self.rl['default_action' + ext]
             if self.rl['type_env'] == "discrete":
-                ind_actions = np.ones(self.n_agents) * (env.spaces.n["actions"] - 1)
-            else:
-                ind_actions = None
+                ind_actions = np.ones(n_homes) * (env.spaces.n["actions"] - 1)
 
-        # with DDPG we input an array of states for each agent and time
         elif rl['type_learning'] == 'DDPG':
             actions, ind_actions = self._trajectory_actions_ddpg(
                 states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv, method
             )
-
         # with DQN we convert the list of states to a global state descriptor
         elif rl['type_learning'] == 'DQN':
             actions, ind_actions = self._trajectory_actions_dqn(
@@ -145,15 +169,34 @@ class ActionSelector:
             actions, ind_actions = self._trajectory_actions_ddqn(eps_greedy, method)
 
         elif rl['type_learning'] == 'facmac':
-            tf_prev_state = self._format_tf_prev_state(states)
             step = 0
-            actions = self._select_action_facmac(
-                states, tf_prev_state, step, evaluation, method, t_env
-            )
-            ind_actions = None
+
+            if ext == '_test':
+                actions = np.zeros((self.n_homes_test, rl['dim_actions']))
+                for it in range(rl['action_selection_its']):
+                    state_it = np.zeros((self.N + 1, self.n_homes, rl['dim_states_1']))
+                    for i in range(rl['dim_states_1']):
+                        state_it[:, :, i] = np.matmul(
+                            states[:, :, i], rl['state_exec_to_train'][it]
+                        )
+                    tf_prev_state_it = self._format_tf_prev_state(state_it)
+
+                    action_it = self._select_action_facmac(
+                        state_it, tf_prev_state_it, step, evaluation, method, t_env
+                    )
+                    for home_train in range(self.n_homes):
+                        home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
+                        assert len(home_execs) <= 1
+                        if len(home_execs) > 0:
+                            actions[home_execs[0]] = action_it[home_train]
+            else:
+                tf_prev_state = self._format_tf_prev_state(states)
+                actions = self._select_action_facmac(
+                    states, tf_prev_state, step, evaluation, method, t_env
+                )
 
         n_actions = 1 if self.rl['aggregate_actions'] else 3
-        actions = np.reshape(actions, (self.n_agents, self.N, n_actions))
+        actions = np.reshape(actions, (n_homes, self.N, n_actions))
 
         return actions, ind_actions, states
 
@@ -191,7 +234,7 @@ class ActionSelector:
         return action
 
     def _select_action_facmac(
-            self, current_state, tf_prev_state, step, evaluation, method, t_env
+        self, current_state, tf_prev_state, step, evaluation, method, t_env
     ):
         pre_transition_data = {"avail_actions": [self.rl['avail_actions']], }
         if self.rl['trajectory']:

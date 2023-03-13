@@ -4,6 +4,7 @@ flex: [0.1, 5] # if first number >0 <1 : share of load flex, hours delay accepte
 # 'R_eq'       : 4.2698e-07,    # value from simulink equivalent thermal resistance of the house [hr.C/J]
 own_flex: 1  # 1 if all have flex, else array of ownership
 own_flexP: 1  # 1 if all passive homes have flex, else array of ownership
+own_flex_test: 1
 own_loads: 1  # 1 if all have loads, else array of ownership
-own_loadsP: 1
-n_clus: 4
+own_loadsP: 1  # 1 if all have loads, else array of ownership (for passive homes)
+n_clus: 4  # number of loads consumption behaviour clusters

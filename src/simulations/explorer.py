@@ -50,12 +50,13 @@ class Explorer:
         self.res_path = prm["paths"]["opt_res"]
         for info in ["D", "solver", "N"]:
             setattr(self, info, prm["syst"][info])
-        self.episode_batch = {}
-
         self.data = DataManager(env, prm, self)
+
+        self.episode_batch = {}
         self.action_selector = ActionSelector(
             prm, learner, self.episode_batch, env
         )
+
         self.action_selector.mac = mac
 
         self.learning_manager = LearningManager(
@@ -80,7 +81,7 @@ class Explorer:
         seed_ind = self.ind_seed_deterministic \
             if self.rl["deterministic"] == 1 \
             else self.data.get_seed_ind(repeat, epoch, i_explore)
-        seed_ind += self.data.d_ind_seed[self.data.passive_ext]
+        seed_ind += self.data.d_ind_seed[self.data.ext]
         env.set_passive_active(passive=True)
         method = "baseline"
         done = 0
@@ -96,7 +97,7 @@ class Explorer:
     def _passive_get_steps(
             self, env, repeat, epoch, i_explore, methods, step_vals
     ):
-        self.data.passive_ext = "P"
+        self.data.ext = "P"
         self._init_passive_data()
         if self.prm['syst']['n_homesP'] == 0:
             return step_vals
@@ -113,16 +114,21 @@ class Explorer:
 
         # reset environment
         env.reset(
-            seed=self.data.seed[self.data.passive_ext], load_data=True, passive=True
+            seed=self.data.seed[self.data.ext], load_data=True, passive=True
         )
 
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
-            action = np.ones((self.n_homes, self.prm['RL']['dim_actions_1']))
+            if self.rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and self.rl['trajectory']:
+                actions, _, _ = self.action_selector.trajectory_actions('baseline', ext='P')
+                action = actions[:, env.time_step]
+            else:
+                action = self.rl['default_action' + self.env.ext]
+
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
-                action, record=record,
-                evaluation=evaluation, netp_storeout=True
+                    action, record=record,
+                    evaluation=evaluation, netp_storeout=True
             )
             if not done:
                 for info, val in zip(
@@ -132,8 +138,8 @@ class Explorer:
                     self.prm["loads"][info][:, env.time_step] = val
             if not sequence_feasible:
                 # if data is not feasible, make new data
-                if seed_ind < len(self.data.seeds[self.data.passive_ext]):
-                    self.data.d_ind_seed[self.data.passive_ext] += 1
+                if seed_ind < len(self.data.seeds[self.data.ext]):
+                    self.data.d_ind_seed[self.data.ext] += 1
                     seed_ind += 1
                 else:
                     for info in ["factors", "cluss", "batch"]:
@@ -143,14 +149,14 @@ class Explorer:
                         )
                         for filename in files:
                             os.remove(filename)
-                    self.data.d_seed[self.data.passive_ext] += 1
+                    self.data.d_seed[self.data.ext] += 1
 
                 print("infeasible in loop passive")
 
-                self.data.seeds[self.data.passive_ext] = np.delete(
-                    self.data.seeds[self.data.passive_ext],
-                    len(self.data.seeds[self.data.passive_ext]) - 1)
-                self.data.d_ind_seed[self.data.passive_ext] += 1
+                self.data.seeds[self.data.ext] = np.delete(
+                    self.data.seeds[self.data.ext],
+                    len(self.data.seeds[self.data.ext]) - 1)
+                self.data.d_ind_seed[self.data.ext] += 1
                 seed_ind += 1
                 self.data.deterministic_created = False
 
@@ -161,7 +167,7 @@ class Explorer:
 
                 self._init_passive_data()
 
-                env.reset(seed=self.data.seed[self.data.passive_ext],
+                env.reset(seed=self.data.seed[self.data.ext],
                           load_data=True, passive=True)
 
                 inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
@@ -284,7 +290,7 @@ class Explorer:
             action, _ = self.action_selector.select_action(
                 method, step, actions, evaluation,
                 current_state, eps_greedy, rdn_eps_greedy,
-                rdn_eps_greedy_indiv, self.t_env
+                rdn_eps_greedy_indiv, self.t_env, ext=self.env.ext,
             )
 
             # interact with environment to get rewards
@@ -294,8 +300,9 @@ class Explorer:
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
             )
-            [state, done, reward, break_down_rewards, bool_flex,
-             constraint_ok, record_output] = env.step(
+            [
+                state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
+            ] = env.step(
                 action, record=record, evaluation=evaluation, E_req_only=method == "baseline"
             )
             if record:
@@ -320,15 +327,18 @@ class Explorer:
 
                 # if instant feedback,
                 # learn right away at the end of the step
-                if not evaluation and not self.rl['trajectory']:
-                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
-                        self.learning_manager.learning(
-                            current_state, state, action, reward, done,
-                            eval_method, step, step_vals, epoch
-                        )
-                self.learning_manager.q_learning_instant_feedback(
-                    evaluation, method, step_vals, step
-                )
+                if self.n_homes > 0:
+                    if not evaluation and not self.rl['trajectory']:
+                        for eval_method in methods_learning_from_exploration(
+                                method, epoch, self.rl
+                        ):
+                            self.learning_manager.learning(
+                                current_state, state, action, reward, done,
+                                eval_method, step, step_vals, epoch
+                            )
+                    self.learning_manager.q_learning_instant_feedback(
+                        evaluation, method, step_vals, step
+                    )
 
                 if self.rl['trajectory']:
                     if type(reward) in [float, int, np.float64]:
@@ -348,11 +358,15 @@ class Explorer:
             self, env, repeat, epoch, i_explore, methods,
             step_vals, evaluation
     ):
-        env.set_passive_active(passive=False)
-        rl = self.rl
-        self.data.passive_ext = ""
         self.n_homes = self.prm["syst"]["n_homes"]
         self.homes = range(self.n_homes)
+        env.set_passive_active(passive=False, evaluation=evaluation)
+        rl = self.rl
+        if evaluation and self.prm['syst']['n_homes_test'] != self.n_homes:
+            self.data.ext = "_test"
+        else:
+            self.data.ext = ""
+
         # initialise data
         methods_nonopt = [method for method in methods if method != "opt"]
         method0 = methods_nonopt[0]
@@ -363,7 +377,7 @@ class Explorer:
         # seed_mult = 1 # for initial passive consumers
         seed_ind = self.ind_seed_deterministic if rl["deterministic"] == 1 \
             else self.data.get_seed_ind(repeat, epoch, i_explore)
-        seed_ind += self.data.d_ind_seed[self.data.passive_ext]
+        seed_ind += self.data.d_ind_seed[self.data.ext]
 
         [_, batch], step_vals = self.data.find_feasible_data(
             seed_ind, methods, step_vals, evaluation, epoch
@@ -388,12 +402,13 @@ class Explorer:
                 method = methods_nonopt[i_t]
                 i_t += 1
                 self.data.get_seed(seed_ind)
-                set_seeds_rdn(self.data.seed[self.data.passive_ext])
+                set_seeds_rdn(self.data.seed[self.data.ext])
 
                 # reset environment with adequate data
                 env.reset(
-                    seed=self.data.seed[self.data.passive_ext],
-                    load_data=True, E_req_only=method == "baseline"
+                    seed=self.data.seed[self.data.ext],
+                    load_data=True, E_req_only=method == "baseline",
+                    evaluation=evaluation
                 )
                 # get data from environment
                 inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
@@ -410,7 +425,7 @@ class Explorer:
                 if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
                     actions, _, states = self.action_selector.trajectory_actions(
                         method, rdn_eps_greedy_indiv, eps_greedy,
-                        rdn_eps_greedy, evaluation, self.t_env
+                        rdn_eps_greedy, evaluation, self.t_env, ext=self.data.ext
                     )
                 state = env.get_state_vals(inputs=inputs_state_val)
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
@@ -439,7 +454,7 @@ class Explorer:
                     evaluation, epoch
                 )
 
-        step_vals["seed"] = self.data.seed[self.data.passive_ext]
+        step_vals["seed"] = self.data.seed[self.data.ext]
         step_vals["n_not_feas"] = n_not_feas
         if not evaluation:
             self.t_env += self.N
@@ -454,12 +469,13 @@ class Explorer:
         """
         eval0 = evaluation
         self.data.seed_ind = {}
-        self.data.seed = {"P": 0, "": 0}
+        self.data.seed = {ext: 0 for ext in self.prm['syst']['n_homes_extensions_all']}
         # create link to objects/data needed in method
         env = copy.deepcopy(self.env) if parallel else self.env
 
         # initialise output
         step_vals = initialise_dict(methods)
+
         self._init_facmac_mac(methods, new_episode_batch, epoch)
 
         # passive consumers
@@ -478,12 +494,12 @@ class Explorer:
         return step_vals, self.episode_batch
 
     def _check_rewards_match(self, method, evaluation, step_vals, sequence_feasible):
-        if "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
+        if self.n_homes > 0 and "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
             # rewards should not be better than optimal rewards
-            # assert np.mean(step_vals[method]["reward"]) \
-            #        < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
-            #        f"reward {method} {np.mean(step_vals[method]['reward'])} " \
-            #        f"better than opt {np.mean(step_vals['opt']['reward'])}"
+            assert np.mean(step_vals[method]["reward"]) \
+                   < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
+                   f"reward {method} {np.mean(step_vals[method]['reward'])} " \
+                   f"better than opt {np.mean(step_vals['opt']['reward'])}"
             if not (
                 np.mean(step_vals[method]["reward"]) < np.mean(step_vals["opt"]["reward"]) + 1e-3
             ):
@@ -692,7 +708,7 @@ class Explorer:
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
-            self, evaluation, exploration_method, time_step, step_vals, epoch
+            self, evaluation, exploration_method, time_step, step_vals, epoch, ext
     ):
         rl = self.prm["RL"]
         if (rl["type_learning"] in ["DQN", "DDQN", "DDPG", "facmac"]
@@ -877,7 +893,7 @@ class Explorer:
 
             # instant learning feedback
             self._instant_feedback_steps_opt(
-                evaluation, method, time_step, step_vals, epoch
+                evaluation, method, time_step, step_vals, epoch, self.env.ext
             )
 
             # record if last epoch

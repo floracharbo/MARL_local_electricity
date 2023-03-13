@@ -164,7 +164,7 @@ def _make_scheme(rl):
 
     # Default/Base scheme
     rl["scheme"] = {
-        "state": {"vshape": rl["state_shape"]},
+        "state": {"vshape": rl["state_shape"], },
         "obs": {"vshape": rl["obs_shape"], "group": "agents"},
         "actions":
             {"vshape": (actions_vshape,),
@@ -180,9 +180,11 @@ def _make_scheme(rl):
              "dtype": th.int},
         "reward": {"vshape": (1,)},
         "terminated": {"vshape": (1,), "dtype": th.uint8},
+        # "episode_const": True,
     }
     rl["groups"] = {
-        "agents": rl["n_homes"]
+        "agents": rl["n_homes"],
+        "agents_test": rl["n_homes_test"],
     }
 
     if not rl["actions_dtype"] == np.float32:
@@ -214,12 +216,12 @@ def _facmac_initialise(prm):
         corresponding to prm["RL"]; with updated parameters
     """
     rl = prm["RL"]
-    rl["n_homes"] = prm["syst"]["n_homes"]
 
     rl["obs_shape"] = len(rl["state_space"])
     if rl['trajectory']:
         rl['obs_shape'] *= prm['syst']['N']
     rl["state_shape"] = rl["obs_shape"] * rl["n_homes"]
+    rl["state_shape_test"] = rl["obs_shape"] * rl["n_homes_test"]
 
     if not prm['syst']["server"]:
         rl["use_cuda"] = False
@@ -322,27 +324,33 @@ def _update_bat_prm(prm):
     car["C"] = car["dep"]  # GBP/kWh storage costs
 
     # have list of car capacities based on capacity and ownership inputs
-    car["cap"] = np.array(
-        car["cap"]) if isinstance(car["cap"], list)\
+    car["caps"] = np.array(
+        car["cap"]) if isinstance(car["cap"], list) \
         else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
-        for passive_ext in ["", "P"]:
-            car["own_car" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
-                if isinstance(car["own_car" + passive_ext], (int, float))\
-                and car["own_car" + passive_ext] == 1 \
-                else np.array(car["own_car" + passive_ext])
-        car["cap"] = np.where(car["own_car"], car["cap"], 0)
+        for ext in syst['n_homes_extensions_all']:
+            car["own_car" + ext] \
+                = np.ones(syst["n_homes" + ext]) * car["own_car" + ext] \
+                if isinstance(car["own_car" + ext], (int, float)) \
+                else np.array(car["own_car" + ext])
 
     car = _load_bat_factors_parameters(paths, car)
 
     # battery characteristics
-    car["min_charge"] = [car["cap"][home] * max(car["SoCmin"], car["baseld"])
-                         for home in range(syst["n_homes"])]
-    car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
-    if "capP" not in car:
-        car["capP"] = np.full(syst["n_homesP"], car["cap"][0])
-    car["store0P"] = car["SoC0"] * car["capP"]
-    car["min_chargeP"] = car["capP"] * max(car["SoCmin"], car["baseld"])
+    car["min_charge"] = car["caps"] * max(car["SoCmin"], car["baseld"])
+    car["store0"] = car["caps"] * car["SoC0"]
+    for ext in syst['n_homes_extensions']:
+        if "cap" + ext in car and isinstance(car["cap"], list):
+            car["caps" + ext] = car['cap' + ext]
+        elif "cap" + ext not in car or car["cap" + ext] is None:
+            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap"])
+        else:
+            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap" + ext])
+        car["store0" + ext] = car["SoC0"] * car["caps" + ext]
+        car["min_charge" + ext] = car["caps" + ext] * max(car["SoCmin"], car["baseld"])
+    for ext in syst['n_homes_extensions_all']:
+        for info in ['caps', 'store0', 'min_charge']:
+            car[info + ext] = np.where(car["own_car" + ext], car[info + ext], 0)
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -412,8 +420,12 @@ def _exploration_parameters(rl):
                         = (epsilon_end[exploration_method] / epsilon0) \
                         ** (1 / rl["tot_learn_cycles"])
     if type_learning == 'facmac' and "lr_decay" in rl['facmac'] and rl['facmac']['lr_decay']:
-        rl['facmac']['lr_decay_param'] = (rl['facmac']['lr_end'] / rl['facmac']['lr0']) ** (1 / rl['n_epochs'])
-        rl['facmac']['critic_lr_decay_param'] = (rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']) ** (1 / rl['n_epochs'])
+        rl['facmac']['lr_decay_param'] = (
+            rl['facmac']['lr_end'] / rl['facmac']['lr0']
+        ) ** (1 / rl['n_epochs'])
+        rl['facmac']['critic_lr_decay_param'] = (
+            rl['facmac']['critic_lr_end'] / rl['facmac']['critic_lr0']
+        ) ** (1 / rl['n_epochs'])
 
     # for key in ["epsilon_end", "T", "tauMT", "tauLT",
     #             "control_window_eps", "epsilon_decay_param"]:
@@ -500,6 +512,51 @@ def _expand_grdC_states(rl):
     return rl
 
 
+def rl_apply_n_homes_test(syst, rl):
+    if syst['n_homes_test'] != syst['n_homes']:
+        if rl['homes_exec_per_home_train'] is None:
+            rl['homes_exec_per_home_train'] = [[] for home_train in range(syst['n_homes'])]
+            home_train = 0
+            for home_exec in range(syst['n_homes_test']):
+                rl['homes_exec_per_home_train'][home_train].append(home_exec)
+                home_train = home_train + 1 if home_train + 1 < syst['n_homes'] else 0
+        rl['action_selection_its'] = np.max(
+            [
+                len(homes_exec_per_home_train)
+                for homes_exec_per_home_train in rl['homes_exec_per_home_train']
+            ]
+        )
+        rl['action_train_to_exec'] = np.zeros(
+            (rl['action_selection_its'], syst['n_homes'], syst['n_homes_test'])
+        )
+        rl['state_exec_to_train'] = np.zeros(
+            (rl['action_selection_its'], syst['n_homes_test'], syst['n_homes'])
+        )
+        # actions[n_homes_test] = actions[n_homes_train] x [n_homes_train x n_homes_test]
+        # states[n_homes_train] = actions[n_homes_test] x [n_homes_test x n_homes_train]
+        for it in range(rl['action_selection_its']):
+            for home_train in range(syst['n_homes']):
+                if len(rl['homes_exec_per_home_train'][home_train]) > it:
+                    rl['action_train_to_exec'][
+                        it, home_train, rl['homes_exec_per_home_train'][home_train][it]
+                    ] = 1
+            rl['state_exec_to_train'][it] = np.transpose(rl['action_train_to_exec'][it])
+    else:
+        rl['action_selection_its'] = 1
+        rl['action_train_to_exec'] = np.ones(
+            (rl['action_selection_its'], syst['n_homes'], syst['n_homes_test'])
+        )
+        rl['state_exec_to_train'] = np.ones(
+            (rl['action_selection_its'], syst['n_homes_test'], syst['n_homes'])
+        )
+
+    if rl['type_learning'] == 'facmac':
+        for info in ['action_train_to_exec', 'state_exec_to_train']:
+            rl[info] = th.Tensor(rl[info])
+
+    return rl
+
+
 def _update_rl_prm(prm, initialise_all):
     """
     Compute parameters relating to RL experiments.
@@ -516,6 +573,9 @@ def _update_rl_prm(prm, initialise_all):
         correpsonding to prm["RL"]; with updated parameters
     """
     rl, syst, heat = [prm[key] for key in ["RL", "syst", "heat"]]
+    for n_homes in ['n_homes', 'n_homes_test']:
+        rl[n_homes] = syst[n_homes]
+    rl = _make_type_eval_list(rl)
     rl = _format_rl_parameters(rl)
     rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
@@ -533,11 +593,11 @@ def _update_rl_prm(prm, initialise_all):
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
 
-    for passive_ext in ["P", ""]:
-        rl["default_action" + passive_ext] = [
-            [rl["default_action"] for _ in range(rl["dim_actions"])]
-            for _ in range(syst["n_homes" + passive_ext])
-        ]
+    if syst['run_mode'] == 1:
+        for ext in syst['n_homes_extensions_all']:
+            rl["default_action" + ext] = np.full(
+                (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
+            )
 
     _exploration_parameters(rl)
 
@@ -561,6 +621,8 @@ def _update_rl_prm(prm, initialise_all):
 
     if rl['trajectory']:
         rl['gamma'] = 0
+
+    rl_apply_n_homes_test(syst, rl)
 
     return rl
 
@@ -616,11 +678,11 @@ def opt_res_seed_save_paths(prm):
     rl, heat, syst, grd, paths, car, loads = \
         [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
-    if np.all(car['cap'] == car['cap'][0]):
-        cap_str = car['cap'][0]
+    if np.all(car['caps'] == car['cap']):
+        cap_str = car['cap']
     else:
         caps = {}
-        for home, cap in enumerate(car['cap']):
+        for home, cap in enumerate(car['caps']):
             if cap not in caps:
                 caps[cap] = []
             caps[cap].append(home)
@@ -632,8 +694,13 @@ def opt_res_seed_save_paths(prm):
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}_" \
+        f"_ntwn{syst['n_homes']}_cmax{car['c_max']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
+    if syst['n_homesP'] > 0:
+        paths["opt_res_file"] += f"_nP{syst['n_homesP']}"
+    if syst['n_homes_test'] != syst['n_homes']:
+        paths["opt_res_file"] += f"_ntest{syst['n_homes_test']}"
+
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
 
@@ -665,8 +732,10 @@ def opt_res_seed_save_paths(prm):
 
     if os.path.exists(paths["seeds_file"]):
         rl["seeds"] = np.load(paths["seeds_file"], allow_pickle=True).item()
+        if "_test" not in rl['seeds']:
+            rl['seeds']['_test'] = []
     else:
-        rl["seeds"] = {"P": [], "": []}
+        rl["seeds"] = {ext: [] for ext in syst['n_homes_extensions_all']}
     rl["init_len_seeds"] = {}
     for passive_str in ["", "P"]:
         rl["init_len_seeds"][passive_str] = len(rl["seeds"][passive_str])
@@ -733,22 +802,30 @@ def _syst_info(prm):
     syst['server'] = os.getcwd()[0: len(paths['user_root_path'])] != paths['user_root_path']
     syst['machine_id'] = str(uuid.UUID(int=uuid.getnode()))
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
+    if syst['n_homes_test'] is None:
+        syst['n_homes_test'] = syst['n_homes']
+    syst['n_homes_all_test'] = syst['n_homes_test'] + syst['n_homesP']
+    assert syst['n_homes_all'] > 0, "No homes in the system"
+
+    syst['n_homes_extensions'] = ["P"]
+    if syst['n_homes_test'] != syst['n_homes']:
+        syst['n_homes_extensions'].append("_test")
+    syst["n_homes_extensions_all"] = syst['n_homes_extensions'] + [""]
     syst['timestamp'] = datetime.datetime.now().timestamp()
-    syst['share_active'] = syst['n_homes'] / syst['n_homes_all']
+    syst['share_active_test'] = syst['n_homes_test'] / syst['n_homes_all_test']
     syst['interval_to_month'] = prm['syst']['H'] * 365 / 12
 
 
 def _homes_info(loads, syst, gen, heat):
-    for passive_ext in ["", "P"]:
-        gen["own_PV" + passive_ext] = [1 for _ in range(syst["n_homes" + passive_ext])] \
-            if gen["own_PV" + passive_ext] == 1 else gen["own_PV" + passive_ext]
-        heat["own_heat" + passive_ext] = np.ones(syst["n_homes" + passive_ext]) \
-            if isinstance(heat["own_heat" + passive_ext], int) \
-            and heat["own_heat" + passive_ext] == 1 \
-            else np.array(heat["own_heat" + passive_ext])
-        for ownership in ["own_loads" + passive_ext, "own_flex" + passive_ext]:
+    for ext in syst['n_homes_extensions_all']:
+        gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \
+            if gen["own_PV" + ext] == 1 else gen["own_PV" + ext]
+        heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) * heat["own_heat" + ext] \
+            if isinstance(heat["own_heat" + ext], int) \
+            else np.array(heat["own_heat" + ext])
+        for ownership in ["own_loads" + ext, "own_flex" + ext]:
             if ownership in loads:
-                loads[ownership] = np.ones(syst["n_homes" + passive_ext]) * loads[ownership] \
+                loads[ownership] = np.ones(syst["n_homes" + ext]) * loads[ownership] \
                     if isinstance(loads[ownership], int) else loads[ownership]
 
 
@@ -777,8 +854,6 @@ def initialise_prm(prm, no_run, initialise_all=True):
         for key in ["paths", "syst", "loads", "gen", "save", "heat"]
     ]
 
-    _make_type_eval_list(prm["RL"])
-
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
     _syst_info(prm)
@@ -789,10 +864,10 @@ def initialise_prm(prm, no_run, initialise_all=True):
         syst = _load_data_dictionaries(paths, syst)
         _update_grd_prm(prm)
         loads["share_flex"], loads["max_delay"] = loads["flex"]
-        for passive_ext in ['', 'P']:
-            loads["share_flexs" + passive_ext] = [
-                0 if not loads["own_flex" + passive_ext][home] else loads["share_flex"]
-                for home in range(syst["n_homes" + passive_ext])
+        for ext in syst['n_homes_extensions_all']:
+            loads["share_flexs" + ext] = [
+                0 if not loads["own_flex" + ext][home] else loads["share_flex"]
+                for home in range(syst["n_homes" + ext])
             ]
 
     # car avail, type, factors
@@ -815,7 +890,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
 
 def _filter_type_learning_facmac(rl):
     if rl["type_learning"] != "facmac":
-        return
+        return rl
 
     valid_types = {
         "exploration": ["env_r_c", "opt", "baseline"],
@@ -840,6 +915,8 @@ def _filter_type_learning_facmac(rl):
                     f"with facmac and has been removed"
                 )
 
+    return rl
+
 
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning
@@ -849,6 +926,8 @@ def _filter_type_learning_competitive(rl):
             or (reward_type(method) != "A" and distr_learning(method) != "c")
         ]
 
+    return rl
+
 
 def _add_n_start_opt_explo(rl, evaluation_methods_list):
     if rl['n_start_opt_explo'] is not None and rl['n_start_opt_explo'] > 0:
@@ -857,6 +936,16 @@ def _add_n_start_opt_explo(rl, evaluation_methods_list):
                 evaluation_methods_list[i] += f"_{rl['n_start_opt_explo']}_opt"
 
     return evaluation_methods_list
+
+
+def _filter_type_evals_no_active_homes(rl):
+    if rl['n_homes'] == 0:
+        rl["evaluation_methods"] = [
+            method for method in rl["evaluation_methods"]
+            if method in ["random", "baseline"]
+        ]
+
+    return rl
 
 
 def _make_type_eval_list(rl, large_q_bool=False):
@@ -900,7 +989,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = _add_n_start_opt_explo(rl, evaluation_methods_list)
 
     rl["evaluation_methods"] = list(dict.fromkeys(evaluation_methods_list))
-    _filter_type_learning_competitive(rl)
+    rl = _filter_type_learning_competitive(rl)
 
     rl["exploration_methods"] = [
         method for method in rl["evaluation_methods"]
@@ -916,7 +1005,8 @@ def _make_type_eval_list(rl, large_q_bool=False):
     assert len(rl["eval_action_choice"]) > 0, \
         "not valid eval_type with action_choice"
 
-    _filter_type_learning_facmac(rl)
+    rl = _filter_type_learning_facmac(rl)
+    rl = _filter_type_evals_no_active_homes(rl)
 
     rl["type_Qs"] \
         = rl["eval_action_choice"] + [
@@ -926,4 +1016,6 @@ def _make_type_eval_list(rl, large_q_bool=False):
         )
     ]
 
-    print(f"evaluation_methods {evaluation_methods_list}")
+    print(f"rl['evaluation_methods'] {rl['evaluation_methods']}")
+
+    return rl

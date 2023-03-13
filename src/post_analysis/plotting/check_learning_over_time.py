@@ -13,7 +13,8 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
     """Plot evaluation actions selected over epochs for one repeat"""
     n_intervals = 50
     density_matrix = np.zeros((prm["RL"]["n_epochs"], n_intervals))
-    min_action, max_action = np.min(actions_[:, :, :, i_action]), np.max(actions_[:, :, :, i_action])
+    min_action = np.min(actions_[:, :, :, i_action])
+    max_action = np.max(actions_[:, :, :, i_action])
     intervals = np.linspace(min_action, max_action, n_intervals)
 
     for epoch in range(prm["RL"]["n_epochs"]):

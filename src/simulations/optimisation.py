@@ -44,7 +44,6 @@ class Optimiser:
         if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res = self._solve_line_losses_iteration()
             pp_simulation_required = False
-
         else:
             res, pp_simulation_required = self._problem()
             res = res_post_processing(res, prm, self.input_hourly_lij)
@@ -102,7 +101,7 @@ class Optimiser:
     def _car_efficiency_iterations(self, prm, res):
         init_eta = prm['car']['etach']
         prm['car']['etach'] = efficiencies(
-            res, prm, prm['car']['cap']
+            res, prm, prm['car']['caps']
         )
         deltamax, its = 0.5, 0
         prm['car']['eff'] = 2
@@ -122,7 +121,7 @@ class Optimiser:
                       f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
                       f"not equal to loads {np.sum(prm['loads'])}")
             prm['car']['etach'] = efficiencies(
-                res, prm, prm['car']['cap'])
+                res, prm, prm['car']['caps'])
             deltamax = np.amax(abs(prm['car']['etach'] - eta_old))
         prm['car']['etach'] = init_eta
         prm['car']['eff'] = 1
@@ -726,12 +725,11 @@ class Optimiser:
                 )
                 p.add_constraint(
                     T_air[home, :]
-                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
+                    == (heat['T_LB'][home, 0: self.N] + heat['T_UB'][home, 0: self.N]) / 2
                 )
                 p.add_constraint(
                     T[home, :]
-                    == (heat['T_LB'][home] + heat['T_UB'][home]) / 2
-                    for time_step in range(self.N)
+                    == (heat['T_LB'][home, 0: self.N] + heat['T_UB'][home, 0: self.N]) / 2
                 )
 
         p.add_constraint(E_heat >= 0)

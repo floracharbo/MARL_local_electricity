@@ -37,7 +37,7 @@ class Heat:
         Obtain heating energy required to reach next T_air_target.
     """
 
-    def __init__(self, prm, i0_costs, passive_ext, E_req_only):
+    def __init__(self, prm, i0_costs, ext, E_req_only):
         """
         Initialise Heat object.
 
@@ -46,12 +46,13 @@ class Heat:
             input parameters
         i0_costs:
             index start date current day
-        passive_ext:
+        ext:
             are the current agents passive? '' is not, 'P' if yes
+            are we looking at a different number of tested homes? '_test' if yes else ''
         E_req_only:
             boolean - if True, there is no flexibility around T_req
         """
-        self.passive_ext = ''
+        self.ext = ''
         self._update_passive_active_vars(prm)
 
         # flexibility around T_req
@@ -70,9 +71,11 @@ class Heat:
         # / could have been delayed
         self.E_flex = None
 
-        self.reset(prm, i0_costs, passive_ext, E_req_only)
+        self.reset(prm, i0_costs, ext, E_req_only)
+        for attribute in ['T_air', 'tot_E', 'T_next']:
+            setattr(self, attribute, np.full(self.n_homes, np.nan))
 
-    def reset(self, prm, i0_costs=None, passive_ext=None, E_req_only=None):
+    def reset(self, prm, i0_costs=None, ext=None, E_req_only=None):
         """
         Reset object for new episode.
 
@@ -81,8 +84,9 @@ class Heat:
             input parameters
         i0_costs:
             index start date current day
-        passive_ext:
+        ext:
             are the current agents passive? '' is not, 'P' if yes
+            are we looking at a different number of tested homes? '_test' if yes else ''
         E_req_only:
             if True, there is no flexibility around T_req
         """
@@ -90,8 +94,8 @@ class Heat:
         self.time_step = 0
 
         # extension to add to variable names if agents are passive
-        if passive_ext is not None:
-            self.passive_ext = passive_ext
+        if ext is not None:
+            self.ext = ext
             self._update_passive_active_vars(prm)
 
         if i0_costs is not None:
@@ -101,15 +105,15 @@ class Heat:
             E_req_only = False
 
         # current indoor air temperatures
-        self.T = prm["heat"]["T_req" + self.passive_ext][:, 0]
+        self.T = prm["heat"]["T_req" + self.ext][:, 0]
 
         # required temperature profile
-        self.T_req = prm["heat"]["T_req" + self.passive_ext]
+        self.T_req = prm["heat"]["T_req" + self.ext]
 
         # temperature bounds based on whether there is flexibility or not
         if not E_req_only:
-            self.T_UB = prm["heat"]["T_UB" + self.passive_ext]
-            self.T_LB = prm["heat"]["T_LB" + self.passive_ext]
+            self.T_UB = prm["heat"]["T_UB" + self.ext]
+            self.T_LB = prm["heat"]["T_LB" + self.ext]
         else:
             self.T_UB, self.T_LB = [self.T_req for _ in range(2)]
 
@@ -144,27 +148,31 @@ class Heat:
         # use inputs or current object variables
         homes = list(range(self.n_homes)) if home is None else [home]
         n_homes = len(homes)
-        if T_start is None:
-            T_start = self.T[homes]
-        if E_heat is None:
-            E_heat = self.E_heat_min[homes] + self.E_flex[homes]
-        if T_out_t is None:
-            T_out_t = self.T_out[self.time_step]
-        P_heat = E_heat * 1e3 * self.n_int_per_hr
-        M = np.ones((5, n_homes))
-        M[1, :] = T_start
-        M[2, :] *= T_out_t
-        M[3, :] *= 0
-        M[4, :] = P_heat
-        K = self.T_coeff[homes]
-        T_end = np.sum(np.multiply(K, M.T), axis=1)
+        if n_homes > 0:
+            if T_start is None:
+                T_start = self.T[homes]
+            if E_heat is None:
+                E_heat = self.E_heat_min[homes] + self.E_flex[homes]
+            if T_out_t is None:
+                T_out_t = self.T_out[self.time_step]
+            P_heat = E_heat * 1e3 * self.n_int_per_hr
+            M = np.ones((5, n_homes))
+            M[1, :] = T_start
+            M[2, :] *= T_out_t
+            M[3, :] *= 0
+            M[4, :] = P_heat
+            K = self.T_coeff[homes]
+            T_end = np.sum(np.multiply(K, M.T), axis=1)
 
-        K_air = self.T_air_coeff[homes]
-        T_air = np.sum(np.multiply(K_air, M.T), axis=1)
-        T_air = np.where(self.own_heat[homes], T_air, self.T_req[homes, self.time_step])
-        if update:
-            self.T_next = T_end
-            self.T_air = T_air
+            K_air = self.T_air_coeff[homes]
+            T_air = np.sum(np.multiply(K_air, M.T), axis=1)
+            T_air = np.where(self.own_heat[homes], T_air, self.T_req[homes, self.time_step])
+            if update:
+                self.T_next = T_end
+                self.T_air = T_air
+        else:
+            T_end = np.array([])
+            T_air = np.array([])
 
         return T_end, T_air
 
@@ -420,13 +428,13 @@ class Heat:
 
     def _update_passive_active_vars(self, prm):
         # number of agents / households
-        self.n_homes = prm["syst"]["n_homes" + self.passive_ext]
+        self.n_homes = prm["syst"]["n_homes" + self.ext]
 
         # current building mass temperatures
         self.T = np.ones(self.n_homes) * prm["heat"]["T0"]
 
         # heating coefficients for recursive description
-        self.T_air_coeff = prm["heat"]["T_air_coeff" + self.passive_ext]
-        self.T_coeff = prm["heat"]["T_coeff" + self.passive_ext]
+        self.T_air_coeff = prm["heat"]["T_air_coeff" + self.ext]
+        self.T_coeff = prm["heat"]["T_coeff" + self.ext]
 
-        self.own_heat = prm["heat"]["own_heat" + self.passive_ext]
+        self.own_heat = prm["heat"]["own_heat" + self.ext]

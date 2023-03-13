@@ -45,5 +45,6 @@ e: 0.03 # BS12831 from table D.5.3. BS12831 Shielding coefficient - in matlab wa
 epsilon: 1  # BS12831 from table D.5.4. BS12831 Height correction factor, which takes into account the increase in wind velocity with the height of the space from ground level
 COP: 3 # coefficient of performance heat pump [1] Dincer I, Rosen MA. Exergy: Energy, Environment and Sustainable Development, Third Edition. Elsevier Science; 2020.
 
-own_heat: 1 # 1 if all have heat pump, else array of ownership
-own_heatP: 1 # 1 if all have heat pump, else array of ownership
+own_heat: 1  # 1 if all have heat pump, else array of ownership
+own_heatP: 1  # 1 if all have heat pump, else array of ownership (for passive homes)
+own_heat_test: 1  # 1 if all have heat pump, else array of ownership (for testing homes)

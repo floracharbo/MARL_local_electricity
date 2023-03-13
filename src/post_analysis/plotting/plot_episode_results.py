@@ -93,7 +93,9 @@ def _plot_all_agents_mean_res(
                     all_vals_e_t_step_mean[step] = np.mean(
                         np.mean(all_vals_e_t_step)
                     )
-                ys = all_vals_e_t_step_mean * prm['syst']['n_homes'] if sum_agents else all_vals_e_t_step_mean
+                ys = \
+                    all_vals_e_t_step_mean * prm['syst']['n_homes'] if sum_agents \
+                    else all_vals_e_t_step_mean
                 ax = axs[r] if sum_agents else axs[r, c]
                 ax.step(
                     xs, ys,
@@ -106,7 +108,9 @@ def _plot_all_agents_mean_res(
     return axs
 
 
-def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1):
+def _plot_ev_loads_and_availability(
+        axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1
+):
     ax = axs[row, col]
     ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
     for band in bands_car_availability:
@@ -325,13 +329,13 @@ def _plot_all_agents_res(
     fig.tight_layout()
     title = f"subplots example day all agents {title_repeat}"
     if sum_agents:
-        title += f" sum_agents"
+        title += " sum_agents"
     title_display = "subplots example day"
-    subtitles = ["a", "b", "b", "d", "e", "f", "g", "h"]
-    for r in range(n_rows):
-        for c in range(n_cols):
+    subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    for c in range(n_cols):
+        for r in range(n_rows):
             ax = axs[r] if n_cols == 1 else axs[r, c]
-            ax.set_title(subtitles[r + c * n_rows])
+            ax.set_title(subtitles[c + r * n_rows])
     formatting_figure(
         prm, fig=fig, title=title,
         legend=False,
@@ -436,7 +440,7 @@ def _plot_indiv_agent_res(
             if reduced_version:
                 rows = [1, 1]
                 columns = [0, 1]
-                entries = ["totcons",  "store"]
+                entries = ["totcons", "store"]
             else:
                 rows = [1, 2, 0, 3]
                 columns = [0, 0, 1, 1]
@@ -459,7 +463,7 @@ def _plot_indiv_agent_res(
                         else:
                             ys = [0] + ys
                         if reduced_version and method != 'baseline':
-                            colour = (192/255, 0, 0)
+                            colour = (192 / 255, 0, 0)
                         else:
                             colour = prm["save"]["colourse"][method]
                         if reduced_version and method != 'baseline':
@@ -480,10 +484,9 @@ def _plot_indiv_agent_res(
             if reduced_version:
                 title += '_reduced_version'
             subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
-
-            for r in range(n_rows):
-                for c in range(n_cols):
-                    axs[r, c].set_title(subtitles[r + c * n_rows])
+            for c in range(n_cols):
+                for r in range(n_rows):
+                    axs[r, c].set_title(subtitles[c + r * n_cols])
             formatting_figure(
                 prm, fig=fig, title=title,
                 legend=False,
@@ -690,7 +693,7 @@ def plot_reactive_power(
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
             flex_reactive_power = last['q_ext_grid'][method]
-            break_down_rewards = last['break_down_rewards'][method]  # [step][break_down_rewards_entry]
+            break_down_rewards = last['break_down_rewards'][method]
             i_total_costs = prm['syst']['break_down_rewards_entries'].index(
                 'total_costs'
             )
@@ -717,11 +720,11 @@ def plot_reactive_power(
             ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
             ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
             plt.tight_layout()
-            title = f'Reactive power and total costs, repeat{repeat}, {t}'
+            title = f'Reactive power and total costs, repeat {repeat} {method}'
             title_and_save(title, fig, prm)
 
 
-def plot_reactive_power(
+def plot_indiv_reactive_power(
         prm, all_methods_to_plot, folder_run):
     """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
     plt.rcParams['font.size'] = '16'
