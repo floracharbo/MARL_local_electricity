@@ -11,7 +11,7 @@ from scipy import optimize
 font = {'size': 14}
 matplotlib.rc('font', **font)
 
-compare_times = ['OMQ', 'FH']
+compare_times = ['OMQ', 'FD']
 labels = {
     'IQ': 'Independent Q-learning',
     'OIQ': 'Optimisation-informed independent Q-learning',
@@ -79,12 +79,13 @@ runs = {
     # 'FHO': [161, 162, 163, 164, 168, 169]
     # 'FHO': list(range(251, 257)),
     # 'FHO': list(range(522, 528)),
-    'FHO': list(range(522, 527)),
+    # 'FHO': list(range(522, 527)),
+    'FHO': list(range(771, 775)) + list(range(776, 778)),
 
 }
 
 
-green = (117/255, 189/255, 167/255)
+green = (117 / 255, 189 / 255, 167 / 255)
 # '#ff7f00' colorblind orange
 # green = '#4daf4a'
 # colorblind green
@@ -96,12 +97,8 @@ grey = '#999999'
 #  '#e41a1c' colorblind red
 #  '#dede00' oclorbing yellow
 # blue = (80/255, 146/255, 182/255)
-blue = '#377eb8' #  colorblind blue
-
-red = (192/255, 0, 0)
-# [, , ,
-#                   , , ,
-#                  , , ]
+blue = '#377eb8'  # colorblind blue
+red = (192 / 255, 0, 0)
 
 colours = {
     'IQ': blue,
@@ -125,33 +122,43 @@ best_score_type = 'p50'
 
 metrics = [best_score_type, 'p25', 'p75']
 
+
 def exponential(x, a):
     return a ** x
+
 
 def second_order(x, a):
     return a * x ** 2
 
+
 def second_order_b(x, a, b):
     return a * x ** 2 + b
+
 
 def first_order(x, a, b):
     """First-order function."""
     return a * x + b
 
+
 def polynomial2(x, a, b, c):
     return a * x ** 2 + b * x + c
+
 
 def unknown_order(x, a, b, c):
     return a * x ** b + c
 
+
 def polynomial3(x, a, b, c, d):
     return a * x ** 3 + b * x ** 2 + c * x + d
+
 
 def xlogx(x, a, b):
     return a * x * np.log(x) + b
 
+
 def logx(x, a, b):
     return a * np.log(x) + b
+
 
 x_max = n_homes[-1]
 ys_time = {entry: [] for entry in compare_times}
@@ -169,9 +176,11 @@ for line_label in labels.keys():
     for i, run in enumerate(runs[line_label]):
         if run is not None:
             for metric in metrics:
-                values[metric][i] = log.loc[log['run'] == run, f'{metric}_{type_learning[line_label]}'].values[0]
-
+                values[metric][i] = log.loc[
+                    log['run'] == run, f'{metric}_{type_learning[line_label]}'
+                ].values[0]
                 time_end[i] = log.loc[log['run'] == run, 'time_end'].values[0]
+
     ls = '--' if opt_informed[line_label] else '-'
     label = None if opt_informed[line_label] else labels[line_label]
 
@@ -199,7 +208,10 @@ for line_label in labels.keys():
         coeffs = popt
         xs = list(range(1, x_max))
         f_fitted = [function(x, *coeffs) for x in xs]
-        label = r'$y = $' + f'{coeffs[0]:.2f}' + f'$x^2 $' + f' + {coeffs[1]:.2f}' + r'$x $' + f' + {coeffs[2]:.2f}'
+        label = r'$y = $'\
+            + f'{coeffs[0]:.2f}' + r'$x^2 $'\
+            + f' + {coeffs[1]:.2f}' + r'$x $'\
+            + f' + {coeffs[2]:.2f}'
         plt.plot(xs, f_fitted, label=label, color=colour, linestyle=ls)
         print(f"{line_label}: ")
         print(f"times : {time_end}")
@@ -217,7 +229,7 @@ axs[1].set_xlabel("Number of homes")
 axs[0].legend(fancybox=True)
 axs[1].legend(fancybox=True)
 fig.savefig(
-    f"outputs/results_analysis/facmac_results3.pdf",
+    "outputs/results_analysis/facmac_results3.pdf",
     bbox_inches='tight', format='pdf', dpi=1200
 )
 plt.close('all')

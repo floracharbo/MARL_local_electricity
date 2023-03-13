@@ -120,12 +120,15 @@ class Explorer:
         # interact with environment in a passive way for each step
         while sequence_feasible and not done:
             if self.rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and self.rl['trajectory']:
-                actions, _, _ = self.action_selector.trajectory_actions('baseline')
+                actions, _, _ = self.action_selector.trajectory_actions('baseline', ext='P')
+                action = actions[:, env.time_step]
+            else:
+                action = self.rl['default_action' + self.env.ext]
 
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
-                action, record=record,
-                evaluation=evaluation, netp_storeout=True
+                    action, record=record,
+                    evaluation=evaluation, netp_storeout=True
             )
             if not done:
                 for info, val in zip(
@@ -326,7 +329,9 @@ class Explorer:
                 # learn right away at the end of the step
                 if self.n_homes > 0:
                     if not evaluation and not self.rl['trajectory']:
-                        for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
+                        for eval_method in methods_learning_from_exploration(
+                                method, epoch, self.rl
+                        ):
                             self.learning_manager.learning(
                                 current_state, state, action, reward, done,
                                 eval_method, step, step_vals, epoch
@@ -361,7 +366,6 @@ class Explorer:
             self.data.ext = "_test"
         else:
             self.data.ext = ""
-
 
         # initialise data
         methods_nonopt = [method for method in methods if method != "opt"]

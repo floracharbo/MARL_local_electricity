@@ -593,7 +593,7 @@ class LocalElecEnv:
             voltage_squared, hourly_line_losses, q_ext_grid = \
                 self.network._power_flow_res_with_pandapower(
                     home_vars, netp0, q_car_flex
-            )
+                )
         else:
             voltage_squared = None
             hourly_line_losses = 0

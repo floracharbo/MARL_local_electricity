@@ -36,6 +36,7 @@ def _print_savings(metrics, prm):
             for value, label in zip(values, labels):
                 print(f"{label}: {value}")
 
+
 def _print_stats(f, prm, record, metrics):
     # 8 - print stats
     sum_duration = 0

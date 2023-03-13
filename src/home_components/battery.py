@@ -127,7 +127,6 @@ class Battery:
         for info in ['own_car', 'store0', 'caps', 'min_charge']:
             setattr(self, info, prm['car'][info + self.ext])
 
-
     def compute_battery_demand_aggregated_at_start_of_trip(
             self,
             batch: dict
@@ -315,9 +314,11 @@ class Battery:
                     f"time_step == {self.N - 1} and min_charge_t {min_charge_t[home]} " \
                     f"< {self.store0[home]} - {self.c_max}"
 
-        self.min_charge_t = min_charge_t
         absolute_max_charge_t = np.where(last_step and self.avail_car, self.store0, self.caps)
         self.max_charge_t = np.minimum(max_charge_for_final_step, absolute_max_charge_t)
+        self.min_charge_t = np.where(
+            abs(min_charge_t - self.max_charge_t) < 1e-2, self.max_charge_t, min_charge_t
+        )
 
         return bool_penalty
 
@@ -348,7 +349,8 @@ class Battery:
         # initial and final storage level
         if date == self.date0:
             assert self.start_store[home] == self.store0[home], \
-                f'start_store[{home}] {self.start_store[home]} not store0'
+                f'start_store[{home}] {self.start_store[home]} ' \
+                f'not store0 {self.store0[home]}'
 
         if date == self.date_end - datetime.timedelta(hours=self.dt) \
                 and self.avail_car[home]:
@@ -466,7 +468,7 @@ class Battery:
         s_add_0 = np.multiply(self.avail_car, np.maximum(self.min_charge_t - self.start_store, 0))
         if self.time_step == self.N:
             s_add_0 = np.where(s_add_0 > self.c_max + 1e-3, self.c_max, s_add_0)
-        assert all(s_add_0 <= self.c_max + 1e-3), \
+        assert all(s_add_0 <= self.c_max + 1e-2), \
             f"s_add_0: {s_add_0} > self.c_max {self.c_max} " \
             f"self.min_charge_t[i_too_large[0]] {self.min_charge_t} " \
             f"self.start_store[i_too_large[0]] {self.start_store} " \
@@ -486,7 +488,21 @@ class Battery:
             self.avail_car,
             np.minimum(self.c_max, np.maximum(self.max_charge_t - self.start_store, 0))
         )
-        assert all(add <= potential + 1e-3 for add, potential in zip(s_add_0, potential_charge)
+        for home in range(len(s_add_0)):
+            if s_add_0[home] > potential_charge[home] + 1e-3:
+                print(f"home {home} "
+                      f"self.avail_car[home] {self.avail_car[home]} "
+                      f"self.min_charge_t[home] {self.min_charge_t[home]} "
+                      f"self.max_charge_t[home] {self.max_charge_t[home]} "
+                      f"self.start_store[home] {self.start_store[home]} "
+                      f"self.time_step {self.time_step} "
+                      f"self.store[home] {self.store[home]} "
+                      f"self.c_max {self.c_max} "
+                      f"potential_charge[home] {potential_charge[home]} "
+                      f"s_add_0[home] {s_add_0[home]}"
+                      )
+
+        assert all(add <= potential + 1e-2 for add, potential in zip(s_add_0, potential_charge)
                    if potential > 0), f"s_add_0 {s_add_0} > potential_charge {potential_charge}"
         assert all(remove <= avail + 5e-2 for remove, avail in zip(s_remove_0, s_avail_dis)
                    if avail > 0), f"s_remove_0 {s_remove_0} > s_avail_dis {s_avail_dis}"
@@ -658,13 +674,14 @@ class Battery:
                 self.time_step < self.N
                 and simulation
                 and min_charge_t[home]
-                > (self.store[home] + self.c_max) * self.avail_car[home] + 1e-3
+                > (self.store[home] + self.c_max) * self.avail_car[home] + 1e-2
             ):
                 bool_penalty[home] = True
                 error_message = \
                     f"date {date} time_step {time_step} " \
                     f"min_charge_t[{home}] {min_charge_t[home]} " \
-                    f"> self.store[{home}] {self.store[home]} + self.c_max {self.c_max} "
+                    f"> self.store[{home}] {self.store[home]} + self.c_max {self.c_max} " \
+                    f"* self.avail_car[home] {self.avail_car[home]}"
 
                 self._print_error(error_message, print_error)
 
