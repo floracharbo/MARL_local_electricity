@@ -37,10 +37,6 @@ def patch_find_feasible_data(
     if 'house_cons' not in res:
         res['house_cons'] = res['totcons'] - res['E_heat']
     for file in files:
-        print(
-            f"copy {self.paths['test_data'] / names_files[file]}"
-            f" to {self.prm['paths']['opt_res'] / names_files[file]}"
-        )
         shutil.copyfile(
             self.paths['test_data'] / names_files[file],
             self.prm['paths']['opt_res'] / names_files[file]
