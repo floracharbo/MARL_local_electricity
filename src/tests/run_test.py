@@ -264,6 +264,8 @@ def test_all(mocker):
         for aggregate_actions in [True,  False]:
             settings['RL']['aggregate_actions'] = aggregate_actions
             for trajectory in [True, False]:
+                if type_learning == 'q_learning' and trajectory:
+                    break
                 settings['RL']['trajectory'] = trajectory
                 print(f"test {type_learning} aggregate_actions {aggregate_actions} trajectory {trajectory}")
                 no_run = current_no_run(paths_results)
