@@ -256,6 +256,7 @@ def save_default_values_to_run_data(log):
         with open(path_default, "wb") as file:
             pickle.dump(prm_default, file)
 
+
 def row_to_assets_str(row, columns0):
     assets = ''
     if row[columns0.index('car-own_car')] == 1:
@@ -376,7 +377,6 @@ def get_own_items_from_prm(prm, key, subkey):
         if subkey[- len(potential_ext):] == potential_ext:
             ext = potential_ext
 
-
     if subkey not in prm[key]:
         prm[key][subkey] = 1
     elif prm[key][subkey] is None:
@@ -489,8 +489,6 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                 if subkey == 'start_steps':
                     assert isinstance(val, int), f"start_steps is not an int: {val}"
                 row.append(val)
-
-
     else:
         row = None
 
@@ -648,29 +646,6 @@ def check_that_only_grdCn_changes_in_state_space(
     return only_col_of_interest_changes
 
 
-def only_columns_relevant_learning_type_comparison(
-    other_columns, current_setup, row_setup
-):
-    columns_irrelevant_for_q_learning_facmac_comparison = [
-        'act_noise', 'agent_facmac', 'buffer_size', 'cnn_kernel_size',
-        'cnn_out_channels', 'facmac-batch_size', 'facmac-critic_lr',
-        'hyper_initialization_nonzeros', 'lr', 'mixer', 'n_hidden_layers',
-        'n_hidden_layers_critic', 'nn_type', 'nn_type_critic', 'obs_agent_id',
-        'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha',
-        'gamma', 'timestamp', 'instant_feedback'
-    ]
-    only_col_of_interest_changes = all(
-        current_col == row_col or (
-            not isinstance(current_col, str) and np.isnan(current_col)
-            and not isinstance(row_col, str) and np.isnan(row_col)
-        )
-        for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
-        if other_columns[i] not in columns_irrelevant_for_q_learning_facmac_comparison
-    )
-
-    return only_col_of_interest_changes
-
-
 def annotate_run_nos(
         axs, values_of_interest_sorted, best_score_sorted,
         best_env_score_sorted, runs_sorted
@@ -709,6 +684,49 @@ def get_relevant_columns_for_type_learning(other_columns, log, i_row):
     ]
 
     return other_relevant_columns
+
+
+def get_indexes_to_ignore_in_setup_comparison(
+    column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
+    indexes_columns_ignore_q_learning
+):
+    ignore_cols = {
+        'supervised_loss_weight': ['supervised_loss'],
+        'state_space': ['grdC_n'],
+        'share_active': ['n_homes', 'n_homes_test', 'n_homesP', 'share_active_test'],
+        'assets': ['own_car', 'own_heat', 'own_loads', 'own_flex'],
+        'type_learning': [
+            'act_noise', 'agent_facmac', 'buffer_size', 'cnn_kernel_size',
+            'cnn_out_channels', 'facmac-batch_size', 'facmac-critic_lr',
+            'hyper_initialization_nonzeros', 'lr', 'mixer', 'n_hidden_layers',
+            'n_hidden_layers_critic', 'nn_type', 'nn_type_critic', 'obs_agent_id',
+            'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha',
+            'gamma', 'timestamp', 'instant_feedback'
+        ]
+    }
+    indexes_ignore = []
+    if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
+        indexes_ignore.append(other_columns.index('n_homes_all'))
+        if column_of_interest in ['n_homesP', 'n_homes']:
+            indexes_ignore.append(other_columns.index('share_active'))
+            i_n_homes_test = other_columns.index('n_homes_test')
+            row_n_homes = log[column_of_interest].loc[row]
+            initial_setup_row_n_hommes = log[column_of_interest].loc[initial_setup_row]
+            # if n_homes_test = n_homes set as np.nan so as to ignore it changing with n_homes
+            if current_setup[i_n_homes_test] == initial_setup_row_n_hommes:
+                current_setup[i_n_homes_test] = np.nan
+            if row_setup[i_n_homes_test] == row_n_homes:
+                row_setup[i_n_homes_test] = np.nan
+        if column_of_interest in ['n_homesP', 'n_homes_test']:
+            indexes_ignore.append(other_columns.index('share_active_test'))
+    else:
+        if column_of_interest in ignore_cols:
+            for ignore_col in ignore_cols[column_of_interest]:
+                indexes_ignore.append(other_columns.index(ignore_col))
+        if current_setup[other_columns.index('type_learning')] == 'q_learning':
+            indexes_ignore.append(indexes_columns_ignore_q_learning)
+
+    return indexes_ignore
 
 
 def compare_all_runs_for_column_of_interest(
@@ -768,39 +786,11 @@ def compare_all_runs_for_column_of_interest(
                     other_columns, current_setup, row_setup, initial_setup_row,
                     row, indexes_columns_ignore_q_learning
                 )
-            elif column_of_interest == 'type_learning':
-                only_col_of_interest_changes = only_columns_relevant_learning_type_comparison(
-                    other_columns, current_setup, row_setup
-                )
             else:
-                indexes_ignore = []
-                if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
-                    indexes_ignore.append(other_columns.index('n_homes_all'))
-                    if column_of_interest in ['n_homesP', 'n_homes']:
-                        indexes_ignore.append(other_columns.index('share_active'))
-                        i_n_homes_test = other_columns.index('n_homes_test')
-                        row_n_homes = log[column_of_interest].loc[row]
-                        initial_setup_row_n_hommes = log[column_of_interest].loc[initial_setup_row]
-                        # if n_homes_test = n_homes set as np.nan so as to ignore it changing with n_homes
-                        if current_setup[i_n_homes_test] == initial_setup_row_n_hommes:
-                            current_setup[i_n_homes_test] = np.nan
-                        if row_setup[i_n_homes_test] == row_n_homes:
-                            row_setup[i_n_homes_test] = np.nan
-                    if column_of_interest in ['n_homesP', 'n_homes_test']:
-                        indexes_ignore.append(other_columns.index('share_active_test'))
-                else:
-                    ignore_cols = {
-                        'supervised_loss_weight': ['supervised_loss'],
-                        'state_space': ['grdC_n'],
-                        'share_active': ['n_homes', 'n_homes_test', 'n_homesP', 'share_active_test'],
-                        'assets': ['own_car', 'own_heat', 'own_loads', 'own_flex'],
-                    }
-                    if column_of_interest in ignore_cols:
-                        for ignore_col in ignore_cols[column_of_interest]:
-                            indexes_ignore.append(other_columns.index(ignore_col))
-                    if current_setup[other_columns.index('type_learning')] == 'q_learning':
-                        indexes_ignore.append(indexes_columns_ignore_q_learning)
-
+                indexes_ignore = get_indexes_to_ignore_in_setup_comparison(
+                    column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
+                    indexes_columns_ignore_q_learning
+                )
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
                         (not isinstance(current_col, str) and np.isnan(current_col))
@@ -887,11 +877,14 @@ def compare_all_runs_for_column_of_interest(
                     colour = p[0].get_color()
                     if column_of_interest in ['share_active', 'n_homesP']:
                         n_homes, n_homes_all = [
-                            [log.loc[log['run'] == runs_sorted[i], n] for i in range(len(values_of_interest_sorted_k[k]))]
+                            [
+                                log.loc[log['run'] == runs_sorted[i], n]
+                                for i in range(len(values_of_interest_sorted_k[k]))
+                            ]
                             for n in ['n_homes_test', 'n_homes_all_test']
                         ]
                         score_per_active_home = [
-                            best_scores_sorted[k][best_score_type][i] * n_homes_all[i]/n_homes[i]
+                            best_scores_sorted[k][best_score_type][i] * n_homes_all[i] / n_homes[i]
                             for i in range(len(values_of_interest_sorted_k[k]))
                         ]
                         axs[ax_i].plot(
@@ -908,7 +901,6 @@ def compare_all_runs_for_column_of_interest(
                         best_scores_sorted[k][best_score_type][i_best],
                         'o', markerfacecolor=colour, markeredgecolor=colour
                     )
-
 
                     axs[ax_i].fill_between(
                         values_of_interest_sorted_k[k],
