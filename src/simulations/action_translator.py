@@ -263,8 +263,12 @@ class Action_translator:
                 flex_heat = None
                 # update variables for given action
                 # obtain the interval in which action_points lies
-                ik = [i for i in range(len(self.action_intervals[home]) - 1)
-                      if action[home][0] >= self.action_intervals[home][i]][-1]
+                if len(np.shape(action)) != 2:
+                    action = np.reshape(action, (self.n_homes, -1))
+                ik = [
+                    i for i in range(len(self.action_intervals[home]) - 1)
+                    if action[home][0] >= self.action_intervals[home][i]
+                ][-1]
                 res = {}  # resulting values (for dp, ds, fl, l)
                 for e in self.entries:
                     ik_ = 0 if e == 'dp' else ik
