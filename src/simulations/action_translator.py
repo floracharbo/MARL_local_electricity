@@ -259,12 +259,12 @@ class Action_translator:
         for home in homes:
             # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
+            if len(np.shape(action)) != 2:
+                action = np.reshape(action, (self.n_homes, -1))
             if self.aggregate_actions:
                 flex_heat = None
                 # update variables for given action
                 # obtain the interval in which action_points lies
-                if len(np.shape(action)) != 2:
-                    action = np.reshape(action, (self.n_homes, -1))
                 ik = [
                     i for i in range(len(self.action_intervals[home]) - 1)
                     if action[home][0] >= self.action_intervals[home][i]
