@@ -7,6 +7,7 @@ author: Flora Charbonnier
 from typing import List
 
 import numpy as np
+import torch as th
 
 from src.utilities.env_spaces import granularity_to_multipliers
 from src.utilities.userdeftools import (data_source,
@@ -95,7 +96,7 @@ class LearningManager:
         pre_transition_data = {
             "state": np.reshape(
                 states, (self.n_homes, self.rl["obs_shape"])),
-            "avail_actions": [self.rl["avail_actions"]],
+            "avail_actions": th.Tensor(self.rl["avail_actions"]),
             "obs": [np.reshape(
                 states, (self.n_homes, self.rl["obs_shape"]))]
         }

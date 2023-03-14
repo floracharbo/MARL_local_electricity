@@ -242,7 +242,7 @@ class ActionSelector:
     def _select_action_facmac(
         self, current_state, tf_prev_state, step, evaluation, method, t_env
     ):
-        pre_transition_data = {"avail_actions": [self.rl['avail_actions']], }
+        pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
         if self.rl['trajectory']:
             pre_transition_data["state"] = current_state[0: self.N]
             pre_transition_data["obs"] = tf_prev_state[0: self.N]

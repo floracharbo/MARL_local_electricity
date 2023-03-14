@@ -15,6 +15,7 @@ from datetime import timedelta
 from typing import Tuple
 
 import numpy as np
+import torch as th
 
 from src.simulations.data_manager import DataManager
 from src.simulations.learning import LearningManager
@@ -737,7 +738,7 @@ class Explorer:
                 pre_transition_data = {
                     "state": np.reshape(
                         current_state, (self.n_homes, rl["obs_shape"])),
-                    "avail_actions": [rl["avail_actions"]],
+                    "avail_actions": th.Tensor(rl["avail_actions"]),
                     "obs": [np.reshape(
                         current_state, (self.n_homes, rl["obs_shape"]))]
                 }
