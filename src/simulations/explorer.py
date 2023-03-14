@@ -663,6 +663,8 @@ class Explorer:
             if step_vals_i[key_] is None:
                 break
             target_shape = np.shape(step_vals[method][key_][time_step])
+            if key_ == 'diff_rewards' and len(step_vals_i[key_]) == self.n_homes + 1:
+                step_vals_i[key_] = step_vals_i[key_][:-1]
             if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
                 step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
             step_vals[method][key_][time_step] = step_vals_i[key_]
