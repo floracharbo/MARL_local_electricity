@@ -33,10 +33,16 @@ class ActionSelector:
             current_state: list
     ) -> list:
         if self.rl['LSTM']:
-            tf_prev_state = [tf.expand_dims(
-                tf.convert_to_tensor(np.reshape(
-                    current_state[home], (1, 1))), 0)
-                for home in self.homes]
+            tf_prev_state = [
+                tf.expand_dims(
+                    tf.convert_to_tensor(
+                        np.reshape(current_state[home], (1, 1))
+                    ), 0
+                )
+                for home in self.homes
+            ]
+        elif self.rl['type_learning'] == 'facmac':
+            tf_prev_state = th.Tensor(current_state)
         else:
             tf_prev_state = tf.convert_to_tensor(current_state)
 
