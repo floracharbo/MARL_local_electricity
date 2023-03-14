@@ -244,10 +244,10 @@ class ActionSelector:
     ):
         pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
         if self.rl['trajectory']:
-            pre_transition_data["state"] = current_state[0: self.N]
+            pre_transition_data["state"] = tf_prev_state[0: self.N]
             pre_transition_data["obs"] = tf_prev_state[0: self.N]
         else:
-            pre_transition_data["state"] = current_state
+            pre_transition_data["state"] = tf_prev_state
             pre_transition_data["obs"] = tf_prev_state
 
         self.episode_batch[method].update(pre_transition_data, ts=step)
@@ -263,10 +263,10 @@ class ActionSelector:
                 t_env=t_env, test_mode=evaluation
             )
 
-        action = [
-            [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
-            for home in self.homes
-        ]
+        # action = [
+        #     [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
+        #     for home in self.homes
+        # ]
 
         return action
 
