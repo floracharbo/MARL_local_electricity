@@ -335,7 +335,8 @@ class Action_translator:
                 f"home_vars['tot_cons'][home] {home_vars['tot_cons'][home]}"
 
         bool_penalty = self.car.check_errors_apply_step(
-            homes, bool_penalty, action, self.res)
+            homes, bool_penalty, action, self.res
+        )
         if sum(bool_penalty) > 0:
             self.error = True
         if not self.error and self.plotting:
