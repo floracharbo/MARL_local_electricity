@@ -283,7 +283,10 @@ class Action_translator:
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
                         loads['flex_cons'][-1] = 0
             else:
-                flexible_cons_action, flexible_heat_action, flexible_store_action = action[home]
+                try:
+                    flexible_cons_action, flexible_heat_action, flexible_store_action = action[home]
+                except Exception as ex:
+                    print(f"ex {ex} action[{home}] = {action[home]}")
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
