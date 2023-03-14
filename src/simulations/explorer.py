@@ -599,12 +599,7 @@ class Explorer:
         vars = break_down_rewards + [feasible]
         for key_, var in zip(keys, vars):
             step_vals_i[key_] = var
-        keys = [
-            "state", "action", "reward", "indiv_grid_battery_costs", "diff_rewards",
-            "bool_flex", "constraint_ok",
-            "ind_global_action", "ind_global_state"
-        ]
-        for key_ in keys:
+        for key_ in step_vals_i.keys():
             step_vals[method][key_].append(step_vals_i[key_])
 
         if time_step > 0:
@@ -632,7 +627,8 @@ class Explorer:
                 step_vals[method]["ind_next_global_state"].append(None)
 
         step_vals[method]["done"].append(
-            False if time_step <= len(res["grid"]) - 2 else True)
+            False if time_step <= len(res["grid"]) - 2 else True
+        )
 
         return step_vals
 
