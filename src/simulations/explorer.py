@@ -789,9 +789,9 @@ class Explorer:
                 }
 
                 post_transition_data = {
-                    "actions": actions,
-                    "reward": [(reward,)],
-                    "terminated": [(time_step == self.N - 1,)],
+                    "actions": th.from_numpy(actions),
+                    "reward": th.from_numpy(np.array(reward)),
+                    "terminated": th.from_numpy(np.array(time_step == self.N - 1)),
                 }
 
                 evaluation_methods = methods_learning_from_exploration(
