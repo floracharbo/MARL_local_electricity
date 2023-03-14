@@ -121,6 +121,10 @@ class EpisodeBatch:
                 else:
                     raise KeyError(f"{k} not found in transition "
                                    f"or episode data")
+                try:
+                    v.to(self.device)
+                except Exception as ex:
+                    print(f"ex {ex} k {k} v {v}")
                 v.to(self.device)
                 target[k_][_slices] = v.view_as(target[k_][_slices])
                 if k_ in self.preprocess:
