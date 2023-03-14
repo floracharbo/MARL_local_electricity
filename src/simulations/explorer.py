@@ -82,6 +82,11 @@ class Explorer:
             "diff_rewards": 1,
             "bool_flex": 1,
         }
+        for info in self.prm['syst']['break_down_rewards_entries']:
+            if info[0: len('indiv')] == 'indiv':
+                self.dim_step_vals[info] = self.n_homes
+            else:
+                self.dim_step_vals[info] = 1
         self.global_step_vals_entries = [
             "ind_global_state", "ind_global_action", "reward",
             "ind_next_global_state", "done", "constraint_ok"
@@ -425,15 +430,6 @@ class Explorer:
                 # initialise data for current method
                 if method == method0:
                     initt0 += 1
-                step_vals[method] = initialise_dict(
-                    self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
-                )
-                for info in self.indiv_step_vals_entries:
-                    step_vals[method][info] = np.full(
-                        (self.N, self.n_homes, self.dim_step_vals[info]), np.nan
-                    )
-                for info in self.global_step_vals_entries:
-                    step_vals[method][info] = np.full(self.N, np.nan)
 
                 vars_env[method] = initialise_dict(self.prm["save"]["last_entries"])
 
@@ -490,7 +486,21 @@ class Explorer:
         env = copy.deepcopy(self.env) if parallel else self.env
 
         # initialise output
-        step_vals = initialise_dict(methods)
+        step_vals = {}
+        for method in methods:
+            step_vals[method] = initialise_dict(
+                self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
+            )
+            for info in self.indiv_step_vals_entries:
+                step_vals[method][info] = np.full(
+                    (self.N, self.n_homes, self.dim_step_vals[info]), np.nan
+                )
+            for info in self.global_step_vals_entries:
+                step_vals[method][info] = np.full(self.N, np.nan)
+            for info in self.prm['syst']['break_down_rewards_entries']:
+                step_vals[method][info] = np.full(
+                    (self.N, self.dim_step_vals[info]), np.nan
+                )
 
         self._init_facmac_mac(methods, new_episode_batch, epoch)
 
@@ -623,19 +633,20 @@ class Explorer:
             global_ind["state"], global_ind["action"], reward,
             global_ind["next_state"], done, constraint_ok
         ]
+        time_step = self.env.time_step - 1
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
-            step_vals[method][info].append(var)
+            step_vals[method][info][time_step] = var
         for info, var in zip(self.indiv_step_vals_entries, indiv_step_vals):
             if var is not None:
                 if info == 'diff_rewards' and len(var) == self.n_homes + 1:
                     var = var[:-1]
                 var_ = np.array(var.cpu()) if th.is_tensor(var) else var
-                step_vals[method][info][self.env.time_step - 1, :, :] = np.reshape(
+                step_vals[method][info][time_step, :, :] = np.reshape(
                     var_, (self.n_homes, self.dim_step_vals[info])
                 )
 
         for info, var in zip(self.global_step_vals_entries, global_step_vals):
-            step_vals[method][info][self.env.time_step - 1] = var
+            step_vals[method][info][time_step] = var
 
         return step_vals
 
@@ -649,21 +660,24 @@ class Explorer:
         for key_, var in zip(keys, vars):
             step_vals_i[key_] = var
         for key_ in step_vals_i.keys():
-            step_vals[method][key_].append(step_vals_i[key_])
+            if step_vals_i[key_] is None:
+                break
+            target_shape = np.shape(step_vals[method][key_][time_step])
+            if len(target_shape) > 0 and target_shape != step_vals_i[key_]:
+                step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
+            step_vals[method][key_][time_step] = step_vals_i[key_]
 
         if time_step > 0:
-            step_vals[method]["next_state"].append(step_vals_i["state"])
+            step_vals[method]["next_state"][time_step] = step_vals_i["state"]
             if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
-                step_vals[method]["ind_next_global_state"].append(
-                    step_vals_i["ind_global_state"])
+                step_vals[method]["ind_next_global_state"][time_step] = \
+                    step_vals_i["ind_global_state"]
             else:
-                step_vals[method]["ind_next_global_state"].append(None)
+                step_vals[method]["ind_next_global_state"][time_step] = np.nan
         if time_step == len(res["grid"]) - 1:
-            step_vals[method]["next_state"].append(
-                self.env.spaces.opt_step_to_state(
-                    self.prm, res, time_step + 1, loads_prev,
-                    loads_step, batch_avail_car, loads, home_vars
-                )
+            step_vals[method]["next_state"][time_step] = self.env.spaces.opt_step_to_state(
+                self.prm, res, time_step + 1, loads_prev,
+                loads_step, batch_avail_car, loads, home_vars
             )
             if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
                 ind_next_state = self.env.spaces.get_space_indexes(
@@ -673,11 +687,10 @@ class Explorer:
                         "state", indexes=ind_next_state,
                         multipliers=self.global_multipliers["state"]))
             else:
-                step_vals[method]["ind_next_global_state"].append(None)
+                step_vals[method]["ind_next_global_state"][time_step] = None
 
-        step_vals[method]["done"].append(
+        step_vals[method]["done"][time_step] = \
             False if time_step <= len(res["grid"]) - 2 else True
-        )
 
         return step_vals
 
@@ -859,7 +872,6 @@ class Explorer:
         feasible = True
         method = "opt"
         sum_rl_rewards = 0
-        step_vals[method] = initialise_dict(self.step_vals_entries)
         batchflex_opt, batch_avail_car = [copy.deepcopy(batch[e]) for e in ["flex", "avail_car"]]
 
         self._check_i0_costs_res(res)
