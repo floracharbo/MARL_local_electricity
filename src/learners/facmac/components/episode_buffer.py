@@ -121,9 +121,7 @@ class EpisodeBatch:
                 else:
                     raise KeyError(f"{k} not found in transition "
                                    f"or episode data")
-                dtype = self.scheme[k].get("dtype", th.float32)
-                # v = np.array(v, dtype=float)  # get np.nan from None
-                v = th.tensor(v, dtype=dtype, device=self.device)
+                v.to(self.device)
                 target[k_][_slices] = v.view_as(target[k_][_slices])
                 if k_ in self.preprocess:
                     new_k = self.preprocess[k][0]

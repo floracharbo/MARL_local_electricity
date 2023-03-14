@@ -19,8 +19,8 @@ labels = {
     'OMQ': 'Optimisation-informed, marginal reward Q-learning',
     'FD': 'FACMAC (day-ahead)',
     'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
-    'FH': 'FACMAC',  # (hourly)
-    'FHO': 'Optimisation-informed FACMAC (hourly)'
+    # 'FH': 'FACMAC',  # (hourly)
+    # 'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
 type_learning = {
     'IQ': 'env_r_d',

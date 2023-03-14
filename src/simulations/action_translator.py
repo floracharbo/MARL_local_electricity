@@ -259,12 +259,16 @@ class Action_translator:
         for home in homes:
             # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
+            if len(np.shape(action)) != 2:
+                action = np.reshape(action, (self.n_homes, -1))
             if self.aggregate_actions:
                 flex_heat = None
                 # update variables for given action
                 # obtain the interval in which action_points lies
-                ik = [i for i in range(len(self.action_intervals[home]) - 1)
-                      if action[home][0] >= self.action_intervals[home][i]][-1]
+                ik = [
+                    i for i in range(len(self.action_intervals[home]) - 1)
+                    if action[home][0] >= self.action_intervals[home][i]
+                ][-1]
                 res = {}  # resulting values (for dp, ds, fl, l)
                 for e in self.entries:
                     ik_ = 0 if e == 'dp' else ik
@@ -335,7 +339,8 @@ class Action_translator:
                 f"home_vars['tot_cons'][home] {home_vars['tot_cons'][home]}"
 
         bool_penalty = self.car.check_errors_apply_step(
-            homes, bool_penalty, action, self.res)
+            homes, bool_penalty, action, self.res
+        )
         if sum(bool_penalty) > 0:
             self.error = True
         if not self.error and self.plotting:

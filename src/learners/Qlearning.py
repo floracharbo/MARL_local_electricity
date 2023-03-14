@@ -305,7 +305,8 @@ class TabularQLearner:
             step_vals[key][step]
             for key in ["reward", "diff_rewards", "indiv_grid_battery_costs"]
         ]
-
+        if len(np.shape(diff_rewards)) == 2 and np.shape(diff_rewards)[1] == 1:
+            diff_rewards = np.reshape(diff_rewards, (len(diff_rewards),))
         [ind_global_s, ind_global_ac, indiv_s, indiv_ac, ind_next_global_s, next_indiv_s, done] = [
             step_vals[e][step] for e in [
                 'ind_global_state', 'ind_global_action', 'state', 'action',

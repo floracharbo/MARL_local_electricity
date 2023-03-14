@@ -37,10 +37,6 @@ def patch_find_feasible_data(
     if 'house_cons' not in res:
         res['house_cons'] = res['totcons'] - res['E_heat']
     for file in files:
-        print(
-            f"copy {self.paths['test_data'] / names_files[file]}"
-            f" to {self.prm['paths']['opt_res'] / names_files[file]}"
-        )
         shutil.copyfile(
             self.paths['test_data'] / names_files[file],
             self.prm['paths']['opt_res'] / names_files[file]
@@ -267,11 +263,15 @@ def test_all(mocker):
         settings['RL']['type_learning'] = type_learning
         for aggregate_actions in [True,  False]:
             settings['RL']['aggregate_actions'] = aggregate_actions
-            print(f"test {type_learning} aggregate_actions {aggregate_actions} ")
-            no_run = current_no_run(paths_results)
+            for trajectory in [True, False]:
+                if type_learning == 'q_learning' and trajectory:
+                    break
+                settings['RL']['trajectory'] = trajectory
+                print(f"test {type_learning} aggregate_actions {aggregate_actions} trajectory {trajectory}")
+                no_run = current_no_run(paths_results)
 
-            if prev_no_run is not None:
-                assert no_run == prev_no_run + 1, "results not saving"
-            run(run_mode, settings)
-            prev_no_run = no_run
+                if prev_no_run is not None:
+                    assert no_run == prev_no_run + 1, "results not saving"
+                run(run_mode, settings)
+                prev_no_run = no_run
 

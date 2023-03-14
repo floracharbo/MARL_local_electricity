@@ -41,7 +41,7 @@ class ActionSelector:
                 )
                 for home in self.homes
             ]
-        elif self.rl['type_learning']== 'facmac':
+        elif self.rl['type_learning'] == 'facmac':
             tf_prev_state = th.Tensor(current_state)
         else:
             tf_prev_state = tf.convert_to_tensor(current_state)
@@ -264,10 +264,10 @@ class ActionSelector:
                 t_env=t_env, test_mode=evaluation
             )
 
-        action = [
-            [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
-            for home in self.homes
-        ]
+        # action = [
+        #     [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
+        #     for home in self.homes
+        # ]
 
         return action
 
