@@ -317,10 +317,11 @@ class Explorer:
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
             )
+            action_ = np.array(action.cpu()) if th.is_tensor(action) else action
             [
                 state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
             ] = env.step(
-                np.array(action), record=record, evaluation=evaluation,
+                action_, record=record, evaluation=evaluation,
                 E_req_only=method == "baseline"
             )
             if record:
