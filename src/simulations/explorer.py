@@ -779,11 +779,13 @@ class Explorer:
                 )
             elif rl["type_learning"] == "facmac":
                 pre_transition_data = {
-                    "state": np.reshape(
-                        current_state, (self.n_homes, rl["obs_shape"])),
+                    "state": th.from_numpy(
+                        np.reshape(current_state, (self.n_homes, rl["obs_shape"]))
+                    ),
                     "avail_actions": th.Tensor(rl["avail_actions"]),
-                    "obs": [np.reshape(
-                        current_state, (self.n_homes, rl["obs_shape"]))]
+                    "obs": th.from_numpy(
+                        np.reshape(current_state, (self.n_homes, rl["obs_shape"]))
+                    )
                 }
 
                 post_transition_data = {
