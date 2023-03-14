@@ -663,7 +663,7 @@ class Explorer:
             if step_vals_i[key_] is None:
                 break
             target_shape = np.shape(step_vals[method][key_][time_step])
-            if len(target_shape) > 0 and target_shape != step_vals_i[key_]:
+            if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
                 step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
             step_vals[method][key_][time_step] = step_vals_i[key_]
 
