@@ -49,8 +49,8 @@ class LearningManager:
         if self.rl['type_learning'] == 'facmac':
             post_transition_data = {
                 "actions": action,
-                "reward": [(reward,)],
-                "terminated": [(done,)],
+                "reward": th.from_numpy(np.array(reward)),
+                "terminated": th.from_numpy(np.array(done)),
             }
 
             self.should_optimise_for_supervised_loss(epoch, step_vals)
@@ -58,10 +58,7 @@ class LearningManager:
                 if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action']
                 else:
-                    post_transition_data["optimal_actions"] = np.full(
-                        np.shape(step_vals['env_r_c']['action']),
-                        -1
-                    )
+                    post_transition_data["optimal_actions"] = np.full((self.N, self.n_homes), - 1)
             else:
                 if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
@@ -70,12 +67,17 @@ class LearningManager:
                         np.shape(step_vals['baseline']['action'][step]),
                         -1
                     )
+            post_transition_data["optimal_actions"] = th.from_numpy(post_transition_data["optimal_actions"])
             self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
                 and method != 'baseline' \
                 and not done:
-            if type(reward) in [float, int, np.float64]:
+            if reward_type(method) == 'd':
+                self._learning_difference_rewards(
+                    step_vals['diff_rewards'][step], current_state, action, state, method
+                )
+            elif type(reward) in [float, int, np.float64]:
                 self._learning_total_rewards(
                     reward, current_state, action, state, method
                 )
