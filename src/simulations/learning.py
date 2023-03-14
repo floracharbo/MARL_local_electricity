@@ -98,24 +98,24 @@ class LearningManager:
         traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
 
         pre_transition_data = {
-            "state": np.reshape(
-                states, (self.n_homes, self.rl["obs_shape"])),
-            "avail_actions": th.Tensor(self.rl["avail_actions"]),
-            "obs": [np.reshape(
-                states, (self.n_homes, self.rl["obs_shape"]))]
+            "state": th.from_numpy(np.reshape(
+                states, (self.n_homes, self.rl["obs_shape"]))),
+            "avail_actions": th.from_numpy(self.rl["avail_actions"]),
+            "obs": th.from_numpy(np.reshape(
+                states, (self.n_homes, self.rl["obs_shape"])))
         }
         post_transition_data = {
-            "actions": actions,
-            "reward": [(traj_reward,)],
-            "terminated": [True],
+            "actions": th.from_numpy(actions),
+            "reward": th.from_numpy(np.array(traj_reward)),
+            "terminated": th.from_numpy(np.array(True)),
         }
         if self.should_optimise_for_supervised_loss(epoch, step_vals):
-            post_transition_data["optimal_actions"] = step_vals['opt']['action']
+            post_transition_data["optimal_actions"] = th.from_numpy(step_vals['opt']['action'])
         else:
-            post_transition_data["optimal_actions"] = np.full(
+            post_transition_data["optimal_actions"] = th.from_numpy(np.full(
                 np.shape(step_vals['opt']['action']),
                 -1
-            )
+            ))
 
         for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
             self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)
