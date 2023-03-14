@@ -267,11 +267,13 @@ def test_all(mocker):
         settings['RL']['type_learning'] = type_learning
         for aggregate_actions in [True,  False]:
             settings['RL']['aggregate_actions'] = aggregate_actions
-            print(f"test {type_learning} aggregate_actions {aggregate_actions} ")
-            no_run = current_no_run(paths_results)
+            for trajectory in [True, False]:
+                settings['RL']['trajectory'] = trajectory
+                print(f"test {type_learning} aggregate_actions {aggregate_actions} trajectory {trajectory}")
+                no_run = current_no_run(paths_results)
 
-            if prev_no_run is not None:
-                assert no_run == prev_no_run + 1, "results not saving"
-            run(run_mode, settings)
-            prev_no_run = no_run
+                if prev_no_run is not None:
+                    assert no_run == prev_no_run + 1, "results not saving"
+                run(run_mode, settings)
+                prev_no_run = no_run
 
