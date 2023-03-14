@@ -58,7 +58,9 @@ class LearningManager:
                 if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action']
                 else:
-                    post_transition_data["optimal_actions"] = np.full((self.N, self.n_homes, self.rl['dim_actions_1']), - 1)
+                    post_transition_data["optimal_actions"] = np.full(
+                        (self.N, self.n_homes, self.rl['dim_actions_1']), - 1
+                    )
             else:
                 if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
