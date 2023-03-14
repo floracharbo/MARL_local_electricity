@@ -627,10 +627,13 @@ class Explorer:
             step_vals[method][info].append(var)
         for info, var in zip(self.indiv_step_vals_entries, indiv_step_vals):
             if var is not None:
+                if info == 'diff_rewards' and len(var) == self.n_homes + 1:
+                    var = var[:-1]
                 var_ = np.array(var.cpu()) if th.is_tensor(var) else var
                 step_vals[method][info][self.env.time_step - 1, :, :] = np.reshape(
                     var_, (self.n_homes, self.dim_step_vals[info])
                 )
+
         for info, var in zip(self.global_step_vals_entries, global_step_vals):
             step_vals[method][info][self.env.time_step - 1] = var
 
