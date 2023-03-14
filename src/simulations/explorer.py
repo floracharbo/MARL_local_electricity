@@ -83,9 +83,13 @@ class Explorer:
             "bool_flex": 1,
         }
         self.global_step_vals_entries = [
-            "ind_global_state", "ind_global_action", "reward", "ind_next_global_state", "done", "constraint_ok"
+            "ind_global_state", "ind_global_action", "reward",
+            "ind_next_global_state", "done", "constraint_ok"
         ]
-        self.step_vals_entries = self.indiv_step_vals_entries + self.global_step_vals_entries + prm['syst']['break_down_rewards_entries']
+        self.step_vals_entries = \
+            self.indiv_step_vals_entries \
+            + self.global_step_vals_entries \
+            + prm['syst']['break_down_rewards_entries']
 
     def _initialise_passive_vars(self, env, repeat, epoch, i_explore):
         self.n_homes = self.prm['syst']['n_homesP']
@@ -316,7 +320,8 @@ class Explorer:
             [
                 state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
             ] = env.step(
-                np.array(action), record=record, evaluation=evaluation, E_req_only=method == "baseline"
+                np.array(action), record=record, evaluation=evaluation,
+                E_req_only=method == "baseline"
             )
             if record:
                 self.last_epoch(evaluation, method, record_output, batch, done)
@@ -423,7 +428,9 @@ class Explorer:
                     self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
                 )
                 for info in self.indiv_step_vals_entries:
-                    step_vals[method][info] = np.full((self.N, self.n_homes, self.dim_step_vals[info]), np.nan)
+                    step_vals[method][info] = np.full(
+                        (self.N, self.n_homes, self.dim_step_vals[info]), np.nan
+                    )
                 for info in self.global_step_vals_entries:
                     step_vals[method][info] = np.full(self.N, np.nan)
 
@@ -612,7 +619,8 @@ class Explorer:
             current_state, action, diff_rewards, state, bool_flex
         ]
         global_step_vals = [
-            global_ind["state"], global_ind["action"], reward, global_ind["next_state"], done, constraint_ok
+            global_ind["state"], global_ind["action"], reward,
+            global_ind["next_state"], done, constraint_ok
         ]
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
             step_vals[method][info].append(var)

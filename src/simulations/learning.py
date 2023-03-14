@@ -67,7 +67,9 @@ class LearningManager:
                         np.shape(step_vals['baseline']['action'][step]),
                         -1
                     )
-            post_transition_data["optimal_actions"] = th.from_numpy(post_transition_data["optimal_actions"])
+            post_transition_data["optimal_actions"] = th.from_numpy(
+                post_transition_data["optimal_actions"]
+            )
             self.episode_batch[method].update(post_transition_data, ts=step)
 
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
