@@ -846,7 +846,28 @@ def compare_all_runs_for_column_of_interest(
                         print(f"runs {runs} equal?")
             else:
                 setups.append(current_setup)
-                i_sorted = np.argsort(values_of_interest)
+                if column_of_interest == 'assets':
+                    i_sorted = []
+                    ordered_assets = ['car', 'heat', 'flex', 'none']
+                    i_3assets = [
+                        i for i in range(len(values_of_interest))
+                        if len(values_of_interest[i].split(',')) == 3
+                    ]
+                    if len(i_3assets) > 0:
+                        i_sorted.append(i_3assets[0])
+                    for asset1 in ordered_assets:
+                        for asset2 in ordered_assets:
+                            asset_comb = f"{asset1}, {asset2}"
+                            if asset_comb in values_of_interest:
+                                i_sorted.append(values_of_interest.index(asset_comb))
+                    for asset in ordered_assets:
+                        if asset in values_of_interest:
+                            i_sorted.append(values_of_interest.index(asset))
+
+                    assert len(i_sorted) == len(values_of_interest)
+                    assert all(i in i_sorted for i in range(len(values_of_interest)))
+                else:
+                    i_sorted = np.argsort(values_of_interest)
                 values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
                 best_scores_sorted = {k: {} for k in ['all', 'env']}
                 for k in ['all', 'env']:
