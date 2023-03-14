@@ -63,17 +63,29 @@ class Explorer:
         self.learning_manager = LearningManager(
             env, prm, learner, self.episode_batch
         )
-
-        self.step_vals_entries = [
-            "state", "ind_global_state", "action", "ind_global_action",
-            "reward", "diff_rewards", "next_state",
-            "ind_next_global_state", "done", "bool_flex", "constraint_ok"
-        ] + prm['syst']['break_down_rewards_entries']
+        self._initialise_step_vals_entries(prm)
         self.method_vals_entries = ["seeds", "n_not_feas"]
 
         self.env.update_date(0)
 
         self.paths = prm["paths"]
+
+    def _initialise_step_vals_entries(self, prm):
+
+        self.indiv_step_vals_entries = [
+            "state", "action", "diff_rewards", "next_state", "bool_flex"
+        ]
+        self.dim_step_vals = {
+            "state": prm['RL']['dim_states_1'],
+            "next_state": prm['RL']['dim_states_1'],
+            "action": prm['RL']['dim_actions_1'],
+            "diff_rewards": 1,
+            "bool_flex": 1,
+        }
+        self.global_step_vals_entries = [
+            "ind_global_state", "ind_global_action", "reward", "ind_next_global_state", "done", "constraint_ok"
+        ]
+        self.step_vals_entries = self.indiv_step_vals_entries + self.global_step_vals_entries + prm['syst']['break_down_rewards_entries']
 
     def _initialise_passive_vars(self, env, repeat, epoch, i_explore):
         self.n_homes = self.prm['syst']['n_homesP']
@@ -304,7 +316,7 @@ class Explorer:
             [
                 state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
             ] = env.step(
-                action, record=record, evaluation=evaluation, E_req_only=method == "baseline"
+                np.array(action), record=record, evaluation=evaluation, E_req_only=method == "baseline"
             )
             if record:
                 self.last_epoch(evaluation, method, record_output, batch, done)
@@ -312,20 +324,10 @@ class Explorer:
                 sequence_feasible = False
                 reward, _ = self._apply_reward_penalty(evaluation, reward)
             else:
-                diff_rewards = self._compute_diff_rewards(
-                    method, evaluation, reward, rewards_baseline, break_down_rewards
+                step_vals = self._append_step_vals_from_explo(
+                    method, evaluation, reward, rewards_baseline, break_down_rewards,
+                    current_state, state, action, done, bool_flex, constraint_ok, step_vals
                 )
-                global_ind = self._compute_global_ind_state_action(
-                    current_state, state, action, done, method
-                )
-                step_vals_ = [
-                    current_state, global_ind["state"], action, global_ind["action"], reward,
-                    diff_rewards, state, global_ind["next_state"], done,
-                    bool_flex, constraint_ok, *break_down_rewards
-                ]
-                for info, var in zip(self.step_vals_entries, step_vals_):
-                    step_vals[method][info].append(var)
-
                 # if instant feedback,
                 # learn right away at the end of the step
                 if self.n_homes > 0:
@@ -418,8 +420,13 @@ class Explorer:
                 if method == method0:
                     initt0 += 1
                 step_vals[method] = initialise_dict(
-                    self.step_vals_entries + self.method_vals_entries
+                    self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
                 )
+                for info in self.indiv_step_vals_entries:
+                    step_vals[method][info] = np.full((self.N, self.n_homes, self.dim_step_vals[info]), np.nan)
+                for info in self.global_step_vals_entries:
+                    step_vals[method][info] = np.full(self.N, np.nan)
+
                 vars_env[method] = initialise_dict(self.prm["save"]["last_entries"])
 
                 actions = None
@@ -591,7 +598,35 @@ class Explorer:
 
         return diff_rewards, feasible
 
-    def _append_step_vals(
+    def _append_step_vals_from_explo(
+            self, method, evaluation, reward, rewards_baseline, break_down_rewards,
+            current_state, state, action, done, bool_flex, constraint_ok, step_vals
+    ):
+        diff_rewards = self._compute_diff_rewards(
+            method, evaluation, reward, rewards_baseline, break_down_rewards
+        )
+        global_ind = self._compute_global_ind_state_action(
+            current_state, state, action, done, method
+        )
+        indiv_step_vals = [
+            current_state, action, diff_rewards, state, bool_flex
+        ]
+        global_step_vals = [
+            global_ind["state"], global_ind["action"], reward, global_ind["next_state"], done, constraint_ok
+        ]
+        for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
+            step_vals[method][info].append(var)
+        for info, var in zip(self.indiv_step_vals_entries, indiv_step_vals):
+            if var is not None:
+                step_vals[method][info][self.env.time_step - 1, :, :] = np.reshape(
+                    var, (self.n_homes, self.dim_step_vals[info])
+                )
+        for info, var in zip(self.global_step_vals_entries, global_step_vals):
+            step_vals[method][info][self.env.time_step - 1] = var
+
+        return step_vals
+
+    def _append_step_vals_from_opt(
             self, method, step_vals_i, res, time_step,
             loads_prev, loads_step, batch_avail_car, step_vals,
             break_down_rewards, feasible, loads, home_vars
@@ -881,7 +916,7 @@ class Explorer:
             self.env.heat.update_step(res)
 
             # append experience dictionaries
-            step_vals = self._append_step_vals(
+            step_vals = self._append_step_vals_from_opt(
                 method, step_vals_i, res, time_step,
                 loads_prev, loads_step, batch_avail_car, step_vals,
                 break_down_rewards, feasible, loads, home_vars
