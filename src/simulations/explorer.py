@@ -782,7 +782,7 @@ class Explorer:
                 current_state, actions, reward, state,
                 reward_diffs, indiv_grid_battery_costs
             ] = [
-                step_vals["opt"][e][-1]
+                step_vals["opt"][e][time_step]
                 for e in [
                     "state", "action", "reward", "next_state",
                     "diff_rewards", "indiv_grid_battery_costs"
