@@ -22,7 +22,7 @@ settings = {
         'n_repeats': 10,
         'type_learning': 'facmac',
         'evaluation_methods': 'env_r_c',
-        # 'trajectory': [True] * 6 + [False] * 6,
+        'trajectory': [True] * 6 + [False] * 6,
         'supervised_loss': False,
         'act_noise': 0.01,
         'lr': 1e-2,
