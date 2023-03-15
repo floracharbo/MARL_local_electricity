@@ -14,28 +14,26 @@ from src.simulations.runner import run
 
 # Enter experiment-specific settings in the dictionary below if using different parameters
 # to the default parameters in config_files/default_input_parameters, using the example syntax below.
-# q learning / facmac no traj / facmac traj / facmac supervised no traj / facmac supervised traj
+
 settings = {
     'RL': {
-        'state_space': [['flexibility', 'grdC_n2']] * 6 * 2,
-        'n_epochs': 20,
-        'n_repeats': 10,
-        'type_learning': 'facmac',
-        'evaluation_methods': 'env_r_c',
-        'trajectory': [True] * 6 + [False] * 6,
-        'supervised_loss': False,
-        'act_noise': 0.01,
-        'lr': 1e-2,
+       'state_space': [['grdC_n2', 'flexibility'], ['grdC']],
+       'n_epochs': 20,
+       'n_repeats': 3,
+       'type_learning': ['facmac'] * 2,
+       'evaluation_methods': [['env_r_c', 'opt_r_c']] * 2,
+       'facmac': {
+           'hysteretic': True,
+           'beta_to_alpha': 0.1,
+        },
     },
     'syst': {
-        'force_optimisation': True,
-        'n_homes': [1, 3, 5, 10, 20, 30] * 2,
+       'n_homes': 10,
     }
 }
 
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 RUN_MODE = 1
-no_runs = [515]  # if plotting
+no_runs = [823]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
-
