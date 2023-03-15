@@ -17,7 +17,7 @@ from tqdm import tqdm
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
-    'assets'
+    'n_homes'
 ]
 # COLUMNS_OF_INTEREST = None
 
@@ -28,7 +28,7 @@ FILTER = {
     # 'grdC_n': 2,
     'error_with_opt_to_rl_discharge': False,
     # 'n_homes': 10,
-    # 'server': True,
+    'server': True,
     'n_repeats': 10,
     # 'facmac-hysteretic': True,
 }
@@ -688,7 +688,7 @@ def get_relevant_columns_for_type_learning(other_columns, log, i_row):
 
 def get_indexes_to_ignore_in_setup_comparison(
     column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
-    indexes_columns_ignore_q_learning
+    indexes_columns_ignore_q_learning, row
 ):
     ignore_cols = {
         'supervised_loss_weight': ['supervised_loss'],
@@ -789,7 +789,7 @@ def compare_all_runs_for_column_of_interest(
             else:
                 indexes_ignore = get_indexes_to_ignore_in_setup_comparison(
                     column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
-                    indexes_columns_ignore_q_learning
+                    indexes_columns_ignore_q_learning, row
                 )
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
