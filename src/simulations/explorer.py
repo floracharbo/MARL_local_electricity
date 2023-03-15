@@ -430,7 +430,6 @@ class Explorer:
                 # initialise data for current method
                 if method == method0:
                     initt0 += 1
-
                 vars_env[method] = initialise_dict(self.prm["save"]["last_entries"])
 
                 actions = None
