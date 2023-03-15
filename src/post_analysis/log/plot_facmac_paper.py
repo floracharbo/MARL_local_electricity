@@ -64,7 +64,8 @@ runs = {
     # 'FD': [160, 105, 106, 123, 124, 125],
     # 'FD': list(range(265, 271)),
     # 'FD': list(range(516, 522)),
-    'FD': list(range(684, 690)),
+    # 'FD': list(range(684, 690)),
+    'FD': list(range(1089, 1091)) + list(range(1092, 1096)),
 
     # 'FDO': list(range(257, 261)) + list(range(263, 265)),
     # 'FDO': list(range(528, 534)),
@@ -74,7 +75,8 @@ runs = {
     # 'FH': [126, 127, 128, 129, 130, 131],
     # 'FH': list(range(245, 251)),
     # 'FH': list(range(510, 516)),
-    'FH': list(range(678, 684)),
+    # 'FH': list(range(678, 684)),
+    'FH': list(range(1103, 1109)),
 
     # 'FHO': [161, 162, 163, 164, 168, 169]
     # 'FHO': list(range(251, 257)),
