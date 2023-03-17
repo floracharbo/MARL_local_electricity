@@ -19,8 +19,8 @@ labels = {
     'OMQ': 'Optimisation-informed, marginal reward Q-learning',
     'FD': 'FACMAC (day-ahead)',
     'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
-    # 'FH': 'FACMAC',  # (hourly)
-    # 'FHO': 'Optimisation-informed FACMAC (hourly)'
+    'FH': 'FACMAC',  # (hourly)
+    'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
 type_learning = {
     'IQ': 'env_r_d',
@@ -69,7 +69,8 @@ runs = {
 
     # 'FDO': list(range(257, 261)) + list(range(263, 265)),
     # 'FDO': list(range(528, 534)),
-    'FDO': list(range(582, 587)) + [697],
+    # 'FDO': list(range(582, 587)) + [697],
+    'FDO': [1115, 1116, 1119, 1121, 1122, 1123],
     # missing 30
 
     # 'FH': [126, 127, 128, 129, 130, 131],
@@ -82,7 +83,8 @@ runs = {
     # 'FHO': list(range(251, 257)),
     # 'FHO': list(range(522, 528)),
     # 'FHO': list(range(522, 527)),
-    'FHO': list(range(771, 775)) + list(range(776, 778)),
+    # 'FHO': list(range(771, 775)) + list(range(776, 778)),
+    'FHO': list(range(1109, 1115))
 
 }
 
