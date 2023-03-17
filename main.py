@@ -22,7 +22,7 @@ settings = {
         'n_repeats': 10,
         'type_learning': 'q_learning',
         # 'evaluation_methods': 'env_r_c',
-        # 'trajectory': [True] * 2,
+        'trajectory': False,
         # 'supervised_loss': True,
         'act_noise': 0.01,
         'lr': 1e-2,
