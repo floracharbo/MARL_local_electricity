@@ -156,7 +156,7 @@ class TabularQLearner:
             self, reward, done, ind_state, ind_action, ind_next_state, epoch,
             i_table=0, q_table_name=None
     ):
-        val_q = 0 if ind_next_state is None \
+        val_q = 0 if ind_next_state is None or np.isnan(ind_next_state) \
             else max(self.q_tables[q_table_name][i_table][ind_next_state])
         qs_state = self.q_tables[q_table_name][i_table][ind_state]
         if type(val_q) in [list, np.ndarray]:
