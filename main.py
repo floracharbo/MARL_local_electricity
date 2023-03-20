@@ -29,13 +29,13 @@ settings = {
     },
     'syst': {
         'force_optimisation': True,
-        'n_homes': [1, 3, 5, 10, 20, 30],
+        'n_homes': [50],
     }
 }
 
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 RUN_MODE = 1
-no_runs = [515]  # if plotting
+no_runs = [282]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
 
