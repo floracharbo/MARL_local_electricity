@@ -23,7 +23,7 @@ settings = {
         'type_learning': 'facmac',
         'evaluation_methods': 'env_r_c',
         'trajectory': True,
-        # 'supervised_loss': True,
+        'supervised_loss': True,
         'act_noise': 0.01,
         'lr': 1e-2,
         'obs_agent_id': True,
