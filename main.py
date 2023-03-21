@@ -23,7 +23,7 @@ settings = {
         'type_learning': 'facmac',
         'evaluation_methods': 'env_r_c',
         'trajectory': True,
-        'supervised_loss': True,
+        # 'supervised_loss': True,
         'act_noise': 0.01,
         'lr': 1e-2,
         'obs_agent_id': True,
@@ -31,13 +31,13 @@ settings = {
     },
     'syst': {
         'force_optimisation': True,
-        'n_homes': [1, 3, 5, 10, 20, 30],
+        'n_homes': [2, 4, 6, 7, 8, 9, 15, 25],
     }
 }
 
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
 RUN_MODE = 1
-no_runs = [282]  # if plotting
+no_runs = [1137]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
 
