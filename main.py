@@ -20,10 +20,10 @@ settings = {
         'state_space': 'grdC',
         'n_epochs': 20,
         'n_repeats': 10,
-        'type_learning': 'q_learning',
-        # 'evaluation_methods': 'env_r_c',
-        # 'trajectory': True,
-        # 'supervised_loss': True,
+        'type_learning': 'facmac',
+        'evaluation_methods': 'env_r_c',
+        'trajectory': True,
+        'supervised_loss': True,
         'act_noise': 0.01,
         'lr': 1e-2,
         'obs_agent_id': True,
@@ -31,7 +31,7 @@ settings = {
     },
     'syst': {
         'force_optimisation': True,
-        'n_homes': [2, 4, 6, 7, 8, 9, 15, 25],
+        'n_homes': [15, 25],
     }
 }
 
