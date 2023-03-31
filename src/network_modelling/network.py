@@ -335,17 +335,6 @@ class Network:
                 self.max_voltage_rel_error = abs_rel_voltage_error
             replace_with_pp_simulation = True
 
-        if replace_with_pp_simulation:
-            with open(f"{self.folder_run}/voltage_comparison.txt", "a") as file:
-                file.write(
-                    f"The max diff of voltage between the optimiser and pandapower for time step "
-                    f"{time_step} is {max_rel_diff_voltage * 100}% ({max(all_abs_diff_voltage)}V) "
-                    f"at bus {np.argmax(all_rel_diff_voltage)}. "
-                    f"The absolute difference of hourly voltage costs is "
-                    f"{abs_rel_voltage_error * 100}% of the daily optimisation costs. "
-                    f"The network will be simulated with pandapower to correct the voltages"
-                )
-
         return [
             replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp,
             voltage_pp, pij_pp_kW, qij_pp_kW, reactive_power_losses
@@ -361,14 +350,6 @@ class Network:
             if abs_loss_error > self.max_losses_error:
                 self.max_losses_error = abs_loss_error
             replace_with_pp_simulation = True
-            with open(f"{self.folder_run}/line_losses.txt", "a") as file:
-                file.write(
-                    f"The difference in hourly line losses "
-                    f"between pandapower and the optimiser for time step {time_step} "
-                    f"is {abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)} kW. "
-                    f"To increase accuracy, the user could increase the subset_line_losses_modelled"
-                    f" (currently: {self.subset_line_losses_modelled} lines)\n"
-                )
 
         return replace_with_pp_simulation
 
