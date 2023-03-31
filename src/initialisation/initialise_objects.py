@@ -267,7 +267,6 @@ def _update_paths(paths, prm, no_run):
     paths['hedge_inputs'] \
         = paths["input_folder"] / paths['hedge_inputs_folder'] / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
-    paths["network_data"] = paths['open_inputs'] / paths['ieee_network_data']
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
     paths['test_data'] = paths['open_inputs'] / 'testing_data'
 

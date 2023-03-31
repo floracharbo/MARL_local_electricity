@@ -29,10 +29,6 @@ class Network:
     loads_single_phase:
         Transform a three phase loaded network to a single phase one
 
-    Private methods
-    _identify_duplicates_buses_lines
-    _remove_duplicates_buses_lines
-
     """
 
     def __init__(self, prm):
@@ -60,7 +56,6 @@ class Network:
             setattr(self, info, prm['grd'][info])
 
         if prm['grd']['manage_voltage']:
-            self.network_data_path = prm['paths']['network_data']
             self.folder_run = prm['paths']['folder_run']
 
             # ieee network and corresponding incidence matrix
@@ -166,10 +161,6 @@ class Network:
                     pp.create_sgen(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
                                    p_mw=0, q_mvar=0, name=f'passive{homeP}')
 
-            # Remove bus duplicates
-            # buscoords = pd.read_csv(self.network_data_path / 'Buscoords.csv', skiprows=1)
-            # self._remove_duplicates_buses_lines(buscoords)
-
             # Remove zero sequence line resistance and reactance
             self.net.line['r0_ohm_per_km'] = None
             self.net.line['x0_ohm_per_km'] = None
@@ -181,45 +172,6 @@ class Network:
         self.flex_buses = np.delete(self.flex_buses, (0), axis=0)
         self.passive_buses = np.delete(self.passive_buses, (0), axis=0)
 
-    def _identify_duplicates_buses_lines(self, buscoords):
-        bus_duplicates = buscoords.duplicated(
-            subset=[buscoords.columns[1], buscoords.columns[2]], keep=False
-        )
-        duplicates = bus_duplicates[bus_duplicates is True]
-        duplicates.index += 1
-        return list(duplicates.keys())
-
-    def _remove_duplicates_buses_lines(self, buscoords):
-        duplicates = self._identify_duplicates_buses_lines(buscoords)
-        if len(duplicates) > 0:
-            duplicated_buses = []
-            duplicated_lines = []
-            for i in range(len(duplicates)):
-                for j in range(i + 1, len(duplicates)):
-                    if (buscoords[' x'].iloc[duplicates[i] - 1]
-                        == buscoords[' x'].iloc[duplicates[j] - 1]) & \
-                            (buscoords[' y'].iloc[duplicates[i] - 1]
-                             == buscoords[' y'].iloc[duplicates[j] - 1]):
-                        if duplicates[j] not in self.net.load['bus'].values:
-                            duplicated_lines.append(self.net.line.loc[self.net.line['to_bus']
-                                                    == duplicates[j]].index[0])
-                            duplicated_buses.append(duplicates[j])
-                            break
-
-            # remove duplicates from incidence matrix and bus connection matrix
-            self.incidence_matrix = np.delete(self.incidence_matrix,
-                                              duplicated_buses, axis=0)
-            self.incidence_matrix = np.delete(self.incidence_matrix,
-                                              duplicated_lines, axis=1)
-            self.bus_connection_matrix = np.delete(self.bus_connection_matrix,
-                                                   duplicated_buses, axis=0)
-            self.bus_connection_matrix = np.delete(self.bus_connection_matrix,
-                                                   duplicated_buses, axis=1)
-            self.flex_buses = np.delete(self.flex_buses, duplicated_buses, axis=0)
-
-        # remove duplicates from network
-        self.net.line.drop(duplicated_lines, inplace=True)
-        self.net.bus.drop(duplicated_buses, inplace=True)
 
     def pf_simulation(
             self,
