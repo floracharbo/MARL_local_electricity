@@ -13,8 +13,9 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.utilities.userdeftools import calculate_reactive_power, \
-    compute_voltage_costs, compute_import_export_costs
+from src.utilities.userdeftools import (calculate_reactive_power,
+                                        compute_import_export_costs,
+                                        compute_voltage_costs)
 
 
 class Network:
@@ -28,7 +29,26 @@ class Network:
         Create the network incidence matrix.
     loads_single_phase:
         Transform a three phase loaded network to a single phase one
+    pf_simulation:
+        Run the hourly pandapower simulation on the network
+    network_line_data:
+        Extract the resistance and reactance from the network
+    compare_optimiser_pandapower:
+        Pre and post processing of comparison between load flow and opti
 
+    Private methods:
+    _matrix_flexible_buses and _matrix_passive_buses:
+        Create matrices on agents location for the optimization of the network
+    _network_incidence_matrix and _network_bus_connection:
+        Create matrices describing the lines and buses of the network
+    _assign_power_to_load_or_sgen:
+        Distribute the correct active and reative loads to the buses
+    _power_flow_res_with_pandapower:
+        Pre and post processing of pf_simulation
+    _check_voltage_differences and _check_losses_differences:
+        Perform a comparison between pandapower load flow and optimization
+    _replace_res_values_with_pp_simulation:
+        If required, replaces the opti results with accurate load flow results
     """
 
     def __init__(self, prm):
@@ -172,7 +192,6 @@ class Network:
         self.flex_buses = np.delete(self.flex_buses, (0), axis=0)
         self.passive_buses = np.delete(self.passive_buses, (0), axis=0)
 
-
     def pf_simulation(
             self,
             netp: list,
@@ -257,7 +276,7 @@ class Network:
                 netp0,
                 netq_flex[:, time_step],
                 netq_passive
-                )
+            )
 
         # Voltage test
         all_abs_diff_voltage = abs(res['voltage'][:, time_step] - voltage_pp[1:])
@@ -277,11 +296,10 @@ class Network:
             self.min_voltage,
             self.penalty_overvoltage,
             self.penalty_undervoltage
-            )
+        )
         abs_rel_voltage_error = abs(
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
-            / res['total_costs']
-        )
+            / res['total_costs'])
         if np.any(abs_rel_voltage_error > self.tol_rel_voltage_costs):
             if abs_rel_voltage_error > self.max_voltage_rel_error:
                 self.max_voltage_rel_error = abs_rel_voltage_error
@@ -318,9 +336,11 @@ class Network:
         # Compare hourly results from network modelling in optimizer and pandapower
         start = time.time()
         [
-            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp, voltage_pp, \
-            pij_pp_kW, qij_pp_kW, reactive_power_losses
-        ] = self._check_voltage_differences(res, time_step, netp0, res['netq_flex'], netq_passive)
+            replace_with_pp_simulation, hourly_line_losses_pp, hourly_voltage_costs_pp,
+            voltage_pp, pij_pp_kW, qij_pp_kW, reactive_power_losses
+        ] = self._check_voltage_differences(
+            res, time_step, netp0, res['netq_flex'], netq_passive
+        )
         replace_with_pp_simulation = self._check_losses_differences(
             res, hourly_line_losses_pp, time_step, replace_with_pp_simulation
         )
@@ -342,9 +362,11 @@ class Network:
         # corrected hourly_line_losses and grid values
         self.n_voltage_error += 1
         delta_voltage_costs = hourly_voltage_costs_pp - res['hourly_voltage_costs'][time_step]
-        delta_hourly_active_line_losses = hourly_line_losses_pp - res["hourly_line_losses"][time_step]
+        delta_hourly_active_line_losses = \
+            hourly_line_losses_pp - res["hourly_line_losses"][time_step]
         grid_pp = res["grid"][time_step] + delta_hourly_active_line_losses
-        delta_hourly_reactive_line_losses = reactive_power_losses - res["hourly_reactive_losses"][time_step]
+        delta_hourly_reactive_line_losses = \
+            reactive_power_losses - res["hourly_reactive_losses"][time_step]
         q_ext_grid_pp = res["q_ext_grid"][time_step] + delta_hourly_reactive_line_losses
 
         hourly_grid_energy_costs_pp = grdCt * (
@@ -414,11 +436,10 @@ class Network:
             "total costs do not match sum of hourly costs"
         abs_diff = abs(
             res['grid'][time_step]
-            - sum(res['netp'][:, time_step]) \
+            - sum(res['netp'][:, time_step])
             - res['hourly_line_losses'][time_step]
             - sum(res['netp0'][:, time_step])
         )
         assert abs_diff < 1e-3
 
         return res
-

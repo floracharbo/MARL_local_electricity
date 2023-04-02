@@ -546,7 +546,7 @@ class DataManager:
                         np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
                     self.prm['loads']['reactive_power_passive_homes'].append(
                         np.matmul(self.env.network.passive_buses,
-                                self.prm['loads']['q_heat_home_car_passive'][:, t]))
+                                  self.prm['loads']['q_heat_home_car_passive'][:, t]))
         else:
             self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 1])
             self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 1])

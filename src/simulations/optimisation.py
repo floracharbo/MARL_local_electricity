@@ -9,10 +9,10 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
+import math
 
 import numpy as np
 import picos as pic
-import math
 
 from src.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
@@ -80,7 +80,8 @@ class Optimiser:
         while abs(delta_voltages).max() > self.grd['tol_voltage_iteration'] and it < 10:
             it += 1
             self.input_hourly_lij = corr_lij
-            res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints = self._problem()
+            res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints = \
+                self._problem()
             res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
@@ -101,9 +102,9 @@ class Optimiser:
             print(f"max hourly delta losses iteration {it}: {abs(delta_losses).max()}")
 
         res, pp_simulation_required = check_and_correct_constraints(
-                res, constl_consa_constraints, constl_loads_constraints,
-                self.prm, corr_lij
-            )
+            res, constl_consa_constraints, constl_loads_constraints,
+            self.prm, corr_lij
+        )
         perform_checks = True
         res = res_post_processing(res, self.prm, res['lij'], perform_checks)
         return res, pp_simulation_required
@@ -209,7 +210,7 @@ class Optimiser:
         p.add_list_of_constraints(
             [pi[:, time_step]
                 == self.grd['flex_buses'] * netp[:, time_step] * self.kW_to_per_unit_conversion
-                 + self.loads['active_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
+                + self.loads['active_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
 
         p.add_constraint(
@@ -221,7 +222,7 @@ class Optimiser:
         p.add_list_of_constraints(
             [qi[:, time_step]
                 == self.grd['flex_buses'] * netq_flex[:, time_step] * self.kW_to_per_unit_conversion
-                 + self.loads['reactive_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
+                + self.loads['reactive_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
                 for time_step in range(self.N)])
 
         p.add_list_of_constraints(

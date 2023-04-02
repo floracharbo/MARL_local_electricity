@@ -1,3 +1,4 @@
+import math
 import os
 
 import matplotlib
@@ -5,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandapower.plotting as plot
 import seaborn as sns
-import math
 
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
                                                        title_and_save)
@@ -94,7 +94,8 @@ def _plot_all_agents_mean_res(
                     all_vals_e_t_step_mean[step] = np.mean(
                         np.mean(all_vals_e_t_step)
                     )
-                ys = all_vals_e_t_step_mean * prm['syst']['n_homes'] if sum_agents else all_vals_e_t_step_mean
+                ys = all_vals_e_t_step_mean * prm['syst']['n_homes'] \
+                    if sum_agents else all_vals_e_t_step_mean
                 ax = axs[r] if sum_agents else axs[r, c]
                 ax.step(
                     xs, ys,
@@ -107,7 +108,9 @@ def _plot_all_agents_mean_res(
     return axs
 
 
-def _plot_ev_loads_and_availability(axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1):
+def _plot_ev_loads_and_availability(
+        axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1
+    ):
     ax = axs[row, col]
     ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
     for band in bands_car_availability:
@@ -437,7 +440,7 @@ def _plot_indiv_agent_res(
             if reduced_version:
                 rows = [1, 1]
                 columns = [0, 1]
-                entries = ["totcons",  "store"]
+                entries = ["totcons", "store"]
             else:
                 rows = [1, 2, 0, 3]
                 columns = [0, 0, 1, 1]
@@ -460,7 +463,7 @@ def _plot_indiv_agent_res(
                         else:
                             ys = [0] + ys
                         if reduced_version and method != 'baseline':
-                            colour = (192/255, 0, 0)
+                            colour = (192 / 255, 0, 0)
                         else:
                             colour = prm["save"]["colourse"][method]
                         if reduced_version and method != 'baseline':
@@ -958,12 +961,10 @@ def map_over_undervoltage(
                 # Draw all the collected plots
                 ax = plot.draw_collections([lcd, bc, tlc, tpc, sc, ldA, ldB, over, under],
                                            figsize=(20, 20))
-
                 # Add legend to homes
-                
                 for bus, i in zip(
                     last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
-                    ):
+                ):
                     q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
                     q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
                     voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
@@ -974,8 +975,9 @@ def map_over_undervoltage(
                         f"\n Q_car is {round(q_car, 3)} kVAR",
                         xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
                 for bus, i in zip(
-                    last['loaded_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
-                    ):
+                    last['loaded_buses'][method][prm["syst"]["N"] - 1],
+                    range(prm["syst"]["n_homes"])
+                ):
                     q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
                     q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
                     voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])

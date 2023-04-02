@@ -335,13 +335,14 @@ def barplot_indiv_savings(record, prm):
         title_and_save(title, fig, prm)
         plt.close('all')
 
+
 def plot_voltage_statistics(record, prm):
     """ Creates plot of mean, max and number of voltage deviations per method """
     labels = [
         record.break_down_rewards_entries[prm['syst']['break_down_rewards_entries'].index(label)]
         for label in [
             'mean_voltage_deviation', 'max_voltage_deviation',
-             'n_voltage_deviation_bus', 'n_voltage_deviation_hour'
+            'n_voltage_deviation_bus', 'n_voltage_deviation_hour'
         ]
     ]
     for label in labels:

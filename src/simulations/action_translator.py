@@ -327,8 +327,9 @@ class Action_translator:
                     # -1 max export
                     # 1 max import
                     res['q'] = flexible_q_car_action * np.sqrt(
-                        (self.max_apparent_power_car + 1e-6)**2 - (charge - discharge + res['l_ch'])**2
-                        )
+                        (self.max_apparent_power_car + 1e-6)**2
+                        - (charge - discharge + res['l_ch'])**2
+                    )
                     flexible_q_car[home] = res['q']
 
                 res['dp'] = home_vars['netp'][home]
@@ -368,7 +369,6 @@ class Action_translator:
         # flexible_q_car
 
         return loads, home_vars, bool_penalty, flexible_q_car
-
 
     def _flexible_store_action_to_ds(self, home, flexible_store_action, res):
         """Convert flexible store action to change in storage level ds."""
@@ -746,9 +746,10 @@ class Action_translator:
         flexible_q_car_actions = np.zeros(self.n_homes)
         for home in range(self.n_homes):
             active_power = res['charge'][home, time_step] / self.car.eta_ch \
-                           - res['discharge_other'][home, time_step]
+                - res['discharge_other'][home, time_step]
             max_q_car_flexibility = np.sqrt(self.max_apparent_power_car**2 - active_power**2)
-            flexible_q_car_actions[home] = res['q_car_flex'][home, time_step] / max_q_car_flexibility
+            flexible_q_car_actions[home] = \
+                res['q_car_flex'][home, time_step] / max_q_car_flexibility
         # if action is close to zero, consider it to be zero
         flexible_q_car_actions[home] = \
             0 if abs(res['q_car_flex'][home, time_step]) < 1e-3 else flexible_q_car_actions[home]

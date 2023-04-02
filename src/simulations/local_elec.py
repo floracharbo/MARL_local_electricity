@@ -23,9 +23,10 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import calculate_reactive_power, \
-    compute_voltage_costs, compute_import_export_costs,  \
-        mean_max_hourly_voltage_deviations
+from src.utilities.userdeftools import (calculate_reactive_power,
+                                        compute_import_export_costs,
+                                        compute_voltage_costs,
+                                        mean_max_hourly_voltage_deviations)
 
 
 class LocalElecEnv:
@@ -466,14 +467,14 @@ class LocalElecEnv:
             )
         else:
             import_export_costs = 0
-        if self.prm['grd']['manage_voltage']:         
+        if self.prm['grd']['manage_voltage']:
             voltage_costs = compute_voltage_costs(
                 voltage_squared,
                 self.prm['grd']['max_voltage'],
                 self.prm['grd']['min_voltage'],
                 self.prm['grd']['penalty_overvoltage'],
                 self.prm['grd']['penalty_undervoltage']
-                )
+            )
             mean_voltage_deviation, max_voltage_deviation, \
                 n_voltage_deviation_bus, n_voltage_deviation_hour =  \
                 mean_max_hourly_voltage_deviations(
@@ -532,7 +533,8 @@ class LocalElecEnv:
             cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
             emissions_from_grid, emissions_from_loss, total_costs,
             indiv_grid_energy_costs, indiv_battery_degradation_costs, indiv_grid_battery_costs,
-            mean_voltage_deviation, max_voltage_deviation, n_voltage_deviation_bus, n_voltage_deviation_hour
+            mean_voltage_deviation, max_voltage_deviation, n_voltage_deviation_bus,
+            n_voltage_deviation_hour
         ]
 
         assert len(break_down_rewards) == len(self.prm['syst']['break_down_rewards_entries']), \
@@ -617,7 +619,9 @@ class LocalElecEnv:
         if self.prm['grd']['manage_voltage']:
             if not self.reactive_power_for_voltage_control:
                 # retrieve info from battery if not a decision variable
-                q_car_flex = calculate_reactive_power(self.car.p_car_flex, self.car.pf_flexible_homes)
+                q_car_flex = calculate_reactive_power(
+                    self.car.p_car_flex, self.car.pf_flexible_homes
+                )
             else:
                 # if agents decide on reactive power of battery
                 q_car_flex = flexible_q_car
@@ -635,7 +639,6 @@ class LocalElecEnv:
 
         if sum(bool_penalty) > 0:
             constraint_ok = False
-
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
                 q_ext_grid, constraint_ok, q_car_flex, q_house)

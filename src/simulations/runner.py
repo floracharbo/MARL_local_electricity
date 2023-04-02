@@ -523,7 +523,6 @@ class Runner:
         )
 
 
-
 def get_number_runs(settings):
     n_runs = 1
     for sub_dict in settings.values():

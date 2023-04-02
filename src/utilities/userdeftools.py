@@ -266,8 +266,7 @@ def calculate_reactive_power(active_power, power_factor):
 
 
 def compute_import_export_costs(
-        grid, max_grid_import, max_grid_export, penalty_import, penalty_export, manage_agg_power
-    ):
+        grid, max_grid_import, max_grid_export, penalty_import, penalty_export, manage_agg_power):
     if manage_agg_power:
         grid_in = np.where(np.array(grid) >= 0, grid, 0)
         grid_out = np.where(np.array(grid) < 0, - grid, 0)
@@ -287,9 +286,9 @@ def compute_import_export_costs(
 
     return import_export_costs, import_costs, export_costs
 
+
 def compute_voltage_costs(
-        voltage_squared, max_voltage, min_voltage, penalty_overvoltage, penalty_undervoltage
-    ):
+        voltage_squared, max_voltage, min_voltage, penalty_overvoltage, penalty_undervoltage):
     over_voltage_costs = penalty_overvoltage * np.where(
         voltage_squared > max_voltage ** 2,
         voltage_squared - max_voltage ** 2,
@@ -303,11 +302,12 @@ def compute_voltage_costs(
 
     return np.sum(over_voltage_costs + under_voltage_costs)
 
-def mean_max_hourly_voltage_deviations(
-        voltage_squared, max_voltage, min_voltage
-    ):
-    overvoltage_deviation = (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
-    undervoltage_deviation = (min_voltage - np.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
+
+def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
+    overvoltage_deviation = \
+        (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
+    undervoltage_deviation = \
+        (min_voltage - np.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
     voltage_deviation = np.concatenate([overvoltage_deviation, undervoltage_deviation])
     if len(voltage_deviation) > 0:
         mean = np.mean(voltage_deviation)

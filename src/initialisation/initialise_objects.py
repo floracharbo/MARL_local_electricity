@@ -602,7 +602,7 @@ def _update_rl_prm(prm, initialise_all):
         rl["default_action" + ext] = np.full(
             (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
         )
-    
+
     if prm["grd"]["reactive_power_for_voltage_control"]:
         reactive_power_default = rl["default_action"][0][2] * \
             math.tan(math.acos(prm['grd']['pf_flexible_homes']))
@@ -798,7 +798,6 @@ def _update_grd_prm(prm):
         grd['penalise_individual_exports'] = False
     else:
         grd['reactive_power_for_voltage_control'] = False
-
 
 
 def _syst_info(prm):

@@ -599,7 +599,8 @@ class Explorer:
             "bool_flex", "constraint_ok",
             "ind_global_action", "ind_global_state", "grid_energy_costs",
             "total_costs", "import_export_costs", "voltage_costs",
-            "mean_voltage_deviation", "max_voltage_deviation", "n_voltage_deviation_bus", "n_voltage_deviation_hour"
+            "mean_voltage_deviation", "max_voltage_deviation", "n_voltage_deviation_bus",
+            "n_voltage_deviation_hour"
         ]
 
         for key_ in keys:
@@ -643,8 +644,8 @@ class Explorer:
         # check tot cons
         for home in self.homes:
             fixed_flex = sum(flex[home][time_step]) \
-                         + self.env.heat.E_heat_min[home] \
-                         + self.env.heat.potential_E_flex()[home]
+                + self.env.heat.E_heat_min[home] \
+                + self.env.heat.potential_E_flex()[home]
             assert res["totcons"][home][time_step] <= \
                    fixed_flex + 1e-2, \
                    f"cons {res['totcons'][home][time_step]} more than sum fixed + flex" \

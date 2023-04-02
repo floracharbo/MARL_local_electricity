@@ -1,8 +1,9 @@
 import numpy as np
 
-from src.utilities.userdeftools import calculate_reactive_power, \
-    compute_import_export_costs, compute_voltage_costs, \
-    mean_max_hourly_voltage_deviations
+from src.utilities.userdeftools import (calculate_reactive_power,
+                                        compute_import_export_costs,
+                                        compute_voltage_costs,
+                                        mean_max_hourly_voltage_deviations)
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):
@@ -307,7 +308,7 @@ def check_constraints_hold(res, prm, input_hourly_lij=None):
     assert np.all(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-3
     )
-    #_check_power_flow_equations(res, grd, N, input_hourly_lij)
+    # _check_power_flow_equations(res, grd, N, input_hourly_lij)
     _check_storage_equations(res, N, car, grd, syst)
     _check_cons_equations(res, N, loads, syst, grd)
     _check_temp_equations(res, syst, heat)
@@ -801,20 +802,20 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             res['v_line'] = np.matmul(
                 grd['out_incidence_matrix'].T, res['voltage_squared'])
             res['grid'] = np.sum(res['netp'], axis=0) \
-                          + res['hourly_line_losses'] \
-                          + np.sum(res['netp0'], axis=0)
+                + res['hourly_line_losses'] \
+                + np.sum(res['netp0'], axis=0)
             res['hourly_reactive_line_losses'] = \
                 np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij']), axis=0) \
-                    * grd['per_unit_to_kW_conversion']
+                * grd['per_unit_to_kW_conversion']
             res['q_ext_grid'] = np.sum(res['netq_flex'], axis=0) \
-                                + res['hourly_reactive_line_losses'] \
-                                + np.sum(res['netq0'], axis=0)
+                + res['hourly_reactive_line_losses'] \
+                + np.sum(res['netq0'], axis=0)
         res['p_solar_flex'] = grd['gen'][:, 0: N]
         res['q_solar_flex'] = calculate_reactive_power(
             grd['gen'][:, 0: N], grd['pf_flexible_homes'])
         res["hourly_reactive_losses"] = \
-            np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N]) \
-                * grd['per_unit_to_kW_conversion'], axis=0)
+            np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N])
+                   * grd['per_unit_to_kW_conversion'], axis=0)
         for time_step in range(N):
             res['hourly_import_export_costs'][time_step], _, _ = \
                 compute_import_export_costs(
@@ -873,10 +874,10 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         + res['hourly_grid_energy_costs'] \
         + res['hourly_battery_degradation_costs'] \
         + res['hourly_distribution_network_export_costs']
-    
-    res['grid_energy_costs'] = sum(res['hourly_grid_energy_costs']) 
+
+    res['grid_energy_costs'] = sum(res['hourly_grid_energy_costs'])
     res['total_costs'] = sum(res['hourly_total_costs'])
-    
+
     if perform_checks:
         for key, val in res.items():
             if key[0: len('hourly')] == 'hourly':
@@ -884,7 +885,8 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
 
         assert np.all(res['totcons'] > - 5e-3), f"min(res['totcons']) = {np.min(res['totcons'])}"
 
-        simultaneous_dis_charging = np.logical_and(res['charge'] > 1e-3, res['discharge_other'] > 1e-3)
+        simultaneous_dis_charging = \
+            np.logical_and(res['charge'] > 1e-3, res['discharge_other'] > 1e-3)
         assert not simultaneous_dis_charging.any(), \
             "Simultaneous charging and discharging is happening" \
             f"For charging of {res['charge'][simultaneous_dis_charging]}" \

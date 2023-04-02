@@ -120,7 +120,6 @@ def plotting(record, spaces, prm, f):
             plot_res(prm, indiv=False, list_repeat=[repeat])
             plot_res(prm, indiv=False, list_repeat=[repeat], sum_agents=True)
 
-
     # other repeat-specific plots:
     for repeat in range(prm['RL']['n_repeats']):
         if prm['save']['plot_type'] > 0:

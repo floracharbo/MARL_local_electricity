@@ -225,12 +225,12 @@ class EnvSpaces:
         if self.aggregate_actions:
             action_space = ["action"]
         elif self.reactive_power_for_voltage_control:
-                action_space = ["flexible_cons_action", "flexible_heat_action",
-                  "battery_action", "flexible_q_car_action"]
+            action_space = ["flexible_cons_action", "flexible_heat_action",
+                            "battery_action", "flexible_q_car_action"]
         else:
             action_space = ["flexible_cons_action", "flexible_heat_action",
-                  "battery_action"]
-    
+                            "battery_action"]
+
         for space, descriptors in zip(["state", "action"],
                                       [state_space, action_space]):
             # looping through state and action spaces

@@ -446,7 +446,7 @@ class Battery:
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
             self.p_car_flex[home] = np.array(self.charge[home] / self.eta_ch) \
-                                    - np.array(self.discharge[home])
+                - np.array(self.discharge[home])
             assert self.p_car_flex[home] < self.max_apparent_power_car + 1e-3, \
                 f"home = {home}, p_car_flex = {self.p_car_flex[home]} too large for " \
                 f"self.max_apparent_power_car {self.max_apparent_power_car}"
@@ -714,4 +714,3 @@ class Battery:
             time_step += 1
 
         return feasible
-
