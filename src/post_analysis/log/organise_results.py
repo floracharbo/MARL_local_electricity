@@ -35,7 +35,7 @@ FILTER = {
     # 'facmac-hysteretic': True,
 }
 
-best_score_type = 'p50'
+best_score_type = 'ave'
 # p50 or ave
 
 
