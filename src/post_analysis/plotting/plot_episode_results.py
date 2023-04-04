@@ -109,15 +109,17 @@ def _plot_all_agents_mean_res(
 
 
 def _plot_ev_loads_and_availability(
-        axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1
+        axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1, reduced_version=False
 ):
-    ax = axs[row, col]
-    ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
+    ax = axs[row, col] if len(np.shape(axs)) > 1 else axs[row]
+
     for band in bands_car_availability:
         ax.axvspan(band[0], band[1], alpha=0.3, color="grey")
-    ax.set_ylabel("EV load [kWh]")
+    if not reduced_version:
+        ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
+        ax.set_ylabel("EV load [kWh]")
     grey_patch = matplotlib.patches.Patch(
-        alpha=0.3, color="grey", label="EV unavailable")
+        alpha=0.3, color="grey", label="EV on a trip")
     ax.legend(handles=[grey_patch], fancybox=True)
 
     return axs
@@ -177,8 +179,8 @@ def _plot_cum_rewards(
 def _plot_grid_price(
         title_ylabel_dict, N, axs=None, cintensity_kg=None,
         row=0, col=0, last=None, colours_non_methods=None,
-        lw=None, display_legend=True, sum_agents=False):
-    if sum_agents:
+        lw=None, display_legend=True, sum_agents=False, reduced_version=False):
+    if sum_agents or reduced_version:
         ax = axs[row]
     else:
         ax = axs[row, col]
@@ -197,7 +199,7 @@ def _plot_grid_price(
     ax2.yaxis.set_label_position("right")
     ax2.yaxis.tick_right()
     if display_legend:
-        ax2.set_ylabel("Carbon intensity [kgCO$_2$/kWh]",
+        ax2.set_ylabel("Carbon intensity \n[kgCO$_2$/kWh]",
                        color=colours_non_methods[1])
     ylim = ax2.get_ylim()
     ax2.set_ylim([ylim[0], ylim[1] * 1.15])
@@ -335,7 +337,7 @@ def _plot_all_agents_res(
     for c in range(n_cols):
         for r in range(n_rows):
             ax = axs[r] if n_cols == 1 else axs[r, c]
-            ax.set_title(subtitles[c + r * n_rows])
+            ax.set_title(subtitles[c + r * n_cols])
     formatting_figure(
         prm, fig=fig, title=title,
         legend=False,
@@ -392,11 +394,13 @@ def _plot_indiv_agent_res(
         ]
 
         if reduced_version:
-            n_rows, n_cols = 2, 2
-            figsize = (13, 7)
+            n_rows, n_cols = 3, 1
+            figsize = (7, 13)
+            row_method_legend = 1
         else:
             n_rows, n_cols = 4, 2
             figsize = (13, 13)
+            row_method_legend = n_rows - 1
 
         # for home in range(
         #     min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
@@ -413,15 +417,15 @@ def _plot_indiv_agent_res(
             _plot_grid_price(
                 title_ylabel_dict, prm['syst']['N'], axs=axs, cintensity_kg=cintensity_kg,
                 row=0, col=0, last=last,
-                colours_non_methods=colours_non_methods, lw=lw_indiv)
+                colours_non_methods=colours_non_methods, lw=lw_indiv, reduced_version=reduced_version)
 
             if reduced_version:
-                row, col = 0, 1
+                row, col = 2, 0
             else:
                 row, col = 2, 1
             axs = _plot_ev_loads_and_availability(
                 axs, xs, loads_car, home, bands_car_availability, prm['syst']['N'],
-                row=row, col=col
+                row=row, col=col, reduced_version=reduced_version
             )
 
             # cum rewards
@@ -438,15 +442,15 @@ def _plot_indiv_agent_res(
                 )
 
             if reduced_version:
-                rows = [1, 1]
-                columns = [0, 1]
+                rows = [1, 2]
+                columns = [0, 0]
                 entries = ["totcons", "store"]
             else:
                 rows = [1, 2, 0, 3]
                 columns = [0, 0, 1, 1]
                 entries = ["action", "totcons", "tot_E_heat", "store"]
             for r, c, e in zip(rows, columns, entries):
-                ax = axs[r, c]
+                ax = axs[r, c] if len(np.shape(axs)) > 1 else axs[r]
                 for method in methods_to_plot:
                     xs = [-0.01] + list(range(prm['syst']['N']))
                     ys = last[e][method]
@@ -473,10 +477,14 @@ def _plot_indiv_agent_res(
                         ax.step(xs, ys, where="post", label=label,
                                 color=colour,
                                 lw=lw_indiv)
-                axs[r, c].set_ylabel(
+
+                ax.set_ylabel(
                     f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
-                axs[n_rows - 1, c].set_xlabel("Time [h]")
-            axs[n_rows - 1, 1].legend()
+                if r == n_rows - 1:
+                    ax.set_xlabel("Time [h]")
+                if r == row_method_legend:
+                    if c == n_cols - 1:
+                        ax.legend()
 
             fig.tight_layout()
             title = f"subplots example day repeat {repeat} home {home}"
@@ -486,7 +494,8 @@ def _plot_indiv_agent_res(
             subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
             for c in range(n_cols):
                 for r in range(n_rows):
-                    axs[r, c].set_title(subtitles[c + r * n_cols])
+                    ax = axs[r, c] if len(np.shape(axs)) > 1 else axs[r]
+                    ax.set_title(subtitles[c + r * n_cols])
             formatting_figure(
                 prm, fig=fig, title=title,
                 legend=False,
@@ -512,10 +521,10 @@ def plot_res(prm, indiv=True, list_repeat=None, sum_agents=False):
         "cintensity": ["Grid carbon intensity", "[kgCO$_2$/kWh]"],
         "tot_E_heat": ["Heating", "[kWh]"],
         "tot_cons_loads": ["Household consumption", "[kWh]"],
-        "totcons": ["Total consumption", "[kWh]"],
+        "totcons": ["Home consumption", "[kWh]"],
         "ldfixed": ["Consumption of non-flexible household loads", "[kWh]"],
         "ldflex": ["Consumption of flexible household loads", "[kWh]"],
-        "store": ["Battery level", "[kWh]"],
+        "store": ["EV battery level", "[kWh]"],
         "store_outs": ["Discharge", "[kWh]"],
         "netp": ["Total household imports", "[kWh]"],
         "action": ["Action variable", r"$\psi$ [-]"]
