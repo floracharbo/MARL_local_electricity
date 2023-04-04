@@ -103,13 +103,16 @@ def check_model_changes_facmac(prm):
             agents, mixers = [], []
             for no in nos:
                 path = prm["paths"]["record_folder"] / f"models_{method}_{no}"
-                agents.append(th.load(path / "agent.th"))
+                try:
+                    agent = th.load(path / "agent.th")
+                    mixer = th.load(path / "mixer.th")
+                except Exception:
+                    agent = th.load(path / "agent.th", map_location=th.device('cpu'))
+                    mixer = th.load(path / "mixer.th", map_location=th.device('cpu'))
+                agents.append(agent)
                 if prm['syst']['n_homes'] > 1:
-                    mixers.append(th.load(path / "mixer.th"))
+                    mixers.append(mixer)
 
-            # fc1_bias = "fc1.module.bias" if prm['RL']['data_parallel'] else "fc1.bias"
-            # hyper_b_1_bias = "hyper_b_1.module.bias" if prm['RL']['data_parallel'] \
-            #     else "hyper_b_1.bias"
             for weight in agents[0].keys():
                 agents_learned[method] = not th.all(agents[0][weight] == agents[-1][weight])
                 if not agents_learned[method]:
@@ -125,7 +128,7 @@ def check_model_changes_facmac(prm):
                         print(f"mixer_learned {mixer_learned} {weight}")
 
     prm_save = get_prm_save(prm)
-    np.save(prm["paths"]["save_inputs"] / "prm", prm_save)
+    np.save(prm['paths']["folder_run"] / "inputData" / "prm", prm_save)
 
     assert all(agents_learned.values()), f"agent network has not changed {agents_learned}"
     assert all(mixer_learned.values()), f"mixers network has not changed {mixer_learned}"
