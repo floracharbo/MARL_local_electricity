@@ -54,8 +54,8 @@ def _barplot(
         barplot = barplot - baseline if title[0:7] == 'Average' else barplot
         ax.bar(rsir, barplot, yerr=err, capsize=10, width=barWidth,
                edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e])
-
-    ax = _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm)
+    if prm is not None:
+        ax = _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm)
 
     if title[0:7] == 'Average' \
             and lower_bound is not None \
@@ -65,9 +65,9 @@ def _barplot(
     ax = _barplot_text_labels(ax, text_labels)
 
     if not display_ticks:
-        plt.gca().set_yticks([])
+        ax.set_yticks([])
 
-    plt.gca().set_xticks([])
+    ax.set_xticks([])
 
     if title is not None and display_title:
         ax.set_title(title)
