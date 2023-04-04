@@ -36,7 +36,7 @@ settings = {
 }
 
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
-RUN_MODE = 2
+RUN_MODE = 1
 no_runs = [1151]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
