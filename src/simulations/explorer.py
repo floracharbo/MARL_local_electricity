@@ -530,7 +530,8 @@ class Explorer:
             ):
                 print(
                     f"reward {method} {np.mean(step_vals[method]['reward'])} "
-                    f"better than opt {np.mean(step_vals['opt']['reward'])}"
+                    f"better than opt {np.mean(step_vals['opt']['reward'])} "
+                    f"self.data.seed[{self.data.ext}] {self.data.seed[self.data.ext]}"
                 )
                 sequence_feasible = False
 
