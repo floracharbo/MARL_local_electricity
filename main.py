@@ -20,9 +20,9 @@ settings = {
         'state_space': 'grdC',
         'n_epochs': 20,
         'n_repeats': 10,
-        'type_learning': 'q_learning',
-        # 'evaluation_methods': 'env_r_c',
-        'trajectory': False,
+        'type_learning': 'facmac',
+        'evaluation_methods': 'env_r_c',
+        'trajectory': True,
         # 'supervised_loss': True,
         'act_noise': 0.01,
         'lr': 1e-2,
@@ -31,13 +31,12 @@ settings = {
     },
     'syst': {
         'force_optimisation': True,
-        'n_homes': [20],
+        'n_homes': 30,
     }
 }
 
 # 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
-RUN_MODE = 1
-no_runs = [1137]  # if plotting
+RUN_MODE = 2
+no_runs = [1151]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
-
