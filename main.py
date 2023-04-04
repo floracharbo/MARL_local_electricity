@@ -28,8 +28,6 @@ settings = {
         'lr': 1e-2,
         'obs_agent_id': True,
         'optimizer': 'rmsprop',
-        'n_hidden_layers': 1,
-        'n_hidden_layers_critic': 1,
     },
     'syst': {
         'force_optimisation': True,
