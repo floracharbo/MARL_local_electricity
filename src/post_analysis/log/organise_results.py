@@ -14,10 +14,10 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = True
+ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
-    'n_homes'
+    'n_homes_test'
 ]
 # COLUMNS_OF_INTEREST = None
 
@@ -27,9 +27,11 @@ FILTER = {
     'SoC0': 1,
     # 'grdC_n': 2,
     'error_with_opt_to_rl_discharge': False,
-    # 'n_homes': 10,
-    'server': True,
+    'n_homes': 30,
+    # 'server': False,
     'n_repeats': 10,
+    'type_learning': 'facmac',
+    'trajectory': True,
     # 'facmac-hysteretic': True,
 }
 
@@ -151,7 +153,7 @@ def get_list_all_fields(results_path):
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
-        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap',
+        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action'
     ]
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
