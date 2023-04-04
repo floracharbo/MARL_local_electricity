@@ -31,7 +31,7 @@ settings = {
         'facmac': {'hysteretic': False},
     },
     'syst': {
-        'force_optimisation': True,
+        # 'force_optimisation': True,
         'n_homes': 30,
     }
 }
