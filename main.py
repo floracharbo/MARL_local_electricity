@@ -17,7 +17,7 @@ from src.simulations.runner import run
 # q learning / facmac no traj / facmac traj / facmac supervised no traj / facmac supervised traj
 settings = {
     'RL': {
-        'state_space': [['grdC_n2', 'flexibility']],
+        'state_space': 'grdC',
         'n_epochs': 20,
         'n_repeats': 10,
         'type_learning': 'facmac',
@@ -28,11 +28,12 @@ settings = {
         'lr': 1e-2,
         'obs_agent_id': True,
         'optimizer': 'rmsprop',
-        'facmac': {'hysteretic': False},
+        'nn_type': ['linear', 'cnn'],
+        'facmac': {'hysteretic': [True, False]},
     },
     'syst': {
         # 'force_optimisation': True,
-        'n_homes': 30,
+        'n_homes': 10,
     }
 }
 
