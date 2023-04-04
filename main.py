@@ -28,8 +28,8 @@ settings = {
         'lr': 1e-2,
         'obs_agent_id': True,
         'optimizer': 'rmsprop',
-        'nn_type': ['linear', 'cnn'],
-        'facmac': {'hysteretic': [True, False]},
+        'nn_type': ['cnn'],
+        'facmac': {'hysteretic': [True]},
     },
     'syst': {
         # 'force_optimisation': True,
