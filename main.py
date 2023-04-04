@@ -28,6 +28,7 @@ settings = {
         'lr': 1e-2,
         'obs_agent_id': True,
         'optimizer': 'rmsprop',
+        'facmac': {'hysteretic': False},
     },
     'syst': {
         'force_optimisation': True,
