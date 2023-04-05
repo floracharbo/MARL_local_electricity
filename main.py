@@ -28,8 +28,9 @@ settings = {
         'lr': 1e-2,
         'obs_agent_id': True,
         'optimizer': 'rmsprop',
-        'nn_type': ['cnn'],
-        'facmac': {'hysteretic': [True]},
+        'nn_type': 'cnn',
+        'nn_type_critic': 'cnn',
+        'facmac': {'hysteretic': True},
     },
     'syst': {
         # 'force_optimisation': True,
