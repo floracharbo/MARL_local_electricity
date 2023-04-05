@@ -29,12 +29,12 @@ settings = {
         'obs_agent_id': True,
         'optimizer': 'rmsprop',
         'nn_type': 'cnn',
-        'nn_type_critic': 'linear',
+        'nn_type_critic': ['linear', 'cnn', 'linear'],
         'facmac': {'hysteretic': True},
     },
     'syst': {
         # 'force_optimisation': True,
-        'n_homes': 10,
+        'n_homes': [10, 30, 30],
     }
 }
 
