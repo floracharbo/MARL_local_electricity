@@ -29,7 +29,7 @@ settings = {
         'obs_agent_id': True,
         'optimizer': 'rmsprop',
         'nn_type': 'cnn',
-        'nn_type_critic': 'cnn',
+        'nn_type_critic': 'linear',
         'facmac': {'hysteretic': True},
     },
     'syst': {
