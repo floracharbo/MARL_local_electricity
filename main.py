@@ -34,7 +34,7 @@ settings = {
     },
     'syst': {
         # 'force_optimisation': True,
-        'n_homes': 30,
+        'n_homes': [10, 30],
     }
 }
 
