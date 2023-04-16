@@ -539,8 +539,7 @@ class DataManager:
         self.prm['loads']['active_power_passive_homes'] = []
         self.prm['loads']['reactive_power_passive_homes'] = []
         if self.n_homesP > 0 and self.prm['grd']['manage_voltage']:
-            self.prm['loads']['q_heat_home_car_passive'] = \
-                calculate_reactive_power(loads['netp0'], self.prm['grd']['pf_passive_homes'])
+            self.prm['loads']['q_heat_home_car_passive'] = loads['netp0'] * self.prm['grd']['active_to_reactive_passive']
             if self.prm['grd']['manage_voltage']:
                 for t in range(self.N):
                     for t in range(self.N):
