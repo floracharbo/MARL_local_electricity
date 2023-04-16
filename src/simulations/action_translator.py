@@ -29,7 +29,7 @@ class Action_translator:
     def __init__(self, prm, env):
         """Initialise action_translator object and add relevant properties."""
         self.name = 'action translator'
-        self.entries = ['dp', 'ds', 'l_ch', 'l_dis', 'c']
+        self.entries = ['dp', 'ds', 'charge_losses', 'discharge_losses', 'c']
         self.plotting = prm['save']['plotting_action']
         self.colours = [(0, 0, 0)] + prm['save']['colours']
         self.n_homes = env.n_homes
@@ -324,7 +324,7 @@ class Action_translator:
                     + loads['l_fixed'][home] \
                     + self.heat.E_heat_min[home] \
                     + flex_heat[home] \
-                    + charge - discharge + res['l_ch'] \
+                    + charge - discharge + res['charge_losses'] \
                     - home_vars['gen'][home]
 
                 if self.reactive_power_for_voltage_control:
@@ -333,8 +333,8 @@ class Action_translator:
                     # -1 max export
                     # 1 max import
                     res['q'] = flexible_q_car_action * np.sqrt(
-                        (self.max_apparent_power_car + 1e-6)**2
-                        - (charge - discharge + res['l_ch'])**2
+                        (self.max_apparent_power_car + 1e-6) ** 2
+                        - (charge - discharge + res['charge_losses']) ** 2
                     )
                     flexible_q_car[home] = res['q']
 
@@ -401,8 +401,8 @@ class Action_translator:
             elif self.max_charge[home] >= 0:
                 res['ds'] = self.min_charge[home] + flexible_store_action \
                     * (self.max_charge[home] - self.min_charge[home])
-        res['l_ch'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
-        res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
+        res['charge_losses'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
+        res['discharge_losses'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
 
         return res
 
@@ -418,12 +418,12 @@ class Action_translator:
         ax1.set_position(gs[0:3].get_position(fig))
         ax1.set_subplotspec(gs[0:3])  # only necessary if using tight_layout()
 
-        entries_plot = ['Losses' if e == 'l_ch' else e
-                        for e in self.entries if e != 'l_dis']
+        entries_plot = ['Losses' if e == 'charge_losses' else e
+                        for e in self.entries if e != 'discharge_losses']
         ys = {}
         for ie in range(len(entries_plot)):
             e = entries_plot[ie]
-            e0 = 'l_ch' if e == 'Losses' else e
+            e0 = 'charge_losses' if e == 'Losses' else e
             wd = line_width * 1.5 if e == 'dp' else line_width
             col, zo, label = \
                 [self.colours[ie], self.z_orders[ie], self.labels[ie]]
@@ -432,10 +432,10 @@ class Action_translator:
             if e == 'Losses':
                 ys[e] = [
                     sum(self.k[0][e_][i][0] * xs[i] + self.k[0][e_][i][1]
-                        for e_ in ['l_ch', 'l_dis']) for i in range(n)]
+                        for e_ in ['charge_losses', 'discharge_losses']) for i in range(n)]
                 ys[e].append(
                     sum(self.k[0][e_][-1][0] * xs[-1] + self.k[0][e_][-1][1]
-                        for e_ in ['l_ch', 'l_dis']))
+                        for e_ in ['charge_losses', 'discharge_losses']))
             else:
                 ys[e] = [self.k[0][e][i][0] * xs[i] + self.k[0][e][i][1]
                          for i in range(n)]
@@ -516,7 +516,7 @@ class Action_translator:
         self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
         self.action_intervals.append([0])
 
-        for e in ['ds', 'c', 'l_ch', 'l_dis']:
+        for e in ['ds', 'c', 'charge_losses', 'discharge_losses']:
             self.k[home][e] = []
         for z in range(5):
             l1, l2 = letters[z: z + 2]
