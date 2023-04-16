@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import calculate_reactive_power, set_seeds_rdn
+from src.utilities.userdeftools import set_seeds_rdn
 
 
 class DataManager:
@@ -539,7 +539,8 @@ class DataManager:
         self.prm['loads']['active_power_passive_homes'] = []
         self.prm['loads']['reactive_power_passive_homes'] = []
         if self.n_homesP > 0 and self.prm['grd']['manage_voltage']:
-            self.prm['loads']['q_heat_home_car_passive'] = loads['netp0'] * self.prm['grd']['active_to_reactive_passive']
+            self.prm['loads']['q_heat_home_car_passive'] = \
+                loads['netp0'] * self.prm['grd']['active_to_reactive_passive']
             if self.prm['grd']['manage_voltage']:
                 for t in range(self.N):
                     for t in range(self.N):

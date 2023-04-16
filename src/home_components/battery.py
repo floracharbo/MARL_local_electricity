@@ -10,8 +10,6 @@ import datetime
 
 import numpy as np
 
-from src.utilities.userdeftools import calculate_reactive_power
-
 
 class Battery:
     """

@@ -13,8 +13,7 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.utilities.userdeftools import (calculate_reactive_power,
-                                        compute_import_export_costs,
+from src.utilities.userdeftools import (compute_import_export_costs,
                                         compute_voltage_costs)
 
 

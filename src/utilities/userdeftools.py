@@ -258,13 +258,6 @@ def should_optimise_for_supervised_loss(epoch, rl):
     )
 
 
-def calculate_reactive_power(active_power, power_factor):
-    """Calculate the reactive power based on the active power and
-    the power factor"""
-    reactive_power = np.array(active_power) * math.tan(math.acos(power_factor))
-    return reactive_power
-
-
 def compute_import_export_costs(
         grid, max_grid_import, max_grid_export, penalty_import, penalty_export, manage_agg_power):
     if manage_agg_power:
