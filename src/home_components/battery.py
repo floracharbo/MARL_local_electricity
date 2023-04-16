@@ -527,10 +527,10 @@ class Battery:
                       for ds in [ds_start, ds_end]]
         loss['dis'] = [- ds * (1 - self.eta_dis) if ds < 0
                        else 0 for ds in [ds_start, ds_end]]
-        for e in ['ch', 'dis']:
+        for e in ['charge', 'discharge']:
             a_loss[e] = (loss[e][1] - loss[e][0]) / (action_next - action_prev)
             b_loss[e] = loss[e][1] - a_loss[e] * action_next
-            k[home]['l_' + e].append([a_loss[e], b_loss[e]])
+            k[home][f"{e}_losses"].append([a_loss[e], b_loss[e]])
 
         return k
 
