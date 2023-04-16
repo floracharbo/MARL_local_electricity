@@ -722,7 +722,7 @@ def opt_res_seed_save_paths(prm):
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes']}_cmax{car['c_max']}_" \
+        f"_ntwn{syst['n_homes']}_cmax{car['c_max0']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
     if syst['n_homesP'] > 0:
         paths["opt_res_file"] += f"_nP{syst['n_homesP']}"
