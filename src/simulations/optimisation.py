@@ -43,7 +43,6 @@ class Optimiser:
         self._update_prm(prm)
         if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res, pp_simulation_required = self._solve_line_losses_iteration()
-
         else:
             res, pp_simulation_required, _, _ = self._problem()
             perform_checks = True
@@ -52,6 +51,7 @@ class Optimiser:
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res)
             res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
+
         return res, pp_simulation_required
 
     def _solve_line_losses_iteration(self):
@@ -112,7 +112,7 @@ class Optimiser:
     def _car_efficiency_iterations(self, prm, res):
         init_eta = prm['car']['etach']
         prm['car']['etach'] = efficiencies(
-            res, prm, prm['car']['cap']
+            res, prm, prm['car']['caps']
         )
         deltamax, its = 0.5, 0
         prm['car']['eff'] = 2
@@ -132,7 +132,7 @@ class Optimiser:
                       f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
                       f"not equal to loads {np.sum(prm['loads'])}")
             prm['car']['etach'] = efficiencies(
-                res, prm, prm['car']['cap'])
+                res, prm, prm['car']['caps'])
             deltamax = np.amax(abs(prm['car']['etach'] - eta_old))
         prm['car']['etach'] = init_eta
         prm['car']['eff'] = 1

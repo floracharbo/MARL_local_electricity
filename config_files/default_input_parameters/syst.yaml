@@ -34,7 +34,7 @@ weekday_types: ['wd', 'we']  # week day types - wd: weekday day and we: weekend 
 test_on_run: False
 n_homes: 5 # number of buses considered
 n_homesP: 0 # additional number of passive buses
-n_homes_test: ~
+n_homes_test: ~  # number of homes which use the policies that have been learned by the n_homes when testing
 force_optimisation: False # force optimisation to be run even if it is not necessary (for timing purposes)
 tol_constraints: 5.e-3
-error_with_opt_to_rl_discharge: False
+error_with_opt_to_rl_discharge: False  # there was an error in the way the optimisation was translated to RL discharge action values before; False = no problem

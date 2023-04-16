@@ -156,7 +156,7 @@ class EnvSpaces:
         info = [
             ["None", 0, 0, 1, 1],
             ["hour", 0, prm['syst']['N'], n_other_states, 0],
-            ["store0", 0, prm["car"]["cap"], n_other_states, 0],
+            ["store0", 0, prm["car"]["caps"], n_other_states, 0],
             ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
             ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
             [
@@ -295,10 +295,11 @@ class EnvSpaces:
         """From discrete space indexes, get global combined index."""
         if indexes is None and type_descriptor == "state":
             if done:
-                indexes = [None for _ in range(self.n_homes)]
+                indexes = np.full(self.n_homes, np.nan)
             else:
                 indexes = self.get_space_indexes(
-                    done=done, all_vals=self.get_state_vals())
+                    done=done, all_vals=self.get_state_vals()
+                )
         elif indexes is None and type_descriptor == "action":
             print("need to input action indexes for indiv_to_global_index")
         if multipliers is None:
@@ -348,10 +349,10 @@ class EnvSpaces:
 
         if value_type == "next_state" and done:
             # if the sequence is over, return None
-            return [None for _ in range(self.n_homes)]
+            return np.full(self.n_homes, np.nan)
         if space_type == "state" and self.descriptors["state"] == [None]:
             # if the state space is None, return 0
-            return [0 for _ in range(self.n_homes)]
+            return np.zeros(self.n_homes)
 
         # translate values into indexes
         index = []  # one global index per agent
@@ -501,8 +502,8 @@ class EnvSpaces:
                     "action", indexes=ind_action,
                     multipliers=self.global_multipliers["action"])]
         else:
-            step_vals_i["ind_global_state"] = None
-            step_vals_i["ind_global_action"] = None
+            step_vals_i["ind_global_state"] = np.nan
+            step_vals_i["ind_global_action"] = np.nan
 
         return step_vals_i
 

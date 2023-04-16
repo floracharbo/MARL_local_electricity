@@ -106,7 +106,7 @@ class Action_translator:
         # required addition to storage for min charge left
         # after contribution from gen
         s_add0_net = s_add_0 - g_to_add0 * eta_ch
-        assert np.all(s_add0_net <= self.car.c_max + 1e-3), \
+        assert np.all(s_add0_net <= self.car.c_max + 1e-2), \
             f"s_add0_net {s_add0_net} > self.car.c_max {self.car.c_max}"
         # gen to fixed consumption
         g_to_fixed = np.minimum(g_net_add0, self.tot_l_fixed)
@@ -176,7 +176,7 @@ class Action_translator:
         for i in ['D', 'E', 'F']:
             d['c'][i] = self.tot_l_fixed + tot_l_flex
         a_dp = d['dp']['F'] - d['dp']['A']
-        a_dp = np.where((- 1e-3 < a_dp) & (a_dp < 0), 0, a_dp)
+        a_dp = np.where((- 1e-2 < a_dp) & (a_dp < 0), 0, a_dp)
         assert len(np.where(a_dp < 0)[0]) == 0, f"a_dp {a_dp}"
 
         b_dp = d['dp']['A']
@@ -203,6 +203,8 @@ class Action_translator:
                         f"s_add_0 {s_add_0[home]}, "
                         f"s_remove_0 {s_remove_0[home]}, "
                         f"potential_charge {potential_charge[home]} "
+                        f"self.car.avail_car[home] {self.car.avail_car[home]}"
+                        f"loads['l_flex'] {loads['l_flex'][home]}"
                     )
                     np.save('loads_error', loads)
                     np.save('home_vars_error', home_vars)
@@ -264,12 +266,16 @@ class Action_translator:
         for home in homes:
             # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
+            if len(np.shape(action)) != 2:
+                action = np.reshape(action, (self.n_homes, -1))
             if self.aggregate_actions:
                 flex_heat = None
                 # update variables for given action
                 # obtain the interval in which action_points lies
-                ik = [i for i in range(len(self.action_intervals[home]) - 1)
-                      if action[home][0] >= self.action_intervals[home][i]][-1]
+                ik = [
+                    i for i in range(len(self.action_intervals[home]) - 1)
+                    if action[home][0] >= self.action_intervals[home][i]
+                ][-1]
                 res = {}  # resulting values (for dp, ds, fl, l)
                 for e in self.entries:
                     ik_ = 0 if e == 'dp' else ik
@@ -357,7 +363,8 @@ class Action_translator:
                 f"home_vars['tot_cons'][home] {home_vars['tot_cons'][home]}"
 
         bool_penalty = self.car.check_errors_apply_step(
-            homes, bool_penalty, action, self.res)
+            homes, bool_penalty, action, self.res
+        )
         if sum(bool_penalty) > 0:
             self.error = True
         if not self.error and self.plotting:

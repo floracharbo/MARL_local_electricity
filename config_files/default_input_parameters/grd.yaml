@@ -22,10 +22,10 @@ weight_network_costs: 1 # Reward weight of network costs voltage_costs and impor
 base_power: 1000000 # base power for per unit system in W, as defined in pandapower
 base_voltage: 416 # base voltage for per unit system in V
 subset_line_losses_modelled: 30 # Number of lines accounted for in losses
-tol_rel_voltage_diff: 1.e-3
-tol_rel_voltage_costs: 1.e-3
-tol_abs_line_losses: 1.e-3
-reactive_power_for_voltage_control: False
+tol_rel_voltage_diff: 1.e-3   # relative difference tolerance for voltage values between the convex optimisation and pandapower simulations
+tol_rel_voltage_costs: 1.e-3  # relative difference tolerance for voltage costs between the convex optimisation and pandapower simulations
+tol_abs_line_losses: 1.e-3  # absolute difference tolerance for line losses between the convex optimisation and pandapower simulations
+reactive_power_for_voltage_control: False  # if True, the power factor is not fixed for the EV batteries but instead an optimisation decision variable/determined by an RL agent action
 pf_passive_homes : 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes : 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
 line_losses_method : 'subset_of_lines' # choice between subset_of_lines and iteration

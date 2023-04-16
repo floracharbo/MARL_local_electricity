@@ -218,8 +218,6 @@ def _facmac_initialise(prm):
     rl = prm["RL"]
     for n_homes in ['n_homes', 'n_homes_test']:
         rl[n_homes] = prm["syst"][n_homes]
-    reactive_power_for_voltage_control = prm["grd"]["reactive_power_for_voltage_control"]
-
     rl["obs_shape"] = len(rl["state_space"])
     if rl['trajectory']:
         rl['obs_shape'] *= prm['syst']['N']
@@ -237,7 +235,8 @@ def _facmac_initialise(prm):
 
     rl["device"] = "cuda" if rl["use_cuda"] else "cpu"
 
-    _make_action_space(rl, reactive_power_for_voltage_control)
+    if prm['syst']['run_mode'] == 1:
+        _make_action_space(rl, prm["grd"]["reactive_power_for_voltage_control"])
     _make_scheme(rl)
 
     return prm
@@ -328,28 +327,33 @@ def _update_bat_prm(prm):
     else:
         car['c_max'] = car['c_max'] * car['eta_ch']
     # have list of car capacities based on capacity and ownership inputs
-    car["cap"] = np.array(
-        car["cap"]) if isinstance(car["cap"], list)\
+    car["caps"] = np.array(
+        car["cap"]) if isinstance(car["cap"], list) \
         else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
     if "own_car" in car:
         for ext in syst['n_homes_extensions_all']:
-            car["own_car" + ext] = np.ones(syst["n_homes" + ext]) \
-                if isinstance(car["own_car" + ext], (int, float))\
-                and car["own_car" + ext] == 1 \
+            car["own_car" + ext] \
+                = np.ones(syst["n_homes" + ext]) * car["own_car" + ext] \
+                if isinstance(car["own_car" + ext], (int, float)) \
                 else np.array(car["own_car" + ext])
-        car["cap"] = np.where(car["own_car"], car["cap"], 0)
 
     car = _load_bat_factors_parameters(paths, car)
 
     # battery characteristics
-    car["min_charge"] = [car["cap"][home] * max(car["SoCmin"], car["baseld"])
-                         for home in range(syst["n_homes"])]
-    car["store0"] = [car["SoC0"] * car["cap"][home] for home in range(syst["n_homes"])]
+    car["min_charge"] = car["caps"] * max(car["SoCmin"], car["baseld"])
+    car["store0"] = car["caps"] * car["SoC0"]
     for ext in syst['n_homes_extensions']:
-        if car["cap" + ext] is None:
-            car["cap" + ext] = np.full(syst["n_homes" + ext], car["cap"][0])
-        car["store0" + ext] = car["SoC0"] * car["cap" + ext]
-        car["min_charge" + ext] = car["cap" + ext] * max(car["SoCmin"], car["baseld"])
+        if "cap" + ext in car and isinstance(car["cap"], list):
+            car["caps" + ext] = car['cap' + ext]
+        elif "cap" + ext not in car or car["cap" + ext] is None:
+            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap"])
+        else:
+            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap" + ext])
+        car["store0" + ext] = car["SoC0"] * car["caps" + ext]
+        car["min_charge" + ext] = car["caps" + ext] * max(car["SoCmin"], car["baseld"])
+    for ext in syst['n_homes_extensions_all']:
+        for info in ['caps', 'store0', 'min_charge']:
+            car[info + ext] = np.where(car["own_car" + ext], car[info + ext], 0)
     car["phi0"] = np.arctan(car["c_max"])
 
     return car
@@ -464,10 +468,9 @@ def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
     if syst['run_mode'] == 1:
         rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
         rl['high_actions'] = np.array(rl['high_actions'][0: rl["dim_actions_1"]])
-
-    if not rl["aggregate_actions"]:
-        rl["low_action"] = rl["low_actions"]
-        rl["high_action"] = rl["high_actions"]
+        if not rl["aggregate_actions"]:
+            rl["low_action"] = rl["low_actions"]
+            rl["high_action"] = rl["high_actions"]
     if "trajectory" not in rl:
         rl["trajectory"] = False
     if rl["distr_learning"] == "joint":
@@ -580,6 +583,9 @@ def _update_rl_prm(prm, initialise_all):
         correpsonding to prm["RL"]; with updated parameters
     """
     rl, syst, heat = [prm[key] for key in ["RL", "syst", "heat"]]
+    for n_homes in ['n_homes', 'n_homes_test']:
+        rl[n_homes] = syst[n_homes]
+    rl = _make_type_eval_list(rl)
     rl = _format_rl_parameters(rl)
     rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
@@ -598,10 +604,11 @@ def _update_rl_prm(prm, initialise_all):
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
 
-    for ext in syst['n_homes_extensions_all']:
-        rl["default_action" + ext] = np.full(
-            (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
-        )
+    if syst['run_mode'] == 1:
+        for ext in syst['n_homes_extensions_all']:
+            rl["default_action" + ext] = np.full(
+                (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
+            )
 
     if prm["grd"]["reactive_power_for_voltage_control"]:
         reactive_power_default = rl["default_action"][0][2] * \
@@ -690,11 +697,11 @@ def opt_res_seed_save_paths(prm):
     rl, heat, syst, grd, paths, car, loads = \
         [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
-    if np.all(car['cap'] == car['cap'][0]):
-        cap_str = car['cap'][0]
+    if np.all(car['caps'] == car['cap']):
+        cap_str = car['cap']
     else:
         caps = {}
-        for home, cap in enumerate(car['cap']):
+        for home, cap in enumerate(car['caps']):
             if cap not in caps:
                 caps[cap] = []
             caps[cap].append(home)
@@ -706,8 +713,13 @@ def opt_res_seed_save_paths(prm):
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes']}_nP{syst['n_homesP']}_cmax{car['c_max']}_" \
+        f"_ntwn{syst['n_homes']}_cmax{car['c_max']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
+    if syst['n_homesP'] > 0:
+        paths["opt_res_file"] += f"_nP{syst['n_homesP']}"
+    if syst['n_homes_test'] != syst['n_homes']:
+        paths["opt_res_file"] += f"_ntest{syst['n_homes_test']}"
+
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
 
@@ -814,12 +826,15 @@ def _syst_info(prm):
     syst['n_homes_all'] = syst['n_homes'] + syst['n_homesP']
     if syst['n_homes_test'] is None:
         syst['n_homes_test'] = syst['n_homes']
+    syst['n_homes_all_test'] = syst['n_homes_test'] + syst['n_homesP']
+    assert syst['n_homes_all'] > 0, "No homes in the system"
+
     syst['n_homes_extensions'] = ["P"]
     if syst['n_homes_test'] != syst['n_homes']:
         syst['n_homes_extensions'].append("_test")
     syst["n_homes_extensions_all"] = syst['n_homes_extensions'] + [""]
     syst['timestamp'] = datetime.datetime.now().timestamp()
-    syst['share_active'] = syst['n_homes'] / syst['n_homes_all']
+    syst['share_active_test'] = syst['n_homes_test'] / syst['n_homes_all_test']
     syst['interval_to_month'] = prm['syst']['H'] * 365 / 12
 
 
@@ -827,9 +842,8 @@ def _homes_info(loads, syst, gen, heat):
     for ext in syst['n_homes_extensions_all']:
         gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \
             if gen["own_PV" + ext] == 1 else gen["own_PV" + ext]
-        heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) \
+        heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) * heat["own_heat" + ext] \
             if isinstance(heat["own_heat" + ext], int) \
-            and heat["own_heat" + ext] == 1 \
             else np.array(heat["own_heat" + ext])
         for ownership in ["own_loads" + ext, "own_flex" + ext]:
             if ownership in loads:
@@ -861,8 +875,6 @@ def initialise_prm(prm, no_run, initialise_all=True):
         prm[key] if key in prm else None
         for key in ["paths", "syst", "loads", "gen", "save", "heat"]
     ]
-
-    _make_type_eval_list(prm["RL"])
 
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
@@ -900,7 +912,7 @@ def initialise_prm(prm, no_run, initialise_all=True):
 
 def _filter_type_learning_facmac(rl):
     if rl["type_learning"] != "facmac":
-        return
+        return rl
 
     valid_types = {
         "exploration": ["env_r_c", "opt", "baseline"],
@@ -925,6 +937,8 @@ def _filter_type_learning_facmac(rl):
                     f"with facmac and has been removed"
                 )
 
+    return rl
+
 
 def _filter_type_learning_competitive(rl):
     if rl["competitive"]:  # there can be no centralised learning
@@ -934,6 +948,8 @@ def _filter_type_learning_competitive(rl):
             or (reward_type(method) != "A" and distr_learning(method) != "c")
         ]
 
+    return rl
+
 
 def _add_n_start_opt_explo(rl, evaluation_methods_list):
     if rl['n_start_opt_explo'] is not None and rl['n_start_opt_explo'] > 0:
@@ -942,6 +958,16 @@ def _add_n_start_opt_explo(rl, evaluation_methods_list):
                 evaluation_methods_list[i] += f"_{rl['n_start_opt_explo']}_opt"
 
     return evaluation_methods_list
+
+
+def _filter_type_evals_no_active_homes(rl):
+    if rl['n_homes'] == 0:
+        rl["evaluation_methods"] = [
+            method for method in rl["evaluation_methods"]
+            if method in ["random", "baseline"]
+        ]
+
+    return rl
 
 
 def _make_type_eval_list(rl, large_q_bool=False):
@@ -985,7 +1011,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
     evaluation_methods_list = _add_n_start_opt_explo(rl, evaluation_methods_list)
 
     rl["evaluation_methods"] = list(dict.fromkeys(evaluation_methods_list))
-    _filter_type_learning_competitive(rl)
+    rl = _filter_type_learning_competitive(rl)
 
     rl["exploration_methods"] = [
         method for method in rl["evaluation_methods"]
@@ -1001,7 +1027,8 @@ def _make_type_eval_list(rl, large_q_bool=False):
     assert len(rl["eval_action_choice"]) > 0, \
         "not valid eval_type with action_choice"
 
-    _filter_type_learning_facmac(rl)
+    rl = _filter_type_learning_facmac(rl)
+    rl = _filter_type_evals_no_active_homes(rl)
 
     rl["type_Qs"] \
         = rl["eval_action_choice"] + [
@@ -1011,4 +1038,6 @@ def _make_type_eval_list(rl, large_q_bool=False):
         )
     ]
 
-    print(f"evaluation_methods {evaluation_methods_list}")
+    print(f"rl['evaluation_methods'] {rl['evaluation_methods']}")
+
+    return rl

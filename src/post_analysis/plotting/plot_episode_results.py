@@ -109,8 +109,8 @@ def _plot_all_agents_mean_res(
 
 
 def _plot_ev_loads_and_availability(
-        axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1
-    ):
+    axs, xs, loads_car, home, bands_car_availability, N, row=2, col=1
+):
     ax = axs[row, col]
     ax.step(xs[0: N], loads_car[home][0: N], color="k", where="post")
     for band in bands_car_availability:
@@ -329,7 +329,7 @@ def _plot_all_agents_res(
     fig.tight_layout()
     title = f"subplots example day all agents {title_repeat}"
     if sum_agents:
-        title += f" sum_agents"
+        title += " sum_agents"
     title_display = "subplots example day"
     subtitles = ["a", "b", "c", "d", "e", "f", "g", "h"]
     for c in range(n_cols):
@@ -725,7 +725,7 @@ def plot_reactive_power(
             ax1.legend(loc='center', bbox_to_anchor=(0.5, 0.90))
             ax2.legend(loc='center', bbox_to_anchor=(0.5, 0.77))
             plt.tight_layout()
-            title = f'Reactive power and total costs, repeat{repeat}, {method}'
+            title = f'Reactive power and total costs repeat {repeat} {method}'
             title_and_save(title, fig, prm)
 
 

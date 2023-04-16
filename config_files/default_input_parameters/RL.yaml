@@ -1,28 +1,27 @@
 # structure run
 type_learning: 'q_learning' # DDPG, q_learning, DQN
 trajectory: False # decide on N actions based on N states instead of one at a time
-n_repeats: 10
+n_repeats: 10  # number of 'learning trajectories' completely repeated from scratch with new data
 n_epochs: 50 # 5e1 number of epochs - note we do n_explore explorations at each learning cycle/epoch
 n_explore: 2 # number of exploration epochs before updating q
 type_env: 'discrete' # action and state space - discrete or continuous
 ncpu: 10  # if ran on a server, ncup will be mp.cpu_count()
 parallel: False
-eval_deterministic: True
+eval_deterministic: True  # the evaluation actions are deterministic (no eps-greedy)
 default_action: 1 # 'baseline' action, i.e. alway import / comsume as much as possible
-check_feasibility_with_opt: False
-offset_reward: False
-delta_reward: 0.05
+check_feasibility_with_opt: False  # we attempt to run convex optimisations on each new day of data generated to test feasibility rather than just heuristic checks
+offset_reward: False  # offset all rewards by delta_reward
+delta_reward: 0.05  # value to offset rewards by
 competitive: False # individual agents learn ased in maximising their own rewards - i still plot total rewards though during evaluation -> constrains to decentralised learning
-n_end_test: 10
-share_epochs_start_end_eval: 0.8
-save_model: True
+n_end_test: 10  # number of episodes to test at the end of each learning cycle
+share_epochs_start_end_eval: 0.8  # share of epochs at the end of which we start evaluating
 save_model_interval: 2
 
 # state space
-n_other_states: 3
-n_grdC_level: 3
-n_discrete_actions: 10
-state_space: ['grdC']
+n_other_states: 3  # when using discrete methods (q-learning), how many state intervals
+n_grdC_level: 3  # when using discrete methods (q-learning), how many state intervals for the grid prices
+n_discrete_actions: 10  # when using discrete methods (q-learning), how many intervals for the actions
+state_space: ['grdC']  # default observation available to each agent
 # grdC_level, hour, car_tau, store0, grdC
 # avail_car_step, loads_clus_step, loads_fact_step
 # gen_fact_step, bat_fact_step, loads_cons_step, gen_prod_step

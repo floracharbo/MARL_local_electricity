@@ -156,7 +156,7 @@ class TabularQLearner:
             self, reward, done, ind_state, ind_action, ind_next_state, epoch,
             i_table=0, q_table_name=None
     ):
-        val_q = 0 if ind_next_state is None \
+        val_q = 0 if ind_next_state is None or np.isnan(ind_next_state) \
             else max(self.q_tables[q_table_name][i_table][ind_next_state])
         qs_state = self.q_tables[q_table_name][i_table][ind_state]
         if type(val_q) in [list, np.ndarray]:
@@ -305,7 +305,8 @@ class TabularQLearner:
             step_vals[key][step]
             for key in ["reward", "diff_rewards", "indiv_grid_battery_costs"]
         ]
-
+        if len(np.shape(diff_rewards)) == 2 and np.shape(diff_rewards)[1] == 1:
+            diff_rewards = np.reshape(diff_rewards, (len(diff_rewards),))
         [ind_global_s, ind_global_ac, indiv_s, indiv_ac, ind_next_global_s, next_indiv_s, done] = [
             step_vals[e][step] for e in [
                 'ind_global_state', 'ind_global_action', 'state', 'action',
