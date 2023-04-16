@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 from src.initialisation.generate_colours import generate_colours
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
@@ -49,11 +50,17 @@ def _barplot(
 
     for ind_e in range(n_evaluation_methods):
         rsir = rs[ind_e]
-        err = None if error is None else error[ind_e]
+        err = None if error is None or not isinstance(error[ind_e], float) else error[ind_e]
+        asym_err = None if error is None or isinstance(error[ind_e], float) else error[ind_e]
         barplot = bars[ind_e]
         barplot = barplot - baseline if title[0:7] == 'Average' else barplot
-        ax.bar(rsir, barplot, yerr=err, capsize=10, width=barWidth,
-               edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e])
+
+        if asym_err is not None:
+            ax.errorbar(rsir, barplot, yerr=np.reshape(asym_err, (2, 1)), fmt='.', ecolor=colours[ind_e])
+        else:
+            ax.bar(rsir, barplot, yerr=err, capsize=10, width=barWidth,
+                   edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e])
+
     if prm is not None:
         ax = _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm)
 
