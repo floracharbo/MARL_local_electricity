@@ -335,8 +335,6 @@ def _update_bat_prm(prm):
             f"<- {c_max_reactive_power}")
         car['c_max'] = c_max_reactive_power
 
-    # else:
-    #     car['c_max'] = car['c_max'] * car['eta_ch']
     # have list of car capacities based on capacity and ownership inputs
     car["caps"] = np.array(
         car["cap"]) if isinstance(car["cap"], list) \
