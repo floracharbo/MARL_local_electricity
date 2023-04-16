@@ -436,8 +436,8 @@ class Battery:
             self.charge[home] = res[home]['ds'] if res[home]['ds'] > 0 else 0
             self.discharge[home] = - res[home]['ds'] * self.eta_dis \
                 if res[home]['ds'] < 0 else 0
-            self.loss_ch[home] = res[home]['l_ch']
-            self.loss_dis[home] = res[home]['l_dis']
+            self.loss_ch[home] = res[home]['charge_losses']
+            self.loss_dis[home] = res[home]['discharge_losses']
             self.store_out_tot[home] = self.discharge[home] \
                 + self.loss_dis[home] + self.loads_car[home]
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
