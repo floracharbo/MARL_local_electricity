@@ -203,6 +203,8 @@ for line_label in labels.keys():
                     values[metric][values_i] = log.loc[
                         log['run'] == run, f'{metric}_{type_learning[line_label]}'
                     ].values[0]
+                    if n_homes_i == 10:
+                        print(f"{line_label} {metric} {values[metric][values_i]}")
                     time_end[values_i] = log.loc[log['run'] == run, 'time_end'].values[0]
                 print(f"{line_label} n_homes {n_homes_i} run {run} {best_score_type} {values[best_score_type][values_i]}")
                 print(f"{line_label} n_homes {n_homes_i} run {run} time_end {time_end[values_i]}")
@@ -290,6 +292,7 @@ axs = [
     plt.subplot2grid((2, 6), (0, 0), 1, 2),
     plt.subplot2grid((2, 6), (0, 2), 1, 2),
     plt.subplot2grid((2, 6), (0, 4), 1, 2),
+
     plt.subplot2grid((2, 6), (1, 0), 1, 2),
     plt.subplot2grid((2, 6), (1, 3), 1, 2),
 ]
@@ -377,3 +380,45 @@ for line_label in compare_times:
     plt.title(line_label)
     fig.savefig(f"outputs/results_analysis/{line_label}_growth3")
     plt.close('all')
+
+
+# plot impact CNN / hysteretic
+# runs 1186 1187 1200 1205
+aves = [-13.07588752335410, 18.433919317843800,
+        # 32.657462349269700,
+        28.172149800077700]
+p25s = [-23.30582077699420, -1.3533136375158700,
+        # 45.20975524154160,
+        45.20975524154160]
+p75s = [47.42991041275560, 47.42991041275560,
+        # 49.22962895821640,
+        49.22962895821640]
+runs = [1205, 1186,
+        # 1187,
+        1200]
+all_data = np.zeros((10, 3))
+for i, run in enumerate(runs):
+    data = np.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
+    all_data[:, i] = data
+    print(f"run {run} ave {aves[i]:.2f} p25 {p25s[i]:.2f} p75 {p75s[i]:.2f}")
+    print(f"from data ave {np.mean(data)}, p25 {np.percentile(data, 25)}, p75 {np.percentile(data, 75)}")
+
+labels = [
+    'linear neural network, no hysteretic learning',
+    'linear neural network, hysteretic learning',
+    # 'convolutional neural network, no hysteretic learning',
+    'convolutional neural network, hysteretic learning',
+]
+title = 'Ablations'
+
+positions = np.arange(3) + 1
+
+fig = plt.figure(figsize=(3, 4))
+
+# matplotlib > 1.4
+bp = plt.boxplot(all_data, positions=positions, showmeans=True, showfliers=False)
+
+# plt.gca().set_xticklabels(labels, rotation=45, ha='right')
+plt.tight_layout()
+
+fig.savefig(f"outputs/results_analysis/ablations.pdf", bbox_inches='tight', format='pdf', dpi=1200)
