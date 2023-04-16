@@ -648,7 +648,7 @@ class Action_translator:
         flex_cons = cons - loads['l_fixed']
         flex_cons[flex_cons < 1e-3] = 0
         flex_cons = np.where(
-            abs(loads['l_flex'] - flex_cons) < 1e-3,
+            abs(loads['l_flex'] - flex_cons) < 1e-2,
             loads['l_flex'],
             flex_cons
         )
@@ -658,7 +658,7 @@ class Action_translator:
             = flex_cons[loads_bool_flex] / loads['l_flex'][loads_bool_flex]
         flexible_cons_action[abs(flex_cons - loads['l_flex']) < 5e-3] = 1
 
-        if any(flexible_cons_action > 1):
+        if any(flexible_cons_action > 1 + 1e-3):
             print(
                 f"flexible_cons_action {flexible_cons_action} "
                 f"loads['l_flex'][home] {loads['l_flex']}"
