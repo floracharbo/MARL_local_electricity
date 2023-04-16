@@ -206,17 +206,22 @@ for line_label in labels.keys():
                     if n_homes_i == 10:
                         print(f"{line_label} {metric} {values[metric][values_i]}")
                     time_end[values_i] = log.loc[log['run'] == run, 'time_end'].values[0]
-                print(f"{line_label} n_homes {n_homes_i} run {run} {best_score_type} {values[best_score_type][values_i]}")
-                print(f"{line_label} n_homes {n_homes_i} run {run} time_end {time_end[values_i]}")
+                print(
+                    f"{line_label} n_homes {n_homes_i} run {run} "
+                    f"{best_score_type} {values[best_score_type][values_i]} "
+                    f"time_end {time_end[values_i]}"
+                )
 
     last_run = runs[line_label][-1]
-    reliability_metrics_run = np.load(f"outputs/results/run{last_run}/figures/metrics.npy", allow_pickle=True).item()
+    reliability_metrics_run = np.load(
+        f"outputs/results/run{last_run}/figures/metrics.npy", allow_pickle=True
+    ).item()
     for reliability_metric_label in reliability_metric_labels:
-        try:
-            reliability_metrics[line_label][reliability_metric_label]['ave'] = reliability_metrics_run[reliability_metric_label]['ave'][type_learning[line_label]]
-            reliability_metrics[line_label][reliability_metric_label]['std'] = reliability_metrics_run[reliability_metric_label]['std'][type_learning[line_label]]
-        except Exception as ex:
-            print(f"ex {ex}")
+        reliability_metrics[line_label][reliability_metric_label]['ave'] = \
+            reliability_metrics_run[reliability_metric_label]['ave'][type_learning[line_label]]
+        reliability_metrics[line_label][reliability_metric_label]['std'] = \
+            reliability_metrics_run[reliability_metric_label]['std'][type_learning[line_label]]
+
     ls = '--' if opt_informed[line_label] else '-'
     label = None if opt_informed[line_label] else labels[line_label]
 
@@ -246,7 +251,6 @@ for line_label in labels.keys():
         xs = list(range(1, x_max + 1))
         f_fitted = [function(x, *coeffs) for x in xs]
         if line_label == 'OMQ':
-        # if True:
             label = r'$y = $'\
                 + f'{coeffs[0]:.2f}' + r'$x^2 $'\
                 + f' + {coeffs[1]:.2f}' + r'$x $'\
@@ -281,12 +285,12 @@ plt.close('all')
 
 # figure metrics
 subplots_i_j = {
-                'LRT': [0, 2],
-                'DR': [1, 0],
-                'RR': [1, 1],
-                'SRT': [0, 1],
-                'DT': [0, 0]
-                }
+    'LRT': [0, 2],
+    'DR': [1, 0],
+    'RR': [1, 1],
+    'SRT': [0, 1],
+    'DT': [0, 0]
+}
 fig, axs = plt.subplots(2, 3, figsize=(8, 10))
 axs = [
     plt.subplot2grid((2, 6), (0, 0), 1, 2),
@@ -298,12 +302,12 @@ axs = [
 ]
 for i_subplot, reliability_metric_label in enumerate(reliability_metric_labels):
     bars, err = [
-        [reliability_metrics[line_label][reliability_metric_label][s] for line_label in compare_times]
+        [
+            reliability_metrics[line_label][reliability_metric_label][s]
+            for line_label in compare_times
+        ]
         for s in ['ave', 'std']
     ]
-    # if i_subplot, reliability_metric_label in enumerate(subplots_i_j.keys()):
-        # i, j = subplots_i_j[reliability_metric_label]
-
     axs[i_subplot] = _barplot(
         bars, compare_times, None,
         # error=err,
@@ -322,7 +326,7 @@ for i_subplot, reliability_metric_label in enumerate(reliability_metric_labels):
 
 plt.tight_layout()
 
-fig.savefig(f"outputs/results_analysis/metrics.pdf", bbox_inches='tight', format='pdf', dpi=1200)
+fig.savefig("outputs/results_analysis/metrics.pdf", bbox_inches='tight', format='pdf', dpi=1200)
 
 # time facmac
 
@@ -363,17 +367,14 @@ for line_label in compare_times:
         'polynomial3', 'unknown_order', 'xlogx'
     ]
     for function, label_func in zip(functions, labels_functions):
-        try:
-            params, pcov = optimize.curve_fit(function, xs, ys)
-            fitted = [function(x, *params) for x in list(range(1, x_max + 1))]
-            sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
-            print(f"sum square error {sum_square_error:.2e}")
-            print(f"params {line_label} {label_func}: {params}")
-            print(f"variability params {line_label}  {label_func} = {np.sqrt(np.diag(pcov))}")
-            plt.plot(list(range(1, x_max + 1)), fitted,
-                     label=label_func)
-        except Exception as ex:
-            print(f"ex {ex} {line_label} {label_func}")
+        params, pcov = optimize.curve_fit(function, xs, ys)
+        fitted = [function(x, *params) for x in list(range(1, x_max + 1))]
+        sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
+        print(f"sum square error {sum_square_error:.2e}")
+        print(f"params {line_label} {label_func}: {params}")
+        print(f"variability params {line_label}  {label_func} = {np.sqrt(np.diag(pcov))}")
+        plt.plot(list(range(1, x_max + 1)), fitted,
+                 label=label_func)
 
     plt.legend()
     plt.gca().set_yscale('log')
@@ -401,7 +402,11 @@ for i, run in enumerate(runs):
     data = np.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
     all_data[:, i] = data
     print(f"run {run} ave {aves[i]:.2f} p25 {p25s[i]:.2f} p75 {p75s[i]:.2f}")
-    print(f"from data ave {np.mean(data)}, p25 {np.percentile(data, 25)}, p75 {np.percentile(data, 75)}")
+    print(
+        f"from data ave {np.mean(data)}, "
+        f"p25 {np.percentile(data, 25)}, "
+        f"p75 {np.percentile(data, 75)}"
+    )
 
 labels = [
     'linear neural network, no hysteretic learning',
@@ -421,4 +426,4 @@ bp = plt.boxplot(all_data, positions=positions, showmeans=True, showfliers=False
 # plt.gca().set_xticklabels(labels, rotation=45, ha='right')
 plt.tight_layout()
 
-fig.savefig(f"outputs/results_analysis/ablations.pdf", bbox_inches='tight', format='pdf', dpi=1200)
+fig.savefig("outputs/results_analysis/ablations.pdf", bbox_inches='tight', format='pdf', dpi=1200)

@@ -56,10 +56,15 @@ def _barplot(
         barplot = barplot - baseline if title[0:7] == 'Average' else barplot
 
         if asym_err is not None:
-            ax.errorbar(rsir, barplot, yerr=np.reshape(asym_err, (2, 1)), fmt='.', ecolor=colours[ind_e])
+            ax.errorbar(
+                rsir, barplot, yerr=np.reshape(asym_err, (2, 1)),
+                fmt='.', ecolor=colours[ind_e]
+            )
         else:
-            ax.bar(rsir, barplot, yerr=err, capsize=10, width=barWidth,
-                   edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e])
+            ax.bar(
+                rsir, barplot, yerr=err, capsize=10, width=barWidth,
+                edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e]
+            )
 
     if prm is not None:
         ax = _barplot_baseline_opt_benchmarks(baseline, title, opt, ax, prm)

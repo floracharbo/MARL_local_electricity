@@ -726,7 +726,10 @@ def get_indexes_to_ignore_in_setup_comparison(
             for ignore_col in ignore_cols[column_of_interest]:
                 if ignore_col in other_columns:
                     indexes_ignore.append(other_columns.index(ignore_col))
-        if 'type_learning' in other_columns and current_setup[other_columns.index('type_learning')] == 'q_learning':
+        if (
+                'type_learning' in other_columns
+                and current_setup[other_columns.index('type_learning')] == 'q_learning'
+        ):
             indexes_ignore.append(indexes_columns_ignore_q_learning)
 
     return indexes_ignore

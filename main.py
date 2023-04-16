@@ -14,6 +14,8 @@ from src.simulations.runner import run
 # Enter experiment-specific settings in the dictionary below if using different parameters
 # to the default parameters in config_files/default_input_parameters, using the example syntax below.
 
+# if 'trajectory' in settings, parameters will be updated in run()
+
 settings = {
     'RL': {
        'state_space': [['grdC_n2', 'flexibility'], ['grdC']],

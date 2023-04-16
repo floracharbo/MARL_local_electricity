@@ -417,7 +417,9 @@ def _plot_indiv_agent_res(
             _plot_grid_price(
                 title_ylabel_dict, prm['syst']['N'], axs=axs, cintensity_kg=cintensity_kg,
                 row=0, col=0, last=last,
-                colours_non_methods=colours_non_methods, lw=lw_indiv, reduced_version=reduced_version)
+                colours_non_methods=colours_non_methods,
+                lw=lw_indiv, reduced_version=reduced_version
+            )
 
             if reduced_version:
                 row, col = 2, 0

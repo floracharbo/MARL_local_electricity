@@ -32,6 +32,7 @@ from src.post_analysis.plotting.plotting_utils import (formatting_figure,
 
 HIGH_RES = True
 
+
 def _plot_epsilon(repeat, prm, record):
     if 'eps' in record.__dict__.keys() and record.eps != {}:
         if isinstance(record.eps[repeat][0], dict):

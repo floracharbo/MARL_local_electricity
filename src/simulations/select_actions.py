@@ -46,7 +46,6 @@ class ActionSelector:
         else:
             tf_prev_state = tf.convert_to_tensor(current_state)
 
-
         return tf_prev_state
 
     def select_action(

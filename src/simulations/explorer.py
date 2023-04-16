@@ -520,11 +520,6 @@ class Explorer:
 
     def _check_rewards_match(self, method, evaluation, step_vals, sequence_feasible):
         if self.n_homes > 0 and "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
-            # rewards should not be better than optimal rewards
-            # assert np.mean(step_vals[method]["reward"]) \
-            #        < np.mean(step_vals["opt"]["reward"]) + 1e-3, \
-            #        f"reward {method} {np.mean(step_vals[method]['reward'])} " \
-            #        f"better than opt {np.mean(step_vals['opt']['reward'])}"
             if not (
                 np.mean(step_vals[method]["reward"]) < np.mean(step_vals["opt"]["reward"]) + 1e-3
             ):
