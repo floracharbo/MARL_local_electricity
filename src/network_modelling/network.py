@@ -70,7 +70,7 @@ class Network:
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
             'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
             'penalty_export', 'reactive_power_for_voltage_control',
-            'pf_passive_homes', 'pf_flexible_homes', 'tol_rel_voltage_diff',
+            'active_to_reactive_passive', 'active_to_reactive_flex', 'tol_rel_voltage_diff',
             'tol_rel_voltage_costs', 'tol_abs_line_losses'
         ]:
             setattr(self, info, prm['grd'][info])
@@ -245,14 +245,11 @@ class Network:
         with pandapower """
 
         if self.n_homesP > 0:
-            q_heat_home_car_passive = calculate_reactive_power(
-                netp0, self.pf_passive_homes)
+            q_heat_home_car_passive = netp0 * self.active_to_reactive_passive
         else:
             q_heat_home_car_passive = []
-        q_heat_home_flex = calculate_reactive_power(
-            home_vars['tot_cons'], self.pf_flexible_homes)
-        q_solar_flex = calculate_reactive_power(
-            home_vars['gen'], self.pf_flexible_homes)
+        q_heat_home_flex = home_vars['tot_cons'] * self.active_to_reactive_flex
+        q_solar_flex = home_vars['gen'] * self.active_to_reactive_flex
 
         netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
         netq_passive = q_heat_home_car_passive
@@ -327,9 +324,7 @@ class Network:
             self, res, time_step, netp0, grdCt):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
-            netq_passive = calculate_reactive_power(
-                netp0, self.pf_passive_homes
-            )
+            netq_passive = netp0 * self.active_to_reactive_passive
         else:
             netq_passive = 0
             netp0 = 0
