@@ -41,7 +41,7 @@ def _check_loads_are_met(constl_loads_constraints, prm):
 
 def _check_power_flow_equations(res, grd, N, input_hourly_lij):
     # power flow equations
-    if grd['pf_flexible_homes'] == 1:
+    if grd['active_to_reactive_flex'] == 0:
         assert np.all(abs(res['q_car_flex']) < 1e-3)
         assert np.all(abs(res['qi']) < 1e-3)
     if grd['line_losses_method'] == 'iteration':
@@ -811,8 +811,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
                 + res['hourly_reactive_line_losses'] \
                 + np.sum(res['netq0'], axis=0)
         res['p_solar_flex'] = grd['gen'][:, 0: N]
-        res['q_solar_flex'] = calculate_reactive_power(
-            grd['gen'][:, 0: N], grd['pf_flexible_homes'])
+        res['q_solar_flex'] = grd['gen'][:, 0: N] * grd['active_to_reactive_flex']
         res["hourly_reactive_losses"] = \
             np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N])
                    * grd['per_unit_to_kW_conversion'], axis=0)
