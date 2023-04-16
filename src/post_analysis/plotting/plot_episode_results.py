@@ -1,4 +1,3 @@
-import math
 import os
 
 import matplotlib
@@ -704,7 +703,6 @@ def plot_reactive_power(
             fig, ax1 = plt.subplots(figsize=(18, 12))
             ax2 = ax1.twinx()
             total_reactive_power = last['q_ext_grid'][method]
-            q_passive = np.sum(last['netp0'][method], axis=1) * prm['grd']['active_to_reactive_passive']
             q_house = np.sum(last['q_house'][method], axis=1)
             q_car = np.sum(last['q_car'][method], axis=1)
             break_down_rewards = last['break_down_rewards'][method]

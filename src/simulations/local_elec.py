@@ -30,7 +30,7 @@ from src.utilities.userdeftools import (compute_import_export_costs,
 
 class LocalElecEnv:
     """
-    Local electricity environment.
+    Local electricity envxironment.
 
     Includes home-level modelling of the flexible assets,
     computes step actions, updating states and rewards.
@@ -599,9 +599,8 @@ class LocalElecEnv:
             for info in ['netp', 'tot_cons']:
                 home_vars[info] = np.zeros(self.n_homes)
         else:
-            loads, home_vars, bool_penalty, flexible_q_car = self.action_translator.actions_to_env_vars(
-                loads, home_vars, action, date, h
-            )
+            loads, home_vars, bool_penalty, flexible_q_car = \
+                self.action_translator.actions_to_env_vars(loads, home_vars, action, date, h)
         share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in self.homes:
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \

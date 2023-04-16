@@ -6,7 +6,6 @@ Created on Tue Jan  7 16:56:31 2020.
 @author: floracharbonnier
 """
 
-import math
 import os
 import random
 from pathlib import Path

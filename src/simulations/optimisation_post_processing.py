@@ -645,8 +645,9 @@ def _update_res_variables(
             for time_step in range(N):
                 res['q_ext_grid'][time_step] = \
                     sum(res['netq_flex'][:, time_step]) \
-                    + sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, time_step])) \
-                    * grd['per_unit_to_kW_conversion'] \
+                    + sum(
+                        np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, time_step])
+                    ) * grd['per_unit_to_kW_conversion'] \
                     + sum(loads['q_heat_home_car_passive'][:, time_step])
                 res['pi'][:, time_step] = \
                     np.matmul(grd['flex_buses'], res['netp'][:, time_step]) \

@@ -9,7 +9,6 @@ Created on Tue Jan  7 17:10:28 2020.
 """
 
 import copy
-import math
 
 import numpy as np
 import picos as pic
@@ -208,11 +207,15 @@ class Optimiser:
                 p_car_flex <= self.car['max_apparent_power_car'] * self.car['eta_ch']
             )
         p.add_list_of_constraints(
-            [pi[:, time_step]
-                == self.grd['flex_buses'] * netp[:, time_step] * self.kW_to_per_unit_conversion
-                + self.loads['active_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
-                for time_step in range(self.N)])
-
+            [
+                pi[:, time_step]
+                == (
+                    self.grd['flex_buses'] * netp[:, time_step]
+                    + self.loads['active_power_passive_homes'][time_step]
+                ) * self.kW_to_per_unit_conversion
+                for time_step in range(self.N)
+            ]
+        )
         p.add_constraint(
             netq_flex
             == q_car_flex
@@ -220,10 +223,15 @@ class Optimiser:
         )
 
         p.add_list_of_constraints(
-            [qi[:, time_step]
-                == self.grd['flex_buses'] * netq_flex[:, time_step] * self.kW_to_per_unit_conversion
-                + self.loads['reactive_power_passive_homes'][time_step] * self.kW_to_per_unit_conversion
-                for time_step in range(self.N)])
+            [
+                qi[:, time_step]
+                == (
+                    self.grd['flex_buses'] * netq_flex[:, time_step]
+                    + self.loads['reactive_power_passive_homes'][time_step]
+                ) * self.kW_to_per_unit_conversion
+                for time_step in range(self.N)
+            ]
+        )
 
         p.add_list_of_constraints(
             [

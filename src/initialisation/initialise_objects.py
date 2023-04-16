@@ -327,11 +327,12 @@ def _update_bat_prm(prm):
         c_max_reactive_power = car['max_apparent_power_car'] * car['eta_ch']
     else:
         c_max_reactive_power = np.sqrt(
-            car['max_apparent_power_car'] ** 2/(1 + car['pf_passive_homes'] ** 2)
+            car['max_apparent_power_car'] ** 2 / (1 + car['pf_passive_homes'] ** 2)
         ) * car['eta_ch']
     if c_max_reactive_power < car['c_max']:
         print(
-            f"updated c_max {car['c_max']} to be consistent with max_apparent_power_car <- {c_max_reactive_power}")
+            f"updated c_max {car['c_max']} to be consistent with max_apparent_power_car "
+            f"<- {c_max_reactive_power}")
         car['c_max'] = c_max_reactive_power
 
     # else:
