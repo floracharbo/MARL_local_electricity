@@ -623,9 +623,7 @@ class LocalElecEnv:
         if self.prm['grd']['manage_voltage']:
             if not self.reactive_power_for_voltage_control:
                 # retrieve info from battery if not a decision variable
-                q_car_flex = calculate_reactive_power(
-                    self.car.p_car_flex, self.car.pf_flexible_homes
-                )
+                q_car_flex = self.car.p_car_flex * self.prm['grd']['active_to_reactive_flex']
             else:
                 # if agents decide on reactive power of battery
                 q_car_flex = flexible_q_car
@@ -640,8 +638,7 @@ class LocalElecEnv:
             q_car_flex = 0
             q_house = 0
 
-        if sum(bool_penalty) > 0:
-            constraint_ok = False
+        constraint_ok = not sum(bool_penalty) > 0
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
                 q_ext_grid, constraint_ok, q_car_flex, q_house)
