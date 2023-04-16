@@ -31,6 +31,8 @@ from src.post_analysis.plotting.plot_rl_performance_metrics import \
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
                                                        title_and_save)
 
+HIGH_RES = True
+
 
 def _plot_epsilon(repeat, prm, record):
     if 'eps' in record.__dict__.keys() and record.eps != {}:
@@ -78,6 +80,8 @@ def _plot_unfeasible_attempts(repeat, record, prm):
 def plotting(record, spaces, prm, f):
     """Plot and save results."""
     prm = initialise_variables(prm, spaces, record)
+    if HIGH_RES:
+        prm['save']['high_res'] = True
 
     # 1 - plot non-moving  average results 25th, 50th,
     # 75th percentile for all repeat

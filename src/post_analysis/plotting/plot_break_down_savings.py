@@ -311,8 +311,8 @@ def barplot_indiv_savings(record, prm):
                     label=label, yerr=std_savings[home])
         plt.xlabel('savings per agent')
         plt.xticks([r + barWidth
-                    for r in range(len(prm['RL']['evaluation_methods']))],
-                   prm['RL']['evaluation_methods'], rotation='vertical')
+                    for r in range(len(eval_not_baseline))],
+                   eval_not_baseline, rotation='vertical')
         plt.legend()
         title = "savings per agent relative to " \
                 "individual baseline costs"
