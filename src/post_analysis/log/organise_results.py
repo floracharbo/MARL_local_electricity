@@ -17,9 +17,8 @@ from tqdm import tqdm
 ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
-    'n_homes_test'
+    'facmac-hysteretic'
 ]
-# COLUMNS_OF_INTEREST = None
 
 FILTER = {
     # 'supervised_loss': False,
@@ -27,15 +26,16 @@ FILTER = {
     'SoC0': 1,
     # 'grdC_n': 2,
     'error_with_opt_to_rl_discharge': False,
-    'n_homes': 30,
+    # 'n_homes': 30,
     # 'server': False,
     'n_repeats': 10,
     'type_learning': 'facmac',
-    'trajectory': True,
+    'nn_type': 'linear',
+    # 'trajectory': True,
     # 'facmac-hysteretic': True,
 }
 
-best_score_type = 'ave'
+best_score_type = 'p50'
 # p50 or ave
 
 
@@ -724,8 +724,9 @@ def get_indexes_to_ignore_in_setup_comparison(
     else:
         if column_of_interest in ignore_cols:
             for ignore_col in ignore_cols[column_of_interest]:
-                indexes_ignore.append(other_columns.index(ignore_col))
-        if current_setup[other_columns.index('type_learning')] == 'q_learning':
+                if ignore_col in other_columns:
+                    indexes_ignore.append(other_columns.index(ignore_col))
+        if 'type_learning' in other_columns and current_setup[other_columns.index('type_learning')] == 'q_learning':
             indexes_ignore.append(indexes_columns_ignore_q_learning)
 
     return indexes_ignore
