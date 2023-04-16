@@ -64,6 +64,7 @@ class Network:
         self.homesP = range(self.n_homesP)
 
         # upper and lower voltage limits
+        self.grd = {}
         for info in [
             'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
             'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
@@ -72,7 +73,7 @@ class Network:
             'active_to_reactive_passive', 'active_to_reactive_flex', 'tol_rel_voltage_diff',
             'tol_rel_voltage_costs', 'tol_abs_line_losses'
         ]:
-            setattr(self, info, prm['grd'][info])
+            self.grd[info] = prm['grd'][info]
 
         if prm['grd']['manage_voltage']:
             self.folder_run = prm['paths']['folder_run']
@@ -287,11 +288,7 @@ class Network:
 
         # Impact of voltage costs on total costs
         hourly_voltage_costs_pp = compute_voltage_costs(
-            np.square(voltage_pp),
-            self.max_voltage,
-            self.min_voltage,
-            self.penalty_overvoltage,
-            self.penalty_undervoltage
+            np.square(voltage_pp), self.grd
         )
         abs_rel_voltage_error = abs(
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
@@ -369,14 +366,7 @@ class Network:
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp, _, _ = compute_import_export_costs(
-            grid_pp,
-            self.max_grid_import,
-            self.max_grid_export,
-            self.penalty_import,
-            self.penalty_export,
-            self.manage_agg_power
-        )
+        import_export_costs_pp, _, _ = compute_import_export_costs(grid_pp, self.grd)
         delta_import_export_costs = \
             import_export_costs_pp - res['hourly_import_export_costs'][time_step]
 

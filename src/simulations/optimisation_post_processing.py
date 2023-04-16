@@ -817,22 +817,9 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
                    * grd['per_unit_to_kW_conversion'], axis=0)
         for time_step in range(N):
             res['hourly_import_export_costs'][time_step], _, _ = \
-                compute_import_export_costs(
-                res['grid'][time_step],
-                prm['grd']['max_grid_import'],
-                prm['grd']['max_grid_export'],
-                prm['grd']['penalty_import'],
-                prm['grd']['penalty_export'],
-                prm['grd']['manage_agg_power']
-            )
+                compute_import_export_costs(res['grid'][time_step], prm['grd'])
             res['hourly_voltage_costs'][time_step] = \
-                compute_voltage_costs(
-                res['voltage_squared'][:, time_step],
-                prm['grd']['max_voltage'],
-                prm['grd']['min_voltage'],
-                prm['grd']['penalty_overvoltage'],
-                prm['grd']['penalty_undervoltage']
-            )
+                compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
             (mean, max, n_bus, n_hour) = \
                 mean_max_hourly_voltage_deviations(
                 res['voltage_squared'][:, time_step],

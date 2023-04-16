@@ -257,19 +257,18 @@ def should_optimise_for_supervised_loss(epoch, rl):
     )
 
 
-def compute_import_export_costs(
-        grid, max_grid_import, max_grid_export, penalty_import, penalty_export, manage_agg_power):
-    if manage_agg_power:
+def compute_import_export_costs(grid, grd):
+    if grd['manage_agg_power']:
         grid_in = np.where(np.array(grid) >= 0, grid, 0)
         grid_out = np.where(np.array(grid) < 0, - grid, 0)
         import_costs = np.where(
-            grid_in >= max_grid_import,
-            penalty_import * (grid_in - max_grid_import),
+            grid_in >= grd['max_grid_import'],
+            grd['penalty_import'] * (grid_in - grd['max_grid_import']),
             0
         )
         export_costs = np.where(
-            grid_out >= max_grid_export,
-            penalty_export * (grid_out - max_grid_export),
+            grid_out >= grd['max_grid_export'],
+            grd['penalty_export'] * (grid_out - grd['max_grid_export']),
             0
         )
         import_export_costs = import_costs + export_costs
@@ -279,16 +278,15 @@ def compute_import_export_costs(
     return import_export_costs, import_costs, export_costs
 
 
-def compute_voltage_costs(
-        voltage_squared, max_voltage, min_voltage, penalty_overvoltage, penalty_undervoltage):
-    over_voltage_costs = penalty_overvoltage * np.where(
-        voltage_squared > max_voltage ** 2,
-        voltage_squared - max_voltage ** 2,
+def compute_voltage_costs(voltage_squared, grd):
+    over_voltage_costs = grd['penalty_overvoltage'] * np.where(
+        voltage_squared > grd['max_voltage'] ** 2,
+        voltage_squared - grd['max_voltage'] ** 2,
         0
     )
-    under_voltage_costs = penalty_undervoltage * np.where(
-        voltage_squared < min_voltage ** 2,
-        min_voltage ** 2 - voltage_squared,
+    under_voltage_costs = grd['penalty_undervoltage'] * np.where(
+        voltage_squared < grd['min_voltage'] ** 2,
+        grd['min_voltage'] ** 2 - voltage_squared,
         0
     )
 
