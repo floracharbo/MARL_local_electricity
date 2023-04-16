@@ -30,7 +30,7 @@ from src.utilities.userdeftools import (compute_import_export_costs,
 
 class LocalElecEnv:
     """
-    Local electricity envxironment.
+    Local electricity environment.
 
     Includes home-level modelling of the flexible assets,
     computes step actions, updating states and rewards.
