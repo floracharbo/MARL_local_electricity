@@ -28,8 +28,7 @@ from src.post_analysis.plotting.plot_q_learning_explorations_values import (
 from src.post_analysis.plotting.plot_rl_performance_metrics import \
     barplot_metrics
 from src.post_analysis.plotting.plotting_utils import (formatting_figure,
-                                           title_and_save)
-
+                                                       title_and_save)
 
 HIGH_RES = True
 
