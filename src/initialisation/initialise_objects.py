@@ -322,10 +322,20 @@ def _update_bat_prm(prm):
     car, syst, paths = [prm[key] for key in ["car", "syst", "paths"]]
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
+    car['c_max0'] = car['c_max']
     if prm['grd']['reactive_power_for_voltage_control']:
-        car['c_max'] = car['max_apparent_power_car'] * car['eta_ch']
+        c_max_reactive_power = car['max_apparent_power_car'] * car['eta_ch']
     else:
-        car['c_max'] = car['c_max'] * car['eta_ch']
+        c_max_reactive_power = np.sqrt(
+            car['max_apparent_power_car'] ** 2/(1 + car['pf_passive_homes'] ** 2)
+        ) * car['eta_ch']
+    if c_max_reactive_power < car['c_max']:
+        print(
+            f"updated c_max {car['c_max']} to be consistent with max_apparent_power_car <- {c_max_reactive_power}")
+        car['c_max'] = c_max_reactive_power
+
+    # else:
+    #     car['c_max'] = car['c_max'] * car['eta_ch']
     # have list of car capacities based on capacity and ownership inputs
     car["caps"] = np.array(
         car["cap"]) if isinstance(car["cap"], list) \
@@ -611,8 +621,7 @@ def _update_rl_prm(prm, initialise_all):
             )
 
     if prm["grd"]["reactive_power_for_voltage_control"]:
-        reactive_power_default = rl["default_action"][0][2] * \
-            math.tan(math.acos(prm['grd']['pf_flexible_homes']))
+        reactive_power_default = rl["default_action"][0][2] * prm['grd']['active_to_reactive_flex']
         for default_action in rl["default_action"]:
             default_action[3] = reactive_power_default
 
@@ -776,14 +785,14 @@ def _update_grd_prm(prm):
     grd:
         with updated information
     """
-    paths, grd, syst = [prm[key] for key in ["paths", "grd", "syst"]]
+    paths, grd, syst, car = [prm[key] for key in ["paths", "grd", "syst", "car"]]
 
     # grid loss
     grd["loss"] = grd["R"] / (grd["V"] ** 2)
     grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
     grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
-    grd['active_to_reactive_flex'] = math.tan(math.acos(grd['pf_flexible_homes']))
-    grd['active_to_reactive_passive'] = math.tan(math.acos(grd['pf_passive_homes']))
+    grd['active_to_reactive_flex'] = math.tan(math.acos(car['pf_flexible_homes']))
+    grd['active_to_reactive_passive'] = math.tan(math.acos(car['pf_passive_homes']))
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
