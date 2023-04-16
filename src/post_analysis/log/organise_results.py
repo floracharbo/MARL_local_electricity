@@ -21,18 +21,11 @@ COLUMNS_OF_INTEREST = [
 ]
 
 FILTER = {
-    # 'supervised_loss': False,
-    # 'facmac-beta_to_alpha': 0.1,
     'SoC0': 1,
-    # 'grdC_n': 2,
     'error_with_opt_to_rl_discharge': False,
-    # 'n_homes': 30,
-    # 'server': False,
     'n_repeats': 10,
     'type_learning': 'facmac',
     'nn_type': 'linear',
-    # 'trajectory': True,
-    # 'facmac-hysteretic': True,
 }
 
 best_score_type = 'p50'
