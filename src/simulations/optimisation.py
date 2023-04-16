@@ -202,7 +202,7 @@ class Optimiser:
 
         else:
             p.add_constraint(
-                q_car_flex == p_car_flex * math.tan(math.acos(self.grd['pf_flexible_homes']))
+                q_car_flex == p_car_flex * self.grd['active_to_reactive_flex']
             )
             p.add_constraint(
                 p_car_flex <= self.car['max_apparent_power_car'] * self.car['eta_ch']
