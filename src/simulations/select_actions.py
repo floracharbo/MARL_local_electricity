@@ -27,7 +27,6 @@ class ActionSelector:
         self.env = env
         self.homes = range(prm["syst"]["n_homes"])
         self.episode_batch = episode_batch
-        self.reactive_power_for_voltage_control = prm["grd"]["reactive_power_for_voltage_control"]
 
     def _format_tf_prev_state(
             self,

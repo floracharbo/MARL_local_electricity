@@ -607,7 +607,7 @@ class LocalElecEnv:
         else:
             netp0 = []
         if self.prm['grd']['manage_voltage']:
-            if not self.reactive_power_for_voltage_control:
+            if not self.prm['grd']['reactive_power_for_voltage_control']:
                 # retrieve info from battery if not a decision variable
                 q_car_flex = self.car.p_car_flex * self.prm['grd']['active_to_reactive_flex']
             else:

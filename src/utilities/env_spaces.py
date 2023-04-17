@@ -104,7 +104,6 @@ class EnvSpaces:
             setattr(self, property, env.prm["RL"][property])
         self.current_date0 = env.prm['syst']['date0_dtm']
         self.c_max = env.prm["car"]["c_max"]
-
         self.reactive_power_for_voltage_control = \
             env.prm['grd']['reactive_power_for_voltage_control']
 
