@@ -522,11 +522,14 @@ class Battery:
         ds_start = k[home]['ds'][-1][0] * action_prev + k[home]['ds'][-1][1]
         ds_end = k[home]['ds'][-1][0] * action_next + k[home]['ds'][-1][1]
         loss, a_loss, b_loss = [{} for _ in range(3)]
-        loss['ch'] = [0 if ds < 0
-                      else ds / self.eta_ch * (1 - self.eta_ch)
-                      for ds in [ds_start, ds_end]]
-        loss['dis'] = [- ds * (1 - self.eta_dis) if ds < 0
-                       else 0 for ds in [ds_start, ds_end]]
+        loss['charge'] = [
+            0 if ds < 0 else ds / self.eta_ch * (1 - self.eta_ch)
+            for ds in [ds_start, ds_end]
+        ]
+        loss['discharge'] = [
+            - ds * (1 - self.eta_dis) if ds < 0 else 0
+            for ds in [ds_start, ds_end]
+        ]
         for e in ['charge', 'discharge']:
             a_loss[e] = (loss[e][1] - loss[e][0]) / (action_next - action_prev)
             b_loss[e] = loss[e][1] - a_loss[e] * action_next
