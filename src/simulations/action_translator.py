@@ -401,7 +401,8 @@ class Action_translator:
             elif self.max_charge[home] >= 0:
                 res['ds'] = self.min_charge[home] + flexible_store_action \
                     * (self.max_charge[home] - self.min_charge[home])
-        res['charge_losses'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
+        res['charge_losses'] = 0 if res['ds'] < 0 \
+            else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
         res['discharge_losses'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
 
         return res

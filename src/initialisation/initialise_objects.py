@@ -323,7 +323,7 @@ def _update_bat_prm(prm):
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
     car['c_max0'] = car['c_max']
-    if prm['grd']['reactive_power_for_voltage_control']:
+    if prm['grd']['reactive_power_for_voltage_control'] or not prm['grd']['manage_voltage']:
         c_max_reactive_power = car['max_apparent_power_car'] * car['eta_ch']
     else:
         c_max_reactive_power = np.sqrt(

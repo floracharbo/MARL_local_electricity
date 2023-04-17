@@ -245,11 +245,11 @@ class Network:
         with pandapower """
 
         if self.n_homesP > 0:
-            q_heat_home_car_passive = netp0 * self.active_to_reactive_passive
+            q_heat_home_car_passive = netp0 * self.grd['active_to_reactive_passive']
         else:
             q_heat_home_car_passive = []
-        q_heat_home_flex = home_vars['tot_cons'] * self.active_to_reactive_flex
-        q_solar_flex = home_vars['gen'] * self.active_to_reactive_flex
+        q_heat_home_flex = home_vars['tot_cons'] * self.grd['active_to_reactive_flex']
+        q_solar_flex = home_vars['gen'] * self.grd['active_to_reactive_flex']
 
         netq_flex = q_car_flex + q_heat_home_flex - q_solar_flex
         netq_passive = q_heat_home_car_passive
@@ -320,7 +320,7 @@ class Network:
             self, res, time_step, netp0, grdCt):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
-            netq_passive = netp0 * self.active_to_reactive_passive
+            netq_passive = netp0 * self.grd['active_to_reactive_passive']
         else:
             netq_passive = 0
             netp0 = 0
