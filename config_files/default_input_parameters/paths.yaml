@@ -2,7 +2,6 @@
 input_folder: 'input_data'  # data file
 open_inputs_folder: 'open_data'  # inputs that are openly available
 hedge_inputs_folder: 'hedge_inputs'
-ieee_network_data: 'European_LV_CSV'
 wholesale: 'octopus_prices_in' # 'wholesaleprice_list_12-6-18_to_13-11-18.npy',
 carbon_intensity: 'carbon_intensity'   #'cintensity_list_hourly_12-6-18_to_13-11-18.npy',
 profiles_folder: 'profiles'

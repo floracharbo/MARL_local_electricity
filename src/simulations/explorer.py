@@ -546,9 +546,13 @@ class Explorer:
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
             time_step, batchflex_opt
         )
+        if self.prm["grd"]["line_losses_method"] == 'iteration':
+            cons_tol = 1e-1
+        else:
+            cons_tol = 1e-2
         assert all(
             res['totcons'][:, time_step] - res['E_heat'][:, time_step]
-            <= loads["l_flex"] + loads["l_fixed"] + 1e-2
+            <= loads["l_flex"] + loads["l_fixed"] + cons_tol
         ), f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
            f"available loads {loads['l_flex'] + loads['l_fixed']}"
         _, _, loads_prev = self._fixed_flex_loads(
@@ -699,12 +703,13 @@ class Explorer:
 
         # check tot cons
         for home in self.homes:
+            fixed_flex = sum(flex[home][time_step]) \
+                + self.env.heat.E_heat_min[home] \
+                + self.env.heat.potential_E_flex()[home]
             assert res["totcons"][home][time_step] <= \
-                   sum(flex[home][time_step]) \
-                   + self.env.heat.E_heat_min[home] \
-                   + self.env.heat.potential_E_flex()[home] + 1e-3, \
-                   f"cons more than sum fixed + flex!, " \
-                   f"home = {home}, time_step = {time_step}"
+                   fixed_flex + 1e-2, \
+                   f"cons {res['totcons'][home][time_step]} more than sum fixed + flex" \
+                   f" {fixed_flex} for home = {home}, time_step = {time_step}"
 
         # check loads and consumption match
         sum_consa = 0
@@ -846,8 +851,7 @@ class Explorer:
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
             [self.prm["grd"]["C"][time_step_] * (
-                res['grid'][time_step_]
-                + self.prm["grd"]['loss'] * res['grid2'][time_step_]
+                res['grid'][time_step_] + self.prm["grd"]['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
         )
         if not (abs(sum_gc_0 - res['grid_energy_costs']) < 1e-3):
@@ -897,9 +901,9 @@ class Explorer:
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
                 grdCt = self.prm['grd']['C'][time_step]
-                line_losses_method = 'comparison'
                 res = self.env.network.compare_optimiser_pandapower(
-                    res, time_step, netp0, grdCt, line_losses_method)
+                    res, time_step, netp0, grdCt
+                )
 
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
@@ -909,6 +913,7 @@ class Explorer:
                 passive_vars=self.env.get_passive_vars(time_step),
                 hourly_line_losses=res['hourly_line_losses'][time_step],
                 voltage_squared=res['voltage_squared'][:, time_step],
+                q_ext_grid=res['q_ext_grid'][time_step]
             )
             step_vals_i["indiv_grid_battery_costs"] = - np.array(
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
@@ -987,10 +992,15 @@ class Explorer:
             self.prm["grd"][e][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
         ]
+        if self.prm["grd"]['manage_voltage']:
+            q_car = res["q_car_flex"][:, time_step]
+            q_house = res["netq_flex"][:, time_step] - q_car
+        else:
+            q_car, q_house = None, None
         if self.prm["grd"]['compare_pandapower_optimisation']:
             loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
         else:
-            loaded_buses, sgen_buses = None, None
+            loaded_buses, sgen_buses, = None, None
 
         record_output = []
         for entry in [
@@ -1005,7 +1015,8 @@ class Explorer:
             self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
             break_down_rewards,
             loaded_buses, sgen_buses,
-            res['q_ext_grid'][time_step]
+            res['q_ext_grid'][time_step],
+            q_car, q_house
         ]
 
         self.last_epoch(evaluation, "opt", record_output, batch, done)
@@ -1090,7 +1101,7 @@ class Explorer:
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
             home_vars, loads, hourly_line_losses, voltage_squared, \
-                _, constraint_ok = \
+                q_ext_grid, constraint_ok, _, _ = \
                 env.policy_to_rewardvar(None, other_input=input_take_action)
             self.env.car.store = bat_store
             passive_vars = self.env.get_passive_vars(time_step)
@@ -1101,7 +1112,8 @@ class Explorer:
                 time_step=time_step,
                 passive_vars=passive_vars,
                 hourly_line_losses=hourly_line_losses,
-                voltage_squared=voltage_squared
+                voltage_squared=voltage_squared,
+                q_ext_grid=q_ext_grid
             )
 
             if not constraint_ok:

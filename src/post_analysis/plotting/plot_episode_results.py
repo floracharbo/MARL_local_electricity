@@ -93,9 +93,8 @@ def _plot_all_agents_mean_res(
                     all_vals_e_t_step_mean[step] = np.mean(
                         np.mean(all_vals_e_t_step)
                     )
-                ys = \
-                    all_vals_e_t_step_mean * prm['syst']['n_homes'] if sum_agents \
-                    else all_vals_e_t_step_mean
+                ys = all_vals_e_t_step_mean * prm['syst']['n_homes'] \
+                    if sum_agents else all_vals_e_t_step_mean
                 ax = axs[r] if sum_agents else axs[r, c]
                 ax.step(
                     xs, ys,
@@ -695,43 +694,46 @@ def plot_imp_exp_violations(
 
 def plot_reactive_power(
         prm, all_methods_to_plot, folder_run):
-    """ Plots flex_reactive_power [kWh] and import/export penalties for last day """
+    """ Plots total_reactive_power [kWh] and voltage penalties for last day """
     plt.rcParams['font.size'] = '16'
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
         for method in methods_to_plot:
-            fig, ax1 = plt.subplots(figsize=(8, 6))
+            fig, ax1 = plt.subplots(figsize=(18, 12))
             ax2 = ax1.twinx()
-            flex_reactive_power = last['q_ext_grid'][method]
+            total_reactive_power = last['q_ext_grid'][method]
+            q_house = np.sum(last['q_house'][method], axis=1)
+            q_car = np.sum(last['q_car'][method], axis=1)
             break_down_rewards = last['break_down_rewards'][method]
-            i_total_costs = prm['syst']['break_down_rewards_entries'].index(
-                'total_costs'
-            )
-            total_costs = [
-                break_down_rewards[step][i_total_costs]
+            i_voltage_costs = prm['syst']['break_down_rewards_entries'].index('voltage_costs')
+            voltage_costs = [
+                break_down_rewards[step][i_voltage_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(flex_reactive_power, label='Reactive power', color='salmon')
+            ax1.plot(total_reactive_power, label='Reactive power', color='salmon')
+            ax1.plot(q_house, label='Reactive power house')
+            ax1.plot(q_car, label='Reactive power car')
+            ax1.plot(q_car, label='Reactive power passive')
             ax2.bar(
                 range(prm['syst']['N']),
-                total_costs,
-                label='Total costs',
+                voltage_costs,
+                label='Voltage costs',
                 color='forestgreen'
             )
             ax1.set_ylabel('Sum reactive power [kWh]')
-            ax2.set_ylabel('System total costs [£]')
-            ax2.set_ylim([0, 1.1 * max(total_costs)])
+            ax2.set_ylabel('System voltage costs [£]')
+            ax2.set_ylim([0, 1.1 * max(voltage_costs)])
             ax1.spines['right'].set_color('salmon')
             ax1.spines['left'].set_color('salmon')
             ax1.spines['right'].set_color('forestgreen')
             ax1.spines['left'].set_color('forestgreen')
             ax1.yaxis.label.set_color('coral')
             ax2.yaxis.label.set_color('forestgreen')
-            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
-            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+            ax1.legend(loc='center', bbox_to_anchor=(0.5, 0.90))
+            ax2.legend(loc='center', bbox_to_anchor=(0.5, 0.77))
             plt.tight_layout()
-            title = f'Reactive power and total costs, repeat {repeat} {method}'
+            title = f'Reactive power and total costs repeat {repeat} {method}'
             title_and_save(title, fig, prm)
 
 
@@ -742,38 +744,37 @@ def plot_indiv_reactive_power(
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
-        for t in methods_to_plot:
-            fig, ax1 = plt.subplots(figsize=(8, 6))
+        for method in methods_to_plot:
+            fig, ax1 = plt.subplots(figsize=(18, 12))
             ax2 = ax1.twinx()
-            flex_reactive_power = last['q_ext_grid'][t]
-            break_down_rewards = last['break_down_rewards'][t]  # [step][break_down_rewards_entry]
-            i_total_costs = prm['syst']['break_down_rewards_entries'].index(
-                'total_costs'
-            )
-            total_costs = [
-                break_down_rewards[step][i_total_costs]
+            q_car = last['q_car'][method]
+            break_down_rewards = last['break_down_rewards'][method]
+            i_voltage_costs = prm['syst']['break_down_rewards_entries'].index('voltage_costs')
+            voltage_costs = [
+                break_down_rewards[step][i_voltage_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(flex_reactive_power, label='Reactive power', color='salmon')
+            for home in range(prm["syst"]["n_homes"]):
+                ax1.plot(np.array(q_car)[:, home], label=f'Reactive power car, home {home}')
             ax2.bar(
                 range(prm['syst']['N']),
-                total_costs,
-                label='Total costs',
+                voltage_costs,
+                label='Voltage costs',
                 color='forestgreen'
             )
             ax1.set_ylabel('Sum reactive power [kWh]')
-            ax2.set_ylabel('System total costs [£]')
-            ax2.set_ylim([0, 1.1 * max(total_costs)])
+            ax2.set_ylabel('System voltage costs [£]')
+            ax2.set_ylim([0, 1.1 * max(voltage_costs)])
             ax1.spines['right'].set_color('salmon')
             ax1.spines['left'].set_color('salmon')
             ax1.spines['right'].set_color('forestgreen')
             ax1.spines['left'].set_color('forestgreen')
             ax1.yaxis.label.set_color('coral')
             ax2.yaxis.label.set_color('forestgreen')
-            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
-            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+            ax1.legend(loc='center', bbox_to_anchor=(0.5, 0.90))
+            ax2.legend(loc='center', bbox_to_anchor=(0.5, 0.77))
             plt.tight_layout()
-            title = f'Reactive power and total costs, repeat{repeat}, {t}'
+            title = f'Indiv reactive power and total costs, repeat{repeat}, {method}'
             title_and_save(title, fig, prm)
 
 
@@ -941,7 +942,7 @@ def map_over_undervoltage(
                 sc = plot.create_bus_collection(net, net.ext_grid.bus.values, patch_type="poly3",
                                                 size=.7, color="grey", zorder=11)
 
-                # Plot all the loads
+                # Plot all the loads and generations
                 ldA = plot.create_bus_collection(
                     net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
                     patch_type="poly3", size=1.4, color="r", zorder=11
@@ -968,7 +969,33 @@ def map_over_undervoltage(
                 # Draw all the collected plots
                 ax = plot.draw_collections([lcd, bc, tlc, tpc, sc, ldA, ldB, over, under],
                                            figsize=(20, 20))
-                ax.legend()
+                # Add legend to homes
+                for bus, i in zip(
+                    last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
+                ):
+                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+                    plot.plt.annotate(
+                        f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
+                        f"\n Q_house is {round(q_house, 3)} kVAR"
+                        f"\n Q_car is {round(q_car, 3)} kVAR",
+                        xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
+                for bus, i in zip(
+                    last['loaded_buses'][method][prm["syst"]["N"] - 1],
+                    range(prm["syst"]["n_homes"])
+                ):
+                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+                    plot.plt.annotate(
+                        f"Load bus, \n Voltage is {round(voltage, 3)} p.u."
+                        f"\n Q_house is {round(q_house, 3)} kVAR"
+                        f"\n Q_car is {round(q_car, 3)} kVAR",
+                        xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
+
                 # Save
                 title = f'map_over_under_voltage{repeat}_{method}'
                 title_and_save(title, ax.figure, prm)

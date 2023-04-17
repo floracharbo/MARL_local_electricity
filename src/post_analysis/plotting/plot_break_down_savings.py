@@ -332,3 +332,29 @@ def barplot_indiv_savings(record, prm):
             "savings relative to individual baseline costs"
         title_and_save(title, fig, prm)
         plt.close('all')
+
+
+def plot_voltage_statistics(record, prm):
+    """ Creates plot of mean, max and number of voltage deviations per method """
+    labels = [
+        record.break_down_rewards_entries[prm['syst']['break_down_rewards_entries'].index(label)]
+        for label in [
+            'mean_voltage_deviation', 'max_voltage_deviation',
+            'n_voltage_deviation_bus', 'n_voltage_deviation_hour'
+        ]
+    ]
+    for label in labels:
+        record_obj = record.__dict__[label]
+        for repeat in range(prm['RL']['n_repeats']):
+            fig, ax = plt.subplots(figsize=(16, 8))
+            for method in prm['RL']['evaluation_methods']:
+                values = record_obj[repeat][method]
+                x_axis = range(len(record_obj[repeat][method]))
+                ax.plot(x_axis, values, label=method)
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel(f"{label}")
+            ax.set_title(f"{label} by epoch")
+            ax.legend()
+            title = f"plot_{label}_repeat{repeat}"
+            title_and_save(title, fig, prm)
+            plt.close('all')

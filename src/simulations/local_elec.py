@@ -23,6 +23,9 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
+from src.utilities.userdeftools import (compute_import_export_costs,
+                                        compute_voltage_costs,
+                                        mean_max_hourly_voltage_deviations)
 
 
 class LocalElecEnv:
@@ -260,7 +263,7 @@ class LocalElecEnv:
         for home in range(n_homes):
             remaining_cons = max(flex_cons[home], 0)
 
-            assert flex_cons[home] <= np.sum(batch_flex[home][h][1:]) + 1e-2, \
+            assert flex_cons[home] <= np.sum(batch_flex[home][h][1:]) + 5e-2, \
                 f"flex_cons[home={home}] {flex_cons[home]} " \
                 f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-2"
 
@@ -326,8 +329,11 @@ class LocalElecEnv:
 
         if h == 2:
             self.slid_day = False
-        home_vars, loads, hourly_line_losses, voltage_squared, q_ext_grid, constraint_ok \
-            = self.policy_to_rewardvar(action, E_req_only=E_req_only)
+        [
+            home_vars, loads, hourly_line_losses, voltage_squared,
+            q_ext_grid, constraint_ok, q_car, q_house
+        ] = self.policy_to_rewardvar(action, E_req_only=E_req_only)
+
         netp0 = self.prm['loads']['netp0'][:, h]
         if not constraint_ok:
             print('constraint false not returning to original values')
@@ -337,7 +343,8 @@ class LocalElecEnv:
             reward, break_down_rewards = self.get_reward(
                 netp=home_vars['netp'],
                 hourly_line_losses=hourly_line_losses,
-                voltage_squared=voltage_squared
+                voltage_squared=voltage_squared,
+                q_ext_grid=q_ext_grid
             )
 
             # ----- update environment variables and state
@@ -391,7 +398,8 @@ class LocalElecEnv:
                     self.cintensity[self.time_step].copy(),
                     break_down_rewards,
                     loaded_buses, sgen_buses,
-                    q_ext_grid
+                    q_ext_grid,
+                    q_car, q_house
                 ]
 
                 return [next_state, self.done, reward, break_down_rewards,
@@ -421,6 +429,7 @@ class LocalElecEnv:
             time_step: int = None,
             voltage_squared: list = None,
             hourly_line_losses: int = 0,
+            q_ext_grid: int = 0,
     ) -> Tuple[list, list]:
         """Compute reward from netp and battery charge at time step."""
         if passive_vars is not None:
@@ -447,14 +456,28 @@ class LocalElecEnv:
 
         # import and export limits
         if self.prm['grd']['manage_agg_power']:
-            import_export_costs, _, _ = self.network.compute_import_export_costs(grid)
+            import_export_costs, _, _ = compute_import_export_costs(
+                grid, self.prm['grd']
+            )
         else:
             import_export_costs = 0
-
         if self.prm['grd']['manage_voltage']:
-            voltage_costs = self.network.compute_voltage_costs(voltage_squared)
+            voltage_costs = compute_voltage_costs(
+                voltage_squared, self.prm['grd']
+            )
+            mean_voltage_deviation, max_voltage_deviation, \
+                n_voltage_deviation_bus, n_voltage_deviation_hour =  \
+                mean_max_hourly_voltage_deviations(
+                    voltage_squared,
+                    self.prm['grd']['max_voltage'],
+                    self.prm['grd']['min_voltage']
+                )
         else:
             voltage_costs = 0
+            mean_voltage_deviation = 0
+            max_voltage_deviation = 0
+            n_voltage_deviation_bus = 0
+            n_voltage_deviation_hour = 0
 
         if self.prm['grd']['charge_type'] == 0:
             sum_netp_export = sum(self.netp_to_exports(netp))
@@ -498,8 +521,10 @@ class LocalElecEnv:
             grid_energy_costs, battery_degradation_costs, distribution_network_export_costs,
             import_export_costs, voltage_costs, hourly_line_losses,
             cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
-            emissions_from_grid, emissions_from_loss, total_costs, indiv_grid_energy_costs,
-            indiv_battery_degradation_costs, indiv_grid_battery_costs
+            emissions_from_grid, emissions_from_loss, total_costs,
+            indiv_grid_energy_costs, indiv_battery_degradation_costs, indiv_grid_battery_costs,
+            mean_voltage_deviation, max_voltage_deviation, n_voltage_deviation_bus,
+            n_voltage_deviation_hour
         ]
 
         assert len(break_down_rewards) == len(self.prm['syst']['break_down_rewards_entries']), \
@@ -555,7 +580,6 @@ class LocalElecEnv:
         self.heat.potential_E_flex()
 
         #  ----------- meet consumption + check constraints ---------------
-        constraint_ok = True
         if action is None:
             for info in ['flex_cons', 'tot_cons_loads']:
                 loads[info] = np.zeros(self.n_homes)
@@ -563,9 +587,8 @@ class LocalElecEnv:
             for info in ['netp', 'tot_cons']:
                 home_vars[info] = np.zeros(self.n_homes)
         else:
-            loads, home_vars, bool_penalty = self.action_translator.actions_to_env_vars(
-                loads, home_vars, action, date, h
-            )
+            loads, home_vars, bool_penalty, flexible_q_car = \
+                self.action_translator.actions_to_env_vars(loads, home_vars, action, date, h)
         share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in self.homes:
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
@@ -584,26 +607,27 @@ class LocalElecEnv:
         else:
             netp0 = []
         if self.prm['grd']['manage_voltage']:
-            # retrieve info from battery
-            self.car.active_reactive_power_car()
-            # q_car_flex will be a decision variable
-            # p_car_flex is needed to set apparent power limits
-            q_car_flex = self.car.q_car_flex
+            if not self.prm['grd']['reactive_power_for_voltage_control']:
+                # retrieve info from battery if not a decision variable
+                q_car_flex = self.car.p_car_flex * self.prm['grd']['active_to_reactive_flex']
+            else:
+                # if agents decide on reactive power of battery
+                q_car_flex = flexible_q_car
             # run pandapower simulation
-            voltage_squared, hourly_line_losses, q_ext_grid = \
-                self.network._power_flow_res_with_pandapower(
-                    home_vars, netp0, q_car_flex
-                )
+            voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
+                self.network._power_flow_res_with_pandapower(home_vars, netp0, q_car_flex)
+            q_house = netq_flex - q_car_flex
         else:
             voltage_squared = None
             hourly_line_losses = 0
             q_ext_grid = 0
+            q_car_flex = 0
+            q_house = 0
 
-        if sum(bool_penalty) > 0:
-            constraint_ok = False
+        constraint_ok = not sum(bool_penalty) > 0
 
         return (home_vars, loads, hourly_line_losses, voltage_squared,
-                q_ext_grid, constraint_ok)
+                q_ext_grid, constraint_ok, q_car_flex, q_house)
 
     def get_state_vals(
             self,

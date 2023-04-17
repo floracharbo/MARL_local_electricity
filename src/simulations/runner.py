@@ -518,7 +518,7 @@ class Runner:
         self.record.timer_stats(
             timer_pp, timer_comparison,
             self.explorer.data.timer_optimisation,
-            self.explorer.data.timer_feasible_data
+            self.explorer.data.timer_feasible_data,
         )
 
 

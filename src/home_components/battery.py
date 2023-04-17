@@ -10,8 +10,6 @@ import datetime
 
 import numpy as np
 
-from src.utilities.userdeftools import calculate_reactive_power
-
 
 class Battery:
     """
@@ -56,14 +54,10 @@ class Battery:
             are we looking at a different number of tested homes? '_test' if yes else ''        """
         # very large number for enforcing constraints
         self.set_passive_active(ext, prm)
-
-        self.pf_flexible_homes = prm['grd']['pf_flexible_homes']
-        self.reactive_power_for_voltage_control = \
-            prm['grd']['reactive_power_for_voltage_control']
-
+        for info in ['active_to_reactive_flex', 'reactive_power_for_voltage_control']:
+            setattr(self, info, prm['grd'][info])
         for info in ['M', 'N', 'dt']:
             setattr(self, info, prm['syst'][info])
-
         for info in [
             'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin',
             'max_apparent_power_car',
@@ -426,9 +420,10 @@ class Battery:
     def actions_to_env_vars(self, res):
         """Update battery state for current actions."""
         for info in [
-            'store', 'charge', 'discharge', 'loss_ch', 'loss_dis', 'store_out_tot', 'discharge_tot'
+            'store', 'charge', 'discharge', 'loss_ch', 'loss_dis',
+            'store_out_tot', 'discharge_tot', 'q_car_flex', 'p_car_flex'
         ]:
-            setattr(self, info, [None for _ in range(self.n_homes)])
+            setattr(self, info, np.full(self.n_homes, np.nan))
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
@@ -441,19 +436,27 @@ class Battery:
             self.charge[home] = res[home]['ds'] if res[home]['ds'] > 0 else 0
             self.discharge[home] = - res[home]['ds'] * self.eta_dis \
                 if res[home]['ds'] < 0 else 0
-            self.loss_ch[home] = res[home]['l_ch']
-            self.loss_dis[home] = res[home]['l_dis']
+            self.loss_ch[home] = res[home]['charge_losses']
+            self.loss_dis[home] = res[home]['discharge_losses']
             self.store_out_tot[home] = self.discharge[home] \
                 + self.loss_dis[home] + self.loads_car[home]
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
-        # calculate active and reactive power for all homes
+            self.p_car_flex[home] = np.array(self.charge[home] / self.eta_ch) \
+                - np.array(self.discharge[home])
+            assert self.p_car_flex[home] < self.max_apparent_power_car + 1e-3, \
+                f"home = {home}, p_car_flex = {self.p_car_flex[home]} too large for " \
+                f"self.max_apparent_power_car {self.max_apparent_power_car}"
+            if self.reactive_power_for_voltage_control:
+                # reactive power is a decision variable
+                self.q_car_flex[home] = res[home]['q']
         if not self.reactive_power_for_voltage_control:
-            self.active_reactive_power_car()
-        apparent_power_car = np.square(self.p_car_flex) + np.square(self.q_car_flex)
-        assert all(apparent_power_car <= self.max_apparent_power_car**2), \
+            # calculate active and reactive power for all homes with fixed pf
+            self.q_car_flex = self.p_car_flex * self.active_to_reactive_flex
+        apparent_power_car = np.sqrt(np.square(self.p_car_flex) + np.square(self.q_car_flex))
+        assert all(apparent_power_car <= self.max_apparent_power_car ** 2 + 1e-2), \
             f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
-            f" maximum apparent power of the car: {self.max_apparent_power_car**2} < " \
+            f" maximum apparent power of the car: {self.max_apparent_power_car} < " \
             f"{apparent_power_car.max()}"
 
     def initial_processing(self):
@@ -519,15 +522,18 @@ class Battery:
         ds_start = k[home]['ds'][-1][0] * action_prev + k[home]['ds'][-1][1]
         ds_end = k[home]['ds'][-1][0] * action_next + k[home]['ds'][-1][1]
         loss, a_loss, b_loss = [{} for _ in range(3)]
-        loss['ch'] = [0 if ds < 0
-                      else ds / self.eta_ch * (1 - self.eta_ch)
-                      for ds in [ds_start, ds_end]]
-        loss['dis'] = [- ds * (1 - self.eta_dis) if ds < 0
-                       else 0 for ds in [ds_start, ds_end]]
-        for e in ['ch', 'dis']:
+        loss['charge'] = [
+            0 if ds < 0 else ds / self.eta_ch * (1 - self.eta_ch)
+            for ds in [ds_start, ds_end]
+        ]
+        loss['discharge'] = [
+            - ds * (1 - self.eta_dis) if ds < 0 else 0
+            for ds in [ds_start, ds_end]
+        ]
+        for e in ['charge', 'discharge']:
             a_loss[e] = (loss[e][1] - loss[e][0]) / (action_next - action_prev)
             b_loss[e] = loss[e][1] - a_loss[e] * action_next
-            k[home]['l_' + e].append([a_loss[e], b_loss[e]])
+            k[home][f"{e}_losses"].append([a_loss[e], b_loss[e]])
 
         return k
 
@@ -723,8 +729,3 @@ class Battery:
             time_step += 1
 
         return feasible
-
-    def active_reactive_power_car(self):
-        self.p_car_flex = np.array(self.charge) - np.array(self.discharge)
-        self.q_car_flex = calculate_reactive_power(
-            self.p_car_flex, self.pf_flexible_homes)

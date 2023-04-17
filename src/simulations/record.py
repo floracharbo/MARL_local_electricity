@@ -589,8 +589,20 @@ class Record:
             eval_step_t_e = \
                 None if method not in eval_steps \
                 else eval_steps[method][info]
-            self.__dict__[info][self.repeat][method][epoch] = \
-                np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
+            if info == 'max_voltage_deviation':
+                self.__dict__[info][self.repeat][method][epoch] = \
+                    max(eval_step_t_e) if eval_step_t_e is not None else None
+            # during one epoch, how many buses in total had a voltage deviation
+            elif info == 'n_voltage_deviation_bus':
+                self.__dict__[info][self.repeat][method][epoch] = \
+                    np.sum(eval_step_t_e) if eval_step_t_e is not None else None
+            # during one epoch, how many hours had at least one voltage deviation
+            elif info == 'n_voltage_deviation_hour':
+                self.__dict__[info][self.repeat][method][epoch] = \
+                    np.sum(eval_step_t_e) if eval_step_t_e is not None else None
+            else:
+                self.__dict__[info][self.repeat][method][epoch] = \
+                    np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
 
         # we have done at least 6 steps
         if not end_test and len(all_mean_eval_t) > 5 and method != "opt":

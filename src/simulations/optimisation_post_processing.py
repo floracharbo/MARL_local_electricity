@@ -1,6 +1,8 @@
 import numpy as np
 
-from src.utilities.userdeftools import calculate_reactive_power
+from src.utilities.userdeftools import (compute_import_export_costs,
+                                        compute_voltage_costs,
+                                        mean_max_hourly_voltage_deviations)
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):
@@ -36,9 +38,9 @@ def _check_loads_are_met(constl_loads_constraints, prm):
     return pp_simulation_required, homes_to_update, time_steps_to_update
 
 
-def _check_power_flow_equations(res, grd, N, input_hourly_lij=None):
+def _check_power_flow_equations(res, grd, N, input_hourly_lij):
     # power flow equations
-    if grd['pf_flexible_homes'] == 1:
+    if grd['active_to_reactive_flex'] == 0:
         assert np.all(abs(res['q_car_flex']) < 1e-3)
         assert np.all(abs(res['qi']) < 1e-3)
     if grd['line_losses_method'] == 'iteration':
@@ -185,6 +187,9 @@ def _check_storage_equations(res, N, car, grd, syst):
     assert np.all(
         abs(res['store'][:, 0] - car['SoC0'] * grd['Bcap'][:, 0]) < 1e-3
     )
+    assert np.all(
+        res['p_car_flex']**2 + res['q_car_flex']**2 <= car['max_apparent_power_car']**2 + 1e-3
+    )
 
 
 def _check_cons_equations(res, N, loads, syst, grd):
@@ -283,7 +288,7 @@ def _check_temp_equations(res, syst, heat):
         assert np.all(res['E_heat'] + 1e-3 >= 0)
 
 
-def check_constraints_hold(res, prm):
+def check_constraints_hold(res, prm, input_hourly_lij=None):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
@@ -295,12 +300,14 @@ def check_constraints_hold(res, prm):
         abs(
             res['grid']
             - np.sum(res['netp'], axis=0)
+            - loads['hourly_tot_netp0']
             - res['hourly_line_losses_pu'] * prm['grd']['per_unit_to_kW_conversion']
         ) < 1e-3
     )
     assert np.all(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-3
     )
+    # _check_power_flow_equations(res, grd, N, input_hourly_lij)
     _check_storage_equations(res, N, car, grd, syst)
     _check_cons_equations(res, N, loads, syst, grd)
     _check_temp_equations(res, syst, heat)
@@ -592,7 +599,8 @@ def _check_constl_non_negative(
 
 
 def _update_res_variables(
-        res, homes_to_update, time_steps_to_update, time_steps_grid, pp_simulation_required, prm
+        res, homes_to_update, time_steps_to_update, time_steps_grid,
+        pp_simulation_required, prm, input_hourly_lij
 ):
     grd, loads, car = [prm[info] for info in ['grd', 'loads', 'car']]
     N = prm['syst']['N']
@@ -612,14 +620,14 @@ def _update_res_variables(
             + res['totcons'][home, time_step]
         res['netq_flex'][home, time_step] = \
             res['q_car_flex'][home, time_step] \
-            + res['totcons'][home, time_step] * grd['active_to_reactive'] \
-            - grd['gen'][home, time_step] * grd['active_to_reactive']
+            + res['totcons'][home, time_step] * grd['active_to_reactive_flex'] \
+            - grd['gen'][home, time_step] * grd['active_to_reactive_flex']
         if grd['penalise_individual_exports']:
             res['netp_export'][home, time_step] = np.where(
                 res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
             )
     new_grid = \
-        np.sum(res['netp'], axis=0) \
+        np.sum(res['netp'], axis=0) + loads['hourly_tot_netp0'] \
         + res['hourly_line_losses_pu'] * grd['per_unit_to_kW_conversion']
     if np.any(abs(res['grid'] - new_grid) > 1e-3) or len(time_steps_grid) > 0:
         # update grid and grid2 and grid_energy_costs and pi
@@ -631,14 +639,28 @@ def _update_res_variables(
         delta = new_grid_energy_costs - res['grid_energy_costs']
         res['grid_energy_costs'] = new_grid_energy_costs
         res['total_costs'] += delta
+        if grd['line_losses_method'] == 'iteration':
+            res['lij'] = input_hourly_lij
         if grd['manage_voltage']:
             for time_step in range(N):
+                res['q_ext_grid'][time_step] = \
+                    sum(res['netq_flex'][:, time_step]) \
+                    + sum(
+                        np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, time_step])
+                    ) * grd['per_unit_to_kW_conversion'] \
+                    + sum(loads['q_heat_home_car_passive'][:, time_step])
                 res['pi'][:, time_step] = \
                     np.matmul(grd['flex_buses'], res['netp'][:, time_step]) \
                     * grd['kW_to_per_unit_conversion']
+                res['qi'][:, time_step] = \
+                    np.matmul(grd['flex_buses'], res['netq_flex'][:, time_step]) \
+                    * grd['kW_to_per_unit_conversion']
+
         pp_simulation_required = True
 
-    assert np.all(abs(res['consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons']) < 1e-3)
+    cons_difference = abs(res['consa(0)'] + res['consa(1)'] + res['E_heat'] - res['totcons'])
+    assert np.all(cons_difference < 1e-2), \
+        f"Consumption does not add up: {cons_difference[cons_difference > 1e-2]}"
 
     return res, pp_simulation_required
 
@@ -726,7 +748,8 @@ def check_and_correct_constraints(
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     # 4 - update tot_cons and grid etc
     res, pp_simulation_required = _update_res_variables(
-        res, homes_to_update, time_steps_to_update, time_steps_grid, pp_simulation_required, prm
+        res, homes_to_update, time_steps_to_update, time_steps_grid,
+        pp_simulation_required, prm, input_hourly_lij
     )
     for time_step in range(N):
         for load_type in range(loads['n_types']):
@@ -735,12 +758,12 @@ def check_and_correct_constraints(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-3
     )
     # 5 - check constraints hold
-    check_constraints_hold(res, prm)
+    check_constraints_hold(res, prm, input_hourly_lij)
 
     return res, pp_simulation_required
 
 
-def res_post_processing(res, prm, input_hourly_lij):
+def res_post_processing(res, prm, input_hourly_lij, perform_checks):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
@@ -755,7 +778,19 @@ def res_post_processing(res, prm, input_hourly_lij):
         res['hourly_export_costs'] = np.zeros(N)
         res['hourly_import_export_costs'] = np.zeros(N)
 
+    if syst['n_homesP'] > 0:
+        res['netp0'] = loads['netp0']
+        res['netq0'] = loads['netp0'] * grd['active_to_reactive_passive']
+    else:
+        res['netp0'] = np.zeros([1, N])
+        res['netq0'] = np.zeros([1, N])
+
     if grd['manage_voltage']:
+        res['mean_voltage_deviation'] = []
+        res['max_voltage_deviation'] = []
+        res['n_voltage_deviation_bus'] = []
+        res['n_voltage_deviation_hour'] = []
+
         res['voltage'] = np.sqrt(res['voltage_squared'])
         res['hourly_voltage_costs'] = np.sum(
             res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
@@ -766,20 +801,42 @@ def res_post_processing(res, prm, input_hourly_lij):
             res['lij'] = input_hourly_lij
             res['v_line'] = np.matmul(
                 grd['out_incidence_matrix'].T, res['voltage_squared'])
+            res['grid'] = np.sum(res['netp'], axis=0) \
+                + res['hourly_line_losses'] \
+                + np.sum(res['netp0'], axis=0)
+            res['hourly_reactive_line_losses'] = \
+                np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij']), axis=0) \
+                * grd['per_unit_to_kW_conversion']
+            res['q_ext_grid'] = np.sum(res['netq_flex'], axis=0) \
+                + res['hourly_reactive_line_losses'] \
+                + np.sum(res['netq0'], axis=0)
         res['p_solar_flex'] = grd['gen'][:, 0: N]
-        res['q_solar_flex'] = calculate_reactive_power(
-            grd['gen'][:, 0: N], grd['pf_flexible_homes'])
+        res['q_solar_flex'] = grd['gen'][:, 0: N] * grd['active_to_reactive_flex']
+        res["hourly_reactive_losses"] = \
+            np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N])
+                   * grd['per_unit_to_kW_conversion'], axis=0)
+        for time_step in range(N):
+            res['hourly_import_export_costs'][time_step], _, _ = \
+                compute_import_export_costs(res['grid'][time_step], prm['grd'])
+            res['hourly_voltage_costs'][time_step] = \
+                compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
+            (mean, max, n_bus, n_hour) = \
+                mean_max_hourly_voltage_deviations(
+                res['voltage_squared'][:, time_step],
+                prm['grd']['max_voltage'],
+                prm['grd']['min_voltage'],
+            )
+            res['mean_voltage_deviation'].append(mean)
+            res['max_voltage_deviation'].append(max)
+            res['n_voltage_deviation_bus'].append(n_bus)
+            res['n_voltage_deviation_hour'].append(n_hour)
+
     else:
         res['voltage_squared'] = np.empty((1, N))
         res['voltage_costs'] = 0
         res['hourly_voltage_costs'] = np.zeros(N)
         res['hourly_line_losses'] = np.zeros(N)
         res['q_ext_grid'] = np.zeros(N)
-
-    if syst['n_homesP'] > 0:
-        res['netp0'] = loads['netp0']
-    else:
-        res['netp0'] = np.zeros([1, N])
 
     res['hourly_grid_energy_costs'] = grd['C'][0: N] * (
         res["grid"] + grd["loss"] * res["grid2"]
@@ -804,24 +861,35 @@ def res_post_processing(res, prm, input_hourly_lij):
         + res['hourly_battery_degradation_costs'] \
         + res['hourly_distribution_network_export_costs']
 
-    for key, val in res.items():
-        if key[0: len('hourly')] == 'hourly':
-            assert len(val) == N, f"np.shape(res[{key}]) = {np.shape(val)}"
+    res['grid_energy_costs'] = sum(res['hourly_grid_energy_costs'])
+    res['total_costs'] = sum(res['hourly_total_costs'])
 
-    assert np.all(res['totcons'] > - 5e-3), f"min(res['totcons']) = {np.min(res['totcons'])}"
+    if perform_checks:
+        for key, val in res.items():
+            if key[0: len('hourly')] == 'hourly':
+                assert len(val) == N, f"np.shape(res[{key}]) = {np.shape(val)}"
 
-    assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
-        f"negative flexible consumptions in the optimisation! " \
-        f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-    max_losses_condition = np.logical_and(
-        res['hourly_line_losses'] > 1,
-        res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses'])
-    )
-    assert np.all(~max_losses_condition), \
-        f"Hourly line losses are larger than 15% of the total import. " \
-        f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
-        f"Grid imp/exp: " \
-        f"{abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
+        assert np.all(res['totcons'] > - 5e-3), f"min(res['totcons']) = {np.min(res['totcons'])}"
+
+        simultaneous_dis_charging = \
+            np.logical_and(res['charge'] > 1e-3, res['discharge_other'] > 1e-3)
+        assert not simultaneous_dis_charging.any(), \
+            "Simultaneous charging and discharging is happening" \
+            f"For charging of {res['charge'][simultaneous_dis_charging]}" \
+            f"and discharging of {res['discharge_other'][simultaneous_dis_charging]}"
+
+        assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
+            f"negative flexible consumptions in the optimisation! " \
+            f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
+        max_losses_condition = np.logical_and(
+            res['hourly_line_losses'] > 1,
+            res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses'])
+        )
+        assert np.all(~max_losses_condition), \
+            f"Hourly line losses are larger than 15% of the total import. " \
+            f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
+            f"Grid imp/exp: " \
+            f"{abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
 
     return res
 

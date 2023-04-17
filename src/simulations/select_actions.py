@@ -201,7 +201,7 @@ class ActionSelector:
                     states, tf_prev_state, step, evaluation, method, t_env
                 )
 
-        n_actions = 1 if self.rl['aggregate_actions'] else 3
+        n_actions = 1 if self.rl['aggregate_actions'] else rl['dim_actions_1']
         if isinstance(actions, np.ndarray):
             actions = np.reshape(actions, (n_homes, self.N, n_actions))
         elif th.is_tensor(actions):

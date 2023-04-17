@@ -6,7 +6,6 @@ Created on Tue Jan  7 16:56:31 2020.
 @author: floracharbonnier
 """
 
-import math
 import os
 import random
 from pathlib import Path
@@ -258,8 +257,54 @@ def should_optimise_for_supervised_loss(epoch, rl):
     )
 
 
-def calculate_reactive_power(active_power, power_factor):
-    """Calculate the reactive power based on the active power and
-    the power factor"""
-    reactive_power = active_power * math.tan(math.acos(power_factor))
-    return reactive_power
+def compute_import_export_costs(grid, grd):
+    if grd['manage_agg_power']:
+        grid_in = np.where(np.array(grid) >= 0, grid, 0)
+        grid_out = np.where(np.array(grid) < 0, - grid, 0)
+        import_costs = np.where(
+            grid_in >= grd['max_grid_import'],
+            grd['penalty_import'] * (grid_in - grd['max_grid_import']),
+            0
+        )
+        export_costs = np.where(
+            grid_out >= grd['max_grid_export'],
+            grd['penalty_export'] * (grid_out - grd['max_grid_export']),
+            0
+        )
+        import_export_costs = import_costs + export_costs
+    else:
+        import_export_costs, import_costs, export_costs = 0, 0, 0
+
+    return import_export_costs, import_costs, export_costs
+
+
+def compute_voltage_costs(voltage_squared, grd):
+    over_voltage_costs = grd['penalty_overvoltage'] * np.where(
+        voltage_squared > grd['max_voltage'] ** 2,
+        voltage_squared - grd['max_voltage'] ** 2,
+        0
+    )
+    under_voltage_costs = grd['penalty_undervoltage'] * np.where(
+        voltage_squared < grd['min_voltage'] ** 2,
+        grd['min_voltage'] ** 2 - voltage_squared,
+        0
+    )
+
+    return np.sum(over_voltage_costs + under_voltage_costs)
+
+
+def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
+    overvoltage_deviation = \
+        (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
+    undervoltage_deviation = \
+        (min_voltage - np.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
+    voltage_deviation = np.concatenate([overvoltage_deviation, undervoltage_deviation])
+    if len(voltage_deviation) > 0:
+        mean = np.mean(voltage_deviation)
+        max = np.max(voltage_deviation)
+        n_deviations_bus = len(voltage_deviation)
+        n_deviations_hour = 1
+    else:
+        mean, max, n_deviations_bus, n_deviations_hour = 0, 0, 0, 0
+
+    return mean, max, n_deviations_bus, n_deviations_hour

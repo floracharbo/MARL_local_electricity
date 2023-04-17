@@ -29,7 +29,7 @@ class Action_translator:
     def __init__(self, prm, env):
         """Initialise action_translator object and add relevant properties."""
         self.name = 'action translator'
-        self.entries = ['dp', 'ds', 'l_ch', 'l_dis', 'c']
+        self.entries = ['dp', 'ds', 'charge_losses', 'discharge_losses', 'c']
         self.plotting = prm['save']['plotting_action']
         self.colours = [(0, 0, 0)] + prm['save']['colours']
         self.n_homes = env.n_homes
@@ -47,8 +47,14 @@ class Action_translator:
             'high_action', 'type_env', 'no_flex_action'
         ]:
             setattr(self, info, prm['RL'][info])
-        self.bat_dep = prm['car']['dep']
-        self.export_C = prm['grd']['export_C']
+        for info in [
+            'dep', 'max_apparent_power_car'
+        ]:
+            setattr(self, info, prm['car'][info])
+        for info in [
+            'export_C', 'reactive_power_for_voltage_control'
+        ]:
+            setattr(self, info, prm['grd'][info])
 
     def optimisation_to_rl_env_action(self, time_step, date, netp, loads, home_vars, res):
         """
@@ -256,6 +262,7 @@ class Action_translator:
             = [[] for _ in range(4)]
         self.l_flex = loads['l_flex']
         flex_heat = np.zeros(self.n_homes)
+        flexible_q_car = np.zeros(self.n_homes)
         for home in homes:
             # boolean for whether we have flexibility
             home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
@@ -287,7 +294,13 @@ class Action_translator:
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
                         loads['flex_cons'][-1] = 0
             else:
-                flexible_cons_action, flexible_heat_action, flexible_store_action = action[home]
+                if not self.reactive_power_for_voltage_control:
+                    flexible_cons_action, flexible_heat_action, \
+                        flexible_store_action = action[home]
+                    flexible_q_car[home] = None
+                else:
+                    flexible_cons_action, flexible_heat_action, \
+                        flexible_store_action, flexible_q_car_action = action[home]
                 # flex cons between 0 and 1
                 # flex heat between 0 and 1
                 # charge between -1 and 1 where
@@ -311,8 +324,19 @@ class Action_translator:
                     + loads['l_fixed'][home] \
                     + self.heat.E_heat_min[home] \
                     + flex_heat[home] \
-                    + charge - discharge + res['l_ch'] \
+                    + charge - discharge + res['charge_losses'] \
                     - home_vars['gen'][home]
+
+                if self.reactive_power_for_voltage_control:
+                    # based on flexible store actions, calculate flexible q_car action
+                    # reactive power battery between -1 and 1 where
+                    # -1 max export
+                    # 1 max import
+                    res['q'] = flexible_q_car_action * np.sqrt(
+                        (self.max_apparent_power_car + 1e-6) ** 2
+                        - (charge - discharge + res['charge_losses']) ** 2
+                    )
+                    flexible_q_car[home] = res['q']
 
                 res['dp'] = home_vars['netp'][home]
 
@@ -349,8 +373,9 @@ class Action_translator:
         # loads: flex_cons, tot_cons_loads
         # home_vars: netp, bool_flex, tot_cons
         # bool_penalty
+        # flexible_q_car
 
-        return loads, home_vars, bool_penalty
+        return loads, home_vars, bool_penalty, flexible_q_car
 
     def _flexible_store_action_to_ds(self, home, flexible_store_action, res):
         """Convert flexible store action to change in storage level ds."""
@@ -376,8 +401,9 @@ class Action_translator:
             elif self.max_charge[home] >= 0:
                 res['ds'] = self.min_charge[home] + flexible_store_action \
                     * (self.max_charge[home] - self.min_charge[home])
-        res['l_ch'] = 0 if res['ds'] < 0 else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
-        res['l_dis'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
+        res['charge_losses'] = 0 if res['ds'] < 0 \
+            else (1 - self.car.eta_ch) / self.car.eta_ch * res['ds']
+        res['discharge_losses'] = - res['ds'] * (1 - self.car.eta_dis) if res['ds'] < 0 else 0
 
         return res
 
@@ -393,12 +419,12 @@ class Action_translator:
         ax1.set_position(gs[0:3].get_position(fig))
         ax1.set_subplotspec(gs[0:3])  # only necessary if using tight_layout()
 
-        entries_plot = ['Losses' if e == 'l_ch' else e
-                        for e in self.entries if e != 'l_dis']
+        entries_plot = ['Losses' if e == 'charge_losses' else e
+                        for e in self.entries if e != 'discharge_losses']
         ys = {}
         for ie in range(len(entries_plot)):
             e = entries_plot[ie]
-            e0 = 'l_ch' if e == 'Losses' else e
+            e0 = 'charge_losses' if e == 'Losses' else e
             wd = line_width * 1.5 if e == 'dp' else line_width
             col, zo, label = \
                 [self.colours[ie], self.z_orders[ie], self.labels[ie]]
@@ -407,10 +433,10 @@ class Action_translator:
             if e == 'Losses':
                 ys[e] = [
                     sum(self.k[0][e_][i][0] * xs[i] + self.k[0][e_][i][1]
-                        for e_ in ['l_ch', 'l_dis']) for i in range(n)]
+                        for e_ in ['charge_losses', 'discharge_losses']) for i in range(n)]
                 ys[e].append(
                     sum(self.k[0][e_][-1][0] * xs[-1] + self.k[0][e_][-1][1]
-                        for e_ in ['l_ch', 'l_dis']))
+                        for e_ in ['charge_losses', 'discharge_losses']))
             else:
                 ys[e] = [self.k[0][e][i][0] * xs[i] + self.k[0][e][i][1]
                          for i in range(n)]
@@ -491,7 +517,7 @@ class Action_translator:
         self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
         self.action_intervals.append([0])
 
-        for e in ['ds', 'c', 'l_ch', 'l_dis']:
+        for e in ['ds', 'c', 'charge_losses', 'discharge_losses']:
             self.k[home][e] = []
         for z in range(5):
             l1, l2 = letters[z: z + 2]
@@ -599,11 +625,19 @@ class Action_translator:
         flexible_cons_action, loads_bool_flex = self._flex_loads_actions(loads, res, time_step)
         flexible_heat_action, heat_bool_flex = self._flex_heat_actions(res, time_step)
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
-
-        actions = np.stack(
-            (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
-        )
-        bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
+        if self.reactive_power_for_voltage_control:
+            flexible_q_car_action, q_car_bool_flex = self._flex_q_car_actions(
+                res, time_step)
+            actions = np.stack(
+                (flexible_cons_action, flexible_heat_action, flexible_store_action,
+                    flexible_q_car_action), axis=1
+            )
+            bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex | q_car_bool_flex
+        else:
+            actions = np.stack(
+                (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
+            )
+            bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
 
         return actions, bool_flex
 
@@ -615,7 +649,7 @@ class Action_translator:
         flex_cons = cons - loads['l_fixed']
         flex_cons[flex_cons < 1e-3] = 0
         flex_cons = np.where(
-            abs(loads['l_flex'] - flex_cons) < 1e-3,
+            abs(loads['l_flex'] - flex_cons) < 1e-2,
             loads['l_flex'],
             flex_cons
         )
@@ -625,7 +659,7 @@ class Action_translator:
             = flex_cons[loads_bool_flex] / loads['l_flex'][loads_bool_flex]
         flexible_cons_action[abs(flex_cons - loads['l_flex']) < 5e-3] = 1
 
-        if any(flexible_cons_action > 1):
+        if any(flexible_cons_action > 1 + 1e-3):
             print(
                 f"flexible_cons_action {flexible_cons_action} "
                 f"loads['l_flex'][home] {loads['l_flex']}"
@@ -714,6 +748,30 @@ class Action_translator:
 
         return store_actions, store_bool_flex
 
+    def _flex_q_car_actions(self, res, time_step):
+        """Compute the flexible battery reactive power action from the optimisation result."""
+        no_flex_actions = self._get_no_flex_actions('flexible_q_car_action')
+        flexible_q_car_actions = np.zeros(self.n_homes)
+        for home in range(self.n_homes):
+            active_power = res['charge'][home, time_step] / self.car.eta_ch \
+                - res['discharge_other'][home, time_step]
+            max_q_car_flexibility = np.sqrt(self.max_apparent_power_car**2 - active_power**2)
+            flexible_q_car_actions[home] = \
+                res['q_car_flex'][home, time_step] / max_q_car_flexibility
+        # if action is close to zero, consider it to be zero
+        flexible_q_car_actions[home] = \
+            0 if abs(res['q_car_flex'][home, time_step]) < 1e-3 else flexible_q_car_actions[home]
+        q_car_bool_flex = \
+            (max_q_car_flexibility > 1e-3) | (max_q_car_flexibility < -1e-3)
+
+        q_car_actions = np.where(
+            q_car_bool_flex,
+            flexible_q_car_actions,
+            no_flex_actions
+        )
+
+        return q_car_actions, q_car_bool_flex
+
     def _get_no_flex_actions(self, action_type):
         if self.no_flex_action == 'one':
             action = np.ones(self.n_homes)
@@ -749,9 +807,9 @@ class Action_translator:
         actions = no_flex_actions
         actions[bool_flex] = delta[bool_flex] / self.k_dp[bool_flex, 0]
         assert all(
-            action is None or ((action >= 0) & (action <= 1))
+            action is None or ((action >= 0) & (action <= 1 + 1e-3))
             for action in actions
-        ), "action should be between 0 and 1"
+        ), f"action should be between 0 and 1 but is {actions}"
 
         actions = np.reshape(actions, (self.n_homes, 1))
 

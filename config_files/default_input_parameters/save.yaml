@@ -17,7 +17,7 @@ last_entries: [
   'cintensity',
   'break_down_rewards',  # values i want to store from last epoch so that i can plot
   'loaded_buses', 'sgen_buses',
-  'q_ext_grid'
+  'q_ext_grid', 'q_car', 'q_house'
 ]
 repeat_entries: [
   'train_rewards', 'eval_rewards', 'eval_actions', 'mean_eval_rewards',

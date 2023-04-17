@@ -107,7 +107,7 @@ def initialise_objects(
     return prm, record
 
 
-def _make_action_space(rl):
+def _make_action_space(rl, reactive_power_for_voltage_control):
     """
     Make action space.
 
@@ -216,7 +216,8 @@ def _facmac_initialise(prm):
         corresponding to prm["RL"]; with updated parameters
     """
     rl = prm["RL"]
-
+    for n_homes in ['n_homes', 'n_homes_test']:
+        rl[n_homes] = prm["syst"][n_homes]
     rl["obs_shape"] = len(rl["state_space"])
     if rl['trajectory']:
         rl['obs_shape'] *= prm['syst']['N']
@@ -235,7 +236,7 @@ def _facmac_initialise(prm):
     rl["device"] = "cuda" if rl["use_cuda"] else "cpu"
 
     if prm['syst']['run_mode'] == 1:
-        _make_action_space(rl)
+        _make_action_space(rl, prm["grd"]["reactive_power_for_voltage_control"])
     _make_scheme(rl)
 
     return prm
@@ -265,7 +266,6 @@ def _update_paths(paths, prm, no_run):
     paths['hedge_inputs'] \
         = paths["input_folder"] / paths['hedge_inputs_folder'] / f"n{prm['syst']['H']}"
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
-    paths["network_data"] = paths['open_inputs'] / paths['ieee_network_data']
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
     paths['test_data'] = paths['open_inputs'] / 'testing_data'
 
@@ -322,6 +322,18 @@ def _update_bat_prm(prm):
     car, syst, paths = [prm[key] for key in ["car", "syst", "paths"]]
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
+    car['c_max0'] = car['c_max']
+    if prm['grd']['reactive_power_for_voltage_control'] or not prm['grd']['manage_voltage']:
+        c_max_reactive_power = car['max_apparent_power_car'] * car['eta_ch']
+    else:
+        c_max_reactive_power = np.sqrt(
+            car['max_apparent_power_car'] ** 2 / (1 + car['pf_passive_homes'] ** 2)
+        ) * car['eta_ch']
+    if c_max_reactive_power < car['c_max']:
+        print(
+            f"updated c_max {car['c_max']} to be consistent with max_apparent_power_car "
+            f"<- {c_max_reactive_power}")
+        car['c_max'] = c_max_reactive_power
 
     # have list of car capacities based on capacity and ownership inputs
     car["caps"] = np.array(
@@ -450,14 +462,21 @@ def _exploration_parameters(rl):
                         control_window_eps[reward_type(evaluation_method)]
 
 
-def _dims_states_actions(rl, syst):
+def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
     rl["dim_states"] = len(rl["state_space"])
     rl["dim_states_1"] = rl["dim_states"]
-    rl["dim_actions"] = 1 if rl["aggregate_actions"] else 3
+    if rl["aggregate_actions"]:
+        rl["dim_actions"] = 1
+    elif reactive_power_for_voltage_control:
+        rl["dim_actions"] = 4
+    else:
+        rl["dim_actions"] = 3
+
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
     if syst['run_mode'] == 1:
         rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
+        rl['high_actions'] = np.array(rl['high_actions'][0: rl["dim_actions_1"]])
         if not rl["aggregate_actions"]:
             rl["low_action"] = rl["low_actions"]
             rl["high_action"] = rl["high_actions"]
@@ -579,8 +598,9 @@ def _update_rl_prm(prm, initialise_all):
     rl = _format_rl_parameters(rl)
     rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
+    reactive_power_for_voltage_control = prm["grd"]["reactive_power_for_voltage_control"]
 
-    _dims_states_actions(rl, syst)
+    _dims_states_actions(rl, syst, reactive_power_for_voltage_control)
 
     # learning parameter variables
     rl["ncpu"] = mp.cpu_count() if syst["server"] else 10
@@ -598,6 +618,11 @@ def _update_rl_prm(prm, initialise_all):
             rl["default_action" + ext] = np.full(
                 (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
             )
+
+    if prm["grd"]["reactive_power_for_voltage_control"]:
+        reactive_power_default = rl["default_action"][0][2] * prm['grd']['active_to_reactive_flex']
+        for default_action in rl["default_action"]:
+            default_action[3] = reactive_power_default
 
     _exploration_parameters(rl)
 
@@ -659,6 +684,8 @@ def _naming_file_extension_network_parameters(grd):
             if management == 'manage_voltage':
                 if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
                     file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
+                if grd['reactive_power_for_voltage_control']:
+                    file_extension += 'q_action'
 
     return file_extension
 
@@ -694,7 +721,7 @@ def opt_res_seed_save_paths(prm):
 
     paths["opt_res_file"] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes']}_cmax{car['c_max']}_" \
+        f"_ntwn{syst['n_homes']}_cmax{car['c_max0']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
     if syst['n_homesP'] > 0:
         paths["opt_res_file"] += f"_nP{syst['n_homesP']}"
@@ -757,13 +784,14 @@ def _update_grd_prm(prm):
     grd:
         with updated information
     """
-    paths, grd, syst = [prm[key] for key in ["paths", "grd", "syst"]]
+    paths, grd, syst, car = [prm[key] for key in ["paths", "grd", "syst", "car"]]
 
     # grid loss
     grd["loss"] = grd["R"] / (grd["V"] ** 2)
     grd['per_unit_to_kW_conversion'] = grd['base_power'] / 1000
     grd['kW_to_per_unit_conversion'] = 1000 / grd['base_power']
-    grd['active_to_reactive'] = math.tan(math.acos(grd['pf_flexible_homes']))
+    grd['active_to_reactive_flex'] = math.tan(math.acos(car['pf_flexible_homes']))
+    grd['active_to_reactive_passive'] = math.tan(math.acos(car['pf_passive_homes']))
 
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
@@ -788,6 +816,8 @@ def _update_grd_prm(prm):
 
     if grd['manage_voltage']:
         grd['penalise_individual_exports'] = False
+    else:
+        grd['reactive_power_for_voltage_control'] = False
 
 
 def _syst_info(prm):

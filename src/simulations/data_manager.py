@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.simulations.optimisation import Optimiser
-from src.utilities.userdeftools import calculate_reactive_power, set_seeds_rdn
+from src.utilities.userdeftools import set_seeds_rdn
 
 
 class DataManager:
@@ -39,18 +39,15 @@ class DataManager:
         """Add relevant information to the properties of the object."""
         self.env = env
         self.prm = prm
-        compute_import_export_costs = self.env.network.compute_import_export_costs \
-            if self.prm['grd']['manage_agg_power'] or self.prm['grd']['manage_voltage'] \
-            else None
         if (
             self.prm['grd']['manage_voltage']
-            and self.prm['grd']['line_losses_method'] in ['iteration', 'fixed_input']
+            and self.prm['grd']['line_losses_method'] == 'iteration'
         ):
             compare_optimiser_pandapower = self.env.network.compare_optimiser_pandapower
         else:
             compare_optimiser_pandapower = None
         self.optimiser = Optimiser(
-            prm, compute_import_export_costs, compare_optimiser_pandapower
+            prm, compare_optimiser_pandapower
         )
         self.get_steps_opt = explorer.get_steps_opt
 
@@ -543,19 +540,21 @@ class DataManager:
         self.prm['loads']['reactive_power_passive_homes'] = []
         if self.n_homesP > 0 and self.prm['grd']['manage_voltage']:
             self.prm['loads']['q_heat_home_car_passive'] = \
-                calculate_reactive_power(loads['netp0'], self.prm['grd']['pf_passive_homes'])
-            for t in range(self.N):
-                self.prm['loads']['active_power_passive_homes'].append(
-                    np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
-                self.prm['loads']['reactive_power_passive_homes'].append(
-                    np.matmul(
-                        self.env.network.passive_buses,
-                        self.prm['loads']['q_heat_home_car_passive'][:, t]
-                    )
-                )
+                loads['netp0'] * self.prm['grd']['active_to_reactive_passive']
+            if self.prm['grd']['manage_voltage']:
+                for t in range(self.N):
+                    for t in range(self.N):
+                        self.prm['loads']['active_power_passive_homes'].append(
+                            np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
+                        self.prm['loads']['reactive_power_passive_homes'].append(
+                            np.matmul(
+                                self.env.network.passive_buses,
+                                self.prm['loads']['q_heat_home_car_passive'][:, t]
+                            )
+                        )
         else:
-            self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 0])
-            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 0])
+            self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 1])
+            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 1])
             self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
 
         return feasible
