@@ -41,7 +41,6 @@ class Record:
             if not os.path.exists(prm["paths"][folder]):
                 os.mkdir(prm["paths"][folder])
         self.repeat = 0  # current repeat
-        self.duration_learning = 0
 
     def _intialise_dictionaries_entries_to_record(self, prm):
         # initialise entries

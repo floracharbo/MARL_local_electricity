@@ -102,7 +102,7 @@ class Runner:
                 # if it was not done instantly after each step
                 t_start_learn = time.time()
                 self._post_exploration_learning(epoch, train_steps_vals)
-                self.record.duration_learning += time.time() - t_start_learn
+                self.explorer.duration_learning += time.time() - t_start_learn
 
                 # evaluation step
                 evaluations_methods = self._check_if_opt_env_needed(epoch, evaluation=True)
@@ -147,6 +147,7 @@ class Runner:
         for ext in self.prm['syst']['n_homes_extensions_all']:
             if len(self.explorer.data.seeds[ext]) > len(self.rl['seeds'][ext]):
                 self.rl['seeds'][ext] = self.explorer.seeds[ext].copy()
+        self.record.duration_learning = self.explorer.duration_learning
 
     def _initialise_buffer_learner_mac_facmac(self, method):
         rl = self.rl
