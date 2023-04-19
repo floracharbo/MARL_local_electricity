@@ -100,7 +100,9 @@ class Runner:
 
                 # learning step at the end of the exploration
                 # if it was not done instantly after each step
+                t_start_learn = time.time()
                 self._post_exploration_learning(epoch, train_steps_vals)
+                self.explorer.duration_learning += time.time() - t_start_learn
 
                 # evaluation step
                 evaluations_methods = self._check_if_opt_env_needed(epoch, evaluation=True)
@@ -108,7 +110,8 @@ class Runner:
 
                 eval_steps, _ = self.explorer.get_steps(
                     evaluations_methods, repeat, epoch, self.rl['n_explore'],
-                    evaluation=True, new_episode_batch=self.new_episode_batch)
+                    evaluation=True, new_episode_batch=self.new_episode_batch
+                )
 
                 # record
                 for e in ['seed', 'n_not_feas']:
@@ -120,8 +123,10 @@ class Runner:
                 list_train_stepvals = self._train_vals_to_list(
                     train_steps_vals, exploration_methods
                 )
-                self.record.end_epoch(epoch, eval_steps, list_train_stepvals,
-                                      self.rl, self.learner, duration_epoch)
+                self.record.end_epoch(
+                    epoch, eval_steps, list_train_stepvals,
+                    self.rl, self.learner, duration_epoch
+                )
 
                 if self.rl['deterministic']:
                     converged = self._check_convergence(repeat, epoch, converged)
@@ -142,6 +147,7 @@ class Runner:
         for ext in self.prm['syst']['n_homes_extensions_all']:
             if len(self.explorer.data.seeds[ext]) > len(self.rl['seeds'][ext]):
                 self.rl['seeds'][ext] = self.explorer.seeds[ext].copy()
+        self.record.duration_learning = self.explorer.duration_learning
 
     def _initialise_buffer_learner_mac_facmac(self, method):
         rl = self.rl

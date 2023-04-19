@@ -255,12 +255,14 @@ class LearningManager:
 
     def q_learning_instant_feedback(self, evaluation, method, step_vals, step):
         """At the end of each step, learn from experience using Q-learning."""
-        if evaluation is False and self.rl["type_learning"] == "q_learning":
-            if self.rl["instant_feedback"] \
-                    and not evaluation \
-                    and method in self.rl["exploration_methods"]:
-                # learner agent learns from this step
-                self.learner.learn(method, step_vals[method], step)
+        if (
+                not evaluation
+                and self.rl["type_learning"] == "q_learning"
+                and self.rl["instant_feedback"]
+                and method in self.rl["exploration_methods"]
+        ):
+            # learner agent learns from this step
+            self.learner.learn(method, step_vals[method], step)
 
     def _learning_difference_rewards(
             self, reward, current_state, action, state, method

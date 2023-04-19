@@ -30,6 +30,7 @@ run_entries0: [
   'timer_pp_mean', 'timer_pp_std', 'timer_pp_count',
   'timer_comparison_mean', 'timer_comparison_std', 'timer_comparison_count',
   'timer_feasible_data_mean', 'timer_feasible_data_std', 'timer_feasible_data_count',
+  'duration_learning'
 ]
 pandapower_voltage_entries: [
   'max_rel_diff_voltage', 'mean_rel_diff_voltage',

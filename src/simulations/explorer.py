@@ -11,6 +11,7 @@ import copy
 import datetime
 import glob
 import os
+import time
 from datetime import timedelta
 from typing import Tuple
 
@@ -69,6 +70,7 @@ class Explorer:
         self.env.update_date(0)
 
         self.paths = prm["paths"]
+        self.duration_learning = 0
 
     def _initialise_step_vals_entries(self, prm):
 
@@ -342,6 +344,7 @@ class Explorer:
                 # if instant feedback,
                 # learn right away at the end of the step
                 if self.n_homes > 0:
+                    t_start_learn = time.time()
                     if not evaluation and not self.rl['trajectory']:
                         for eval_method in methods_learning_from_exploration(
                                 method, epoch, self.rl
@@ -353,6 +356,7 @@ class Explorer:
                     self.learning_manager.q_learning_instant_feedback(
                         evaluation, method, step_vals, step
                     )
+                    self.duration_learning += time.time() - t_start_learn
 
                 if self.rl['trajectory']:
                     if type(reward) in [float, int, np.float64]:
@@ -447,10 +451,12 @@ class Explorer:
                         and rl["trajectory"] \
                         and not evaluation \
                         and method != "baseline":
+                    t_start_learn = time.time()
                     for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
                         self.learning_manager.trajectory_deep_learn(
                             states, actions, traj_reward, eval_method, evaluation, step_vals, epoch
                         )
+                    self.duration_learning += time.time() - t_start_learn
 
             if not sequence_feasible:  # if data is not feasible, make new data
                 n_not_feas += 1
@@ -874,7 +880,6 @@ class Explorer:
         method = "opt"
         sum_rl_rewards = 0
         batchflex_opt, batch_avail_car = [copy.deepcopy(batch[e]) for e in ["flex", "avail_car"]]
-
         self._check_i0_costs_res(res)
 
         # copy the initial flexible and non-flexible demand -
@@ -953,9 +958,11 @@ class Explorer:
             )
 
             # instant learning feedback
+            t_start_learn = time.time()
             self._instant_feedback_steps_opt(
                 evaluation, method, time_step, step_vals, epoch, self.env.ext
             )
+            self.duration_learning += time.time() - t_start_learn
 
             # record if last epoch
             self._record_last_epoch_opt(

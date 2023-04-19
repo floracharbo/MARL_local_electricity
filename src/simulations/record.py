@@ -40,7 +40,6 @@ class Record:
         for folder in ["folder_run", "record_folder", "save_days", "fig_folder"]:
             if not os.path.exists(prm["paths"][folder]):
                 os.mkdir(prm["paths"][folder])
-
         self.repeat = 0  # current repeat
 
     def _intialise_dictionaries_entries_to_record(self, prm):
