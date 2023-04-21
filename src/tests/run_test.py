@@ -148,13 +148,13 @@ def patch_load_input_data(self, prm, other_prm, factors0, clusters0):
         'gen': np.ones(self.n_homes) * 8,
     }
     self.list_clusters = {
-        'loads': np.zeros(self.n_homes, 2),
-        'car': np.zeros(self.n_homes, 2),
+        'loads': np.zeros((self.n_homes, 2)),
+        'car': np.zeros((self.n_homes, 2)),
     }
     self.list_factors = {
-        'loads': np.ones(self.n_homes, 2) * 9,
-        'car': np.ones(self.n_homes, 2) * 8,
-        'gen': np.ones(self.n_homes, 2) * 8,
+        'loads': np.ones((self.n_homes, 2)) * 9,
+        'car': np.ones((self.n_homes, 2)) * 8,
+        'gen': np.ones((self.n_homes, 2)) * 8,
     }
 
     return prm
