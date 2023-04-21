@@ -122,7 +122,7 @@ def patch_load_bat_factors_parameters(paths, car):
 
 def patch_compute_max_car_cons_gen_values(env, state_space):
     labels = [
-        "max_car_cons", "max_normcons", "max_normgen", "max_bat_dem_agg"
+        "max_car_cons", "max_normcons", "max_normgen", "max_car_dem_agg"
     ]
     return [
         np.load(env.prm['paths']['test_data'] / f"{label}_test.npy")

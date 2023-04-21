@@ -449,7 +449,8 @@ class Runner:
         exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=evaluation)
         steps_vals, self.episode_batch = self.explorer.get_steps(
             exploration_methods, repeat, epoch, i_explore,
-            new_episode_batch=self.new_episode_batch, evaluation=evaluation)
+            new_episode_batch=self.new_episode_batch, evaluation=evaluation
+        )
 
         return steps_vals, date0, delta, i0_costs, exploration_methods
 
