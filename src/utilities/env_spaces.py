@@ -54,16 +54,17 @@ def granularity_to_multipliers(granularity):
 
 def compute_max_car_cons_gen_values(env, state_space):
     """Get the maximum possible values for car consumption, household consumption and generation."""
-    max_car_cons, max_normcons, max_normgen, max_bat_dem_agg = [-1 for _ in range(4)]
+    max_car_cons, max_normcons, max_normgen, max_car_dem_agg = [-1 for _ in range(4)]
     weekday_types = env.prm["syst"]["weekday_types"]
 
     if any(descriptor[0: len("bat_cons_")] == "bat_cons_" for descriptor in state_space):
-        max_car_cons = np.max(
-            [
-                [env.prof["car"]["cons"][dt][c] for dt in weekday_types]
-                for c in range(env.n_clus["car"])
-            ]
-        )
+        max_car_cons = 1
+            # np.max(
+            # [
+            #     [np.max(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
+            #     for c in range(env.prm['syst']['n_clus']["car"])
+            # ]
+        # )
     if any(
             descriptor[0: len("loads_cons_")] == "loads_cons_"
             or descriptor == 'flexibility'
@@ -76,17 +77,17 @@ def compute_max_car_cons_gen_values(env, state_space):
             ]
         )
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
-        max_normgen = np.max([env.prof["gen"][m] for m in range(12)])
+        max_normgen = np.max([np.max(env.hedge.profs["gen"][m]) for m in range(12)])
 
-    if any(descriptor == "bat_dem_agg" for descriptor in state_space):
-        max_bat_dem_agg = np.max(
+    if any(descriptor == "car_dem_agg" for descriptor in state_space):
+        max_car_dem_agg = np.max(
             [
                 [sum(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
-                for c in range(env.n_clus["car"])
+                for c in range(env.prm['syst']['n_clus']["car"])
             ]
         )
 
-    return max_car_cons, max_normcons, max_normgen, max_bat_dem_agg
+    return max_car_cons, max_normcons, max_normgen, max_car_dem_agg
 
 
 class EnvSpaces:
@@ -119,7 +120,7 @@ class EnvSpaces:
             "grdC_level": self._get_grdC_level,
             "dT_next": self._get_dT_next,
             "car_tau": self._get_car_tau,
-            "bat_dem_agg": self._get_bat_dem_agg,
+            "car_dem_agg": self._get_car_dem_agg,
             "bool_flex": self.get_bool_flex,
             "flexibility": self.get_flexibility,
             "store_bool_flex": self.get_store_bool_flex
@@ -182,8 +183,8 @@ class EnvSpaces:
             # clusters - for whole day
             ["loads_clus_step", 0, n_clus['loads'] - 1, n_clus['loads'], 1],
             ["loads_clus_prev", 0, n_clus["loads"] - 1, n_clus["loads"], 1],
-            ["bat_cbat_clus_step", 0, n_clus["car"] - 1, n_clus["car"], 1],
-            ["bat_clus_prev", 0, n_clus["car"] - 1, n_clus["car"], 1],
+            ["car_clus_step", 0, n_clus["car"] - 1, n_clus["car"], 1],
+            ["car_clus_prev", 0, n_clus["car"] - 1, n_clus["car"], 1],
             # scaling factors - for whole day
             ["loads_fact_step", f_min["loads"], f_max["loads"], n_other_states, 0],
             ["loads_fact_prev", f_min["loads"], f_max["loads"], n_other_states, 0],
@@ -196,9 +197,9 @@ class EnvSpaces:
             ["loads_cons_prev", 0, max_normcons * f_max["loads"], n_other_states, 0],
             ["gen_prod_step", 0, max_normgen * f_max["gen"][i_month], n_other_states, 0],
             ["gen_prod_prev", 0, max_normgen * f_max["gen"][i_month], n_other_states, 0],
-            ["bat_cons_step", 0, max_car_cons, n_other_states, 0],
-            ["bat_cons_prev", 0, max_car_cons, n_other_states, 0],
-            ["bat_dem_agg", 0, max_bat_dem_agg, n_other_states, 0],
+            ["car_cons_step", 0, max_car_cons, n_other_states, 0],
+            ["car_cons_prev", 0, max_car_cons, n_other_states, 0],
+            ["car_dem_agg", 0, max_bat_dem_agg, n_other_states, 0],
 
             # action
             ["action", 0, 1, rl["n_discrete_actions"], 0],
@@ -678,7 +679,7 @@ class EnvSpaces:
 
         return val
 
-    def _get_bat_dem_agg(self, inputs):
+    def _get_car_dem_agg(self, inputs):
         """Get the aggregated battery demand at current time step."""
         time_step, _, home, _, prm = inputs
         val = prm["car"]["bat_dem_agg"][home][time_step]
