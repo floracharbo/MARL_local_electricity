@@ -182,11 +182,11 @@ class Battery:
 
     def car_tau(self, hour, date, home, store_a):
         """Compute car_tau, i.e. how much charge is needed over in how long."""
-        loads_T, deltaT, i_end_trip = self.next_trip_details(hour, date, home)
-        if loads_T is not None and deltaT > 0:
+        loads_T, deltaT, _ = self.next_trip_details(hour, date, home)
+        if loads_T is not None and loads_T > store_a and deltaT > 0:
             val = (loads_T - store_a) / deltaT
         else:
-            val = - 1
+            val = 0
 
         return val
 
