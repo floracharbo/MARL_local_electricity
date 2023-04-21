@@ -165,12 +165,7 @@ class HEDGE:
 
     def _import_dem(self, prm):
         # possible types of transition between week day types (week/weekend)
-        day_trans = []
-        for prev_day in prm["syst"]["weekday_types"]:
-            for next_day in prm["syst"]["weekday_types"]:
-                day_trans.append(f"{prev_day}2{next_day}")
-
-        for transition in day_trans:
+        for transition in prm['syst']['day_trans']:
             if self.residual_distribution_prms["loads"][transition] is None:
                 continue
             self.residual_distribution_prms["loads"][transition] \

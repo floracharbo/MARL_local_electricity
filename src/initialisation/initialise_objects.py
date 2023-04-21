@@ -845,6 +845,10 @@ def _syst_info(prm):
     syst['share_active_test'] = syst['n_homes_test'] / syst['n_homes_all_test']
     syst['interval_to_month'] = prm['syst']['H'] * 365 / 12
 
+    syst['day_trans'] = []
+    for prev_day in syst["weekday_types"]:
+        for next_day in syst["weekday_types"]:
+            syst['day_trans'].append(f"{prev_day}2{next_day}")
 
 def _homes_info(loads, syst, gen, heat):
     for ext in syst['n_homes_extensions_all']:
