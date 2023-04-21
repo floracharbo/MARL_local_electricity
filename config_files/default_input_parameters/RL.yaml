@@ -24,10 +24,10 @@ n_discrete_actions: 10  # when using discrete methods (q-learning), how many int
 state_space: ['grdC']  # default observation available to each agent
 # grdC_level, hour, car_tau, store0, grdC
 # avail_car_step, loads_clus_step, loads_fact_step
-# gen_fact_step, bat_fact_step, loads_cons_step, gen_prod_step
-# bat_cons_step, dT, dT_next, bat_cons_prev
-# bat_dem_agg, gen_fact_prev, bat_fact_prev, loads_cons_prev
-# gen_prod_prev, bat_clus_step, bat_clus_prev, loads_clus_prev
+# gen_fact_step, car_fact_step, loads_cons_step, gen_prod_step
+# car_cons_step, dT, dT_next, car_cons_prev
+# car_dem_agg, gen_fact_prev, car_fact_prev, loads_cons_prev
+# gen_prod_prev, car_clus_step, car_clus_prev, loads_clus_prev
 # avail_car_prev, loads_fact_prev, day_type, car_cons_step, car_fact_step, bool_flex, store_bool_flex
 # flexibility
 
