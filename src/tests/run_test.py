@@ -122,7 +122,7 @@ def patch_load_bat_factors_parameters(paths, car):
 
 def patch_compute_max_car_cons_gen_values(env, state_space):
     labels = [
-        "max_car_cons", "max_normcons", "max_normgen", "max_bat_dem_agg"
+        "max_car_cons", "max_normcons", "max_normgen", "max_car_dem_agg"
     ]
     return [
         np.load(env.prm['paths']['test_data'] / f"{label}_test.npy")
@@ -146,6 +146,15 @@ def patch_load_input_data(self, prm, other_prm, factors0, clusters0):
         'loads': np.ones(self.n_homes) * 9,
         'car': np.ones(self.n_homes) * 8,
         'gen': np.ones(self.n_homes) * 8,
+    }
+    self.list_clusters = {
+        'loads': np.zeros((self.n_homes, 2)),
+        'car': np.zeros((self.n_homes, 2)),
+    }
+    self.list_factors = {
+        'loads': np.ones((self.n_homes, 2)) * 9,
+        'car': np.ones((self.n_homes, 2)) * 8,
+        'gen': np.ones((self.n_homes, 2)) * 8,
     }
 
     return prm

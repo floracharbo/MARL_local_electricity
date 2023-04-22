@@ -18,7 +18,7 @@ class GumbelSoftmax(OneHotCategorical):
     def sample_gumbel(self):
         U = self.logits.clone()
         U.uniform_(0, 1)
-        return -th.log(-th.log(U + self.eps) + self.eps)
+        return - th.log(- th.log(U + self.eps) + self.eps)
 
     def gumbel_softmax_sample(self):
         """ Draw a sample from the Gumbel-Softmax distribution.

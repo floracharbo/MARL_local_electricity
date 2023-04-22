@@ -573,7 +573,6 @@ class Explorer:
             self.prm, res, time_step, loads_prev,
             loads_step, batch_avail_car, loads, home_vars
         )
-
         self.env.heat.E_heat_min_max(time_step)
         self.env.heat.potential_E_flex()
 

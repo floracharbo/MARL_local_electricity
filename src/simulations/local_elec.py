@@ -883,6 +883,9 @@ class LocalElecEnv:
             "grdC": self.prm['grd']['C'][time_step],
             "day_type": idt,
             "dT": self.prm["heat"]["T_req" + self.ext][home][hour] - self.T_air[home],
+            "grdC_level": self.spaces._get_grdC_level(
+                [time_step, None, None, None, self.prm]
+            )
         }
         dict_functions_home = {
             "bool_flex": self.action_translator.aggregate_action_bool_flex,
@@ -1042,13 +1045,15 @@ class LocalElecEnv:
     def _get_factor_or_cluster_state(self, descriptor, home):
         module = descriptor.split('_')[0]  # car, loads or gen
         if descriptor.split('_')[-1] == 'prev':
-            prev_data = self.hedge.factors if descriptor[-9:-5] == 'fact' \
-                else self.hedge.clusters
-            val = prev_data[home][module][-1]
+            prev_data = self.hedge.list_factors if descriptor[-9:-5] == 'fact' \
+                else self.hedge.list_clusters
+            val = prev_data[module][home][-1] if len(prev_data[module][home]) == 1 \
+                else prev_data[module][home][-2]
         else:  # step
-            step_data = self.f if descriptor[-9:-5] == 'fact' \
-                else self.clus
+            step_data = self.hedge.factors if descriptor[-9:-5] == 'fact' \
+                else self.hedge.clusters
             val = step_data[module][home]
+
 
         return val
 
