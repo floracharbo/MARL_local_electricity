@@ -59,13 +59,14 @@ def compute_max_car_cons_gen_values(env, state_space):
 
     if any(descriptor[0: len("car_cons_")] == "car_cons_" for descriptor in state_space):
         max_car_cons = np.max(
-            [np.max(env.hedge.fs_brackets[transition]) for transition in env.prm['syst']['day_trans']]
+            [np.max(env.hedge.fs_brackets[transition])
+             for transition in env.prm['syst']['day_trans']]
         )
-            # np.max(
-            # [
-            #     [np.max(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
-            #     for c in range(env.prm['syst']['n_clus']["car"])
-            # ]
+        # np.max(
+        # [
+        #     [np.max(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
+        #     for c in range(env.prm['syst']['n_clus']["car"])
+        # ]
         # )
     if any(
             descriptor[0: len("loads_cons_")] == "loads_cons_"
@@ -158,7 +159,7 @@ class EnvSpaces:
         columns = ["name", "min", "max", "n", "discrete"]
         info = [
             ["None", 0, 0, 1, 1],
-            ["hour", 0, prm['syst']['N'], n_other_states, 0],
+            ["time_step_day", 0, prm['syst']['H'], n_other_states, 0],
             ["store0", 0, prm["car"]["caps"], n_other_states, 0],
             ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
             ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
@@ -189,7 +190,7 @@ class EnvSpaces:
             ["gen_fact_prev", f_min["gen"], f_max["gen"], n_other_states, 0],
             ["car_fact_step", f_min["car"], f_max["car"], n_other_states, 0],
             ["car_fact_prev", f_min["car"], f_max["car"], n_other_states, 0],
-            # absolute value at time step / hour
+            # absolute value at time step
             ["loads_cons_step", 0, max_normcons * f_max["loads"], n_other_states, 0],
             ["loads_cons_prev", 0, max_normcons * f_max["loads"], n_other_states, 0],
             ["gen_prod_step", 0, max_normgen * f_max["gen"][i_month], n_other_states, 0],
@@ -547,7 +548,7 @@ class EnvSpaces:
             vals_home = []
             state_vals = {
                 "None": 0,
-                "hour": time_step % 24,
+                "time_step_day": time_step % prm['syst']['H'],
                 "grdC": prm["grd"]["Call"][self.i0_costs + time_step],
                 "day_type": 0 if date.weekday() < 5 else 1,
                 "loads_cons_step": loads_step[home],
@@ -586,7 +587,7 @@ class EnvSpaces:
                         val = data[module][home][index_day]
                     except Exception as ex:
                         print(ex)
-                else:  # select current or previous hour - step or prev
+                else:  # select current or previous time step - step or prev
                     time_step_val = time_step if descriptor[-4:] == "step" else time_step - 1
                     time_step_val = np.max(time_step_val, 0)
                     if len(descriptor) > 8 and descriptor[0: len('avail_car')] == "avail_car":

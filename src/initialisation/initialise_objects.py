@@ -850,6 +850,7 @@ def _syst_info(prm):
         for next_day in syst["weekday_types"]:
             syst['day_trans'].append(f"{prev_day}2{next_day}")
 
+
 def _homes_info(loads, syst, gen, heat):
     for ext in syst['n_homes_extensions_all']:
         gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \

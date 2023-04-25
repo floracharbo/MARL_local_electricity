@@ -153,7 +153,7 @@ def _get_required_temperatures(heat, syst):
     for ext in syst['n_homes_extensions_all']:
         heat['T_UB' + ext] = heat['T_req' + ext] + heat['dT']
         for home in range(syst['n_homes' + ext]):
-            # allow for heating one hour before when specified
+            # allow for heating one time step before when specified
             # temperature increases
             for time_step in range(syst['N']):
                 T_UB = heat['T_UB' + ext][home]
