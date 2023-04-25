@@ -67,6 +67,7 @@ def compute_max_car_cons_gen_values(env, state_space):
         #     [np.max(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
         #     for c in range(env.prm['syst']['n_clus']["car"])
         # ]
+
         # )
     if any(
             descriptor[0: len("loads_cons_")] == "loads_cons_"
@@ -190,7 +191,6 @@ class EnvSpaces:
             ["gen_fact_prev", f_min["gen"], f_max["gen"], n_other_states, 0],
             ["car_fact_step", f_min["car"], f_max["car"], n_other_states, 0],
             ["car_fact_prev", f_min["car"], f_max["car"], n_other_states, 0],
-            # absolute value at time step
             ["loads_cons_step", 0, max_normcons * f_max["loads"], n_other_states, 0],
             ["loads_cons_prev", 0, max_normcons * f_max["loads"], n_other_states, 0],
             ["gen_prod_step", 0, max_normgen * f_max["gen"][i_month], n_other_states, 0],

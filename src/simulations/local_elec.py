@@ -1054,6 +1054,7 @@ class LocalElecEnv:
                 else self.hedge.clusters
             val = step_data[module][home]
 
+
         return val
 
     def _test_flex_cons(self):
