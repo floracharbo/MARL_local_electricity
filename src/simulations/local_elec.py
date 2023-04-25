@@ -440,8 +440,8 @@ class LocalElecEnv:
             ]
         else:
             seconds_per_interval = 3600 * 24 / self.prm['syst']['H']
-            hour = int((self.date - self.date0).seconds / seconds_per_interval)
-            netp0, discharge_tot0, charge0 = self.get_passive_vars(hour)
+            time_step = int((self.date - self.date0).seconds / seconds_per_interval)
+            netp0, discharge_tot0, charge0 = self.get_passive_vars(time_step)
 
         time_step = self.time_step if time_step is None else time_step
         if discharge_tot is None:
@@ -644,16 +644,17 @@ class LocalElecEnv:
                 self.time_step, self.date, self.done, self.car.store
             ]
             batch_flex_h = self.batch_flex[:, time_step]
+            inputs = [time_step, date, done, batch_flex_h, store]
         else:
-            date = inputs[1]
+            time_step, date = inputs[0:2]
 
-        inputs_ = [time_step, date, done, batch_flex_h, store] if inputs is None else inputs
+        # inputs_ = [time_step, date, done, batch_flex_h, store] if inputs is None else inputs
 
         idt = 0 if date.weekday() < 5 else 1
         descriptors = descriptors if descriptors is not None \
             else self.spaces.descriptors['state']
         vals = np.zeros((self.n_homes, len(descriptors)))
-        time_step = self._get_time_step(date)
+        # time_step = self._get_time_step(date)
         flexibility_state = any(
             descriptor in self.rl['flexibility_states'] for descriptor in descriptors
         )
@@ -668,7 +669,7 @@ class LocalElecEnv:
         for home in self.homes:
             for i, descriptor in enumerate(descriptors):
                 vals[home, i] = self._descriptor_to_val(
-                    descriptor, inputs_, time_step, idt, home
+                    descriptor, inputs, idt, home
                 )
         if flexibility_state and not self.rl['trajectory']:
             self.car.revert_last_update_step()
@@ -771,7 +772,7 @@ class LocalElecEnv:
                 f"self.max_delay {self.max_delay}"
 
     def _get_time_step(self, date: datetime = None) -> int:
-        """Given date, obtain hour."""
+        """Given date, obtain time step."""
         date = self.date if date is None else date
         time_elapsed = date - self.date0
         h = int(
@@ -851,15 +852,15 @@ class LocalElecEnv:
 
         return bool_penalty
 
-    def _compute_dT_next(self, home, hour):
+    def _compute_dT_next(self, home, time_step):
         T_req = self.prm['heat']['T_req' + self.ext][home]
         t_change_T_req = [
-            time_step for time_step in range(hour + 1, self.N) if T_req[time_step] != T_req[hour]
+            time_step for time_step in range(time_step + 1, self.N) if T_req[time_step] != T_req[time_step]
         ]
         if len(t_change_T_req) > 0:
-            current_T_req = T_req[hour]
+            current_T_req = T_req[time_step]
             next_T_req = T_req[t_change_T_req[0]]
-            val = (next_T_req - current_T_req) / (t_change_T_req[0] - hour)
+            val = (next_T_req - current_T_req) / (t_change_T_req[0] - time_step)
         else:
             val = 0
 
@@ -869,7 +870,6 @@ class LocalElecEnv:
             self,
             descriptor: str,
             inputs: list,
-            hour: int,
             idt: int,
             home: int
     ):
@@ -877,12 +877,12 @@ class LocalElecEnv:
         time_step, date, done, batch_flex_h, store = inputs
         dict_vals = {
             "None": 0,
-            "hour": hour % self.prm["syst"]["H"],
-            "bat_dem_agg": self.batch["bat_dem_agg"][home, hour],
+            "time_step_day": time_step % self.prm["syst"]["H"],
+            "bat_dem_agg": self.batch["bat_dem_agg"][home, time_step],
             "store0": store[home],
             "grdC": self.prm['grd']['C'][time_step],
             "day_type": idt,
-            "dT": self.prm["heat"]["T_req" + self.ext][home][hour] - self.T_air[home],
+            "dT": self.prm["heat"]["T_req" + self.ext][home][time_step] - self.T_air[home],
             "grdC_level": self.spaces._get_grdC_level(
                 [time_step, None, None, None, self.prm]
             )
@@ -905,16 +905,16 @@ class LocalElecEnv:
         elif len(descriptor) >= 4 and descriptor[0:4] == 'grdC':
             val = self.normalised_grdC[time_step]
         elif descriptor == 'dT_next':
-            val = self._compute_dT_next(home, hour)
+            val = self._compute_dT_next(home, time_step)
         elif descriptor == 'car_tau':
-            val = self.car.car_tau(hour, date, home, store[home])
+            val = self.car.car_tau(time_step, date, home, store[home])
         elif (
                 len(descriptor) > 9
                 and (descriptor[-9:-5] == 'fact' or descriptor[-9:-5] == 'clus')
         ):
             # scaling factors / profile clusters for the whole day
             val = self._get_factor_or_cluster_state(descriptor, home)
-        else:  # select current or previous hour - step or prev
+        else:  # select current or previous time step - step or prev
             h = self._get_time_step() if descriptor[-4:] == 'step' \
                 else self._get_time_step() - 1
             if len(descriptor) > 8 and descriptor[0: len('avail_car')] == 'avail_car':
