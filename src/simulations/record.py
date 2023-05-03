@@ -180,7 +180,7 @@ class Record:
             if self.save_qtables:
                 for table in ["q_tables", "counter"]:
                     self.__dict__[table][self.repeat][epoch] = copy.deepcopy(
-                        learner.__dict__[table]
+                        getattr(learner, table)
                     )
             elif epoch == self.n_epochs - 1:
                 for table in ["q_tables", "counter"]:
@@ -247,8 +247,8 @@ class Record:
             save_path = Path(f"{label}" if repeat is None else f"{label}_repeat{repeat}")
             if self.record_folder is not None:
                 save_path = Path(self.record_folder) / save_path
-            to_save = self.__dict__[label] if end_of == "end" \
-                else self.__dict__[label][self.repeat]
+            to_save = getattr(self, label) if end_of == "end" \
+                else getattr(self, label)[self.repeat]
             np.save(save_path, to_save)
 
             del to_save
@@ -283,7 +283,7 @@ class Record:
         if repeat is not None:
             self.__dict__[label][repeat] = obj
         else:
-            self.__dict__[label] = obj
+            setattr(self, label, obj)
 
     def results_to_percentiles(
         self,
@@ -350,9 +350,10 @@ class Record:
         for reward in [
             'monthly_mean_end_eval_rewards_per_home', 'monthly_mean_test_rewards_per_home'
         ]:
-            self.__dict__[reward] = {
-                method: np.zeros(self.n_repeats) for method in self.evaluation_methods
-            }
+            setattr(self, reward, {
+                    method: np.zeros(self.n_repeats) for method in self.evaluation_methods
+                }
+            )
 
         for repeat in range(prm["RL"]["n_repeats"]):  # loop through repetitions
             action_state_space_0[repeat], state_space_0[repeat] = \
