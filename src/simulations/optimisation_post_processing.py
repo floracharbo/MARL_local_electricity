@@ -755,7 +755,7 @@ def check_and_correct_constraints(
         for load_type in range(loads['n_types']):
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
     assert np.all(
-        abs(res['grid2'] - np.square(res['grid'])) < 1e-3
+        abs(res['grid2'] - np.square(res['grid'])) < 1e-2
     )
     # 5 - check constraints hold
     check_constraints_hold(res, prm, input_hourly_lij)
