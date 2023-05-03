@@ -140,16 +140,17 @@ class Optimiser:
 
     def _power_flow_equations(
             self, p, netp, grid, hourly_line_losses_pu,
-            charge, discharge_other, totcons):
+            charge, discharge_other, totcons
+    ):
         # power flows variables
         voltage_costs = p.add_variable('voltage_costs', 1)  # daily voltage violation costs
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         netq_flex = p.add_variable('netq_flex', (self.n_homes, self.N), vtype='continuous')
-        q_car_flex = p.add_variable('q_car_flex', (self.n_homes, self.N), vtype='continuous')
-        p_car_flex = p.add_variable('p_car_flex', (self.n_homes, self.N), vtype='continuous')
+        q_car = p.add_variable('q_car', (self.n_homes, self.N), vtype='continuous')
+        p_car = p.add_variable('p_car', (self.n_homes, self.N), vtype='continuous')
         if self.reactive_power_for_voltage_control:
-            q_car_flex2 = p.add_variable('q_car_flex2', (self.n_homes, self.N), vtype='continuous')
-            p_car_flex2 = p.add_variable('p_car_flex2', (self.n_homes, self.N), vtype='continuous')
+            q_car2 = p.add_variable('q_car2', (self.n_homes, self.N), vtype='continuous')
+            p_car2 = p.add_variable('p_car2', (self.n_homes, self.N), vtype='continuous')
         qi = p.add_variable('qi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
         pij = p.add_variable('pij', (self.grd['n_lines'], self.N), vtype='continuous')
         qij = p.add_variable('qij', (self.grd['n_lines'], self.N), vtype='continuous')
@@ -175,7 +176,7 @@ class Optimiser:
             'undervoltage_costs', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
 
-        p.add_constraint(p_car_flex == charge / self.car['eta_ch'] - discharge_other)
+        p.add_constraint(p_car == charge / self.car['eta_ch'] - discharge_other)
 
         # if we don't allow the use of the battery reactive power for control
         # then we restain it by using the power factor
@@ -183,28 +184,28 @@ class Optimiser:
             for time_step in range(self.N):
 
                 p.add_list_of_constraints([
-                    p_car_flex2[home, time_step] >= p_car_flex[home, time_step]
-                    * p_car_flex[home, time_step] for home in range(self.n_homes)
+                    p_car2[home, time_step] >= p_car[home, time_step]
+                    * p_car[home, time_step] for home in range(self.n_homes)
                 ])
                 p.add_list_of_constraints([
-                    q_car_flex2[home, time_step] >= q_car_flex[home, time_step]
-                    * q_car_flex[home, time_step] for home in range(self.n_homes)
+                    q_car2[home, time_step] >= q_car[home, time_step]
+                    * q_car[home, time_step] for home in range(self.n_homes)
                 ])
                 p.add_list_of_constraints([
-                    p_car_flex2[home, time_step] + q_car_flex2[home, time_step]
+                    p_car2[home, time_step] + q_car2[home, time_step]
                     <= self.car['max_apparent_power_car']**2 for home in range(self.n_homes)
                 ])
             # can only use reactive power of battery if car is available
             p.add_constraint(
-                q_car_flex2 <= self.car['batch_avail_car'][:, 0: self.N] * self.syst['M']
+                q_car2 <= self.car['batch_avail_car'][:, 0: self.N] * self.syst['M']
             )
 
         else:
             p.add_constraint(
-                q_car_flex == p_car_flex * self.grd['active_to_reactive_flex']
+                q_car == p_car * self.grd['active_to_reactive_flex']
             )
             p.add_constraint(
-                p_car_flex <= self.car['max_apparent_power_car'] * self.car['eta_ch']
+                p_car <= self.car['max_apparent_power_car'] * self.car['eta_ch']
             )
         p.add_list_of_constraints(
             [
@@ -218,7 +219,7 @@ class Optimiser:
         )
         p.add_constraint(
             netq_flex
-            == q_car_flex
+            == q_car
             + (totcons - self.grd['gen'][:, 0: self.N]) * self.grd['active_to_reactive_flex']
         )
 
@@ -782,12 +783,12 @@ class Optimiser:
             p.add_constraint(hourly_import_costs >= 0)
             p.add_constraint(
                 hourly_import_costs
-                >= self.grd['penalty_import'] * (grid_in - self.grd['max_grid_import'])
+                >= self.grd['penalty_import'] * (grid_in * self.syst['n_int_per_hour'] - self.grd['max_grid_import'])
             )
             p.add_constraint(hourly_export_costs >= 0)
             p.add_constraint(
                 hourly_export_costs
-                >= self.grd['penalty_export'] * (grid_out - self.grd['max_grid_export'])
+                >= self.grd['penalty_export'] * (grid_out * self.syst['n_int_per_hour'] - self.grd['max_grid_export'])
             )
             p.add_constraint(
                 import_export_costs == pic.sum(hourly_import_costs) + pic.sum(hourly_export_costs)
