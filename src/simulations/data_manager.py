@@ -78,7 +78,7 @@ class DataManager:
         # keep track of optimisation consumption constraint violations
         self.n_optimisations = 0
         self.n_cons_constraint_violations = 0
-        self.max_cons_slack = -1
+        self.max_cons_slack = - 1
 
     def format_grd(self, batch, ext):
         """Format network parameters in preparation for optimisation."""
@@ -159,6 +159,7 @@ class DataManager:
         data_feasibles = self._format_data_optimiser(batch, passive=passive, test=evaluation)
         if not all(data_feasibles):
             batch, data_feasibles = self._loop_replace_data(data_feasibles, passive, evaluation)
+            data_feasibles = self._format_data_optimiser(batch, passive=passive, test=evaluation)
 
         data_feasible = all(data_feasibles)
         res = None
@@ -222,6 +223,7 @@ class DataManager:
                 load_data=True, passive=passive, evaluation=evaluation,
             )
             new_res = False
+
         # turn input data into optimisation problem format
         data_feasibles = self._format_data_optimiser(batch, passive=passive, test=evaluation)
         if not all(data_feasibles):
@@ -297,11 +299,10 @@ class DataManager:
                 seed_data, new_res, data_feasible \
                     = self._passive_find_feasible_data(evaluation)
             elif self.n_homes > 0:
-                [seed_data, new_res, data_feasible, step_vals,
-                 feasibility_checked] = self._active_find_feasible_data(
-                    type_actions, feasibility_checked, step_vals,
-                    evaluation, epoch
-                )
+                [seed_data, new_res, data_feasible, step_vals, feasibility_checked] \
+                    = self._active_find_feasible_data(
+                        type_actions, feasibility_checked, step_vals, evaluation, epoch
+                    )
             else:
                 new_res = False
                 seed_data = [None, None]
@@ -388,14 +389,11 @@ class DataManager:
             self,
             data_feasibles: np.ndarray,
             passive: bool,
-            # factors: dict,
-            # clusters: dict
             evaluation: bool,
     ) -> Tuple[dict, dict, dict, np.ndarray]:
         """Replace the data for infeasible homes."""
         its = 0
-        homes_0 = [i for i, ok in enumerate(data_feasibles) if not ok]
-
+        homes_0 = np.where(~data_feasibles)[0]
         homes = copy.deepcopy(homes_0)
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
