@@ -233,10 +233,10 @@ class Heat:
                     if T_air1_noheatt1[0] > self.T_UB[home][time_step + 1]:
                         # find T_max next such that if you do not heat
                         # at the next step you land on T_UB
-                        T1_corrected = (
-                            self.T_UB[home][time_step + 1] - self.T_air_coeff[home][0]
-                            - self.T_air_coeff[home][2] * self.T_out[time_step + 1]
-                        ) / self.T_air_coeff[home][1]
+                        # T1_corrected = (
+                        #     self.T_UB[home][time_step + 1] - self.T_air_coeff[home][0]
+                        #     - self.T_air_coeff[home][2] * self.T_out[time_step + 1]
+                        # ) / self.T_air_coeff[home][1]
                         # find how much to heat to reach that T1_corrected
                         e_max0_corrected = self._next_E_heat(
                             [self.T_UB[home][time_step + 1]],
@@ -291,9 +291,9 @@ class Heat:
                             )
 
                             #  check time step after (t+2)
-                            T3_noheatt2_corrected, T_air2_noheatt2_corrected = self.next_T(
-                                T2_noheatt1_corrected, 0, self.T_out[time_step + 2], home=home
-                            )
+                            # T3_noheatt2_corrected, T_air2_noheatt2_corrected = self.next_T(
+                            #     T2_noheatt1_corrected, 0, self.T_out[time_step + 2], home=home
+                            # )
                             # obtain corrected next temperatures
                             E_heat_max0[home] = e_max0_corrected
 

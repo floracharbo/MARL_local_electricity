@@ -626,8 +626,7 @@ class Action_translator:
         flexible_heat_action, heat_bool_flex = self._flex_heat_actions(res, time_step)
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
         if self.reactive_power_for_voltage_control:
-            flexible_q_car_action, q_car_bool_flex = self._flex_q_car_actions(
-                res, time_step)
+            flexible_q_car_action, q_car_bool_flex = self._flex_q_car_actions(res, time_step)
             actions = np.stack(
                 (flexible_cons_action, flexible_heat_action, flexible_store_action,
                     flexible_q_car_action), axis=1
@@ -755,14 +754,14 @@ class Action_translator:
         for home in range(self.n_homes):
             active_power = res['charge'][home, time_step] / self.car.eta_ch \
                 - res['discharge_other'][home, time_step]
-            max_q_car_flexibility = np.sqrt(self.max_apparent_power_car**2 - active_power**2)
+            max_q_car_flexibility = np.sqrt(self.max_apparent_power_car ** 2 - active_power ** 2)
             flexible_q_car_actions[home] = \
                 res['q_car_flex'][home, time_step] / max_q_car_flexibility
         # if action is close to zero, consider it to be zero
         flexible_q_car_actions[home] = \
             0 if abs(res['q_car_flex'][home, time_step]) < 1e-3 else flexible_q_car_actions[home]
         q_car_bool_flex = \
-            (max_q_car_flexibility > 1e-3) | (max_q_car_flexibility < -1e-3)
+            (max_q_car_flexibility > 1e-3) | (max_q_car_flexibility < - 1e-3)
 
         q_car_actions = np.where(
             q_car_bool_flex,

@@ -219,7 +219,7 @@ def get_heat_coeffs(heat, syst, paths):
     a_t_air = (H['is'] * g + psi['ia']) / (H['is'] + H['ve'])
     b_t_air = (H['is'] * h) / (H['is'] + H['ve'])
     c_t_air = (H['is'] * i + H['ve']) / (H['is'] + H['ve'])
-    d_t_air = (H['is'] * j) / (H['is'] + H['ve']) * heat['COP']
+    d_t_air = (H['is'] * j) / (H['is'] + H['ve'])
     e_t_air = (1 + H['is'] * k) / (H['is'] + H['ve']) * heat['COP']
 
     t_coeff_0 = np.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
