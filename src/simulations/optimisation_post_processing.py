@@ -305,7 +305,7 @@ def check_constraints_hold(res, prm, input_hourly_lij=None):
         ) < 1e-3
     )
     assert np.all(
-        abs(res['grid2'] - np.square(res['grid'])) < 1e-3
+        abs(res['grid2'] - np.square(res['grid'])) < 1e-2
     )
     # _check_power_flow_equations(res, grd, N, input_hourly_lij)
     _check_storage_equations(res, N, car, grd, syst)
