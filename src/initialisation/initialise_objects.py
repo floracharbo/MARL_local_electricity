@@ -850,6 +850,12 @@ def _syst_info(prm):
         for next_day in syst["weekday_types"]:
             syst['day_trans'].append(f"{prev_day}2{next_day}")
 
+    syst['date0'] = [syst['year'], syst['month0'], 1, 0]
+    syst['max_date_end'] = [syst['year'], syst['month_end'], 1, 0]
+    # general system parameters
+    for info in ["date0", "max_date_end"]:
+        prm["syst"][f"{info}_dtm"] = datetime.datetime(*prm["syst"][info])
+
 
 def _homes_info(loads, syst, gen, heat):
     for ext in syst['n_homes_extensions_all']:
