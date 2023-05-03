@@ -188,7 +188,7 @@ def _check_storage_equations(res, N, car, grd, syst):
         abs(res['store'][:, 0] - car['SoC0'] * grd['Bcap'][:, 0]) < 1e-3
     )
     assert np.all(
-        res['p_car_flex']**2 + res['q_car_flex']**2 <= car['max_apparent_power_car']**2 + 1e-3
+        res['p_car_flex'] ** 2 + res['q_car_flex'] ** 2 <= car['max_apparent_power_car']**2 + 1e-3
     )
 
 
@@ -817,7 +817,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
                    * grd['per_unit_to_kW_conversion'], axis=0)
         for time_step in range(N):
             res['hourly_import_export_costs'][time_step], _, _ = \
-                compute_import_export_costs(res['grid'][time_step], prm['grd'])
+                compute_import_export_costs(res['grid'][time_step], prm['grd'], prm['syst']['n_int_per_hr'])
             res['hourly_voltage_costs'][time_step] = \
                 compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
             (mean, max, n_bus, n_hour) = \

@@ -101,7 +101,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
         if method != 'baseline':
             shares_reduc[method] = []
             for i, label in enumerate(labels):
-                record_obj = record.__dict__[label]
+                record_obj = getattr(record, label)
                 mult = prm['syst']['co2tax'] if label == 'emissions' else 1
                 if plot_type == 'savings':
                     bars[i].append(
@@ -180,7 +180,7 @@ def barplot_grid_energy_costs(record, prm, plot_type='savings'):
     for method in prm['RL']['evaluation_methods']:
         shares_reduc[method] = []
         for i, label in enumerate(labels):
-            record_obj = record.__dict__[label]
+            record_obj = getattr(record, label)
             mult = prm['syst']['co2tax'] if label == 'emissions' else 1
             mult *= prm['syst']['interval_to_month']
             if plot_type == 'savings':
@@ -267,13 +267,13 @@ def barplot_indiv_savings(record, prm):
                               for epoch in range(prm['RL']['start_end_eval'],
                                                  prm['RL']['n_epochs'])]
                              for repeat in range(prm['RL']['n_repeats'])])
-                    for reward in [record.__dict__['indiv_grid_battery_costs'],
-                                   record.__dict__['indiv_grid_energy_costs']]]
+                    for reward in [record.indiv_grid_battery_costs, record.indiv_grid_energy_costs]
+                ]
                 share_sc[home].append(
                     savings_battery_degradation_costs_a
                     / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
                 )
-                indiv_grid_battery_costs = record.__dict__['indiv_grid_battery_costs']
+                indiv_grid_battery_costs = record.indiv_grid_battery_costs
                 savings_a_all = [
                     [
                         (
@@ -344,7 +344,7 @@ def plot_voltage_statistics(record, prm):
         ]
     ]
     for label in labels:
-        record_obj = record.__dict__[label]
+        record_obj = getattr(record, label)
         for repeat in range(prm['RL']['n_repeats']):
             fig, ax = plt.subplots(figsize=(16, 8))
             for method in prm['RL']['evaluation_methods']:

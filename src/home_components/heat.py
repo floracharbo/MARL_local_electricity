@@ -188,7 +188,7 @@ class Heat:
             setattr(
                 self,
                 f"{T}_t",
-                self.__dict__[T][:, time_step]
+                getattr(self, T)[:, time_step]
             )
 
     def E_heat_min_max(self, time_step):

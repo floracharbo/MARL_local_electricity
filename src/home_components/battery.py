@@ -414,7 +414,7 @@ class Battery:
 
         # positivity
         for info in ['store', 'charge', 'discharge', 'loss_ch', 'loss_dis']:
-            assert self.__dict__[info][home] >= - 1e-2, \
+            assert getattr(self, info)[home] >= - 1e-2, \
                 f'home = {home} negative {info}[home] {self.__dic__[info][home]}'
 
     def actions_to_env_vars(self, res):
