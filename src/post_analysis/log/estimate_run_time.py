@@ -1,6 +1,6 @@
 """Given previous number of agents and run times, estimate future run times."""
-import matplotlib.pyplot as plt
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 from scipy import optimize
 
 

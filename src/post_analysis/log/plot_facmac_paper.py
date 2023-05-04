@@ -1,9 +1,9 @@
 
 from pathlib import Path
 
+import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
-import jax.numpy as jnp
 import pandas as pd
 from scipy import optimize
 

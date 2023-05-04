@@ -10,8 +10,8 @@ import os
 import random
 from pathlib import Path
 
-import jax.numpy as jnp
 import jax
+import jax.numpy as jnp
 import pandas as pd
 import torch as th
 import yaml

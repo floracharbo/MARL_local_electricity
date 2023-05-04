@@ -6,9 +6,9 @@ from itertools import chain
 from pathlib import Path
 from textwrap import wrap
 
+import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
-import jax.numpy as jnp
 import pandas as pd
 import yaml
 from tqdm import tqdm
