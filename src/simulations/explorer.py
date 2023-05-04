@@ -637,18 +637,17 @@ class Explorer:
         ]
         time_step = self.env.time_step - 1
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
-            step_vals[method][info][time_step] = var
+            step_vals[method][info] = step_vals[method][info].at[time_step].set(var)
         for info, var in zip(self.indiv_step_vals_entries, indiv_step_vals):
             if var is not None:
                 if info == 'diff_rewards' and len(var) == self.n_homes + 1:
                     var = var[:-1]
                 var_ = jnp.array(var.cpu()) if th.is_tensor(var) else var
-                step_vals[method][info][time_step, :, :] = jnp.reshape(
-                    var_, (self.n_homes, self.dim_step_vals[info])
+                step_vals[method][info] = step_vals[method][info].at[time_step].set(
+                    jnp.reshape(var_, (self.n_homes, self.dim_step_vals[info]))
                 )
-
         for info, var in zip(self.global_step_vals_entries, global_step_vals):
-            step_vals[method][info][time_step] = var
+            step_vals[method][info] = step_vals[method][info].at[time_step].set(var)
 
         return step_vals
 

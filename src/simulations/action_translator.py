@@ -269,15 +269,16 @@ class Action_translator:
 
         # check initial errors
         self.res = {}
-        [home_vars['bool_flex'], loads['flex_cons'],
-         loads['tot_cons_loads'], self.heat.tot_E] \
-            = [[] for _ in range(4)]
+        [
+            home_vars['bool_flex'], loads['flex_cons'],
+            loads['tot_cons_loads'], self.heat.tot_E
+        ] = [jnp.zeros(self.n_homes) for _ in range(4)]
         self.l_flex = loads['l_flex']
         flex_heat = jnp.zeros(self.n_homes)
         flexible_q_car = jnp.zeros(self.n_homes)
         for home in homes:
             # boolean for whether we have flexibility
-            home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
+            home_vars['bool_flex'] = home_vars['bool_flex'].at[home].set(abs(self.k[home]['dp'][0][0]) > 1e-2)
             if len(jnp.shape(action)) != 2:
                 action = jnp.reshape(action, (self.n_homes, -1))
             if self.aggregate_actions:
@@ -298,13 +299,13 @@ class Action_translator:
                 home_vars['tot_cons'][home] = res['c']
                 home_vars['netp'][home] = res['dp']
                 if res['c'] > loads['l_flex'][home] + self.tot_l_fixed[home]:
-                    loads['flex_cons'].append(loads['l_flex'][home])
+                    loads['flex_cons'] = loads['flex_cons'].at[home].set(loads['l_flex'][home])
                 else:
-                    loads['flex_cons'].append(res['c'] - self.tot_l_fixed[home])
+                    loads['flex_cons'] = loads['flex_cons'].at[home].set(res['c'] - self.tot_l_fixed[home])
                     assert loads['flex_cons'][-1] > - 1e-2, \
                         f"loads['flex_cons'][-1] {loads['flex_cons'][-1]} < 0"
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
-                        loads['flex_cons'][-1] = 0
+                        loads['flex_cons'] = loads['flex_cons'].at[-1].set(0)
             else:
                 if not self.reactive_power_for_voltage_control:
                     flexible_cons_action, flexible_heat_action, \
@@ -321,7 +322,7 @@ class Action_translator:
                 # 1 max charge
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
-                loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
+                loads['flex_cons'] = loads['flex_cons'].at[home].set(flexible_cons_action_ * loads['l_flex'][home])
                 flex_heat = flex_heat.at[home].set(flexible_heat_action * self.heat.potential_E_flex()[home])
                 home_vars['tot_cons'] = home_vars['tot_cons'].at[home].set(
                     self.tot_l_fixed[home] + loads['flex_cons'][home] + flex_heat[home]
@@ -354,8 +355,9 @@ class Action_translator:
 
                 res['dp'] = home_vars['netp'][home]
 
-            loads['tot_cons_loads'].append(
-                loads['flex_cons'][home] + loads['l_fixed'][home])
+            loads['tot_cons_loads'] = loads['tot_cons_loads'].at[home].set(
+                loads['flex_cons'][home] + loads['l_fixed'][home]
+            )
             self.res[home] = copy.copy(res)
 
         self.car.actions_to_env_vars(self.res)

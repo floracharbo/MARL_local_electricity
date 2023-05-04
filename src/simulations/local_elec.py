@@ -54,7 +54,7 @@ class LocalElecEnv:
         self.rl = prm['RL']
         self.labels_day_trans = prm['syst']['labels_day_trans']
         self.n_homes = prm['syst']['n_homes']
-        self.homes = range(self.n_homes)
+        self.homes = jnp.arange(self.n_homes)
         self.ext = ''
 
         if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
@@ -207,13 +207,10 @@ class LocalElecEnv:
             else ''
         self.ext = passive_ext + test_ext
         self.n_homes = self.prm['syst']['n_homes' + self.ext]
-        self.homes = range(self.n_homes)
+        self.homes = jnp.arange(self.n_homes)
         setattr(self.action_translator, 'n_homes', getattr(self, 'n_homes'))
         setattr(self.spaces, 'n_homes', getattr(self, 'n_homes'))
-        self.T_air = [
-            self.prm['heat']['T_req' + self.ext][home][0]
-            for home in self.homes
-        ]
+        self.T_air = self.prm['heat']['T_req' + self.ext][:, 0]
         self.car.set_passive_active(self.ext, self.prm)
 
     def update_date(self, i0_costs: int, date0: datetime = None):
@@ -270,7 +267,7 @@ class LocalElecEnv:
 
             # remove what has been consumed
             for i_flex in range(1, self.max_delay + 1):
-                delta_cons = jnp.min(new_batch_flex[home, 0, i_flex], remaining_cons)
+                delta_cons = jnp.minimum(new_batch_flex[home, 0, i_flex], remaining_cons)
                 remaining_cons -= delta_cons
                 new_batch_flex = new_batch_flex.at[home, 0, i_flex].add(- delta_cons)
             assert remaining_cons <= 1e-2, \
@@ -356,12 +353,12 @@ class LocalElecEnv:
             ]
             next_state = self.get_state_vals(inputs=inputs_next_state) \
                 if not self.done \
-                else [None for _ in homes]
+                else jnp.full(self.n_homes, jnp.nan)
             T = self.heat.T.copy()
 
             if implement:
-                for home in homes:
-                    self.batch_flex[home][h: h + 2] = new_batch_flex[home]
+                for home in self.homes:
+                    self.batch_flex = self.batch_flex.at[home, jnp.arange(h, h + 2)].set(new_batch_flex[home])
                 self.tot_cons_loads.append(loads['tot_cons_loads'])
                 self.time_step += 1
                 self._test_flex_cons()
@@ -373,7 +370,7 @@ class LocalElecEnv:
 
             if record:
                 loads_flex = jnp.zeros(self.n_homes) if next_done \
-                    else [sum(self.batch_flex[home][h][1:]) for home in homes]
+                    else [jnp.sum(self.batch_flex[home][h][1:]) for home in homes]
                 if self.prm['grd']['manage_voltage']:
                     loaded_buses, sgen_buses = self.network.loaded_buses, self.network.sgen_buses
                 else:
@@ -492,12 +489,10 @@ class LocalElecEnv:
             distribution_network_export_costs = 0
         grid_energy_costs = grdCt * (grid + self.prm['grd']['loss'] * grid ** 2)
         cost_distribution_network_losses = grdCt * hourly_line_losses
-        indiv_grid_energy_costs = [wholesalet * netp[home] for home in self.homes]
-        battery_degradation_costs = self.prm['car']['C'] \
-            * (sum(discharge_tot[home] + charge[home]
-                   for home in self.homes)
-                + sum(discharge_tot0[home] + charge0[home]
-                      for home in range(len(discharge_tot0))))
+        indiv_grid_energy_costs = wholesalet * netp
+        battery_degradation_costs = self.prm['car']['C'] * (
+            jnp.sum(discharge_tot + charge) + jnp.sum(discharge_tot0 + charge0)
+        )
         indiv_battery_degradation_costs = [
             self.prm['car']['C'] * (discharge_tot[home] + charge[home]) for home in self.homes
         ]
@@ -971,8 +966,8 @@ class LocalElecEnv:
                     > jnp.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
                     / (1 - self.share_flexs[home]) * self.share_flexs[home] + 1e-3
                 ), "loads_next_flex error"
-            new_batch_flex[home][0][i_flex + 1] -= loads_next_flex
-            new_batch_flex[home][1][i_flex] += loads_next_flex
+            new_batch_flex = new_batch_flex.at[home,0, i_flex + 1].add(- loads_next_flex)
+            new_batch_flex = new_batch_flex.at[home, 1, i_flex].add(loads_next_flex)
             if self.test:
                 assert not (
                     loads_next_flex > jnp.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
@@ -996,17 +991,19 @@ class LocalElecEnv:
         self.prm['grd']['C'] = self.prm['grd']['Call'][i_start: i_end]
         self.wholesale = self.prm['grd']['wholesale_all'][i_start: i_end]
         self.cintensity = self.prm['grd']['cintensity_all'][i_start: i_end]
-        i_grdC_level = [
-            i for i in range(len(self.spaces.descriptors['state']))
-            if self.spaces.descriptors['state'][i] == 'grdC_level'
-        ]
+        # i_grdC_level = [
+        #     i for i in range(len(self.spaces.descriptors['state']))
+        #     if self.spaces.descriptors['state'][i] == 'grdC_level'
+        # ]
+        i_grdC_level = jnp.where(self.spaces.descriptors['state'] == 'grdC_level')[0]
         if len(i_grdC_level) > 0:
-            self.normalised_grdC = \
-                [(grid_energy_costs - min(self.prm['grd']['C'][0: self.N]))
-                 / (max(self.prm['grd']['C'][0: self.N])
-                    - min(self.prm['grd']['C'][0: self.N]))
-                 for grid_energy_costs in self.prm['grd']['C'][0: self.N + 1]]
-
+            self.normalised_grdC = [
+                (grid_energy_costs - min(self.prm['grd']['C'][0: self.N])) / (
+                        max(self.prm['grd']['C'][0: self.N])
+                        - min(self.prm['grd']['C'][0: self.N])
+                )
+                 for grid_energy_costs in self.prm['grd']['C'][0: self.N + 1]
+            ]
             if not self.spaces.type_env == "continuous":
                 self.spaces.brackets['state'][i_grdC_level[0]] = [
                     [

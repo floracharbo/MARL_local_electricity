@@ -33,10 +33,12 @@ for i in range(2):
                            allow_pickle=True).item())
         labels.append('prm')
     else:
-        prm.append(jnp.load(PATH + f'run{RUN}/inputData/syst.npy',
-                           allow_pickle=True).item())
-        prm[i]['RL'] = jnp.load(PATH + f'run{RUN}/inputData/lp.npy',
-                               allow_pickle=True).item()
+        prm.append(
+            jnp.load(PATH + f'run{RUN}/inputData/syst.npy', allow_pickle=True).item()
+        )
+        prm[i]['RL'] = jnp.load(
+            PATH + f'run{RUN}/inputData/lp.npy', allow_pickle=True
+        ).item()
         labels.append('syst_lp')
 
 list_objs = prm
