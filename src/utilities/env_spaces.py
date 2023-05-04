@@ -303,8 +303,10 @@ class EnvSpaces:
         if multipliers is None:
             multipliers = self.global_multipliers[type_descriptor]
 
-        sum_None = sum(1 for i in range(len(indexes))
-                       if indexes[i] is None or multipliers[i] is None)
+        sum_None = sum(
+            1 for i in range(len(indexes))
+            if indexes[i] is None or multipliers[i] is None
+        )
         if sum_None > 0:
             global_index = None
         else:
@@ -705,10 +707,18 @@ class EnvSpaces:
                 min_val = descriptor_info['min'].values.item()[self.current_date0.month - 1]
             else:
                 max_val = descriptor_info['max'].values.item()[home] \
-                    if isinstance(descriptor_info['max'].values.item(), (list, jnp.ndarray)) \
+                    if isinstance(descriptor_info['max'].values.item(), list) \
+                    or (
+                            isinstance(descriptor_info['max'].values.item(), jnp.ndarray)
+                            and descriptor_info['max'].values.item().size > 1
+                       ) \
                     else descriptor_info['max'].values.item()
                 min_val = descriptor_info['min'].values.item()[home] \
-                    if isinstance(descriptor_info['min'].values.item(), (list, jnp.ndarray)) \
+                    if isinstance(descriptor_info['max'].values.item(), list) \
+                    or (
+                            isinstance(descriptor_info['max'].values.item(), jnp.ndarray)
+                            and descriptor_info['max'].values.item().size > 1
+                       ) \
                     else descriptor_info['min'].values.item()
             normalised_val = (val - min_val) / (max_val - min_val)
             if abs(normalised_val) < 1e-5:
