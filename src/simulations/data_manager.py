@@ -88,9 +88,9 @@ class DataManager:
         ]
         potential_delay = jnp.zeros((loads['n_types'], syst['N']), dtype=int)
         if loads['flextype'] == 1:
-            potential_delay.at[0].set(jnp.zeros(syst['N']))
+            potential_delay = potential_delay.at[0].set(jnp.zeros(syst['N']))
             for time_step in range(syst['N']):
-                potential_delay.at[1, time_step].set(
+                potential_delay = potential_delay.at[1, time_step].set(
                     max(
                         min(loads['flex'][1], syst['N'] - 1 - time_step), 0
                     )
@@ -98,7 +98,7 @@ class DataManager:
         else:
             for load_type in range(loads['n_types']):
                 for time_step in range(syst['N']):
-                    potential_delay.at[(load_type,time_step)].set(
+                    potential_delay = potential_delay.at[(load_type,time_step)].set(
                         max(
                             min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0
                         )
@@ -112,20 +112,20 @@ class DataManager:
         grd['gen'] = jnp.zeros((syst['n_homes' + ext], syst['N'] + 1))
         share_flexs = loads['share_flexs' + ext]
         for home in range(syst['n_homes' + ext]):
-            grd['gen'].at[home].set(batch['gen'][home, 0: len(grd['gen'][home])])
+            grd['gen'] = grd['gen'].at[home].set(batch['gen'][home, 0: len(grd['gen'][home])])
             for time_step in range(syst['N']):
-                grd['Bcap'].at[home, time_step].set(car['caps' + ext][home])
+                grd['Bcap'] = grd['Bcap'].at[home, time_step].set(car['caps' + ext][home])
                 for load_type in range(loads['n_types']):
                     potential_delay_t = int(potential_delay[load_type][time_step])
-                    grd['loads'].at[0,home, time_step].set(
+                    grd['loads'] = grd['loads'].at[0,home, time_step].set(
                         batch['loads'][home, time_step] * (1 - share_flexs[home])
                     )
-                    grd['loads'].at[1, home, time_step].set(
+                    grd['loads'] = grd['loads'].at[1, home, time_step].set(
                         batch['loads'][home, time_step] * share_flexs[home]
                     )
                     for time_cons in range(syst['N']):
                         if time_step <= time_cons <= time_step + potential_delay_t:
-                            grd['flex'].at[time_step, load_type, home, time_cons].set(1)
+                            grd['flex'] = grd['flex'].at[time_step, load_type, home, time_cons].set(1)
 
         # optimisation of power flow
         if grd['manage_voltage']:
@@ -531,7 +531,7 @@ class DataManager:
         car['bat_dem_agg'] = jnp.zeros((syst['n_homes' + ext], syst['N'] + 1))
         for home in range(syst["n_homes" + ext]):
             for info in self.env.car.batch_entries:
-                car['batch_' + info].at[home].set(
+                car['batch_' + info] = car['batch_' + info].at[home].set(
                     batch[info][home, 0: len(car['batch_' + info][home])]
                 )
         loads['n_types'] = 2

@@ -669,7 +669,7 @@ class LocalElecEnv:
             self.action_translator.initial_processing(loads, home_vars)
         for home in self.homes:
             for i, descriptor in enumerate(descriptors):
-                vals.at[home, i].set(
+                vals = vals.at[home, i].set(
                     self._descriptor_to_val(
                         descriptor, inputs, idt, home
                     )
@@ -741,7 +741,7 @@ class LocalElecEnv:
                 for e in day.keys():
                     for home in homes:
                         for i_day, i_batch in enumerate(range(i_load * self.N, (i_load + 1) * self.N)):
-                            self.batch[e].at[(home, i_batch)].set(day[e][home][i_day])
+                            self.batch[e] = self.batch[e].at[(home, i_batch)].set(day[e][home][i_day])
                 self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
@@ -768,10 +768,10 @@ class LocalElecEnv:
             dayflex_a = jnp.zeros((self.N, self.max_delay + 1))
             for time_step in range(self.N):
                 loads_t = self.batch["loads"][home, i_load * self.N + time_step]
-                dayflex_a.at[time_step, 0].set((1 - share_flexs[home]) * loads_t)
-                dayflex_a.at[time_step, self.max_delay].set(share_flexs[home] * loads_t)
+                dayflex_a = dayflex_a.at[time_step, 0].set((1 - share_flexs[home]) * loads_t)
+                dayflex_a = dayflex_a.at[time_step, self.max_delay].set(share_flexs[home] * loads_t)
             for i_day, i_batch in enumerate(range(i_load * self.N, (i_load + 1) * self.N)):
-                self.batch['flex'].at[home, i_batch].set(dayflex_a[i_day])
+                self.batch['flex'] = self.batch['flex'].at[home, i_batch].set(dayflex_a[i_day])
 
             assert jnp.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
                 f"shape batch['flex'][{home}] {jnp.shape(self.batch['flex'][home])} " \

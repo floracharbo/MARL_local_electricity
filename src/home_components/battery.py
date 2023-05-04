@@ -144,7 +144,7 @@ class Battery:
                 for start, end in zip(start_trip, end_trip):
                     # batch['bat_dem_agg'][home, start] = \
                     #     sum(batch['loads_car'][home, start: end + 1])
-                    batch['bat_dem_agg'].at[(home, start)].set(
+                    batch['bat_dem_agg'] = batch['bat_dem_agg'].at[(home, start)].set(
                         jnp.sum(batch['loads_car'][home, start: end + 1]))
 
         return batch
@@ -427,25 +427,33 @@ class Battery:
         ]:
             setattr(self, info, jnp.full(self.n_homes, jnp.nan))
         for home in range(self.n_homes):
-            self.store[home] = self.start_store[home] \
-                + res[home]['ds'] - self.loads_car[home]
+            self.store = self.store.at[home].set(
+                self.start_store[home] + res[home]['ds'] - self.loads_car[home]
+            )
             if self.store[home] < self.min_charge_t[home] - 5e-3:
                 print(f"home {home} store[{home}] {self.store[home]} "
                       f"self.start_store[home] {self.start_store[home]} "
                       f"res[{home}['ds'] {res[home]['ds']} "
                       f"self.loads_car[home] {self.loads_car[home]} "
                       f"self.min_charge_t[home] {self.min_charge_t[home]}")
-            self.charge[home] = res[home]['ds'] if res[home]['ds'] > 0 else 0
-            self.discharge[home] = - res[home]['ds'] * self.eta_dis \
-                if res[home]['ds'] < 0 else 0
-            self.loss_ch[home] = res[home]['charge_losses']
-            self.loss_dis[home] = res[home]['discharge_losses']
-            self.store_out_tot[home] = self.discharge[home] \
-                + self.loss_dis[home] + self.loads_car[home]
-            self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
-                + self.loads_car[home]
-            self.p_car_flex[home] = jnp.array(self.charge[home] / self.eta_ch) \
-                - jnp.array(self.discharge[home])
+            self.charge = self.charge.at[home].set(
+                res[home]['ds'] if res[home]['ds'] > 0 else 0
+            )
+            self.discharge = self.discharge.at[home].set(
+                - res[home]['ds'] * self.eta_dis if res[home]['ds'] < 0 else 0
+            )
+            self.loss_ch = self.loss_ch.at[home].set(res[home]['charge_losses'])
+            self.loss_dis = self.loss_dis.at[home].set(res[home]['discharge_losses'])
+            self.store_out_tot = self.store_out_tot.at[home].set(
+                self.discharge[home] + self.loss_dis[home] + self.loads_car[home]
+            )
+            self.discharge_tot = self.discharge_tot.at[home].set(
+                self.discharge[home] / self.eta_dis + self.loads_car[home]
+            )
+            self.p_car_flex = self.p_car_flex.at[home].set(
+                self.charge[home] / self.eta_ch - self.discharge[home]
+            )
+
             assert self.p_car_flex[home] < self.max_apparent_power_car + 1e-3, \
                 f"home = {home}, p_car_flex = {self.p_car_flex[home]} too large for " \
                 f"self.max_apparent_power_car {self.max_apparent_power_car}"

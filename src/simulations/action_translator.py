@@ -192,7 +192,7 @@ class Action_translator:
                 assert action_points[i][home] > - 5e-3, \
                     f"action_points[{i}][{home}] {action_points[i][home]} < 0"
                 if action_points[i][home] > 1 + 5e-3 and self.car.time_step == self.N:
-                    action_points[i].at[home].set(1)
+                    action_points[i] = action_points[i].at[home].set(1)
                 if action_points[i][home] > 1 + 5e-3:
                     print(
                         f"ERROR: action_points[{i}][{home}] {action_points[i][home]} > 1 "
@@ -309,7 +309,7 @@ class Action_translator:
                 if not self.reactive_power_for_voltage_control:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action = action[home]
-                    flexible_q_car.at[home].set(jnp.nan)
+                    flexible_q_car = flexible_q_car.at[home].set(jnp.nan)
                 else:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action, flexible_q_car_action = action[home]
@@ -322,8 +322,8 @@ class Action_translator:
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
                 loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
-                flex_heat.at[home].set(flexible_heat_action * self.heat.potential_E_flex()[home])
-                home_vars['tot_cons'].at[home].set(
+                flex_heat = flex_heat.at[home].set(flexible_heat_action * self.heat.potential_E_flex()[home])
+                home_vars['tot_cons'] = home_vars['tot_cons'].at[home].set(
                     self.tot_l_fixed[home] + loads['flex_cons'][home] + flex_heat[home]
                 )
                 res['c'] = home_vars['tot_cons'][home]
@@ -332,7 +332,7 @@ class Action_translator:
                 discharge = - res['ds'] * self.car.eta_dis \
                     if res['ds'] < 0 else 0
                 charge = res['ds'] if res['ds'] > 0 else 0
-                home_vars['netp'].at[home].set(
+                home_vars['netp'] = home_vars['netp'].at[home].set(
                     loads['flex_cons'][home]
                     + loads['l_fixed'][home]
                     + self.heat.E_heat_min[home]

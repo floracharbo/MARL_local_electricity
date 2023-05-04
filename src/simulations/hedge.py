@@ -145,7 +145,7 @@ class HEDGE:
                 for home in homes
             ])
             for i_home, home in enumerate(homes):
-                day["avail_car"].at[i_home].set(
+                day["avail_car"] = day["avail_car"].at[i_home].set(
                     jnp.where(
                         day["loads_car"][i_home] > 0, 0, day["avail_car"][i_home]
                     )
@@ -334,7 +334,7 @@ class HEDGE:
                         random_f["car"][home],
                     )
                 )
-                factors["car"].at[home].set(self.mid_fs_brackets[transition][int(interval_f_ev[home])])
+                factors["car"] = factors["car"].at[home].set(self.mid_fs_brackets[transition][int(interval_f_ev[home])])
 
             if "gen" in self.data_types:
                 i_month = self.date.month - 1
@@ -344,10 +344,10 @@ class HEDGE:
                     random_f["gen"][home],
                     *self.residual_distribution_prms["gen"]
                 )
-                factors["gen"].at[home].set(
+                factors["gen"] = factors["gen"].at[home].set(
                     prev_factors["gen"][home] + delta_f - self.mean_residual["gen"]
                 )
-                factors["gen"].at[home].set(
+                factors["gen"] = factors["gen"].at[home].set(
                     min(
                         max(self.f_min["gen"][i_month], factors["gen"][home]),
                         self.f_max["gen"][i_month]
@@ -360,13 +360,13 @@ class HEDGE:
                     random_f["loads"][home],
                     *list(self.residual_distribution_prms["loads"][transition])
                 )
-                factors["loads"].at[home].set(
-                    prev_factors["loads"][home] \
-                    + delta_f \
+                factors["loads"] = factors["loads"].at[home].set(
+                    prev_factors["loads"][home]
+                    + delta_f
                     - self.mean_residual["loads"][transition]
                 )
             for data_type in self.behaviour_types:
-                factors[data_type].at[home].set(
+                factors[data_type] = factors[data_type].at[home].set(
                     min(
                         max(self.f_min[data_type], factors[data_type][home]),
                         self.f_max[data_type]

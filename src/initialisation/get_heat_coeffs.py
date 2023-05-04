@@ -138,7 +138,7 @@ def _get_required_temperatures(heat, syst):
 
     for home in range(n_homes):
         for interval in heat['hrs_c'][home]:
-            day_T_req.at[home,
+            day_T_req = day_T_req.at[home,
                 interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
             ].set(jnp.full((interval[1] - interval[0]) * syst['n_int_per_hr'], heat['Tc']))
 
