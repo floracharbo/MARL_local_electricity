@@ -132,7 +132,6 @@ class Action_translator:
 
         # How much generation left after storing as much as possible
         gnet_store = gnet_flex - g_to_store
-        self.k = {}
 
         # get relevant points in graph
         d = {entry: {} for entry in self.entries}
@@ -226,13 +225,10 @@ class Action_translator:
                 1,
                 action_points[i]
             )
-                # if - 1e-4 < action_points[i][home] < 0:
-                #     action_points[i].at[home].set(0)
-                # if 1 < action_points[i][home] < 1 + 5e-3:
-                #     action_points[i].at[home].set(1)
         self.d = d
+        self.k = {}
         self.action_intervals = []
-
+        self.n_ks = jnp.zeros(self.n_homes, dtype=int)
         for home in homes:
             self._compute_k(home, a_dp, b_dp, action_points, d)
             assert self.heat.E_heat_min[home] + loads['l_fixed'][home] \
@@ -243,10 +239,10 @@ class Action_translator:
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
         min_val_ds = jnp.array(
-            [(self.k['ds'][home][0][0] * 0 + self.k['ds'][home][0][1]) for home in homes]
+            [(self.k['ds'][home, 0, 0] * 0 + self.k['ds'][home, 0, 1]) for home in homes]
         )
         max_val_ds = jnp.array(
-            [self.k['ds'][home][-1][0] * 1 + self.k['ds'][home][-1][1] for home in homes]
+            [self.k['ds'][home][self.n_ks[home] - 1][0] * 1 + self.k['ds'][home][self.n_ks[home] - 1][1] for home in homes]
         )
 
         self.min_charge = jnp.where(min_val_ds > 0, min_val_ds, 0)
@@ -455,13 +451,13 @@ class Action_translator:
                     sum(self.k[0][e_][i][0] * xs[i] + self.k[0][e_][i][1]
                         for e_ in ['charge_losses', 'discharge_losses']) for i in range(n)]
                 ys[e].append(
-                    sum(self.k[0][e_][-1][0] * xs[-1] + self.k[0][e_][-1][1]
+                    sum(self.k[e_][0, self.n_ks[0] - 1, 0] * xs[-1] + self.k[e_][0, self.n_ks[0] - 1, 1]
                         for e_ in ['charge_losses', 'discharge_losses']))
             else:
-                ys[e] = [self.k[0][e][i][0] * xs[i] + self.k[0][e][i][1]
+                ys[e] = [self.k[e][0, i, 0] * xs[i] + self.k[e][0, i, 1]
                          for i in range(n)]
                 ys[e].append(
-                    self.k[0][e][-1][0] * xs[-1] + self.k[0][e][-1][1])
+                    self.k[e][0, self.n_ks[0] - 1, 0] * xs[-1] + self.k[e][0, self.n_ks[0] - 1, 1])
             ax1.plot(xs, ys[e], label=label, linewidth=wd,
                      color=col, zorder=zo)
             if min(ys[e]) < ymin:
@@ -533,11 +529,9 @@ class Action_translator:
         self.k = {entry: jnp.full((self.n_homes, 5, 2), jnp.nan) for entry in self.entries}
 
         # reference line - dp
-        self.k['dp'] = self.k['dp'].at[home, jnp.arange(2)].set([a_dp[home], b_dp[home]])
+        self.k['dp'] = self.k['dp'].at[home, jnp.arange(1)].set([a_dp[home], b_dp[home]])
         self.action_intervals.append([0])
 
-        for e in ['ds', 'c', 'charge_losses', 'discharge_losses']:
-            self.k[e] = jnp.full((self.n_homes, 5, 2), jnp.nan)
         for z in range(5):
             l1, l2 = letters[z: z + 2]
             if action_points[l2][home] > action_points[l1][home]:
@@ -555,7 +549,9 @@ class Action_translator:
                         ad = (d[e][l2][home] - d[e][l1][home]) / \
                              (action_points[l2][home] - action_points[l1][home])
                         bd = d[e][l2][home] - action_points[l2][home] * ad
-                        self.k[e] = self.k[e].at[home, z].set([ad, bd])
+                        self.k[e] = self.k[e].at[home, self.n_ks[home]].set([ad, bd])
+
+                self.n_ks = self.n_ks.at[home].add(1)
 
     def _check_input_types(
             self, loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
@@ -585,7 +581,7 @@ class Action_translator:
     def get_store_bool_flex(self):
         """Check that there is flexibility over the storage sub-action."""
         return [
-            abs(self.k['ds'][home][0][1] - sum(self.k['ds'][home][-1])) > 1e-3
+            abs(self.k['ds'][home][0][1] - sum(self.k['ds'][home][self.n_ks[home] - 1])) > 1e-3
             for home in range(self.n_homes)
         ]
 
