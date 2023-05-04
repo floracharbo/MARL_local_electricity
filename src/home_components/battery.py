@@ -142,8 +142,10 @@ class Battery:
                         and batch['avail_car'][home, time_step] == 0:
                     end_trip.append(self.N - 1)
                 for start, end in zip(start_trip, end_trip):
-                    batch['bat_dem_agg'][home, start] = \
-                        sum(batch['loads_car'][home, start: end + 1])
+                    # batch['bat_dem_agg'][home, start] = \
+                    #     sum(batch['loads_car'][home, start: end + 1])
+                    batch['bat_dem_agg'].at[(home, start)].set(
+                        jnp.sum(batch['loads_car'][home, start: end + 1]))
 
         return batch
 
@@ -202,7 +204,7 @@ class Battery:
                       f" cap, self.batch['loads_car'][{home}] "
                       f"= {self.batch['loads_car'][home]}")
         elif deltaT > 0 \
-                and sum(self.batch['avail_car'][home, 0: time_step]) == 0 \
+                and jnp.sum(self.batch['avail_car'][home, 0: time_step]) == 0 \
                 and loads_T / deltaT \
                 > self.store0[home] + self.c_max:
             bool_penalty[home] = True
@@ -271,14 +273,14 @@ class Battery:
             if self.time_step <= self.N - 1:
                 max_charge_for_final_step[home] = \
                     self.store0[home] \
-                    + sum(trip[0] for trip in trips) \
-                    + self.d_max * sum(self.batch['avail_car'][home, time_step: self.N - 1])
+                    + jnp.sum(trip[0] for trip in trips) \
+                    + self.d_max * jnp.sum(self.batch['avail_car'][home, time_step: self.N - 1])
 
             # obtain required charge before each trip, starting with end
             final_i_endtrip = trips[-1][2] if len(trips) > 0 else time_step + 1
             min_charge_after_final_trip = max(
                 self.store0[home]
-                - self.c_max * sum(self.batch['avail_car'][home, final_i_endtrip: self.N]),
+                - self.c_max * jnp.sum(self.batch['avail_car'][home, final_i_endtrip: self.N]),
                 self.min_charge[home] - self.c_max,
                 # this is because we can take one step to recover the minimum charge after a trip
                 0
@@ -617,8 +619,8 @@ class Battery:
                         f'home = {home}, trip {loads_T} larger than ' \
                         f'initial charge - straight away not available'
                     self._print_error(error_message, print_error)
-                if sum(self.batch['avail_car'][home, 0: self.N - 1]) == 0 \
-                        and sum(self.batch['loads_car'][home, 0: self.N - 1]) \
+                if jnp.sum(self.batch['avail_car'][home, 0: self.N - 1]) == 0 \
+                        and jnp.sum(self.batch['loads_car'][home, 0: self.N - 1]) \
                         > self.c_max + 1e-2:
                     bool_penalty[home] = True
                     error_message = \
@@ -668,8 +670,8 @@ class Battery:
                     'larger than cap'
                 self._print_error(error_message, print_error)
             if min_charge_t[home] > self.store0[home] \
-                    - sum(self.batch['loads_car'][home, 0: time_step]) + (
-                    sum(self.batch['loads_car'][home, 0: time_step]) + 1) \
+                    - jnp.sum(self.batch['loads_car'][home, 0: time_step]) + (
+                    jnp.sum(self.batch['loads_car'][home, 0: time_step]) + 1) \
                     * self.c_max + 1e-3:
                 bool_penalty[home] = True
                 error_message = f'home = {home}, min_charge_t {min_charge_t[home]} ' \
@@ -693,10 +695,10 @@ class Battery:
 
             elif not simulation \
                     and time_step > 0 \
-                    and sum(self.batch['avail_car'][home, 0: time_step]) == 0:
+                    and jnp.sum(self.batch['avail_car'][home, 0: time_step]) == 0:
                 # the car has not been available at home to recharge until now
                 store_t_a = self.store0[home] \
-                    - sum(self.batch['loads_car'][home, 0: time_step])
+                    - jnp.sum(self.batch['loads_car'][home, 0: time_step])
                 if min_charge_t[home] > store_t_a + self.c_max + 1e-3:
                     bool_penalty[home] = True
 

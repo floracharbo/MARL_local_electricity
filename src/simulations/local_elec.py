@@ -12,6 +12,7 @@ import pickle
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
+import jax
 import jax.numpy as jnp
 from gym import spaces
 from gym.utils import seeding
@@ -23,9 +24,9 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import (compute_import_export_costs,
-                                        compute_voltage_costs,
-                                        mean_max_hourly_voltage_deviations)
+from src.utilities.userdeftools import (
+    compute_import_export_costs, compute_voltage_costs, mean_max_hourly_voltage_deviations
+)
 
 
 class LocalElecEnv:
@@ -736,7 +737,9 @@ class LocalElecEnv:
                     day = self.test_hedge.make_next_day(homes)
 
                 for e in day.keys():
-                    self.batch[e][homes, i_load * self.N: (i_load + 1) * self.N] = day[e]
+                    for home in homes:
+                        for i_day, i_batch in enumerate(range(i_load * self.N, (i_load + 1) * self.N)):
+                            self.batch[e].at[(home, i_batch)].set(day[e][home][i_day])
                 self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
@@ -763,9 +766,10 @@ class LocalElecEnv:
             dayflex_a = jnp.zeros((self.N, self.max_delay + 1))
             for time_step in range(self.N):
                 loads_t = self.batch["loads"][home, i_load * self.N + time_step]
-                dayflex_a[time_step, 0] = (1 - share_flexs[home]) * loads_t
-                dayflex_a[time_step, self.max_delay] = share_flexs[home] * loads_t
-            self.batch['flex'][home, i_load * self.N: (i_load + 1) * self.N] = dayflex_a
+                dayflex_a.at[time_step, 0].set((1 - share_flexs[home]) * loads_t)
+                dayflex_a.at[time_step, self.max_delay].set(share_flexs[home] * loads_t)
+            for i_day, i_batch in enumerate(range(i_load * self.N, (i_load + 1) * self.N)):
+                self.batch['flex'].at[home, i_batch].set(dayflex_a[i_day])
 
             assert jnp.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
                 f"shape batch['flex'][{home}] {jnp.shape(self.batch['flex'][home])} " \
