@@ -162,7 +162,7 @@ def _get_required_temperatures(heat, syst):
                         time_step < syst['N'] - 1 - dt
                         and T_UB[time_step + dt] > T_UB[time_step]
                     ):
-                        T_UB[time_step] = T_UB[time_step + dt]
+                        T_UB = T_UB.at[time_step].set(T_UB[time_step + dt])
         heat['T_LB' + ext] = heat['T_req' + ext] - heat['dT']
 
     return heat

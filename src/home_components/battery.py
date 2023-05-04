@@ -453,7 +453,6 @@ class Battery:
             self.p_car_flex = self.p_car_flex.at[home].set(
                 self.charge[home] / self.eta_ch - self.discharge[home]
             )
-
             assert self.p_car_flex[home] < self.max_apparent_power_car + 1e-3, \
                 f"home = {home}, p_car_flex = {self.p_car_flex[home]} too large for " \
                 f"self.max_apparent_power_car {self.max_apparent_power_car}"
@@ -549,19 +548,20 @@ class Battery:
 
     def check_errors_apply_step(self, homes, bool_penalty, action, res):
         """From action_translator.actions_to_env_vars, check battery constraints."""
+
         for home in homes:
             # car
             if self.min_charge_t[home] - self.start_store[home] > self.c_max + 1e-2:
                 print(f"self.min_charge_t[{home}] = {self.min_charge_t[home]},"
                       f"start_store[home] = {self.start_store[home]}")
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
             if abs(self.loss_ch[home]
                    - ((self.charge[home] + self.loss_ch[home])
                       * (1 - self.eta_ch))) > 1e-2:
                 print(f'in actions_to_env_vars loss_ch[home] = '
                       f'{self.loss_ch[home]} charge[home] = {self.charge[home]}')
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
             # with discharge / loss_dis ratio
             if abs(self.loss_dis[home]
@@ -570,34 +570,34 @@ class Battery:
                 print(f'in actions_to_env_vars loss_dis[{home}] = '
                       f'{self.loss_dis[home]} '
                       f'discharge[home] = {self.discharge[home]}')
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
             # discharge rate
             if self.discharge[home] + self.loads_car[home] > self.d_max + 1e-2:
                 print(f"discharge[{home}] {self.discharge[home]} > "
                       f"self.d_max {self.d_max}")
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
             if not self.avail_car[home] and self.loads_car[home] > 1e-2 \
                     and self.loads_car[home] > self.start_store[home] + 1e-2:
                 print(f"self.loads_car[{home}] = {self.loads_car[home]}, "
                       f"self.start_store[home] = {self.start_store[home]}")
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
             if self.avail_car[home] == 0 and res[home]['ds'] > 0:
                 print('in update action dch > 0, caravail = 0')
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
             if self.max_charge_t[home] is not None \
                     and res[home]['ds'] > self.max_charge_t[home] + 1e-2:
                 print(f"self.max_charge_t[{home}] = {self.max_charge_t[home]} "
                       f"store[home] = {res[home]['ds']}")
                 print(f'action[home] = {action[home]}')
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
             if not type(self.store[home]) in [float, jnp.float64]:
                 print('not type(store[home]]) in [float, jnp.float64]')
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
 
         return bool_penalty
 
@@ -719,11 +719,12 @@ class Battery:
         feasible = jnp.ones(prm['syst']['n_homes' + ext], dtype=bool)
         for home in range(prm['syst']['n_homes' + ext]):
             if prm['car']['d_max'] < jnp.max(prm['car']['batch_loads_car'][home]):
-                feasible[home] = False
+                feasible = feasible.at[home].set(False)
                 for time_step in range(len(prm['car']['batch_loads_car'][home])):
                     if prm['car']['batch_loads_car'][home, time_step] > prm['car']['d_max']:
-                        prm['car']['batch_loads_car'][home, time_step] = prm['car']['d_max']
-
+                        prm['car']['batch_loads_car'] = prm['car']['batch_loads_car'].at[home, time_step].set(
+                            prm['car']['d_max']
+                        )
         time_step = 0
 
         self.reset(prm)
@@ -734,8 +735,6 @@ class Battery:
                 simulation=False
             )
             feasible = jnp.where(bool_penalty, False, feasible)
-            # feasible[bool_penalty] = False
-
             self.update_step()
             time_step += 1
 

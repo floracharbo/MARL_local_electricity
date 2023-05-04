@@ -146,7 +146,7 @@ class Heat:
             the resulting air temperature over the current time step [deg C]
         """
         # use inputs or current object variables
-        homes = list(range(self.n_homes)) if home is None else [home]
+        homes = jnp.arange(self.n_homes) if home is None else jnp.array([home])
         n_homes = len(homes)
         if n_homes > 0:
             if T_start is None:
@@ -157,10 +157,12 @@ class Heat:
                 T_out_t = self.T_out[self.time_step]
             P_heat = E_heat * 1e3 * self.n_int_per_hr
             M = jnp.ones((5, n_homes))
-            M[1, :] = T_start
-            M[2, :] *= T_out_t
-            M[3, :] *= 0
-            M[4, :] = P_heat
+            M = M.at[1, jnp.arange(n_homes)].set(T_start)
+            M = M.at[2, jnp.arange(n_homes)].multiply(T_out_t)
+            M = M.at[3, jnp.arange(n_homes)].multiply(0)
+            # M[3, :] *= 0
+            M = M.at[4, jnp.arange(n_homes)].set(P_heat)
+            # M[4, :] = P_heat
             K = self.T_coeff[homes]
             T_end = jnp.sum(jnp.multiply(K, M.T), axis=1)
 

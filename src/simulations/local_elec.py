@@ -721,7 +721,7 @@ class LocalElecEnv:
                     [c > rdn for c in cump].index(True)
                 self.cluss[home][data_type].append(self.clus[data_type + self.ext][home])
 
-    def _load_next_day(self, homes: list = [], i_load=0):
+    def _load_next_day(self, homes: jnp.array = jnp.array([]), i_load=0):
         """
         Load next day of data.
 
@@ -730,6 +730,7 @@ class LocalElecEnv:
         """
         if not self.load_data or len(homes) > 0:
             homes = homes if len(homes) > 0 else self.homes
+            assert isinstance(homes, jnp.ndarray), "homes must be jnp.ndarray"
             if len(homes) > 0:
                 if self.ext == '':
                     day = self.hedge.make_next_day(homes)
@@ -739,9 +740,9 @@ class LocalElecEnv:
                     day = self.test_hedge.make_next_day(homes)
 
                 for e in day.keys():
-                    for home in homes:
-                        for i_day, i_batch in enumerate(range(i_load * self.N, (i_load + 1) * self.N)):
-                            self.batch[e] = self.batch[e].at[(home, i_batch)].set(day[e][home][i_day])
+                    self.batch[e] = self.batch[e].at[
+                        (homes, jnp.arange(i_load * self.N, (i_load + 1) * self.N))
+                    ].set(day[e])
                 self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
