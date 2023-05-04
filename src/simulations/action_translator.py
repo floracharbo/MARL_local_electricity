@@ -132,7 +132,7 @@ class Action_translator:
 
         # How much generation left after storing as much as possible
         gnet_store = gnet_flex - g_to_store
-        self.k = {home: {} for home in homes}
+        self.k = {}
 
         # get relevant points in graph
         d = {entry: {} for entry in self.entries}
@@ -231,22 +231,22 @@ class Action_translator:
                 # if 1 < action_points[i][home] < 1 + 5e-3:
                 #     action_points[i].at[home].set(1)
         self.d = d
-        self.k, self.action_intervals = [[] for _ in range(2)]
+        self.action_intervals = []
 
         for home in homes:
             self._compute_k(home, a_dp, b_dp, action_points, d)
             assert self.heat.E_heat_min[home] + loads['l_fixed'][home] \
-                   <= self.k[home]['c'][0][1] + 1e-3,\
+                   <= self.k['c'][home][0][1] + 1e-3,\
                    "min c smaller than min required"
-        self.k_dp = jnp.array([self.k[home]['dp'][0] for home in range(self.n_homes)])
+        self.k_dp = jnp.array([self.k['dp'][home][0] for home in range(self.n_homes)])
 
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
         min_val_ds = jnp.array(
-            [(self.k[home]['ds'][0][0] * 0 + self.k[home]['ds'][0][1]) for home in homes]
+            [(self.k['ds'][home][0][0] * 0 + self.k['ds'][home][0][1]) for home in homes]
         )
         max_val_ds = jnp.array(
-            [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
+            [self.k['ds'][home][-1][0] * 1 + self.k['ds'][home][-1][1] for home in homes]
         )
 
         self.min_charge = jnp.where(min_val_ds > 0, min_val_ds, 0)
@@ -278,7 +278,7 @@ class Action_translator:
         flexible_q_car = jnp.zeros(self.n_homes)
         for home in homes:
             # boolean for whether we have flexibility
-            home_vars['bool_flex'] = home_vars['bool_flex'].at[home].set(abs(self.k[home]['dp'][0][0]) > 1e-2)
+            home_vars['bool_flex'] = home_vars['bool_flex'].at[home].set(abs(self.k['dp'][home][0][0]) > 1e-2)
             if len(jnp.shape(action)) != 2:
                 action = jnp.reshape(action, (self.n_homes, -1))
             if self.aggregate_actions:
@@ -293,8 +293,8 @@ class Action_translator:
                 for e in self.entries:
                     ik_ = 0 if e == 'dp' else ik
                     # use coefficients to obtain value
-                    res[e] = self.k[home][e][ik_][0] * action[home][0] \
-                        + self.k[home][e][ik_][1]
+                    res[e] = self.k[e][home][ik_][0] * action[home][0] \
+                        + self.k[e][home][ik_][1]
 
                 home_vars['tot_cons'][home] = res['c']
                 home_vars['netp'][home] = res['dp']
@@ -530,15 +530,14 @@ class Action_translator:
     def _compute_k(self, home, a_dp, b_dp, action_points, d):
         """Get the coefficients of the linear function for the action variable."""
         letters = ['A', 'B', 'C', 'D', 'E', 'F']
+        self.k = {entry: jnp.full((self.n_homes, 5, 2), jnp.nan) for entry in self.entries}
 
-        self.k.append({entry: [] for entry in self.entries})
         # reference line - dp
-
-        self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
+        self.k['dp'] = self.k['dp'].at[home, jnp.arange(2)].set([a_dp[home], b_dp[home]])
         self.action_intervals.append([0])
 
         for e in ['ds', 'c', 'charge_losses', 'discharge_losses']:
-            self.k[home][e] = []
+            self.k[e] = jnp.full((self.n_homes, 5, 2), jnp.nan)
         for z in range(5):
             l1, l2 = letters[z: z + 2]
             if action_points[l2][home] > action_points[l1][home]:
@@ -549,13 +548,14 @@ class Action_translator:
                             home,
                             self.k,
                             action_points[l1][home],
-                            action_points[l2][home]
+                            action_points[l2][home],
+                            z
                         )
                     else:
                         ad = (d[e][l2][home] - d[e][l1][home]) / \
                              (action_points[l2][home] - action_points[l1][home])
                         bd = d[e][l2][home] - action_points[l2][home] * ad
-                        self.k[home][e].append([ad, bd])
+                        self.k[e] = self.k[e].at[home, z].set([ad, bd])
 
     def _check_input_types(
             self, loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
@@ -585,7 +585,7 @@ class Action_translator:
     def get_store_bool_flex(self):
         """Check that there is flexibility over the storage sub-action."""
         return [
-            abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3
+            abs(self.k['ds'][home][0][1] - sum(self.k['ds'][home][-1])) > 1e-3
             for home in range(self.n_homes)
         ]
 

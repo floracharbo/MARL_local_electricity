@@ -526,10 +526,10 @@ class Battery:
 
         return s_avail_dis, s_add_0, s_remove_0, potential_charge
 
-    def k_losses(self, home, k, action_prev, action_next):
+    def k_losses(self, home, k, action_prev, action_next, z):
         """Get charge/discharge loss slope parameters between 2 action points."""
-        ds_start = k[home]['ds'][-1][0] * action_prev + k[home]['ds'][-1][1]
-        ds_end = k[home]['ds'][-1][0] * action_next + k[home]['ds'][-1][1]
+        ds_start = k['ds'][home][-1][0] * action_prev + k['ds'][home][-1][1]
+        ds_end = k['ds'][home][-1][0] * action_next + k['ds'][home][-1][1]
         loss, a_loss, b_loss = [{} for _ in range(3)]
         loss['charge'] = [
             0 if ds < 0 else ds / self.eta_ch * (1 - self.eta_ch)
@@ -542,7 +542,7 @@ class Battery:
         for e in ['charge', 'discharge']:
             a_loss[e] = (loss[e][1] - loss[e][0]) / (action_next - action_prev)
             b_loss[e] = loss[e][1] - a_loss[e] * action_next
-            k[home][f"{e}_losses"].append([a_loss[e], b_loss[e]])
+            k[f"{e}_losses"] = k[f"{e}_losses"].at[home, z].set([a_loss[e], b_loss[e]])
 
         return k
 
