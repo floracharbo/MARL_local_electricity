@@ -45,7 +45,7 @@ def _get_building_characteristics(heat):
     kCm = heat['kCms'][heat['classbuild']]
 
     # SAP 2012 sect 3.2. eq (3)
-    Uwd_eff = 1 / (jnp.divide(1, heat['Uwd']) + 0.04)
+    Uwd_eff = 1 / ((1/heat['Uwd'][heat['Uvalues']]) + 0.04)
 
     # building geometry
     # Area of a single window (m^2)
@@ -89,7 +89,7 @@ def _get_building_characteristics(heat):
     H['tw'] = A['w'] * heat['Uw'][heat['Uvalues']]
     # % (R1) Transmission heat transfer coefficient:
     # Windows and doors (W/K) H_tr_w in matlab
-    H['twd'] = (A['wd'] + A['d']) * Uwd_eff[heat['Uvalues']]
+    H['twd'] = (A['wd'] + A['d']) * Uwd_eff
     # transmission roof
     H['tr'] = A['roof'] * heat['Ur'][heat['Uvalues']]
     # fg1 = 1.45 # EN 12831 D.4.3 correction factor heat
@@ -138,9 +138,9 @@ def _get_required_temperatures(heat, syst):
 
     for home in range(n_homes):
         for interval in heat['hrs_c'][home]:
-            day_T_req[home][
+            day_T_req.at[home,
                 interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
-            ] = jnp.full((interval[1] - interval[0]) * syst['n_int_per_hr'], heat['Tc'])
+            ].set(jnp.full((interval[1] - interval[0]) * syst['n_int_per_hr'], heat['Tc']))
 
     days_T_req = jnp.tile(day_T_req, syst['D'])
     days_T_req = jnp.concatenate((days_T_req, day_T_req[:, 0: 2]), axis=1)
@@ -222,8 +222,8 @@ def get_heat_coeffs(heat, syst, paths):
     d_t_air = (H['is'] * j) / (H['is'] + H['ve'])
     e_t_air = (1 + H['is'] * k) / (H['is'] + H['ve']) * heat['COP']
 
-    t_coeff_0 = jnp.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
-    t_air_coeff_0 = jnp.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
+    t_coeff_0 = jnp.array([a_t, b_t, c_t, d_t, e_t], ndmin=2)
+    t_air_coeff_0 = jnp.array([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], ndmin=2)
     for ext in syst['n_homes_extensions_all']:
         for label, value in zip(['T_coeff', 'T_air_coeff'], [t_coeff_0, t_air_coeff_0]):
             heat[label + ext] = jnp.tile(
