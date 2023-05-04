@@ -290,7 +290,7 @@ class DataManager:
             # try solving problem else making new data until problem solved
             iteration += 1
             feasibility_checked = self.get_seed(seed_ind)
-            set_seeds_rdn(self.seed[self.ext])
+            self.syst['jax_random_key'] = set_seeds_rdn(self.seed[self.ext])
             self.res_name = \
                 f"res_P{int(self.seed['P'])}_" \
                 f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"

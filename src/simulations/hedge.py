@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tick
+import jax
 import jax.numpy as jnp
 import yaml
 from scipy.stats import norm
@@ -248,7 +249,7 @@ class HEDGE:
                 self.factors["loads"] = [
                     self.f_mean["loads"]
                     + norm.ppf(
-                        jnp.random.rand(),
+                        jax.random.rand(),
                         *self.residual_distribution_prms["loads"][transition])
                     for _ in self.homes
                 ]
@@ -257,12 +258,12 @@ class HEDGE:
                 self.factors["gen"] = [
                     self.f_mean["gen"][self.date.month - 1]
                     + norm.ppf(
-                        jnp.random.rand(),
+                        jax.random.rand(),
                         *self.residual_distribution_prms["gen"])
                     for _ in self.homes]
 
             if "car" in self.data_types:
-                randoms = jnp.random.rand(self.n_homes)
+                randoms = jax.random.rand(self.n_homes)
                 self.factors["car"] = [
                     self._ps_rand_to_choice(
                         self.p_zero2pos[transition],
@@ -288,7 +289,7 @@ class HEDGE:
             for data in self.behaviour_types:
                 self.clusters[data] \
                     = [self._ps_rand_to_choice(
-                        self.p_clus[data][day_type], jnp.random.rand())
+                        self.p_clus[data][day_type], jax.random.rand())
                         for _ in self.homes]
         else:
             for data in self.behaviour_types:
@@ -305,7 +306,7 @@ class HEDGE:
         factors = {data_type: jnp.zeros(self.n_homes) for data_type in self.data_types}
         random_f = {}
         for data_type in self.data_types:
-            random_f[data_type] = [jnp.random.rand() for _ in self.homes]
+            random_f[data_type] = [jax.random.rand() for _ in self.homes]
         interval_f_ev = []
 
         for home in self.homes:
@@ -367,7 +368,7 @@ class HEDGE:
         clusters = initialise_dict(self.behaviour_types)
 
         random_clus = [
-            [jnp.random.rand() for _ in self.homes]
+            [jax.random.rand() for _ in self.homes]
             for _ in self.behaviour_types
         ]
         for home in self.homes:
@@ -407,7 +408,7 @@ class HEDGE:
                         f"ev_cons {ev_cons}"
                     day["loads_car"][i_home] = ev_cons * factors["car"][home]
                 else:
-                    i_ev[home] = jnp.random.choice(jnp.arange(
+                    i_ev[home] = jax.random.choice(jnp.arange(
                         self.n_prof["car"][day_type][clusters["car"][home]]))
                 it += 1
 
@@ -450,7 +451,7 @@ class HEDGE:
             else:
                 n_profs_ = n_profs
                 n_profs -= 1
-            i_prof = round(jnp.random.rand() * (n_profs_ - 1))
+            i_prof = round(jax.random.rand() * (n_profs_ - 1))
             for previous_i_prof in sorted(i_profs):
                 if previous_i_prof <= i_prof < n_profs_ - 1 and n_profs_ > 1:
                     i_prof += 1

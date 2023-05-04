@@ -11,6 +11,7 @@ import random
 from pathlib import Path
 
 import jax.numpy as jnp
+import jax
 import pandas as pd
 import torch as th
 import yaml
@@ -135,8 +136,11 @@ def set_seeds_rdn(seed):
     """Seed the random generators."""
     if not isinstance(seed, int):
         seed = int(seed)
-    jnp.random.seed(seed), random.seed(seed)
+    jax_random_key = jax.random.PRNGKey(seed)
+    random.seed(seed)
     th.manual_seed(seed)
+
+    return jax_random_key
 
 
 def data_source(q, epoch=None):

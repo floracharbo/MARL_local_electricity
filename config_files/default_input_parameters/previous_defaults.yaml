@@ -24,6 +24,7 @@ timestamp_changes:
   6: 1677252123.77234
   7: 1677590232.949602
   8: 1681635222.697911
+  9: 1683198201.082175
 
 'RL-n_hidden_layers': [1, 1]
 'RL-aggregate_actions': [1, True]
@@ -45,3 +46,4 @@ timestamp_changes:
 syst-error_with_opt_to_rl_discharge: [6, True]
 grd-tol_rel_voltage_diff: [7, 1.e-2]
 RL-lr: [8, 1.e-3]
+syst-jax: [9, False]

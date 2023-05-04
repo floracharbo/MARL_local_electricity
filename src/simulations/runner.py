@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
 
+import jax
 import jax.numpy as jnp
 import torch as th
 from tqdm import tqdm
@@ -257,7 +258,7 @@ class Runner:
             self.explorer.ind_seed_deterministic
 
         # Set seeds (for reproduceability)
-        jnp.random.seed(repeat), random.seed(repeat)
+        jax.random.seed(repeat), random.seed(repeat)
         th.manual_seed(repeat)
         if self.rl['type_learning'] == 'q_learning' \
                 and self.rl['q_learning']['control_eps'] == 2:
@@ -283,8 +284,8 @@ class Runner:
             new_date = True if self.prm['syst']['change_start'] else False
         if new_date:
             seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
-            set_seeds_rdn(seed)
-            delta_days = int(jnp.random.choice(range(
+            self.prm['syst']['jax_random_key'] = set_seeds_rdn(seed)
+            delta_days = int(jax.random.choice(range(
                 (self.prm['syst']['max_date_end_dtm']
                     - self.prm['syst']['date0_dtm']).days
                 - self.prm['syst']['D'])))
@@ -592,7 +593,7 @@ def run(run_mode, settings, no_runs=None):
 
             if prm['RL']['type_learning'] == 'facmac':
                 # Setting the random seed throughout the modules
-                set_seeds_rdn(prm["syst"]["seed"])
+                prm['syst']['jax_random_key'] = set_seeds_rdn(prm["syst"]["seed"])
 
             env = LocalElecEnv(prm)
             # second part of initialisation specifying environment

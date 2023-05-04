@@ -26,7 +26,7 @@ def patch_find_feasible_data(
         epoch: int,
         passive: bool = False
 ):
-    set_seeds_rdn(0)
+    self.prm['syst']['jax_random_key'] = set_seeds_rdn(0)
     names_files = {}
     files = ['res', 'batch']
     for file in files:
@@ -84,7 +84,7 @@ def patch_set_date(
         self, repeat, epoch, i_explore,
         date0, delta, i0_costs, new_env
 ):
-    set_seeds_rdn(0)
+    self.prm['syst']['jax_random_key'] = set_seeds_rdn(0)
     delta_days = I0_COSTS/24
     date0 = self.prm['syst']['date0_dtm'] \
         + timedelta(days=delta_days)

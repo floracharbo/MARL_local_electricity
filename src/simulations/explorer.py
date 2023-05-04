@@ -420,7 +420,7 @@ class Explorer:
                 method = methods_nonopt[i_t]
                 i_t += 1
                 self.data.get_seed(seed_ind)
-                set_seeds_rdn(self.data.seed[self.data.ext])
+                self.prm['syst']['jax_random_key'] = set_seeds_rdn(self.data.seed[self.data.ext])
 
                 # reset environment with adequate data
                 env.reset(

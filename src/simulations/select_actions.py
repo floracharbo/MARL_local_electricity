@@ -7,6 +7,7 @@ Author: Flora Charbonnier
 from datetime import timedelta
 from typing import Tuple
 
+import jax
 import jax.numpy as jnp
 import tensorflow as tf
 import torch as th
@@ -70,7 +71,7 @@ class ActionSelector:
         # action choice for current time step
         action_dict = {
             'baseline': self.rl['default_action' + ext],
-            'random': jnp.random.random(jnp.shape(self.rl['default_action' + ext])),
+            'random': jax.random.random(jnp.shape(self.rl['default_action' + ext])),
         }
         if rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and rl['trajectory']:
             action = actions[:, step]
