@@ -270,9 +270,9 @@ class LocalElecEnv:
 
             # remove what has been consumed
             for i_flex in range(1, self.max_delay + 1):
-                delta_cons = min(new_batch_flex[home, 0, i_flex], remaining_cons)
+                delta_cons = jnp.min(new_batch_flex[home, 0, i_flex], remaining_cons)
                 remaining_cons -= delta_cons
-                new_batch_flex[home, 0, i_flex] -= delta_cons
+                new_batch_flex = new_batch_flex.at[home, 0, i_flex].add(- delta_cons)
             assert remaining_cons <= 1e-2, \
                 f"remaining_cons = {remaining_cons} too large"
 
@@ -307,7 +307,6 @@ class LocalElecEnv:
         action: list,
         implement: bool = True,
         record: bool = False,
-        evaluation: bool = False,
         netp_storeout: bool = False,
         E_req_only: bool = False,
     ) -> list:
@@ -771,8 +770,8 @@ class LocalElecEnv:
                 loads_t = self.batch["loads"][home, i_load * self.N + time_step]
                 dayflex_a = dayflex_a.at[time_step, 0].set((1 - share_flexs[home]) * loads_t)
                 dayflex_a = dayflex_a.at[time_step, self.max_delay].set(share_flexs[home] * loads_t)
-            for i_day, i_batch in enumerate(range(i_load * self.N, (i_load + 1) * self.N)):
-                self.batch['flex'] = self.batch['flex'].at[home, i_batch].set(dayflex_a[i_day])
+            # for i_day, i_batch in enumerate():
+            self.batch['flex'] = self.batch['flex'].at[home, jnp.arange(range(i_load * self.N, (i_load + 1) * self.N))].set(dayflex_a)
 
             assert jnp.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
                 f"shape batch['flex'][{home}] {jnp.shape(self.batch['flex'][home])} " \
