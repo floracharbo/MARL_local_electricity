@@ -595,7 +595,10 @@ class Battery:
                 print(f'action[home] = {action[home]}')
                 bool_penalty = bool_penalty.at[home].set(True)
 
-            if not type(self.store[home]) in [float, jnp.float64]:
+            if not (
+                isinstance(self.store[home], jnp.ndarray) and self.store[home].shape == ()
+                or isinstance(self.store[home], (float, jnp.float64))
+            ):
                 print('not type(store[home]]) in [float, jnp.float64]')
                 bool_penalty = bool_penalty.at[home].set(True)
 
