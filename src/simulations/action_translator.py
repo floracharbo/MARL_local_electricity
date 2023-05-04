@@ -8,9 +8,9 @@ Created on Tues 14 Dec 15:40:20 2021.
 
 import copy
 
-import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib import gridspec
 
@@ -574,7 +574,7 @@ class Action_translator:
         if self.no_flex_action == 'one':
             action = 1
         elif self.no_flex_action == 'random' or self.type_env == 'discrete':
-            action = jax.random.rand()
+            action = jax.random.uniform(self.prm['syst']['jax_random_key'])
         elif self.no_flex_action == 'None':
             action = None
 
@@ -776,7 +776,7 @@ class Action_translator:
         if self.no_flex_action == 'one':
             action = jnp.ones(self.n_homes)
         elif self.no_flex_action == 'random' or self.type_env == 'discrete':
-            action = jax.random.rand(self.n_homes)
+            action = jax.random.uniform(self.prm['syst']['jax_random_key'], shape=(self.n_homes,))
         elif self.no_flex_action == 'None':
             action = jnp.full(self.n_homes, None)
 

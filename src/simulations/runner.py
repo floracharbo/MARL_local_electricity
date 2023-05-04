@@ -258,8 +258,9 @@ class Runner:
             self.explorer.ind_seed_deterministic
 
         # Set seeds (for reproduceability)
-        jax.random.seed(repeat), random.seed(repeat)
+        random.seed(repeat)
         th.manual_seed(repeat)
+        jax_random_key = jax.random.PRNGKey(repeat)
         if self.rl['type_learning'] == 'q_learning' \
                 and self.rl['q_learning']['control_eps'] == 2:
             self.learner.rMT, self.learner.rLT = 0, 0
@@ -285,10 +286,12 @@ class Runner:
         if new_date:
             seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
             self.prm['syst']['jax_random_key'] = set_seeds_rdn(seed)
-            delta_days = int(jax.random.choice(range(
-                (self.prm['syst']['max_date_end_dtm']
-                    - self.prm['syst']['date0_dtm']).days
-                - self.prm['syst']['D'])))
+            delta_days = int(
+                jax.random.choice(
+                    self.prm['syst']['jax_random_key'],
+                    (self.prm['syst']['max_date_end_dtm'] - self.prm['syst']['date0_dtm']).days - self.prm['syst']['D']
+                )
+            )
             date0 = self.prm['syst']['date0_dtm'] \
                 + datetime.timedelta(days=delta_days)
             delta = date0 - self.prm['syst']['date0_dtm']

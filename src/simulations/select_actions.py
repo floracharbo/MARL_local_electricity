@@ -71,7 +71,10 @@ class ActionSelector:
         # action choice for current time step
         action_dict = {
             'baseline': self.rl['default_action' + ext],
-            'random': jax.random.random(jnp.shape(self.rl['default_action' + ext])),
+            'random': jax.random.uniform(
+                self.prm['syst']['jax_random_key'],
+                shape=jnp.shape(self.rl['default_action' + ext])
+            ),
         }
         if rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and rl['trajectory']:
             action = actions[:, step]
