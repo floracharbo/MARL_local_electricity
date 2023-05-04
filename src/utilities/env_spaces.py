@@ -2,13 +2,13 @@
 
 from datetime import timedelta
 
-import numpy as np
+import jax.numpy as jnp
 import pandas as pd
 import torch as th
 
 
 def _actions_to_unit_box(actions, rl):
-    if isinstance(actions, np.ndarray):
+    if isinstance(actions, jnp.ndarray):
         return rl["actions2unit_coef_numpy"] * actions \
             + rl["actions_min_numpy"]
     elif actions.is_cuda:
@@ -19,7 +19,7 @@ def _actions_to_unit_box(actions, rl):
 
 
 def _actions_from_unit_box(actions, rl):
-    if isinstance(actions, np.ndarray):
+    if isinstance(actions, jnp.ndarray):
         return th.div((actions - rl["actions_min_numpy"]),
                       rl["actions2unit_coef_numpy"])
     elif actions.is_cuda:
@@ -42,11 +42,11 @@ def granularity_to_multipliers(granularity):
     # RuntimeWarning: overflow encountered in long scalars
     # granular spaces should only be used if their size is manageable
     for i in range(1, len(granularity)):
-        assert np.prod(granularity[-i:]) < 1e9, \
+        assert jnp.prod(granularity[-i:]) < 1e9, \
             "the global space is too large for granular representation"
     multipliers = []
     for i in range(len(granularity) - 1):
-        multipliers.append(np.prod(granularity[i + 1:]))
+        multipliers.append(jnp.prod(granularity[i + 1:]))
     multipliers.append(1)
 
     return multipliers
@@ -58,13 +58,13 @@ def compute_max_car_cons_gen_values(env, state_space):
     weekday_types = env.prm["syst"]["weekday_types"]
 
     if any(descriptor[0: len("car_cons_")] == "car_cons_" for descriptor in state_space):
-        max_car_cons = np.max(
-            [np.max(env.hedge.fs_brackets[transition])
+        max_car_cons = jnp.max(
+            [jnp.max(env.hedge.fs_brackets[transition])
              for transition in env.prm['syst']['day_trans']]
         )
-        # np.max(
+        # jnp.max(
         # [
-        #     [np.max(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
+        #     [jnp.max(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
         #     for c in range(env.prm['syst']['n_clus']["car"])
         # ]
 
@@ -74,17 +74,17 @@ def compute_max_car_cons_gen_values(env, state_space):
             or descriptor == 'flexibility'
             for descriptor in state_space
     ):
-        max_normcons = np.max(
+        max_normcons = jnp.max(
             [
-                [np.max(env.hedge.profs["loads"][dt][c]) for dt in weekday_types]
+                [jnp.max(env.hedge.profs["loads"][dt][c]) for dt in weekday_types]
                 for c in range(env.prm["loads"]['n_clus'])
             ]
         )
     if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
-        max_normgen = np.max([np.max(env.hedge.profs["gen"][m]) for m in range(12)])
+        max_normgen = jnp.max([jnp.max(env.hedge.profs["gen"][m]) for m in range(12)])
 
     if any(descriptor == "car_dem_agg" for descriptor in state_space):
-        max_car_dem_agg = np.max(
+        max_car_dem_agg = jnp.max(
             [
                 [sum(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
                 for c in range(env.prm['syst']['n_clus']["car"])
@@ -145,7 +145,7 @@ class EnvSpaces:
         max_car_cons, max_normcons, max_normgen, max_bat_dem_agg \
             = compute_max_car_cons_gen_values(env, prm["RL"]["state_space"])
         if self.i0_costs == 12 * 24:
-            np.save("max_bat_dem_agg", max_bat_dem_agg)
+            jnp.save("max_bat_dem_agg", max_bat_dem_agg)
             print("save max_bat_dem_agg")
         rl = prm["RL"]
         i_month = env.date.month - 1 if 'date' in env.__dict__ else 0
@@ -245,11 +245,11 @@ class EnvSpaces:
                 for field in ["n", "min", "max", "discrete"]]
 
             if self.type_env == "discrete":
-                self.n[space] = np.prod(self.granularity[space])
+                self.n[space] = jnp.prod(self.granularity[space])
                 # initialise multipliers
                 self.multipliers[space] = granularity_to_multipliers(
                     self.granularity[space])
-                self.possible[space] = np.linspace(
+                self.possible[space] = jnp.linspace(
                     0, self.n[space] - 1, num=self.n[space])
                 # initialise global multipliers for going to agent
                 # states and actions to global states and actions
@@ -293,7 +293,7 @@ class EnvSpaces:
         """From discrete space indexes, get global combined index."""
         if indexes is None and type_descriptor == "state":
             if done:
-                indexes = np.full(self.n_homes, np.nan)
+                indexes = jnp.full(self.n_homes, jnp.nan)
             else:
                 indexes = self.get_space_indexes(
                     done=done, all_vals=self.get_state_vals()
@@ -347,10 +347,10 @@ class EnvSpaces:
 
         if value_type == "next_state" and done:
             # if the sequence is over, return None
-            return np.full(self.n_homes, np.nan)
+            return jnp.full(self.n_homes, jnp.nan)
         if space_type == "state" and self.descriptors["state"] == [None]:
             # if the state space is None, return 0
-            return np.zeros(self.n_homes)
+            return jnp.zeros(self.n_homes)
 
         # translate values into indexes
         index = []  # one global index per agent
@@ -359,7 +359,7 @@ class EnvSpaces:
 
             indexes = []  # one index per value - for current agent
             for v in range(len(vals_home)):
-                if vals_home[v] is None or np.isnan(vals_home[v]):
+                if vals_home[v] is None or jnp.isnan(vals_home[v]):
                     indexes.append(0)
                 elif self.discrete[space_type][v] == 1:
                     indexes.append(int(vals_home[v]))
@@ -370,15 +370,15 @@ class EnvSpaces:
                     else:
                         brackets = self.brackets[space_type][v]
                         brackets_v = brackets \
-                            if len(np.shape(brackets)) == 1 \
+                            if len(jnp.shape(brackets)) == 1 \
                             else brackets[home]
                         assert vals_home[v] > brackets_v[0] - 1e-2, \
                             f"brackets_v0 = {brackets_v[0]} " \
                             f"vals_home[v] = {vals_home[v]}"
                         if vals_home[v] < brackets_v[0]:
                             vals_home[v] = 0
-                        mask = vals_home[v] >= np.array(brackets_v[:-1])
-                        interval = np.where(mask)[0][-1]
+                        mask = vals_home[v] >= jnp.array(brackets_v[:-1])
+                        interval = jnp.where(mask)[0][-1]
                         indexes.append(interval)
 
             if indiv_indexes:
@@ -500,8 +500,8 @@ class EnvSpaces:
                     "action", indexes=ind_action,
                     multipliers=self.global_multipliers["action"])]
         else:
-            step_vals_i["ind_global_state"] = np.nan
-            step_vals_i["ind_global_action"] = np.nan
+            step_vals_i["ind_global_state"] = jnp.nan
+            step_vals_i["ind_global_action"] = jnp.nan
 
         return step_vals_i
 
@@ -529,7 +529,7 @@ class EnvSpaces:
             time_step: int,
             loads_prev: list,
             loads_step: list,
-            batch_avail_car: np.ndarray,
+            batch_avail_car: jnp.ndarray,
             loads: dict,
             home_vars: dict
     ) -> list:
@@ -589,7 +589,7 @@ class EnvSpaces:
                         print(ex)
                 else:  # select current or previous time step - step or prev
                     time_step_val = time_step if descriptor[-4:] == "step" else time_step - 1
-                    time_step_val = np.max(time_step_val, 0)
+                    time_step_val = jnp.max(time_step_val, 0)
                     if len(descriptor) > 8 and descriptor[0: len('avail_car')] == "avail_car":
                         if time_step_val < len(batch_avail_car[0]):
                             val = batch_avail_car[home][time_step_val]
@@ -606,9 +606,9 @@ class EnvSpaces:
 
         self._revert_changes_bool_flex_computation()
 
-        assert np.shape(vals) \
+        assert jnp.shape(vals) \
                == (self.n_homes, len(self.descriptors["state"])), \
-               f"np.shape(vals) {np.shape(vals)} " \
+               f"jnp.shape(vals) {jnp.shape(vals)} " \
                f"self.n_homes {self.n_homes} " \
                f"len descriptors['state'] {len(self.descriptors['state'])}"
 
@@ -705,10 +705,10 @@ class EnvSpaces:
                 min_val = descriptor_info['min'].values.item()[self.current_date0.month - 1]
             else:
                 max_val = descriptor_info['max'].values.item()[home] \
-                    if isinstance(descriptor_info['max'].values.item(), (list, np.ndarray)) \
+                    if isinstance(descriptor_info['max'].values.item(), (list, jnp.ndarray)) \
                     else descriptor_info['max'].values.item()
                 min_val = descriptor_info['min'].values.item()[home] \
-                    if isinstance(descriptor_info['min'].values.item(), (list, np.ndarray)) \
+                    if isinstance(descriptor_info['min'].values.item(), (list, jnp.ndarray)) \
                     else descriptor_info['min'].values.item()
             normalised_val = (val - min_val) / (max_val - min_val)
             if abs(normalised_val) < 1e-5:

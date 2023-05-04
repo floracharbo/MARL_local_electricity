@@ -11,7 +11,7 @@ take saved MARL runs and compare what inputs are different
 # packages
 import os
 
-import numpy as np
+import jax.numpy as jnp
 
 # numbers of runs to compare
 # RUN_A = 578 # q learning
@@ -29,13 +29,13 @@ for i in range(2):
     RUN = runs[i]
     print(f'RUN {RUN}')
     if 'prm.npy' in os.listdir(PATH + f'run{RUN}/inputData'):
-        prm.append(np.load(PATH + f'run{RUN}/inputData/prm.npy',
+        prm.append(jnp.load(PATH + f'run{RUN}/inputData/prm.npy',
                            allow_pickle=True).item())
         labels.append('prm')
     else:
-        prm.append(np.load(PATH + f'run{RUN}/inputData/syst.npy',
+        prm.append(jnp.load(PATH + f'run{RUN}/inputData/syst.npy',
                            allow_pickle=True).item())
-        prm[i]['RL'] = np.load(PATH + f'run{RUN}/inputData/lp.npy',
+        prm[i]['RL'] = jnp.load(PATH + f'run{RUN}/inputData/lp.npy',
                                allow_pickle=True).item()
         labels.append('syst_lp')
 
@@ -75,13 +75,13 @@ def _check_shape_array_vals(obj_a, obj_b, label_a, label_b):
     if isinstance(obj_a, type) and isinstance(obj_b, type):
         if not obj_a == obj_b:
             print(f"{label_a} {obj_a} != {label_b} {obj_b}")
-    elif len(np.shape(obj_a)) > 0:
-        same_shape = np.shape(obj_a) == np.shape(obj_b)
+    elif len(jnp.shape(obj_a)) > 0:
+        same_shape = jnp.shape(obj_a) == jnp.shape(obj_b)
         if not same_shape:
             print(
-                f"np.shape({label_a}) = {np.shape(obj_a)}, "
-                f"np.shape({label_b}) = {np.shape(obj_b)}")
-        elif not (np.array(obj_a) == np.array(obj_b)).all():
+                f"jnp.shape({label_a}) = {jnp.shape(obj_a)}, "
+                f"jnp.shape({label_b}) = {jnp.shape(obj_b)}")
+        elif not (jnp.array(obj_a) == jnp.array(obj_b)).all():
             print(f"{label_a} {obj_a} != {label_b} {obj_b}")
     elif obj_a != obj_b:
         print(f"{label_a} {obj_a} != {label_b} {obj_b}")

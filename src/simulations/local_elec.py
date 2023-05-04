@@ -12,7 +12,7 @@ import pickle
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
-import numpy as np
+import jax.numpy as jnp
 from gym import spaces
 from gym.utils import seeding
 from six import integer_types
@@ -92,9 +92,9 @@ class LocalElecEnv:
             self.observation_space = []
             for _ in self.homes:
                 self.observation_space.append(spaces.Box(
-                    low=-np.inf, high=+np.inf,
+                    low=-jnp.inf, high=+jnp.inf,
                     shape=(self.rl['obs_shape'],),
-                    dtype=np.float32))
+                    dtype=jnp.float32))
 
         self.max_delay = int(
             prm["loads"]["max_delay"] * self.n_int_per_hr
@@ -236,13 +236,13 @@ class LocalElecEnv:
             self._load_next_day(homes=homes, i_load=i)
         self.car.add_batch(self.batch)
         self.batch = self.car.compute_battery_demand_aggregated_at_start_of_trip(self.batch)
-        np.save(self.res_path / f"batch{file_id}", self.batch)
+        jnp.save(self.res_path / f"batch{file_id}", self.batch)
 
     def update_flex(
             self,
             flex_cons: list,
             opts: list = None
-    ) -> np.ndarray:
+    ) -> jnp.ndarray:
         """Given step flexible consumption, update remaining flexibility."""
         if opts is None:
             h = self._get_time_step()
@@ -251,11 +251,11 @@ class LocalElecEnv:
         else:
             h, batch_flex, max_delay, n_homes = opts
 
-        assert np.shape(batch_flex)[0] == self.n_homes, \
-            f"np.shape(batch_flex) {np.shape(batch_flex)} " \
+        assert jnp.shape(batch_flex)[0] == self.n_homes, \
+            f"jnp.shape(batch_flex) {jnp.shape(batch_flex)} " \
             f"self.n_homes {self.n_homes}"
-        assert np.shape(batch_flex)[2] == self.max_delay + 1, \
-            f"np.shape(batch_flex) {np.shape(batch_flex)} " \
+        assert jnp.shape(batch_flex)[2] == self.max_delay + 1, \
+            f"jnp.shape(batch_flex) {jnp.shape(batch_flex)} " \
             f"self.max_delay {self.max_delay}"
 
         new_batch_flex = copy.deepcopy(batch_flex[:, h: h + 2])
@@ -263,9 +263,9 @@ class LocalElecEnv:
         for home in range(n_homes):
             remaining_cons = max(flex_cons[home], 0)
 
-            assert flex_cons[home] <= np.sum(batch_flex[home][h][1:]) + 5e-2, \
+            assert flex_cons[home] <= jnp.sum(batch_flex[home][h][1:]) + 5e-2, \
                 f"flex_cons[home={home}] {flex_cons[home]} " \
-                f"> np.sum(batch_flex[home][h={h}][1:]) {np.sum(batch_flex[home][h][1:])} + 1e-2"
+                f"> jnp.sum(batch_flex[home][h={h}][1:]) {jnp.sum(batch_flex[home][h][1:])} + 1e-2"
 
             # remove what has been consumed
             for i_flex in range(1, self.max_delay + 1):
@@ -278,7 +278,7 @@ class LocalElecEnv:
             # move what has not been consumed to one step more urgent
             self._prep_next_flex_step(batch_flex, new_batch_flex, h, home)
 
-        assert np.all(new_batch_flex >= 0)
+        assert jnp.all(new_batch_flex >= 0)
 
         return new_batch_flex
 
@@ -372,7 +372,7 @@ class LocalElecEnv:
                 self.car.update_step(time_step=self.time_step)
 
             if record:
-                loads_flex = np.zeros(self.n_homes) if next_done \
+                loads_flex = jnp.zeros(self.n_homes) if next_done \
                     else [sum(self.batch_flex[home][h][1:]) for home in homes]
                 if self.prm['grd']['manage_voltage']:
                     loaded_buses, sgen_buses = self.network.loaded_buses, self.network.sgen_buses
@@ -436,7 +436,7 @@ class LocalElecEnv:
             netp0, discharge_tot0, charge0 = passive_vars
         elif self.ext == 'P':
             netp0, discharge_tot0, charge0 = [
-                np.zeros(self.prm['syst']['n_homesP']) for _ in range(3)
+                jnp.zeros(self.prm['syst']['n_homesP']) for _ in range(3)
             ]
         else:
             seconds_per_interval = 3600 * 24 / self.prm['syst']['H']
@@ -538,17 +538,17 @@ class LocalElecEnv:
         return reward, break_down_rewards
 
     def netp_to_exports(self, netp):
-        netp = np.array(netp)
-        return - np.where(netp < 0, netp, 0)
+        netp = jnp.array(netp)
+        return - jnp.where(netp < 0, netp, 0)
 
     def get_loads_fixed_flex_gen(self, date, time_step):
         loads, home_vars = {}, {}
         if date == self.date_end - timedelta(hours=self.dt):
-            loads['l_flex'] = np.zeros(self.n_homes)
-            loads['l_fixed'] = np.sum(self.batch_flex[:, time_step], axis=1)
+            loads['l_flex'] = jnp.zeros(self.n_homes)
+            loads['l_fixed'] = jnp.sum(self.batch_flex[:, time_step], axis=1)
         else:
-            loads['l_flex'] = np.sum(self.batch_flex[:, time_step, 1:], axis=1)
-            loads['l_fixed'] = np.array(self.batch_flex[:, time_step, 0])
+            loads['l_flex'] = jnp.sum(self.batch_flex[:, time_step, 1:], axis=1)
+            loads['l_fixed'] = jnp.array(self.batch_flex[:, time_step, 0])
 
         home_vars['gen'] = self.batch['gen'][:, time_step]
 
@@ -568,7 +568,7 @@ class LocalElecEnv:
             self.heat.current_temperature_bounds(h)
         else:
             date, action, gens, loads = other_input
-            gens = np.array(gens)
+            gens = jnp.array(gens)
             self.date = date
             h = self._get_time_step()
             home_vars = {'gen': gens}
@@ -582,10 +582,10 @@ class LocalElecEnv:
         #  ----------- meet consumption + check constraints ---------------
         if action is None:
             for info in ['flex_cons', 'tot_cons_loads']:
-                loads[info] = np.zeros(self.n_homes)
+                loads[info] = jnp.zeros(self.n_homes)
             home_vars['bool_flex'] = False
             for info in ['netp', 'tot_cons']:
-                home_vars[info] = np.zeros(self.n_homes)
+                home_vars[info] = jnp.zeros(self.n_homes)
         else:
             loads, home_vars, bool_penalty, flexible_q_car = \
                 self.action_translator.actions_to_env_vars(loads, home_vars, action, date, h)
@@ -633,7 +633,7 @@ class LocalElecEnv:
             self,
             descriptors: list = None,
             inputs: list = None
-    ) -> np.ndarray:
+    ) -> jnp.ndarray:
         """
         Get values corresponding to array of descriptors inputted.
 
@@ -653,7 +653,7 @@ class LocalElecEnv:
         idt = 0 if date.weekday() < 5 else 1
         descriptors = descriptors if descriptors is not None \
             else self.spaces.descriptors['state']
-        vals = np.zeros((self.n_homes, len(descriptors)))
+        vals = jnp.zeros((self.n_homes, len(descriptors)))
         # time_step = self._get_time_step(date)
         flexibility_state = any(
             descriptor in self.rl['flexibility_states'] for descriptor in descriptors
@@ -745,7 +745,7 @@ class LocalElecEnv:
                     setattr(
                         self,
                         info,
-                        np.load(
+                        jnp.load(
                             self.res_path / f"{info}{self._file_id()}",
                             allow_pickle=True
                         ).item()
@@ -760,15 +760,15 @@ class LocalElecEnv:
         homes = self.homes if len(homes) == 0 else homes
         share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in homes:
-            dayflex_a = np.zeros((self.N, self.max_delay + 1))
+            dayflex_a = jnp.zeros((self.N, self.max_delay + 1))
             for time_step in range(self.N):
                 loads_t = self.batch["loads"][home, i_load * self.N + time_step]
                 dayflex_a[time_step, 0] = (1 - share_flexs[home]) * loads_t
                 dayflex_a[time_step, self.max_delay] = share_flexs[home] * loads_t
             self.batch['flex'][home, i_load * self.N: (i_load + 1) * self.N] = dayflex_a
 
-            assert np.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
-                f"shape batch['flex'][{home}] {np.shape(self.batch['flex'][home])} " \
+            assert jnp.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
+                f"shape batch['flex'][{home}] {jnp.shape(self.batch['flex'][home])} " \
                 f"self.max_delay {self.max_delay}"
 
     def _get_time_step(self, date: datetime = None) -> int:
@@ -832,9 +832,9 @@ class LocalElecEnv:
                 print(f"self.car.charge[{home}] = {self.car.charge[home]}")
                 print(f"self.car.discharge[{home}] = {self.car.discharge[home]}")
                 print(f"home = {home}, loads = {loads}")
-                np.save('action_translator_d', self.action_translator.d)
-                np.save('action_translator_mu', self.action_translator.action_intervals)
-                np.save('action_translator_k', self.action_translator.k)
+                jnp.save('action_translator_d', self.action_translator.d)
+                jnp.save('action_translator_mu', self.action_translator.action_intervals)
+                jnp.save('action_translator_k', self.action_translator.k)
                 bool_penalty[home] = True
 
             # check tot cons
@@ -920,7 +920,7 @@ class LocalElecEnv:
             if len(descriptor) > 8 and descriptor[0: len('avail_car')] == 'avail_car':
                 val = self.batch['avail_car'][home, h]
             elif descriptor[0:5] == 'loads':
-                val = np.sum(batch_flex_h[home][1])
+                val = jnp.sum(batch_flex_h[home][1])
             else:
                 # gen_prod_step / prev and car_cons_step / prev
                 batch_type = 'gen' if descriptor[0:3] == 'gen' else 'loads_car'
@@ -952,7 +952,7 @@ class LocalElecEnv:
 
     def _prep_next_flex_step(self, batch_flex, new_batch_flex, h, home):
         if self.test:
-            assert np.sum(new_batch_flex[home][0][1:5]) <= sum(
+            assert jnp.sum(new_batch_flex[home][0][1:5]) <= sum(
                 batch_flex[home][ih][0] / (1 - self.share_flexs[home])
                 * self.share_flexs[home] for ih in range(0, h)
             ) + 1e-3, "flex too large"
@@ -962,14 +962,14 @@ class LocalElecEnv:
                 assert not (
                     0 < i_flex < 4
                     and new_batch_flex[home][1][i_flex] + loads_next_flex
-                    > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
+                    > jnp.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
                     / (1 - self.share_flexs[home]) * self.share_flexs[home] + 1e-3
                 ), "loads_next_flex error"
             new_batch_flex[home][0][i_flex + 1] -= loads_next_flex
             new_batch_flex[home][1][i_flex] += loads_next_flex
             if self.test:
                 assert not (
-                    loads_next_flex > np.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
+                    loads_next_flex > jnp.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
                 ), "loads_next_flex too large"
 
     def _loads_test(self):
@@ -1004,7 +1004,7 @@ class LocalElecEnv:
             if not self.spaces.type_env == "continuous":
                 self.spaces.brackets['state'][i_grdC_level[0]] = [
                     [
-                        np.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
+                        jnp.percentile(self.normalised_grdC, i * 100 / self.n_grdC_level)
                         for i in range(self.n_grdC_level)
                     ] + [1]
                     for _ in self.homes
@@ -1025,7 +1025,7 @@ class LocalElecEnv:
 
         for e in ['batch', 'i0_costs']:
             file_id = f"{e}{self._file_id()}"
-            np.save(self.res_path / file_id, getattr(self, e))
+            jnp.save(self.res_path / file_id, getattr(self, e))
 
         self._initialise_batch_entries()
 
@@ -1035,12 +1035,12 @@ class LocalElecEnv:
         self.add_noise = False
 
     def _initialise_batch_entries(self):
-        self.batch = {entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.batch_entries}
+        self.batch = {entry: jnp.zeros((self.n_homes, 2 * self.N)) for entry in self.batch_entries}
         self.car.batch = {
-            entry: np.zeros((self.n_homes, 2 * self.N)) for entry in self.car.batch_entries
+            entry: jnp.zeros((self.n_homes, 2 * self.N)) for entry in self.car.batch_entries
         }
-        self.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
-        self.car.batch['flex'] = np.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
+        self.batch['flex'] = jnp.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
+        self.car.batch['flex'] = jnp.zeros((self.n_homes, self.N * 2, self.max_delay + 1))
 
     def _get_factor_or_cluster_state(self, descriptor, home):
         module = descriptor.split('_')[0]  # car, loads or gen
@@ -1060,9 +1060,9 @@ class LocalElecEnv:
     def _test_flex_cons(self):
         if self.test:
             for home in range(self.n_homes):
-                lb = np.sum(self.prm['grd']['loads'][0, home, 0: self.time_step])
-                ub = np.sum(self.prm['grd']['loads'][:, home, 0: self.time_step])
-                consumed_so_far = np.sum(np.array(self.tot_cons_loads)[:, home])
+                lb = jnp.sum(self.prm['grd']['loads'][0, home, 0: self.time_step])
+                ub = jnp.sum(self.prm['grd']['loads'][:, home, 0: self.time_step])
+                consumed_so_far = jnp.sum(jnp.array(self.tot_cons_loads)[:, home])
                 if self.time_step == self.N:
                     consumed_so_far_ok = abs(consumed_so_far - ub) < 1e-3
                 else:
@@ -1070,7 +1070,7 @@ class LocalElecEnv:
                 if not consumed_so_far_ok:
                     print()
                 assert consumed_so_far_ok, f"home {home} self.time_step {self.time_step}"
-                left_to_consume = np.sum(self.batch_flex[home, self.time_step: self.N])
-                total_to_consume = np.sum(self.prm['grd']['loads'][:, home, 0: self.N])
+                left_to_consume = jnp.sum(self.batch_flex[home, self.time_step: self.N])
+                total_to_consume = jnp.sum(self.prm['grd']['loads'][:, home, 0: self.N])
                 cons_adds_up = abs(left_to_consume + consumed_so_far - total_to_consume) < 1e-3
                 assert cons_adds_up, f"home {home} self.time_step {self.time_step}"

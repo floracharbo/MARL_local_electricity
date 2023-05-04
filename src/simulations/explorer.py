@@ -15,7 +15,7 @@ import time
 from datetime import timedelta
 from typing import Tuple
 
-import numpy as np
+import jax.numpy as jnp
 import torch as th
 
 from src.simulations.data_manager import DataManager
@@ -116,7 +116,7 @@ class Explorer:
 
     def _init_passive_data(self):
         for e in ["netp0", "discharge_tot0", "charge0"]:
-            self.prm["loads"][e] = np.zeros((self.prm['syst']['n_homesP'], self.N))
+            self.prm["loads"][e] = jnp.zeros((self.prm['syst']['n_homesP'], self.N))
 
     def _passive_get_steps(
             self, env, repeat, epoch, i_explore, methods, step_vals
@@ -177,7 +177,7 @@ class Explorer:
 
                 print("infeasible in loop passive")
 
-                self.data.seeds[self.data.ext] = np.delete(
+                self.data.seeds[self.data.ext] = jnp.delete(
                     self.data.seeds[self.data.ext],
                     len(self.data.seeds[self.data.ext]) - 1)
                 self.data.d_ind_seed[self.data.ext] += 1
@@ -324,7 +324,7 @@ class Explorer:
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
             )
-            action_ = np.array(action.cpu()) if th.is_tensor(action) else action
+            action_ = jnp.array(action.cpu()) if th.is_tensor(action) else action
             [
                 state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
             ] = env.step(
@@ -359,7 +359,7 @@ class Explorer:
                     self.duration_learning += time.time() - t_start_learn
 
                 if self.rl['trajectory']:
-                    if type(reward) in [float, int, np.float64]:
+                    if type(reward) in [float, int, jnp.float64]:
                         traj_reward += reward
                     else:
                         for home in self.homes:
@@ -497,14 +497,14 @@ class Explorer:
                 self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
             )
             for info in self.indiv_step_vals_entries:
-                step_vals[method][info] = np.full(
-                    (self.N, self.n_homes, self.dim_step_vals[info]), np.nan
+                step_vals[method][info] = jnp.full(
+                    (self.N, self.n_homes, self.dim_step_vals[info]), jnp.nan
                 )
             for info in self.global_step_vals_entries:
-                step_vals[method][info] = np.full(self.N, np.nan)
+                step_vals[method][info] = jnp.full(self.N, jnp.nan)
             for info in self.prm['syst']['break_down_rewards_entries']:
-                step_vals[method][info] = np.full(
-                    (self.N, self.dim_step_vals[info]), np.nan
+                step_vals[method][info] = jnp.full(
+                    (self.N, self.dim_step_vals[info]), jnp.nan
                 )
 
         self._init_facmac_mac(methods, new_episode_batch, epoch)
@@ -527,11 +527,11 @@ class Explorer:
     def _check_rewards_match(self, method, evaluation, step_vals, sequence_feasible):
         if self.n_homes > 0 and "opt" in step_vals and step_vals[method]["reward"][-1] is not None:
             if not (
-                np.mean(step_vals[method]["reward"]) < np.mean(step_vals["opt"]["reward"]) + 1e-3
+                jnp.mean(step_vals[method]["reward"]) < jnp.mean(step_vals["opt"]["reward"]) + 1e-3
             ):
                 print(
-                    f"reward {method} {np.mean(step_vals[method]['reward'])} "
-                    f"better than opt {np.mean(step_vals['opt']['reward'])} "
+                    f"reward {method} {jnp.mean(step_vals[method]['reward'])} "
+                    f"better than opt {jnp.mean(step_vals['opt']['reward'])} "
                     f"self.data.seed[{self.data.ext}] {self.data.seed[self.data.ext]}"
                 )
                 sequence_feasible = False
@@ -564,7 +564,7 @@ class Explorer:
         _, _, loads_prev = self._fixed_flex_loads(
             max(0, time_step - 1), batchflex_opt)
         home_vars = {
-            "gen": np.array(
+            "gen": jnp.array(
                 [self.prm["grd"]["gen"][home][time_step] for home in self.homes]
             )
         }
@@ -644,8 +644,8 @@ class Explorer:
             if var is not None:
                 if info == 'diff_rewards' and len(var) == self.n_homes + 1:
                     var = var[:-1]
-                var_ = np.array(var.cpu()) if th.is_tensor(var) else var
-                step_vals[method][info][time_step, :, :] = np.reshape(
+                var_ = jnp.array(var.cpu()) if th.is_tensor(var) else var
+                step_vals[method][info][time_step, :, :] = jnp.reshape(
                     var_, (self.n_homes, self.dim_step_vals[info])
                 )
 
@@ -666,11 +666,11 @@ class Explorer:
         for key_ in step_vals_i.keys():
             if step_vals_i[key_] is None:
                 break
-            target_shape = np.shape(step_vals[method][key_][time_step])
+            target_shape = jnp.shape(step_vals[method][key_][time_step])
             if key_ == 'diff_rewards' and len(step_vals_i[key_]) == self.n_homes + 1:
                 step_vals_i[key_] = step_vals_i[key_][:-1]
-            if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
-                step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
+            if len(target_shape) > 0 and target_shape != jnp.shape(step_vals_i[key_]):
+                step_vals_i[key_] = jnp.reshape(step_vals_i[key_], target_shape)
             step_vals[method][key_][time_step] = step_vals_i[key_]
 
         if time_step > 0:
@@ -679,7 +679,7 @@ class Explorer:
                 step_vals[method]["ind_next_global_state"][time_step] = \
                     step_vals_i["ind_global_state"]
             else:
-                step_vals[method]["ind_next_global_state"][time_step] = np.nan
+                step_vals[method]["ind_next_global_state"][time_step] = jnp.nan
         if time_step == len(res["grid"]) - 1:
             step_vals[method]["next_state"][time_step] = self.env.spaces.opt_step_to_state(
                 self.prm, res, time_step + 1, loads_prev,
@@ -719,12 +719,12 @@ class Explorer:
         # check loads and consumption match
         sum_consa = 0
         for load_type in range(2):
-            sum_consa += np.sum(res[f'consa({load_type})'])
+            sum_consa += jnp.sum(res[f'consa({load_type})'])
 
-        assert len(np.shape(batch['loads'])) == 2, f"np.shape(loads) == {np.shape(batch['loads'])}"
-        assert abs((np.sum(batch['loads'][:, 0: self.N]) - sum_consa) / sum_consa) < 1e-2, \
+        assert len(jnp.shape(batch['loads'])) == 2, f"jnp.shape(loads) == {jnp.shape(batch['loads'])}"
+        assert abs((jnp.sum(batch['loads'][:, 0: self.N]) - sum_consa) / sum_consa) < 1e-2, \
             f"res cons {sum_consa} does not match input demand " \
-            f"{np.sum(batch['loads'][:, 0: self.N])}"
+            f"{jnp.sum(batch['loads'][:, 0: self.N])}"
 
         gc_i = prm["grd"]["C"][time_step] * (
             res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
@@ -801,18 +801,18 @@ class Explorer:
             elif rl["type_learning"] == "facmac":
                 pre_transition_data = {
                     "state": th.from_numpy(
-                        np.reshape(current_state, (self.n_homes, rl["obs_shape"]))
+                        jnp.reshape(current_state, (self.n_homes, rl["obs_shape"]))
                     ),
                     "avail_actions": th.Tensor(rl["avail_actions"]),
                     "obs": th.from_numpy(
-                        np.reshape(current_state, (self.n_homes, rl["obs_shape"]))
+                        jnp.reshape(current_state, (self.n_homes, rl["obs_shape"]))
                     )
                 }
 
                 post_transition_data = {
                     "actions": th.from_numpy(actions),
-                    "reward": th.from_numpy(np.array(reward)),
-                    "terminated": th.from_numpy(np.array(time_step == self.N - 1)),
+                    "reward": th.from_numpy(jnp.array(reward)),
+                    "terminated": th.from_numpy(jnp.array(time_step == self.N - 1)),
                 }
 
                 evaluation_methods = methods_learning_from_exploration(
@@ -842,7 +842,7 @@ class Explorer:
     def sum_gc_for_start_Call_index(self, res, i):
         C = self.prm["grd"]["Call"][i: i + self.N]
         loss = self.prm['grd']['loss']
-        sum_gc_i = np.sum(
+        sum_gc_i = jnp.sum(
             [
                 C[time_step_]
                 * (res['grid'][time_step_] + loss * res['grid2'][time_step_])
@@ -854,7 +854,7 @@ class Explorer:
 
     def _check_i0_costs_res(self, res):
         # check the correct i0_costs is used
-        sum_gc_0 = np.sum(
+        sum_gc_0 = jnp.sum(
             [self.prm["grd"]["C"][time_step_] * (
                 res['grid'][time_step_] + self.prm["grd"]['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
@@ -867,7 +867,7 @@ class Explorer:
             if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
                 self.env.update_i0_costs(i_start_res[0])
-                np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res[0])
+                jnp.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res[0])
 
     def get_steps_opt(
             self, res, pp_simulation_required, step_vals, evaluation, batch, epoch
@@ -919,7 +919,7 @@ class Explorer:
                 voltage_squared=res['voltage_squared'][:, time_step],
                 q_ext_grid=res['q_ext_grid'][time_step]
             )
-            step_vals_i["indiv_grid_battery_costs"] = - np.array(
+            step_vals_i["indiv_grid_battery_costs"] = - jnp.array(
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
             self._tests_individual_step_rl_matches_res(
@@ -985,11 +985,11 @@ class Explorer:
         if not last_epoch:
             return
         done = time_step == self.N - 1
-        ldflex = np.zeros(self.n_homes) \
+        ldflex = jnp.zeros(self.n_homes) \
             if done \
-            else np.sum(batchflex_opt[:, time_step, 1:])
+            else jnp.sum(batchflex_opt[:, time_step, 1:])
         if done:
-            ldfixed = np.sum(batchflex_opt[:, time_step])
+            ldfixed = jnp.sum(batchflex_opt[:, time_step])
         else:
             ldfixed = batchflex_opt[:, time_step, 0]
         tot_cons_loads = res["totcons"][:, time_step] - res["E_heat"][:, time_step]
@@ -1054,15 +1054,15 @@ class Explorer:
         # flex_load = [ntw['loads'][1, home, time_step] for home in range(n_homes)]
 
         if time_step == self.N - 1:
-            flex_load = np.zeros(self.n_homes)
-            l_fixed = np.array(
+            flex_load = jnp.zeros(self.n_homes)
+            l_fixed = jnp.array(
                 [sum(batchflex_opt[home][time_step][:]) for home in self.homes]
             )
         else:
-            flex_load = np.array(
+            flex_load = jnp.array(
                 [sum(batchflex_opt[home][time_step][1:]) for home in self.homes]
             )
-            l_fixed = np.array(
+            l_fixed = jnp.array(
                 [batchflex_opt[home][time_step][0] for home in self.homes]
             )
 
@@ -1071,9 +1071,9 @@ class Explorer:
         return flex_load, l_fixed, loads_step
 
     def _get_combs_actions(self, actions):
-        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
+        combs_actions = jnp.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
         for home in self.homes:
-            actions_baseline_a = np.array(actions)
+            actions_baseline_a = jnp.array(actions)
             actions_baseline_a[home] = 1
             combs_actions[home] = actions_baseline_a
         combs_actions[-1] = 1
@@ -1083,7 +1083,7 @@ class Explorer:
     def _get_artificial_baseline_reward_opt(
             self,
             time_step: int,
-            actions: np.ndarray,
+            actions: jnp.ndarray,
             date: datetime.datetime,
             loads: dict,
             res: dict,

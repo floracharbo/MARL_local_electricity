@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
 
-import numpy as np
+import jax.numpy as jnp
 import torch as th
 from tqdm import tqdm
 
@@ -257,7 +257,7 @@ class Runner:
             self.explorer.ind_seed_deterministic
 
         # Set seeds (for reproduceability)
-        np.random.seed(repeat), random.seed(repeat)
+        jnp.random.seed(repeat), random.seed(repeat)
         th.manual_seed(repeat)
         if self.rl['type_learning'] == 'q_learning' \
                 and self.rl['q_learning']['control_eps'] == 2:
@@ -284,7 +284,7 @@ class Runner:
         if new_date:
             seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
             set_seeds_rdn(seed)
-            delta_days = int(np.random.choice(range(
+            delta_days = int(jnp.random.choice(range(
                 (self.prm['syst']['max_date_end_dtm']
                     - self.prm['syst']['date0_dtm']).days
                 - self.prm['syst']['D'])))
@@ -331,9 +331,9 @@ class Runner:
             for e in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
                 if e not in ['seeds', 'n_not_feas'] \
                         and e in train_steps_vals[0][exploration_methods[0]].keys():
-                    shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][e])
+                    shape0 = jnp.shape(train_steps_vals[0][exploration_methods[0]][e])
                     new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
-                    list_train_stepvals[method][e] = np.full(new_shape, np.nan)
+                    list_train_stepvals[method][e] = jnp.full(new_shape, jnp.nan)
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             try:

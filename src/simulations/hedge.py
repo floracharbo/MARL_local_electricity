@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tick
-import numpy as np
+import jax.numpy as jnp
 import yaml
 from scipy.stats import norm
 
@@ -61,7 +61,7 @@ class HEDGE:
                     prm[key][subkey] = subval
         # add relevant parameters to object properties
         self.car = prm["car"]
-        self.store0 = self.car["SoC0"] * np.array(self.car['caps' + self.ext])
+        self.store0 = self.car["SoC0"] * jnp.array(self.car['caps' + self.ext])
 
         return prm
 
@@ -124,7 +124,7 @@ class HEDGE:
                 for home in homes
             ]
         if "car" in self.data_types:
-            day["loads_car"] = np.array([
+            day["loads_car"] = jnp.array([
                 [p * factors["car"][home] * self.car['own_car'][home]
                  for p in self.profs["car"]["cons"][day_type][
                      clusters["car"][home]][i_profiles["car"][home]]]
@@ -138,14 +138,14 @@ class HEDGE:
                 day_type, i_profiles["car"], homes
             )
 
-            day["avail_car"] = np.array([
+            day["avail_car"] = jnp.array([
                 self.profs["car"]["avail"][day_type][
                     clusters["car"][home]][i_profiles["car"][home]]
                 for home in homes
             ])
 
             for i_home, home in enumerate(homes):
-                day["avail_car"][i_home] = np.where(
+                day["avail_car"][i_home] = jnp.where(
                     day["loads_car"][i_home] > 0, 0, day["avail_car"][i_home]
                 )
 
@@ -248,7 +248,7 @@ class HEDGE:
                 self.factors["loads"] = [
                     self.f_mean["loads"]
                     + norm.ppf(
-                        np.random.rand(),
+                        jnp.random.rand(),
                         *self.residual_distribution_prms["loads"][transition])
                     for _ in self.homes
                 ]
@@ -257,12 +257,12 @@ class HEDGE:
                 self.factors["gen"] = [
                     self.f_mean["gen"][self.date.month - 1]
                     + norm.ppf(
-                        np.random.rand(),
+                        jnp.random.rand(),
                         *self.residual_distribution_prms["gen"])
                     for _ in self.homes]
 
             if "car" in self.data_types:
-                randoms = np.random.rand(self.n_homes)
+                randoms = jnp.random.rand(self.n_homes)
                 self.factors["car"] = [
                     self._ps_rand_to_choice(
                         self.p_zero2pos[transition],
@@ -288,7 +288,7 @@ class HEDGE:
             for data in self.behaviour_types:
                 self.clusters[data] \
                     = [self._ps_rand_to_choice(
-                        self.p_clus[data][day_type], np.random.rand())
+                        self.p_clus[data][day_type], jnp.random.rand())
                         for _ in self.homes]
         else:
             for data in self.behaviour_types:
@@ -302,10 +302,10 @@ class HEDGE:
 
     def _next_factors(self, transition, prev_clusters):
         prev_factors = self.factors.copy()
-        factors = {data_type: np.zeros(self.n_homes) for data_type in self.data_types}
+        factors = {data_type: jnp.zeros(self.n_homes) for data_type in self.data_types}
         random_f = {}
         for data_type in self.data_types:
-            random_f[data_type] = [np.random.rand() for _ in self.homes]
+            random_f[data_type] = [jnp.random.rand() for _ in self.homes]
         interval_f_ev = []
 
         for home in self.homes:
@@ -319,7 +319,7 @@ class HEDGE:
                     probabilities = self.p_zero2pos['all']
                 else:
                     probabilities = self.p_pos['all'][current_interval]
-                assert abs(np.sum(probabilities) - 1) < 1e-2, \
+                assert abs(jnp.sum(probabilities) - 1) < 1e-2, \
                     f"sum(probabilities) {sum(probabilities)}"
                 interval_f_ev.append(
                     self._ps_rand_to_choice(
@@ -367,7 +367,7 @@ class HEDGE:
         clusters = initialise_dict(self.behaviour_types)
 
         random_clus = [
-            [np.random.rand() for _ in self.homes]
+            [jnp.random.rand() for _ in self.homes]
             for _ in self.behaviour_types
         ]
         for home in self.homes:
@@ -394,7 +394,7 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            while np.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home] and it < 100:
+            while jnp.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home] and it < 100:
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:
@@ -407,7 +407,7 @@ class HEDGE:
                         f"ev_cons {ev_cons}"
                     day["loads_car"][i_home] = ev_cons * factors["car"][home]
                 else:
-                    i_ev[home] = np.random.choice(np.arange(
+                    i_ev[home] = jnp.random.choice(jnp.arange(
                         self.n_prof["car"][day_type][clusters["car"][home]]))
                 it += 1
 
@@ -450,7 +450,7 @@ class HEDGE:
             else:
                 n_profs_ = n_profs
                 n_profs -= 1
-            i_prof = round(np.random.rand() * (n_profs_ - 1))
+            i_prof = round(jnp.random.rand() * (n_profs_ - 1))
             for previous_i_prof in sorted(i_profs):
                 if previous_i_prof <= i_prof < n_profs_ - 1 and n_profs_ > 1:
                     i_prof += 1
@@ -495,12 +495,12 @@ class HEDGE:
                 if file[0] != ".":
                     cluster = int(file[1])
                     data_type = file[3: 5]
-                    profiles_ = np.load(path / file, mmap_mode="r")
+                    profiles_ = jnp.load(path / file, mmap_mode="r")
                     # mmap_mode = 'r': not loaded, but elements accessible
 
-                    prof_shape = np.shape(profiles_)
+                    prof_shape = jnp.shape(profiles_)
                     if len(prof_shape) == 1:
-                        profiles_ = np.reshape(
+                        profiles_ = jnp.reshape(
                             prof_shape, (1, len(prof_shape))
                         )
                     profiles["car"][data][data_type][cluster] = profiles_
@@ -527,7 +527,7 @@ class HEDGE:
         path = prm["paths"]["hedge_inputs"] / "profiles" / "norm_loads"
         for day_type in prm["syst"]["weekday_types"]:
             profiles["loads"][day_type] = [
-                np.load(path / f"c{cluster}_{day_type}.npy", mmap_mode="r")
+                jnp.load(path / f"c{cluster}_{day_type}.npy", mmap_mode="r")
                 for cluster in range(n_dem_clus)
             ]
             self.n_prof["loads"][day_type] = [
@@ -540,7 +540,7 @@ class HEDGE:
     def _load_gen_profiles(self, inputs_path, profiles):
         path = inputs_path / "profiles" / "norm_gen"
 
-        profiles["gen"] = [np.load(
+        profiles["gen"] = [jnp.load(
             path / f"i_month{i_month}.npy", mmap_mode="r")
             for i_month in range(12)
         ]
@@ -572,10 +572,10 @@ class HEDGE:
 
     def _check_feasibility(self, day: dict) -> List[bool]:
         """Given profiles generated, check feasibility."""
-        feasible = np.ones(self.n_homes, dtype=bool)
+        feasible = jnp.ones(self.n_homes, dtype=bool)
         if self.max_discharge is not None:
             for home in self.homes:
-                if self.max_discharge < np.max(day["loads_car"][home]):
+                if self.max_discharge < jnp.max(day["loads_car"][home]):
                     feasible[home] = False
                     for time in range(len(day["loads_car"][home])):
                         if day["loads_car"][home][time] > self.max_discharge:
@@ -774,7 +774,7 @@ class HEDGE:
             t_end_trip = int(min(t_back, self.n_steps))
 
             # car load while on trip
-            trip_load = np.sum(day["loads_car"][home][t_trip: t_end_trip])
+            trip_load = jnp.sum(day["loads_car"][home][t_trip: t_end_trip])
 
             return trip_load, dt_to_trip, t_end_trip
 

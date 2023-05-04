@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Tuple
 
-import numpy as np
+import jax.numpy as jnp
 import scipy as sp
 
 from src.utilities.userdeftools import get_moving_average, initialise_dict
@@ -114,39 +114,39 @@ class Record:
             else:
                 self.__dict__[field][repeat] = {}
         for info in ["duration_epoch", "eps", "seed", "n_not_feas"]:
-            self.__dict__[info][repeat] = np.zeros(self.n_all_epochs)
+            self.__dict__[info][repeat] = jnp.zeros(self.n_all_epochs)
         self.train_rewards[repeat] = {
-            method: np.zeros((self.n_epochs, self.n_explore * self.N))
+            method: jnp.zeros((self.n_epochs, self.n_explore * self.N))
             for method in rl["exploration_methods"]
         }
         if rl["type_learning"] == "DQN" and rl["distr_learning"] == "decentralised":
             for method in rl["evaluation_methods"]:
-                self.eps[repeat][method] = np.zeros((self.n_all_epochs, self.n_homes))
+                self.eps[repeat][method] = jnp.zeros((self.n_all_epochs, self.n_homes))
 
         all_evaluation_methods = \
             rl["evaluation_methods"] + ['opt'] if rl["supervised_loss"] \
             else rl["evaluation_methods"]
         self.eval_rewards[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
+            method: jnp.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
             shape = (self.n_all_epochs, self.n_homes_test) if reward[0: len('indiv')] == 'indiv' \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
-                method: np.zeros(shape) for method in all_evaluation_methods
+                method: jnp.zeros(shape) for method in all_evaluation_methods
             }
         self.eval_actions[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N, self.n_homes_test, self.dim_actions_1))
+            method: jnp.zeros((self.n_all_epochs, self.N, self.n_homes_test, self.dim_actions_1))
             for method in all_evaluation_methods
         }
         self.train_actions[repeat] = {
             method:
-                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions_1))
+                jnp.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions_1))
             for method in rl["exploration_methods"]
         }
         self.train_states[repeat] = {
             method:
-                np.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_states_1))
+                jnp.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_states_1))
             for method in rl["exploration_methods"]
         }
         self.stability[repeat] = {method: None for method in rl["evaluation_methods"]}
@@ -217,8 +217,8 @@ class Record:
 
         for condition, timer, timer_name in list_timer_attributes:
             if condition and len(timer) != 0:
-                timer_mean = np.mean(timer)
-                timer_std = np.std(timer)
+                timer_mean = jnp.mean(timer)
+                timer_std = jnp.std(timer)
                 timer_count = len(timer)
             else:
                 timer_mean = 0
@@ -249,7 +249,7 @@ class Record:
                 save_path = Path(self.record_folder) / save_path
             to_save = getattr(self, label) if end_of == "end" \
                 else getattr(self, label)[self.repeat]
-            np.save(save_path, to_save)
+            jnp.save(save_path, to_save)
 
             del to_save
 
@@ -277,8 +277,8 @@ class Record:
         """
         str_ = f"{label}" if repeat is None else f"{label}_repeat{repeat}"
         str_ = os.path.join(self.record_folder, str_ + ".npy")
-        obj = np.load(str_, allow_pickle=True)
-        if len(np.shape(obj)) == 0:
+        obj = jnp.load(str_, allow_pickle=True)
+        if len(jnp.shape(obj)) == 0:
             obj = obj.item()
         if repeat is not None:
             self.__dict__[label][repeat] = obj
@@ -295,7 +295,7 @@ class Record:
     ):
         """For each epoch, percentiles of evaluation across repeats."""
         p_vals = [25, 50, 75]
-        percentiles = {p: np.zeros(self.n_all_epochs) for p in p_vals}
+        percentiles = {p: jnp.zeros(self.n_all_epochs) for p in p_vals}
         n_repeats = prm["RL"]["n_repeats"]
         for epoch in range(self.n_all_epochs):
             epoch_rewards = self.monthly_mean_eval_rewards_per_home[method][:, epoch]
@@ -307,14 +307,14 @@ class Record:
             ]
             for p in [25, 50, 75]:
                 percentiles[p][epoch] = \
-                    np.nan if len(diff_repeats) == 0 else np.percentile(diff_repeats, p)
+                    jnp.nan if len(diff_repeats) == 0 else jnp.percentile(diff_repeats, p)
         if mov_average:
             for p in [25, 50, 75]:
                 percentiles[p] = get_moving_average(percentiles[p], n_window, Nones=False)
 
         p25, p50, p75 = [percentiles[p] for p in p_vals]
-        not_nan = ~np.isnan(p25)
-        epoch_not_nan = np.arange(self.n_all_epochs)[not_nan]
+        not_nan = ~jnp.isnan(p25)
+        epoch_not_nan = jnp.arange(self.n_all_epochs)[not_nan]
         p25_not_nan, p75_not_nan = p25[not_nan], p75[not_nan]
 
         return p25, p50, p75, p25_not_nan, p75_not_nan, epoch_not_nan
@@ -344,14 +344,14 @@ class Record:
             from n_epochs onwards during the fixed policy, test only period.
         """
         self.monthly_mean_eval_rewards_per_home = {
-            method: np.zeros((self.n_repeats, self.n_all_epochs))
+            method: jnp.zeros((self.n_repeats, self.n_all_epochs))
             for method in self.evaluation_methods
         }
         for reward in [
             'monthly_mean_end_eval_rewards_per_home', 'monthly_mean_test_rewards_per_home'
         ]:
             setattr(self, reward, {
-                    method: np.zeros(self.n_repeats) for method in self.evaluation_methods
+                    method: jnp.zeros(self.n_repeats) for method in self.evaluation_methods
                 }
             )
 
@@ -384,18 +384,18 @@ class Record:
                         evaluation_methods_plot.remove(method)
 
             for method in evaluation_methods_plot:
-                self.monthly_mean_eval_rewards_per_home[method][repeat] = np.where(
+                self.monthly_mean_eval_rewards_per_home[method][repeat] = jnp.where(
                     self.mean_eval_rewards[repeat][method] is None,
                     None,
                     self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all_test']
                     * self.interval_to_month
                 )
-                self.monthly_mean_end_eval_rewards_per_home[method][repeat] = np.mean(
+                self.monthly_mean_end_eval_rewards_per_home[method][repeat] = jnp.mean(
                     self.monthly_mean_eval_rewards_per_home[method][repeat][
                         prm["RL"]["start_end_eval"]: self.n_epochs
                     ]
                 )
-                self.monthly_mean_test_rewards_per_home[method][repeat] = np.mean(
+                self.monthly_mean_test_rewards_per_home[method][repeat] = jnp.mean(
                     self.monthly_mean_eval_rewards_per_home[method][repeat][self.n_epochs:]
                 )
 
@@ -412,10 +412,10 @@ class Record:
         ]
         detrended_rewards_notNone = [d for d in detrended_rewards if d is not None]
         IQR_repeat = sp.stats.iqr(detrended_rewards_notNone) if not all_nans else None
-        CVaR_repeat = np.mean(
+        CVaR_repeat = jnp.mean(
             [
                 dr for dr in detrended_rewards_notNone
-                if dr <= np.percentile(detrended_rewards_notNone, 5)
+                if dr <= jnp.percentile(detrended_rewards_notNone, 5)
             ]
         ) if not all_nans else None
 
@@ -521,11 +521,11 @@ class Record:
                 else False
 
             ave_rewards = [
-                np.nanmean(self.monthly_mean_eval_rewards_per_home[eval_entry][repeat])
+                jnp.nanmean(self.monthly_mean_eval_rewards_per_home[eval_entry][repeat])
                 if not all_nans else None
                 for repeat in range(n_repeats)
             ]
-            IQR, CVaR, LRT = [np.zeros(n_repeats) for _ in range(3)]
+            IQR, CVaR, LRT = [jnp.zeros(n_repeats) for _ in range(3)]
             best_eval = [
                 m for m in self.monthly_mean_eval_rewards_per_home[eval_entry][0]
                 if m is not None
@@ -552,15 +552,15 @@ class Record:
                     [mean_end_rewards_month, end_test_rewards_e, end_above_bl,
                      end_test_above_bl, ave_rewards, IQR, CVaR, LRT],
                     metric_entries[0:8]):
-                metrics[m]["ave"][eval_entry] = np.mean(metric)
-                metrics[m]["std"][eval_entry] = np.std(metric)
+                metrics[m]["ave"][eval_entry] = jnp.mean(metric)
+                metrics[m]["std"][eval_entry] = jnp.std(metric)
                 for p in [25, 50, 75]:
-                    metrics[m]["p" + str(p)][eval_entry] = np.percentile(metric, p)
+                    metrics[m]["p" + str(p)][eval_entry] = jnp.percentile(metric, p)
             metrics["DR"]["ave"][eval_entry] = sp.stats.iqr(mean_end_rewards_month)
             metrics["DR"]["std"][eval_entry] = None
-            metrics["RR"]["ave"][eval_entry] = np.mean(
+            metrics["RR"]["ave"][eval_entry] = jnp.mean(
                 mean_end_rewards_month[
-                    mean_end_rewards_month <= np.percentile(mean_end_rewards_month, 5)
+                    mean_end_rewards_month <= jnp.percentile(mean_end_rewards_month, 5)
                 ]
             )
             metrics["RR"]["std"][eval_entry] = None
@@ -571,7 +571,7 @@ class Record:
         """Add evaluation results to the appropriate lists."""
         if method in eval_steps:
             if eval_steps[method]["reward"][-1] is not None:
-                epoch_mean_eval_t = np.mean(eval_steps[method]["reward"])
+                epoch_mean_eval_t = jnp.mean(eval_steps[method]["reward"])
             else:
                 epoch_mean_eval_t = None
             if method in eval_steps:
@@ -595,14 +595,14 @@ class Record:
             # during one epoch, how many buses in total had a voltage deviation
             elif info == 'n_voltage_deviation_bus':
                 self.__dict__[info][self.repeat][method][epoch] = \
-                    np.sum(eval_step_t_e) if eval_step_t_e is not None else None
+                    jnp.sum(eval_step_t_e) if eval_step_t_e is not None else None
             # during one epoch, how many hours had at least one voltage deviation
             elif info == 'n_voltage_deviation_hour':
                 self.__dict__[info][self.repeat][method][epoch] = \
-                    np.sum(eval_step_t_e) if eval_step_t_e is not None else None
+                    jnp.sum(eval_step_t_e) if eval_step_t_e is not None else None
             else:
                 self.__dict__[info][self.repeat][method][epoch] = \
-                    np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
+                    jnp.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
 
         # we have done at least 6 steps
         if not end_test and len(all_mean_eval_t) > 5 and method != "opt":

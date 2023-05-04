@@ -8,7 +8,7 @@ Created on Tue Dec 8 16:40:04 2021.
 import copy
 import datetime
 
-import numpy as np
+import jax.numpy as jnp
 
 
 class Battery:
@@ -81,7 +81,7 @@ class Battery:
         self.time_step = 0
 
         # initial state
-        self.store = np.where(
+        self.store = jnp.where(
             prm['car']['own_car' + self.ext],
             prm['car']['store0' + self.ext],
             0
@@ -125,7 +125,7 @@ class Battery:
             self,
             batch: dict
     ) -> dict:
-        batch['bat_dem_agg'] = np.zeros((self.n_homes, len(batch['avail_car'][0])))
+        batch['bat_dem_agg'] = jnp.zeros((self.n_homes, len(batch['avail_car'][0])))
         for home in range(self.n_homes):
             if self.own_car[home]:
                 start_trip, end_trip = [], []
@@ -151,14 +151,14 @@ class Battery:
         """Once batch data computed, update in battery data batch."""
         for info in self.batch_entries:
             dtype = bool if info == 'avail_car' else float
-            self.batch[info] = np.array(batch[info], dtype=dtype)
+            self.batch[info] = jnp.array(batch[info], dtype=dtype)
         self._current_batch_step()
 
     def next_trip_details(self, start_time_step, date, home):
         """Get next trip's load requirements, time until trip, and end."""
         # next time the EV is on a trip
-        iT = np.asarray(
-            ~np.array(self.batch['avail_car'][home, start_time_step: self.N + 1], dtype=bool)
+        iT = jnp.asarray(
+            ~jnp.array(self.batch['avail_car'][home, start_time_step: self.N + 1], dtype=bool)
         ).nonzero()[0]
         d_to_end = self.date_end - date
         h_end = \
@@ -169,12 +169,12 @@ class Battery:
             iT = int(start_time_step + iT[0])
 
             # next time the EV is back from the trip to the garage
-            iG = iT + np.asarray(self.batch['avail_car'][home, iT: self.N + 1]).nonzero()[0]
+            iG = iT + jnp.asarray(self.batch['avail_car'][home, iT: self.N + 1]).nonzero()[0]
             iG = int(iG[0]) if len(iG) > 0 else len(self.batch['avail_car'][home])
             deltaT = iT - start_time_step  # time until trip
             i_end_trip = int(min(iG, h_end))
             # car load while on trip
-            loads_T = np.sum(self.batch['loads_car'][home, iT: i_end_trip])
+            loads_T = jnp.sum(self.batch['loads_car'][home, iT: i_end_trip])
 
             return loads_T, deltaT, i_end_trip
         else:
@@ -220,7 +220,7 @@ class Battery:
         while not end:
             loads_T, deltaT, i_end_trip = self.next_trip_details(h_trip, date_a, home)
             # if i_end_trip is not None:
-            #     i_end_trip = np.min([self.N, i_end_trip])
+            #     i_end_trip = jnp.min([self.N, i_end_trip])
             if loads_T is None or h_trip + deltaT > self.N:
                 end = True
             else:
@@ -251,13 +251,13 @@ class Battery:
         if date is None:
             date = self.date0 + datetime.timedelta(hours=time_step * self.dt)
         avail_car = self.batch['avail_car'][:, time_step]
-        bool_penalty = np.zeros(self.n_homes, dtype=bool)
+        bool_penalty = jnp.zeros(self.n_homes, dtype=bool)
         last_step = self._last_step(date)
         # regular initial minimum charge
-        min_charge_t_0 = np.where(last_step, self.store0, self.min_charge) * avail_car
+        min_charge_t_0 = jnp.where(last_step, self.store0, self.min_charge) * avail_car
 
         # min_charge if need to charge up ahead of last step
-        min_charge_required = np.zeros(self.n_homes)
+        min_charge_required = jnp.zeros(self.n_homes)
         max_charge_for_final_step = copy.deepcopy(self.caps)
         for home in range(self.n_homes):
             if not avail_car[home]:
@@ -298,7 +298,7 @@ class Battery:
 
             min_charge_required[home] = max(min_charge_after_next_trip, self.min_charge[home])
 
-        min_charge_t = np.maximum(min_charge_t_0, min_charge_required)
+        min_charge_t = jnp.maximum(min_charge_t_0, min_charge_required)
         self._check_min_charge_t_feasible(
             min_charge_t, time_step, date, bool_penalty, print_error, simulation
         )
@@ -308,9 +308,9 @@ class Battery:
                     f"time_step == {self.N - 1} and min_charge_t {min_charge_t[home]} " \
                     f"< {self.store0[home]} - {self.c_max}"
 
-        absolute_max_charge_t = np.where(last_step and self.avail_car, self.store0, self.caps)
-        self.max_charge_t = np.minimum(max_charge_for_final_step, absolute_max_charge_t)
-        self.min_charge_t = np.where(
+        absolute_max_charge_t = jnp.where(last_step and self.avail_car, self.store0, self.caps)
+        self.max_charge_t = jnp.minimum(max_charge_for_final_step, absolute_max_charge_t)
+        self.min_charge_t = jnp.where(
             abs(min_charge_t - self.max_charge_t) < 1e-2, self.max_charge_t, min_charge_t
         )
 
@@ -423,7 +423,7 @@ class Battery:
             'store', 'charge', 'discharge', 'loss_ch', 'loss_dis',
             'store_out_tot', 'discharge_tot', 'q_car_flex', 'p_car_flex'
         ]:
-            setattr(self, info, np.full(self.n_homes, np.nan))
+            setattr(self, info, jnp.full(self.n_homes, jnp.nan))
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
@@ -442,8 +442,8 @@ class Battery:
                 + self.loss_dis[home] + self.loads_car[home]
             self.discharge_tot[home] = self.discharge[home] / self.eta_dis \
                 + self.loads_car[home]
-            self.p_car_flex[home] = np.array(self.charge[home] / self.eta_ch) \
-                - np.array(self.discharge[home])
+            self.p_car_flex[home] = jnp.array(self.charge[home] / self.eta_ch) \
+                - jnp.array(self.discharge[home])
             assert self.p_car_flex[home] < self.max_apparent_power_car + 1e-3, \
                 f"home = {home}, p_car_flex = {self.p_car_flex[home]} too large for " \
                 f"self.max_apparent_power_car {self.max_apparent_power_car}"
@@ -453,7 +453,7 @@ class Battery:
         if not self.reactive_power_for_voltage_control:
             # calculate active and reactive power for all homes with fixed pf
             self.q_car_flex = self.p_car_flex * self.active_to_reactive_flex
-        apparent_power_car = np.sqrt(np.square(self.p_car_flex) + np.square(self.q_car_flex))
+        apparent_power_car = jnp.sqrt(jnp.square(self.p_car_flex) + jnp.square(self.q_car_flex))
         assert all(apparent_power_car <= self.max_apparent_power_car ** 2 + 1e-2), \
             f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
             f" maximum apparent power of the car: {self.max_apparent_power_car} < " \
@@ -462,15 +462,15 @@ class Battery:
     def initial_processing(self):
         """Get current available battery flexibility."""
         # storage available above minimum charge that can be discharged
-        s_avail_dis = np.where(
+        s_avail_dis = jnp.where(
             self.avail_car,
-            np.minimum(np.maximum(self.start_store - self.min_charge_t, 0), self.d_max),
+            jnp.minimum(jnp.maximum(self.start_store - self.min_charge_t, 0), self.d_max),
             0
         )
         # how much is to be added to store
-        s_add_0 = np.multiply(self.avail_car, np.maximum(self.min_charge_t - self.start_store, 0))
+        s_add_0 = jnp.multiply(self.avail_car, jnp.maximum(self.min_charge_t - self.start_store, 0))
         if self.time_step == self.N:
-            s_add_0 = np.where(s_add_0 > self.c_max + 1e-3, self.c_max, s_add_0)
+            s_add_0 = jnp.where(s_add_0 > self.c_max + 1e-3, self.c_max, s_add_0)
         assert all(s_add_0 <= self.c_max + 1e-2), \
             f"s_add_0: {s_add_0} > self.c_max {self.c_max} " \
             f"self.min_charge_t[i_too_large[0]] {self.min_charge_t} " \
@@ -479,17 +479,17 @@ class Battery:
             f"self.store[i_too_large[0]] {self.store} "
 
         # how much I need to remove from store
-        s_remove_0 = np.multiply(
-            np.maximum(self.start_store - self.max_charge_t, 0),
+        s_remove_0 = jnp.multiply(
+            jnp.maximum(self.start_store - self.max_charge_t, 0),
             self.avail_car
         )
         same_as_avail_dis = abs(s_avail_dis - s_remove_0) < 1e-2
         s_remove_0[same_as_avail_dis] = s_avail_dis[same_as_avail_dis]
 
         # how much can I charge it by rel. to current level
-        potential_charge = np.multiply(
+        potential_charge = jnp.multiply(
             self.avail_car,
-            np.minimum(self.c_max, np.maximum(self.max_charge_t - self.start_store, 0))
+            jnp.minimum(self.c_max, jnp.maximum(self.max_charge_t - self.start_store, 0))
         )
         for home in range(len(s_add_0)):
             if s_add_0[home] > potential_charge[home] + 1e-3:
@@ -585,8 +585,8 @@ class Battery:
                 print(f'action[home] = {action[home]}')
                 bool_penalty[home] = True
 
-            if not type(self.store[home]) in [float, np.float64]:
-                print('not type(store[home]]) in [float, np.float64]')
+            if not type(self.store[home]) in [float, jnp.float64]:
+                print('not type(store[home]]) in [float, jnp.float64]')
                 bool_penalty[home] = True
 
         return bool_penalty
@@ -706,9 +706,9 @@ class Battery:
 
     def check_feasible_bat(self, prm, ext):
         """Check charging constraints for proposed data batch."""
-        feasible = np.ones(prm['syst']['n_homes' + ext], dtype=bool)
+        feasible = jnp.ones(prm['syst']['n_homes' + ext], dtype=bool)
         for home in range(prm['syst']['n_homes' + ext]):
-            if prm['car']['d_max'] < np.max(prm['car']['batch_loads_car'][home]):
+            if prm['car']['d_max'] < jnp.max(prm['car']['batch_loads_car'][home]):
                 feasible[home] = False
                 for time_step in range(len(prm['car']['batch_loads_car'][home])):
                     if prm['car']['batch_loads_car'][home, time_step] > prm['car']['d_max']:

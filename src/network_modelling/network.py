@@ -9,7 +9,7 @@ Created on Mon Nov 28 2022.
 import random
 import time
 
-import numpy as np
+import jax.numpy as np
 import pandapower as pp
 import pandapower.networks
 
@@ -86,10 +86,10 @@ class Network:
             random.shuffle(self.existing_homes_network)
             self.loads_single_phase()
 
-            self.in_incidence_matrix = np.where(
+            self.in_incidence_matrix = jnp.where(
                 self.incidence_matrix == -1, self.incidence_matrix, 0
             )
-            self.out_incidence_matrix = np.where(
+            self.out_incidence_matrix = jnp.where(
                 self.incidence_matrix == 1, self.incidence_matrix, 0
             )
 
@@ -115,7 +115,7 @@ class Network:
 
     def _matrix_flexible_buses(self):
         """ Creates a matrix indicating at which bus there is a flexible agents """
-        flex_buses = np.zeros((len(self.net.bus), self.n_homes))
+        flex_buses = jnp.zeros((len(self.net.bus), self.n_homes))
         for i in range(self.n_homes):
             flex_buses[self.existing_homes_network[i], i] = 1
         return flex_buses
@@ -123,24 +123,24 @@ class Network:
     def _matrix_passive_buses(self):
         """ Creates a matrix indicating at which bus there is a non-flexible home """
         if self.n_passive_homes > 0:
-            passive_buses = np.zeros((len(self.net.bus), self.n_passive_homes))
+            passive_buses = jnp.zeros((len(self.net.bus), self.n_passive_homes))
             for i in range(self.n_passive_homes):
                 passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
         else:
-            passive_buses = np.zeros((len(self.net.bus), 1))
+            passive_buses = jnp.zeros((len(self.net.bus), 1))
         return passive_buses
 
     def network_line_data(self):
         """ Returns line resistance and reactance arrays from pandapower network """
         line_data = self.net.line[['from_bus', 'to_bus',
                                   'r_ohm_per_km', 'x_ohm_per_km', 'length_km']]
-        line_resistance = np.asarray(line_data['r_ohm_per_km'] * line_data['length_km'])
-        line_reactance = np.asarray(line_data['x_ohm_per_km'] * line_data['length_km'])
+        line_resistance = jnp.asarray(line_data['r_ohm_per_km'] * line_data['length_km'])
+        line_reactance = jnp.asarray(line_data['x_ohm_per_km'] * line_data['length_km'])
         return line_resistance, line_reactance
 
     def _network_incidence_matrix(self):
         """ Returns incidence matrix connecting the buses and lines of the network """
-        incidence_matrix = np.zeros((len(self.net.bus), len(self.net.line)))
+        incidence_matrix = jnp.zeros((len(self.net.bus), len(self.net.line)))
         for i in range(len(self.net.line)):
             incidence_matrix[self.net.line['from_bus'].iloc[i], i] = 1
             incidence_matrix[self.net.line['to_bus'].iloc[i], i] = -1
@@ -148,7 +148,7 @@ class Network:
 
     def _network_bus_connection(self):
         """ Returns a matrix connecting each bus to its neighbour """
-        bus_connection_matrix = np.zeros((len(self.net.bus), len(self.net.bus)))
+        bus_connection_matrix = jnp.zeros((len(self.net.bus), len(self.net.bus)))
         for i in range(len(self.net.line)):
             bus_connection_matrix[self.net.line['to_bus'].iloc[i],
                                   self.net.line['from_bus'].iloc[i]] = 1
@@ -185,11 +185,11 @@ class Network:
             self.net.line['x0_ohm_per_km'] = None
 
         # Remove bus zero/source bus in matrices used in optimisation
-        self.incidence_matrix = np.delete(self.incidence_matrix, (0), axis=0)
-        self.bus_connection_matrix = np.delete(self.bus_connection_matrix, (0), axis=0)
-        self.bus_connection_matrix = np.delete(self.bus_connection_matrix, (0), axis=1)
-        self.flex_buses = np.delete(self.flex_buses, (0), axis=0)
-        self.passive_buses = np.delete(self.passive_buses, (0), axis=0)
+        self.incidence_matrix = jnp.delete(self.incidence_matrix, (0), axis=0)
+        self.bus_connection_matrix = jnp.delete(self.bus_connection_matrix, (0), axis=0)
+        self.bus_connection_matrix = jnp.delete(self.bus_connection_matrix, (0), axis=1)
+        self.flex_buses = jnp.delete(self.flex_buses, (0), axis=0)
+        self.passive_buses = jnp.delete(self.passive_buses, (0), axis=0)
 
     def pf_simulation(
             self,
@@ -218,11 +218,11 @@ class Network:
                 self._assign_power_to_load_or_sgen(
                     netq_passive[homeP], self.n_homes + homeP, type='q_mvar')
         pp.runpp(self.net)
-        self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw > 0])
-        self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
+        self.loaded_buses = jnp.array(self.net.load.bus[self.net.load.p_mw > 0])
+        self.sgen_buses = jnp.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
         hourly_line_losses = sum(self.net.res_line['pl_mw']) * 1e3
         hourly_reactive_power_losses = sum(self.net.res_line['ql_mvar']) * 1e3
-        voltage = np.array(self.net.res_bus['vm_pu'])
+        voltage = jnp.array(self.net.res_bus['vm_pu'])
         pij = self.net.res_line.p_from_mw * 1e3
         qij = self.net.res_line.q_from_mvar * 1e3
         end = time.time()
@@ -259,7 +259,7 @@ class Network:
         #  import/export external grid
         q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
             + sum(q_heat_home_flex) + reactive_power_losses
-        voltage_squared = np.square(voltage)
+        voltage_squared = jnp.square(voltage)
 
         return voltage_squared, hourly_line_losses, q_ext_grid, netq_flex
 
@@ -279,20 +279,20 @@ class Network:
         all_rel_diff_voltage = all_abs_diff_voltage / res['voltage'][:, time_step]
         max_rel_diff_voltage = max(all_rel_diff_voltage)
         self.max_rel_diff_voltage.append(max_rel_diff_voltage)
-        self.mean_rel_diff_voltage.append(np.mean(all_rel_diff_voltage))
-        self.std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
+        self.mean_rel_diff_voltage.append(jnp.mean(all_rel_diff_voltage))
+        self.std_rel_diff_voltage.append(jnp.std(all_rel_diff_voltage))
 
         if max_rel_diff_voltage > self.grd['tol_rel_voltage_diff']:
             replace_with_pp_simulation = True
 
         # Impact of voltage costs on total costs
         hourly_voltage_costs_pp = compute_voltage_costs(
-            np.square(voltage_pp), self.grd
+            jnp.square(voltage_pp), self.grd
         )
         abs_rel_voltage_error = abs(
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
             / res['total_costs'])
-        if np.any(abs_rel_voltage_error > self.grd['tol_rel_voltage_costs']):
+        if jnp.any(abs_rel_voltage_error > self.grd['tol_rel_voltage_costs']):
             if abs_rel_voltage_error > self.max_voltage_rel_error:
                 self.max_voltage_rel_error = abs_rel_voltage_error
             replace_with_pp_simulation = True
@@ -377,16 +377,16 @@ class Network:
         res["grid2"][time_step] = grid_pp ** 2
         res["q_ext_grid"][time_step] = q_ext_grid_pp
         res['voltage'][:, time_step] = voltage_pp[1:]
-        res['voltage_squared'][:, time_step] = np.square(voltage_pp[1:])
+        res['voltage_squared'][:, time_step] = jnp.square(voltage_pp[1:])
         res["hourly_reactive_losses"][time_step] += delta_hourly_reactive_line_losses
         res["hourly_line_losses"][time_step] += delta_hourly_active_line_losses
-        res["v_line"][:, time_step] = np.matmul(
+        res["v_line"][:, time_step] = jnp.matmul(
             self.out_incidence_matrix.T,
             res["voltage_squared"][:, time_step])
         res["pij"][:, time_step] = pij_pp_kW * 1000 / self.grd['base_power']
         res["qij"][:, time_step] = qij_pp_kW * 1000 / self.grd['base_power']
-        res["lij"][:, time_step] = np.divide(
-            (np.square(res["pij"][:, time_step]) + np.square(res["qij"][:, time_step])),
+        res["lij"][:, time_step] = jnp.divide(
+            (jnp.square(res["pij"][:, time_step]) + jnp.square(res["qij"][:, time_step])),
             res["v_line"][:, time_step])
 
         # update individual cost components
@@ -397,7 +397,7 @@ class Network:
         res["voltage_costs"] += delta_voltage_costs
 
         res["hourly_grid_energy_costs"][time_step] = hourly_grid_energy_costs_pp
-        res["grid_energy_costs"] = np.sum(res["hourly_grid_energy_costs"])
+        res["grid_energy_costs"] = jnp.sum(res["hourly_grid_energy_costs"])
 
         # update total costs
         res["network_costs"] += (delta_import_export_costs + delta_voltage_costs) \

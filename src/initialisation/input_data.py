@@ -11,7 +11,7 @@ import os.path
 import sys
 from pathlib import Path
 
-import numpy as np
+import jax.numpy as jnp
 import yaml
 
 
@@ -145,7 +145,7 @@ def input_params(prm, settings=None):
     prm["syst"]["clus0"] = {"loads": 0, "car": 0}
 
     if "heat" in prm:
-        prm["heat"]["L"] = np.sqrt(prm["heat"]["L2"])
+        prm["heat"]["L"] = jnp.sqrt(prm["heat"]["L2"])
 
     prm = _add_settings_to_prm(settings, prm)
 
@@ -170,20 +170,20 @@ def load_existing_prm(prm, no_run):
     # if input data was saved, load input data
     if input_folder.exists():
         if (input_folder / 'lp.npy').exists():
-            rl_params = np.load(
+            rl_params = jnp.load(
                 input_folder / 'lp.npy', allow_pickle=True
             ).item()
             if 'n_action' in rl_params and 'n_acitons' not in rl_params:
                 rl_params['n_actions'] = rl_params['n_action']
             existing_paths = prm['paths'].copy()
-            prm = np.load(
+            prm = jnp.load(
                 input_folder / 'syst.npy', allow_pickle=True
             ).item()
             prm['RL'] = rl_params
             prm['paths'] = existing_paths
             prm['save'] = {}
         else:
-            prm = np.load(
+            prm = jnp.load(
                 input_folder / 'prm.npy', allow_pickle=True
             ).item()
             rl_params = None

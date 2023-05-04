@@ -5,7 +5,7 @@ Created on Tue Dec  7 14:39:04 2021.
 
 @author: Flora Charbonnier
 """
-import numpy as np
+import jax.numpy as jnp
 
 
 class Heat:
@@ -73,7 +73,7 @@ class Heat:
 
         self.reset(prm, i0_costs, ext, E_req_only)
         for attribute in ['T_air', 'tot_E', 'T_next']:
-            setattr(self, attribute, np.full(self.n_homes, np.nan))
+            setattr(self, attribute, jnp.full(self.n_homes, jnp.nan))
 
     def reset(self, prm, i0_costs=None, ext=None, E_req_only=None):
         """
@@ -156,23 +156,23 @@ class Heat:
             if T_out_t is None:
                 T_out_t = self.T_out[self.time_step]
             P_heat = E_heat * 1e3 * self.n_int_per_hr
-            M = np.ones((5, n_homes))
+            M = jnp.ones((5, n_homes))
             M[1, :] = T_start
             M[2, :] *= T_out_t
             M[3, :] *= 0
             M[4, :] = P_heat
             K = self.T_coeff[homes]
-            T_end = np.sum(np.multiply(K, M.T), axis=1)
+            T_end = jnp.sum(jnp.multiply(K, M.T), axis=1)
 
             K_air = self.T_air_coeff[homes]
-            T_air = np.sum(np.multiply(K_air, M.T), axis=1)
-            T_air = np.where(self.own_heat[homes], T_air, self.T_req[homes, self.time_step])
+            T_air = jnp.sum(jnp.multiply(K_air, M.T), axis=1)
+            T_air = jnp.where(self.own_heat[homes], T_air, self.T_req[homes, self.time_step])
             if update:
                 self.T_next = T_end
                 self.T_air = T_air
         else:
-            T_end = np.array([])
-            T_air = np.array([])
+            T_end = jnp.array([])
+            T_air = jnp.array([])
 
         return T_end, T_air
 
@@ -304,7 +304,7 @@ class Heat:
                 f"> E_heat_max0[{home}] {E_heat_max0[home]}"
 
         self.E_heat_min, self.E_heat_max = [
-            np.where(self.own_heat, heat0, 0)
+            jnp.where(self.own_heat, heat0, 0)
             for heat0 in [E_heat_min0, E_heat_max0]
         ]
 
@@ -377,9 +377,9 @@ class Heat:
     ):
         """Get fixed/flexible heat consumption from current actions."""
         if E_flex is None:
-            res_c = np.array([res[home]['c'] for home in range(self.n_homes)])
-            self.E_flex = np.multiply(
-                np.where(res_c > l_flex + tot_l_fixed, res_c - tot_l_fixed - l_flex, 0),
+            res_c = jnp.array([res[home]['c'] for home in range(self.n_homes)])
+            self.E_flex = jnp.multiply(
+                jnp.where(res_c > l_flex + tot_l_fixed, res_c - tot_l_fixed - l_flex, 0),
                 self.own_heat
             )
         else:
@@ -406,21 +406,21 @@ class Heat:
         # number of agents considered
         na = len(T_air_target)
         homes = list(range(na)) if home is None else [home]
-        M = np.transpose(np.array([np.ones(na), T_start, np.ones(na) * T_out_t]))
+        M = jnp.transpose(jnp.array([jnp.ones(na), T_start, jnp.ones(na) * T_out_t]))
         if target == 'air_temp':
             K = self.T_air_coeff[homes, 0: 3]
-            p_heat = np.divide(
-                T_air_target - np.sum(np.multiply(K, M), axis=1),
+            p_heat = jnp.divide(
+                T_air_target - jnp.sum(jnp.multiply(K, M), axis=1),
                 self.T_air_coeff[homes, 4]
             )
         else:
             K = self.T_coeff[homes, 0: 3]
-            p_heat = np.divide(
-                T_air_target - np.sum(np.multiply(K, M), axis=1),
+            p_heat = jnp.divide(
+                T_air_target - jnp.sum(jnp.multiply(K, M), axis=1),
                 self.T_coeff[homes, 4]
             )
-        E_heat = np.multiply(
-            np.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0),
+        E_heat = jnp.multiply(
+            jnp.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0),
             self.own_heat[homes]
         )
 
@@ -431,7 +431,7 @@ class Heat:
         self.n_homes = prm["syst"]["n_homes" + self.ext]
 
         # current building mass temperatures
-        self.T = np.ones(self.n_homes) * prm["heat"]["T0"]
+        self.T = jnp.ones(self.n_homes) * prm["heat"]["T0"]
 
         # heating coefficients for recursive description
         self.T_air_coeff = prm["heat"]["T_air_coeff" + self.ext]
