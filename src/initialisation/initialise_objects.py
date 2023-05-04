@@ -569,9 +569,9 @@ def rl_apply_n_homes_test(syst, rl):
             (rl['action_selection_its'], syst['n_homes_test'], syst['n_homes'])
         )
 
-    if rl['type_learning'] == 'facmac':
-        for info in ['action_train_to_exec', 'state_exec_to_train']:
-            rl[info] = th.Tensor(rl[info])
+    # if rl['type_learning'] == 'facmac':
+    #     for info in ['action_train_to_exec', 'state_exec_to_train']:
+    #         rl[info] = th.Tensor(rl[info])
 
     return rl
 
@@ -796,18 +796,14 @@ def _update_grd_prm(prm):
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
     # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
-    wholesale = [x * 1e-2 for x in jnp.load(wholesale_path)]
+    wholesale = jnp.load(wholesale_path) * 1e-2
     grd["wholesale_all"] = wholesale
     carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity_file"]
 
     # gCO2/kWh to tCO2/kWh
-    grd["cintensity_all"] = jnp.load(
-        carbon_intensity_path, allow_pickle=True) * 1e-6
+    grd["cintensity_all"] = jnp.load(carbon_intensity_path, allow_pickle=True) * 1e-6
     # carbon intensity
-    grd["Call"] = [
-        price + carbon * syst["co2tax"]
-        for price, carbon in zip(wholesale, grd["cintensity_all"])
-    ]
+    grd["Call"] = wholesale + grd["cintensity_all"] * syst["co2tax"]
     grd["perc"] = [jnp.percentile(grd["Call"], i) for i in range(0, 101)]
 
     if grd['compare_pandapower_optimisation'] and not grd['manage_voltage']:
