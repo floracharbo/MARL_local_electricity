@@ -88,17 +88,21 @@ class DataManager:
         ]
         potential_delay = jnp.zeros((loads['n_types'], syst['N']), dtype=int)
         if loads['flextype'] == 1:
-            potential_delay[0] = jnp.zeros(syst['N'])
+            potential_delay.at[0].set(jnp.zeros(syst['N']))
             for time_step in range(syst['N']):
-                potential_delay[1, time_step] = max(
-                    min(loads['flex'][1], syst['N'] - 1 - time_step), 0
+                potential_delay.at[1, time_step].set(
+                    max(
+                        min(loads['flex'][1], syst['N'] - 1 - time_step), 0
+                    )
                 )
         else:
             for load_type in range(loads['n_types']):
                 for time_step in range(syst['N']):
-                    potential_delay[load_type][time_step] = max(
-                        min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0)
-
+                    potential_delay.at[(load_type,time_step)].set(
+                        max(
+                            min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0
+                        )
+                    )
         # make ntw matrices
         grd['Bcap'] = jnp.zeros((syst['n_homes' + ext], syst['N']))
         grd['loads'] = jnp.zeros((loads['n_types'], syst['n_homes' + ext], syst['N']))
@@ -108,36 +112,42 @@ class DataManager:
         grd['gen'] = jnp.zeros((syst['n_homes' + ext], syst['N'] + 1))
         share_flexs = loads['share_flexs' + ext]
         for home in range(syst['n_homes' + ext]):
-            grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
+            grd['gen'].at[home].set(batch['gen'][home, 0: len(grd['gen'][home])])
             for time_step in range(syst['N']):
-                grd['Bcap'][home, time_step] = car['caps' + ext][home]
+                grd['Bcap'].at[home, time_step].set(car['caps' + ext][home])
                 for load_type in range(loads['n_types']):
                     potential_delay_t = int(potential_delay[load_type][time_step])
-                    grd['loads'][0][home][time_step] \
-                        = batch['loads'][home, time_step] * (1 - share_flexs[home])
-                    grd['loads'][1][home][time_step] \
-                        = batch['loads'][home, time_step] * share_flexs[home]
+                    grd['loads'].at[0,home, time_step].set(
+                        batch['loads'][home, time_step] * (1 - share_flexs[home])
+                    )
+                    grd['loads'].at[1, home, time_step].set(
+                        batch['loads'][home, time_step] * share_flexs[home]
+                    )
                     for time_cons in range(syst['N']):
                         if time_step <= time_cons <= time_step + potential_delay_t:
-                            grd['flex'][time_step, load_type, home, time_cons] = 1
+                            grd['flex'].at[time_step, load_type, home, time_cons].set(1)
 
         # optimisation of power flow
         if grd['manage_voltage']:
-            grd['flex_buses'] = self.env.network.flex_buses
-            grd['passive_buses'] = self.env.network.passive_buses
-            grd['incidence_matrix'] = self.env.network.incidence_matrix
-            grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
-            grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
+            for info in [
+                'flex_buses', 'passive_buses', 'incidence_matrix', 'net',
+                'in_incidence_matrix', 'out_incidence_matrix', 'bus_connection_matrix'
+            ]:
+                grd[info] = getattr(self.env.network, info)
+
+            # grd['flex_buses'] = self.env.network.flex_buses
+            # grd['passive_buses'] = self.env.network.passive_buses
+            # grd['incidence_matrix'] = self.env.network.incidence_matrix
+            # grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
+            # grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
             grd['line_resistance'] = self.env.network.line_resistance * \
                 grd['base_power'] / grd['base_voltage'] ** 2
             grd['line_reactance'] = self.env.network.line_reactance * \
                 grd['base_power'] / grd['base_voltage'] ** 2
-            grd['bus_connection_matrix'] = self.env.network.bus_connection_matrix
             grd['n_buses'] = len(self.env.network.net.bus)
             grd['n_lines'] = len(self.env.network.net.line)
-            grd['net'] = self.env.network.net
-            grd['line_losses_method'] = self.prm['grd']['line_losses_method']
-            grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
+            # grd['line_losses_method'] = self.prm['grd']['line_losses_method']
+            # grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
 
     def _passive_find_feasible_data(self, evaluation):
         passive = True
@@ -521,9 +531,9 @@ class DataManager:
         car['bat_dem_agg'] = jnp.zeros((syst['n_homes' + ext], syst['N'] + 1))
         for home in range(syst["n_homes" + ext]):
             for info in self.env.car.batch_entries:
-                car['batch_' + info][home] = \
+                car['batch_' + info].at[home].set(
                     batch[info][home, 0: len(car['batch_' + info][home])]
-
+                )
         loads['n_types'] = 2
 
         self.format_grd(batch, ext)

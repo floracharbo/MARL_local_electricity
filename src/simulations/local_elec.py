@@ -24,9 +24,9 @@ from src.network_modelling.network import Network
 from src.simulations.action_translator import Action_translator
 from src.simulations.hedge import HEDGE
 from src.utilities.env_spaces import EnvSpaces
-from src.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs, mean_max_hourly_voltage_deviations
-)
+from src.utilities.userdeftools import (compute_import_export_costs,
+                                        compute_voltage_costs,
+                                        mean_max_hourly_voltage_deviations)
 
 
 class LocalElecEnv:
@@ -44,7 +44,7 @@ class LocalElecEnv:
         """Initialise Local Elec environment, add properties."""
         self.batchfile0 = 'batch'
         self.envseed = self._seed()
-        self.random_seeds_use = {}
+        # self.random_seeds_use = {}
         self.batch_entries = ['loads', 'gen', 'loads_car', 'avail_car', 'flex']
         self.clus, self.f = {}, {}
         self.labels = ['loads', 'car', 'gen']
@@ -142,7 +142,7 @@ class LocalElecEnv:
         self.tot_cons_loads = []
         if seed is not None:
             self.envseed = self._seed(seed)
-            self.random_seeds_use[seed] = 0
+            # self.random_seeds_use[seed] = 0
 
         self.n_homes = \
             self.prm['syst']['n_homes_test'] if evaluation \
@@ -669,8 +669,10 @@ class LocalElecEnv:
             self.action_translator.initial_processing(loads, home_vars)
         for home in self.homes:
             for i, descriptor in enumerate(descriptors):
-                vals[home, i] = self._descriptor_to_val(
-                    descriptor, inputs, idt, home
+                vals.at[home, i].set(
+                    self._descriptor_to_val(
+                        descriptor, inputs, idt, home
+                    )
                 )
         if flexibility_state and not self.rl['trajectory']:
             self.car.revert_last_update_step()

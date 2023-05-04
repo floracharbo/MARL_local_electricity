@@ -486,8 +486,8 @@ class Battery:
             self.avail_car
         )
         same_as_avail_dis = abs(s_avail_dis - s_remove_0) < 1e-2
-        s_remove_0[same_as_avail_dis] = s_avail_dis[same_as_avail_dis]
-
+        # s_remove_0[same_as_avail_dis] = s_avail_dis[same_as_avail_dis]
+        s_remove_0 = jnp.where(same_as_avail_dis, s_avail_dis, s_remove_0)
         # how much can I charge it by rel. to current level
         potential_charge = jnp.multiply(
             self.avail_car,
@@ -725,7 +725,8 @@ class Battery:
                 time_step, date, print_error=False,
                 simulation=False
             )
-            feasible[bool_penalty] = False
+            feasible = jnp.where(bool_penalty, False, feasible)
+            # feasible[bool_penalty] = False
 
             self.update_step()
             time_step += 1

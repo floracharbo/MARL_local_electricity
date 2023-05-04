@@ -421,7 +421,7 @@ class Heat:
             )
         E_heat = jnp.multiply(
             jnp.where(p_heat > 0, p_heat * 1e-3 * 24 / self.H, 0),
-            self.own_heat[homes]
+            self.own_heat[jnp.array(homes)]
         )
 
         return E_heat

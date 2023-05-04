@@ -760,9 +760,9 @@ def opt_res_seed_save_paths(prm):
     if os.path.exists(paths["seeds_file"]):
         rl["seeds"] = jnp.load(paths["seeds_file"], allow_pickle=True).item()
         if "_test" not in rl['seeds']:
-            rl['seeds']['_test'] = []
+            rl['seeds']['_test'] = jnp.array([])
     else:
-        rl["seeds"] = {ext: [] for ext in syst['n_homes_extensions_all']}
+        rl["seeds"] = {ext: jnp.array([]) for ext in syst['n_homes_extensions_all']}
     rl["init_len_seeds"] = {}
     for passive_str in ["", "P"]:
         rl["init_len_seeds"][passive_str] = len(rl["seeds"][passive_str])
