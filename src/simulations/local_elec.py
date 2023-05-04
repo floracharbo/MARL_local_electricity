@@ -457,7 +457,7 @@ class LocalElecEnv:
         # import and export limits
         if self.prm['grd']['manage_agg_power']:
             import_export_costs, _, _ = compute_import_export_costs(
-                grid, self.prm['grd']
+                grid, self.prm['grd'], self.prm['syst']['n_int_per_hr']
             )
         else:
             import_export_costs = 0
@@ -1025,7 +1025,7 @@ class LocalElecEnv:
 
         for e in ['batch', 'i0_costs']:
             file_id = f"{e}{self._file_id()}"
-            np.save(self.res_path / file_id, self.__dict__[e])
+            np.save(self.res_path / file_id, getattr(self, e))
 
         self._initialise_batch_entries()
 
@@ -1067,6 +1067,8 @@ class LocalElecEnv:
                     consumed_so_far_ok = abs(consumed_so_far - ub) < 1e-3
                 else:
                     consumed_so_far_ok = lb - 1e-3 < consumed_so_far < ub + 1e-3
+                if not consumed_so_far_ok:
+                    print()
                 assert consumed_so_far_ok, f"home {home} self.time_step {self.time_step}"
                 left_to_consume = np.sum(self.batch_flex[home, self.time_step: self.N])
                 total_to_consume = np.sum(self.prm['grd']['loads'][:, home, 0: self.N])

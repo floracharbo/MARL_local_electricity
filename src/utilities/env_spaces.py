@@ -100,7 +100,7 @@ class EnvSpaces:
     def __init__(self, env):
         """Initialise EnvSpaces class, add properties."""
         for property in ['n_homes', 'N', 'i0_costs']:
-            setattr(self, property, env.__dict__[property])
+            setattr(self, property, getattr(env, property))
 
         for property in [
             "dim_actions", "aggregate_actions", "type_env", "normalise_states",
@@ -148,7 +148,7 @@ class EnvSpaces:
             np.save("max_bat_dem_agg", max_bat_dem_agg)
             print("save max_bat_dem_agg")
         rl = prm["RL"]
-        i_month = env.date.month - 1 if 'date' in env.__dict__.keys() else 0
+        i_month = env.date.month - 1 if 'date' in env.__dict__ else 0
         n_other_states = rl["n_other_states"]
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
         max_flexibility = \

@@ -58,7 +58,7 @@ class Network:
         prm:
             input parameters
         """
-        for info in ['n_homes', 'M', 'N', 'n_homesP']:
+        for info in ['n_homes', 'M', 'N', 'n_homesP', 'n_int_per_hr']:
             setattr(self, info, prm['syst'][info])
         self.homes = range(self.n_homes)
         self.homesP = range(self.n_homesP)
@@ -66,14 +66,13 @@ class Network:
         # upper and lower voltage limits
         self.grd = {}
         for info in [
-            'max_voltage', 'min_voltage', 'penalty_undervoltage', 'penalty_overvoltage',
-            'base_power', 'subset_line_losses_modelled', 'loss', 'weight_network_costs',
-            'manage_agg_power', 'max_grid_import', 'penalty_import', 'max_grid_export',
-            'penalty_export', 'reactive_power_for_voltage_control',
-            'active_to_reactive_passive', 'active_to_reactive_flex', 'tol_rel_voltage_diff',
-            'tol_rel_voltage_costs', 'tol_abs_line_losses'
+            'base_power', 'loss', 'weight_network_costs', 'active_to_reactive_passive',
+            'active_to_reactive_flex', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs',
+            'tol_abs_line_losses', 'penalty_overvoltage', 'penalty_undervoltage',
+            'max_voltage', 'min_voltage', 'manage_agg_power', 'penalty_import',
+            'penalty_export', 'max_grid_import', 'max_grid_export'
         ]:
-            self.grd[info] = prm['grd'][info]
+             self.grd[info] = prm['grd'][info]
 
         if prm['grd']['manage_voltage']:
             self.folder_run = prm['paths']['folder_run']
@@ -283,7 +282,7 @@ class Network:
         self.mean_rel_diff_voltage.append(np.mean(all_rel_diff_voltage))
         self.std_rel_diff_voltage.append(np.std(all_rel_diff_voltage))
 
-        if max_rel_diff_voltage > self.tol_rel_voltage_diff:
+        if max_rel_diff_voltage > self.grd['tol_rel_voltage_diff']:
             replace_with_pp_simulation = True
 
         # Impact of voltage costs on total costs
@@ -293,7 +292,7 @@ class Network:
         abs_rel_voltage_error = abs(
             (res['hourly_voltage_costs'][time_step] - hourly_voltage_costs_pp)
             / res['total_costs'])
-        if np.any(abs_rel_voltage_error > self.tol_rel_voltage_costs):
+        if np.any(abs_rel_voltage_error > self.grd['tol_rel_voltage_costs']):
             if abs_rel_voltage_error > self.max_voltage_rel_error:
                 self.max_voltage_rel_error = abs_rel_voltage_error
             replace_with_pp_simulation = True
@@ -308,7 +307,7 @@ class Network:
     ):
         # Line losses test
         abs_loss_error = abs(res['hourly_line_losses'][time_step] - hourly_line_losses_pp)
-        if abs_loss_error > self.tol_abs_line_losses:
+        if abs_loss_error > self.grd['tol_abs_line_losses']:
             self.n_losses_error += 1
             if abs_loss_error > self.max_losses_error:
                 self.max_losses_error = abs_loss_error
@@ -361,12 +360,12 @@ class Network:
         q_ext_grid_pp = res["q_ext_grid"][time_step] + delta_hourly_reactive_line_losses
 
         hourly_grid_energy_costs_pp = grdCt * (
-            grid_pp + self.loss * grid_pp ** 2
+            grid_pp + self.grd['loss'] * grid_pp ** 2
         )
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp, _, _ = compute_import_export_costs(grid_pp, self.grd)
+        import_export_costs_pp, _, _ = compute_import_export_costs(grid_pp, self.grd, self.n_int_per_hr)
         delta_import_export_costs = \
             import_export_costs_pp - res['hourly_import_export_costs'][time_step]
 
@@ -384,8 +383,8 @@ class Network:
         res["v_line"][:, time_step] = np.matmul(
             self.out_incidence_matrix.T,
             res["voltage_squared"][:, time_step])
-        res["pij"][:, time_step] = pij_pp_kW * 1000 / self.base_power
-        res["qij"][:, time_step] = qij_pp_kW * 1000 / self.base_power
+        res["pij"][:, time_step] = pij_pp_kW * 1000 / self.grd['base_power']
+        res["qij"][:, time_step] = qij_pp_kW * 1000 / self.grd['base_power']
         res["lij"][:, time_step] = np.divide(
             (np.square(res["pij"][:, time_step]) + np.square(res["qij"][:, time_step])),
             res["v_line"][:, time_step])
@@ -402,7 +401,7 @@ class Network:
 
         # update total costs
         res["network_costs"] += (delta_import_export_costs + delta_voltage_costs) \
-            * self.weight_network_costs
+            * self.grd['weight_network_costs']
         res["hourly_total_costs"][time_step] += delta_total_costs
         res["total_costs"] += delta_total_costs
 
@@ -410,7 +409,7 @@ class Network:
             (
                 res['hourly_import_export_costs'][time_step]
                 + res['hourly_voltage_costs'][time_step]
-            ) * self.weight_network_costs \
+            ) * self.grd['weight_network_costs'] \
             + res['hourly_grid_energy_costs'][time_step] \
             + res['hourly_battery_degradation_costs'][time_step] \
             + res['hourly_distribution_network_export_costs'][time_step]

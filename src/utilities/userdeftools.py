@@ -257,18 +257,21 @@ def should_optimise_for_supervised_loss(epoch, rl):
     )
 
 
-def compute_import_export_costs(grid, grd):
+def compute_import_export_costs(grid, grd, n_int_per_hr):
+    # grid_in in kWh in the time interval
+    # grid_in * n_int_per_hr in kW
     if grd['manage_agg_power']:
         grid_in = np.where(np.array(grid) >= 0, grid, 0)
         grid_out = np.where(np.array(grid) < 0, - grid, 0)
+        grid_in_power, grid_out_power = grid_in * n_int_per_hr, grid_out * n_int_per_hr
         import_costs = np.where(
-            grid_in >= grd['max_grid_import'],
-            grd['penalty_import'] * (grid_in - grd['max_grid_import']),
+            grid_in_power >= grd['max_grid_import'],
+            grd['penalty_import'] * (grid_in_power - grd['max_grid_import']),
             0
         )
         export_costs = np.where(
-            grid_out >= grd['max_grid_export'],
-            grd['penalty_export'] * (grid_out - grd['max_grid_export']),
+            grid_out_power >= grd['max_grid_export'],
+            grd['penalty_export'] * (grid_out_power - grd['max_grid_export']),
             0
         )
         import_export_costs = import_costs + export_costs

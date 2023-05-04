@@ -513,7 +513,7 @@ class Runner:
 
     def save_computation_statistics(self):
         for info in self.prm["save"]["pandapower_voltage_entries"]:
-            value = self.explorer.env.network.__dict__[info] \
+            value = getattr(self.explorer.env.network, info) \
                 if self.prm["grd"]["compare_pandapower_optimisation"] \
                 else None
             setattr(self.record, info, value)

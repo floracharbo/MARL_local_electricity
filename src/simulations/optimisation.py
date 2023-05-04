@@ -140,7 +140,8 @@ class Optimiser:
 
     def _power_flow_equations(
             self, p, netp, grid, hourly_line_losses_pu,
-            charge, discharge_other, totcons):
+            charge, discharge_other, totcons
+    ):
         # power flows variables
         voltage_costs = p.add_variable('voltage_costs', 1)  # daily voltage violation costs
         pi = p.add_variable('pi', (self.grd['n_buses'] - 1, self.N), vtype='continuous')
@@ -782,12 +783,12 @@ class Optimiser:
             p.add_constraint(hourly_import_costs >= 0)
             p.add_constraint(
                 hourly_import_costs
-                >= self.grd['penalty_import'] * (grid_in - self.grd['max_grid_import'])
+                >= self.grd['penalty_import'] * (grid_in * self.syst['n_int_per_hr'] - self.grd['max_grid_import'])
             )
             p.add_constraint(hourly_export_costs >= 0)
             p.add_constraint(
                 hourly_export_costs
-                >= self.grd['penalty_export'] * (grid_out - self.grd['max_grid_export'])
+                >= self.grd['penalty_export'] * (grid_out * self.syst['n_int_per_hr'] - self.grd['max_grid_export'])
             )
             p.add_constraint(
                 import_export_costs == pic.sum(hourly_import_costs) + pic.sum(hourly_export_costs)

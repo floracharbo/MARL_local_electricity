@@ -141,7 +141,7 @@ class ActionSelector:
     ):
         """Select actions for all episode time steps."""
         env, rl = self.env, self.rl
-        n_homes = self.n_homes if ext is None else self.__dict__['n_homes' + ext]
+        n_homes = self.n_homes if ext is None else getattr(self, 'n_homes' + ext)
         states = np.zeros(
             (self.N + 1, n_homes, len(self.rl['state_space']))
         )
