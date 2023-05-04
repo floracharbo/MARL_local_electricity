@@ -43,7 +43,8 @@ class ActionSelector:
                 for home in self.homes
             ]
         elif self.rl['type_learning'] == 'facmac':
-            tf_prev_state = th.Tensor(current_state)
+            # tf_prev_state = th.Tensor(current_state)
+            tf_prev_state = current_state
         else:
             tf_prev_state = tf.convert_to_tensor(current_state)
 
@@ -249,7 +250,9 @@ class ActionSelector:
     def _select_action_facmac(
         self, current_state, tf_prev_state, step, evaluation, method, t_env
     ):
-        pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
+        # pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
+        pre_transition_data = {"avail_actions": self.rl['avail_actions'], }
+
         if self.rl['trajectory']:
             pre_transition_data["state"] = tf_prev_state[0: self.N]
             pre_transition_data["obs"] = tf_prev_state[0: self.N]
