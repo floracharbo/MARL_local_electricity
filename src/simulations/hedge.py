@@ -43,7 +43,8 @@ class HEDGE:
         clusters0: Optional[dict] = None,
         prm: Optional[dict] = None,
         other_prm: Optional[dict] = None,
-        ext=''
+        ext='',
+        n_days=100,
     ):
         """Initialise HEDGE object and initial properties."""
         # update object properties
@@ -52,7 +53,8 @@ class HEDGE:
         self.homes = range(self.n_homes)
         self.ext = ext
         # load input data
-        self._load_input_data(prm, other_prm, factors0, clusters0)
+        self._load_input_data(prm, other_prm, factors0, clusters0, n_days)
+        self.day = 0
 
     def _replace_car_prm(self, prm, other_prm):
         prm = copy.deepcopy(prm)
@@ -66,11 +68,11 @@ class HEDGE:
 
         return prm
 
-    def _load_input_data(self, prm, other_prm, factors0, clusters0):
+    def _load_input_data(self, prm, other_prm, factors0, clusters0, n_days=10):
         prm = self._load_inputs(prm)
         prm = self._replace_car_prm(prm, other_prm)
-        self._init_factors(factors0)
-        self._init_clusters(clusters0)
+        self._init_factors(factors0, n_days)
+        self._init_clusters(clusters0, n_days)
         self.profs = self._load_profiles(prm)
 
         # number of time steps per day
@@ -109,11 +111,11 @@ class HEDGE:
         # obtain days
         day = {}
         if "loads" in self.data_types:
-            day["loads"] = [
-                [p * factors["loads"][home]
-                 for p in self.profs["loads"][day_type][
-                     clusters["loads"][home]][i_profiles["loads"][home]]]
-                for home in homes]
+            day["loads"] = jnp.array([
+                self.profs["loads"][day_type][clusters["loads"][home]][i_profiles["loads"][home]]
+                * factors["loads"][home]
+                for home in homes
+            ])
 
         if "gen" in self.data_types:
             gen_profs = self.profs["gen"][i_month]
@@ -155,12 +157,11 @@ class HEDGE:
         self.clusters = clusters
 
         # save factors and clusters
-        for home in homes:
-            for data in self.data_types:
-                self.list_factors[data][home].append(self.factors[data][home])
-            for data in self.behaviour_types:
-                self.list_clusters[data][home].append(self.clusters[data][home])
-
+        for data in self.data_types:
+            self.list_factors[data] = self.list_factors[data].at[self.day].set(self.factors[data])
+        for data in self.behaviour_types:
+            self.list_clusters[data] = self.list_clusters[data].at[self.day].set(self.clusters[data])
+        self.day += 1
         self._plotting_profiles(day, plotting)
 
         return day
@@ -244,7 +245,7 @@ class HEDGE:
 
         return prm
 
-    def _init_factors(self, factors0):
+    def _init_factors(self, factors0, n_days):
         _, transition = self._transition_type()
         self.factors = {}
         if factors0 is None:
@@ -279,12 +280,11 @@ class HEDGE:
                 if isinstance(factors0[data], int):
                     self.factors[data] = [factors0[data] for _ in self.homes]
 
-        self.list_factors = initialise_dict(self.data_types, second_level_entries=self.homes)
-        for home in self.homes:
-            for data in self.data_types:
-                self.list_factors[data][home] = [self.factors[data][home]]
+        self.list_factors = {data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.data_types}
+        for data_type in self.data_types:
+            self.list_factors[data_type] = self.list_factors[data_type].at[0].set(self.factors[data_type])
 
-    def _init_clusters(self, clusters0):
+    def _init_clusters(self, clusters0, n_days):
         day_type, transition = self._transition_type()
         self.clusters = {}
 
@@ -302,10 +302,9 @@ class HEDGE:
                 if isinstance(clusters0[data], int):
                     self.clusters[data] = [clusters0[data] for _ in self.homes]
 
-        self.list_clusters = initialise_dict(self.behaviour_types, second_level_entries=self.homes)
-        for home in self.homes:
-            for data in self.behaviour_types:
-                self.list_clusters[data][home] = [self.clusters[data][home]]
+        self.list_clusters = {data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.behaviour_types}
+        for data_type in self.behaviour_types:
+            self.list_clusters[data_type] = self.list_factors[data_type].at[0].set(self.clusters[data_type])
 
     def _next_factors(self, transition, prev_clusters):
         prev_factors = self.factors.copy()

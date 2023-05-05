@@ -734,9 +734,10 @@ class LocalElecEnv:
                     day = self.test_hedge.make_next_day(homes)
 
                 for e in day.keys():
-                    self.batch[e] = self.batch[e].at[
-                        (homes, jnp.arange(i_load * self.N, (i_load + 1) * self.N))
-                    ].set(day[e])
+                    for home in homes:
+                        self.batch[e] = self.batch[e].at[
+                            home, jnp.arange(i_load * self.N, (i_load + 1) * self.N)
+                        ].set(day[e][home])
                 self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
@@ -765,8 +766,7 @@ class LocalElecEnv:
                 loads_t = self.batch["loads"][home, i_load * self.N + time_step]
                 dayflex_a = dayflex_a.at[time_step, 0].set((1 - share_flexs[home]) * loads_t)
                 dayflex_a = dayflex_a.at[time_step, self.max_delay].set(share_flexs[home] * loads_t)
-            # for i_day, i_batch in enumerate():
-            self.batch['flex'] = self.batch['flex'].at[home, jnp.arange(range(i_load * self.N, (i_load + 1) * self.N))].set(dayflex_a)
+            self.batch['flex'] = self.batch['flex'].at[home, jnp.arange(i_load * self.N, (i_load + 1) * self.N)].set(dayflex_a)
 
             assert jnp.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
                 f"shape batch['flex'][{home}] {jnp.shape(self.batch['flex'][home])} " \
@@ -1070,8 +1070,6 @@ class LocalElecEnv:
                     consumed_so_far_ok = abs(consumed_so_far - ub) < 1e-3
                 else:
                     consumed_so_far_ok = lb - 1e-3 < consumed_so_far < ub + 1e-3
-                if not consumed_so_far_ok:
-                    print()
                 assert consumed_so_far_ok, f"home {home} self.time_step {self.time_step}"
                 left_to_consume = jnp.sum(self.batch_flex[home, self.time_step: self.N])
                 total_to_consume = jnp.sum(self.prm['grd']['loads'][:, home, 0: self.N])

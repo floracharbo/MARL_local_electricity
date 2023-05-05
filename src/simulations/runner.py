@@ -95,7 +95,7 @@ class Runner:
 
                     # append record
                     for e in ['seed', 'n_not_feas']:
-                        self.record.__dict__[e][repeat][epoch] = train_steps_vals[-1][e]
+                        self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(train_steps_vals[-1][e])
 
                     model_save_time = self._save_nn_model(model_save_time)
 
@@ -116,7 +116,7 @@ class Runner:
 
                 # record
                 for e in ['seed', 'n_not_feas']:
-                    self.record.__dict__[e][repeat][epoch] = eval_steps[e]
+                    self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(eval_steps[e])
                 duration_epoch = time.time() - t_start
 
                 # make a list, one exploration after the other

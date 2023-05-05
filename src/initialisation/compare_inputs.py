@@ -29,8 +29,11 @@ for i in range(2):
     RUN = runs[i]
     print(f'RUN {RUN}')
     if 'prm.npy' in os.listdir(PATH + f'run{RUN}/inputData'):
-        prm.append(jnp.load(PATH + f'run{RUN}/inputData/prm.npy',
-                           allow_pickle=True).item())
+        prm.append(
+            jnp.load(
+                PATH + f'run{RUN}/inputData/prm.npy', allow_pickle=True
+            ).item()
+        )
         labels.append('prm')
     else:
         prm.append(

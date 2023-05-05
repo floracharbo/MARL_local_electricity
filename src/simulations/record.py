@@ -56,6 +56,8 @@ class Record:
         self.last_entries = prm["save"]["last_entries"]
         for entry in self.repeat_entries:
             setattr(self, entry, initialise_dict(range(self.n_repeats)))
+        for info in ["duration_epoch", "eps", "seed", "n_not_feas"]:
+            self.__dict__[info] = jnp.zeros((self.n_repeats, self.n_all_epochs))
 
     def _add_rl_info_to_object(self, rl):
         # all exploration / evaluation methods
@@ -113,8 +115,6 @@ class Record:
                 self.__dict__[field][repeat] = initialise_dict(range(rl["n_epochs"]))
             else:
                 self.__dict__[field][repeat] = {}
-        for info in ["duration_epoch", "eps", "seed", "n_not_feas"]:
-            self.__dict__[info][repeat] = jnp.zeros(self.n_all_epochs)
         self.train_rewards[repeat] = {
             method: jnp.zeros((self.n_epochs, self.n_explore * self.N))
             for method in rl["exploration_methods"]

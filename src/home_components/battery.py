@@ -216,7 +216,7 @@ class Battery:
         return bool_penalty
 
     def _get_list_future_trips(self, time_step, date_a, home, bool_penalty, print_error):
-        trips = []
+        loads_Ts, deltaTs, i_end_trips = [], [], []
         end = False
         h_trip = time_step
         while not end:
@@ -230,12 +230,14 @@ class Battery:
                     loads_T, deltaT, bool_penalty, print_error, home, time_step
                 )
                 if time_step + deltaT < self.N:
-                    trips.append([loads_T, deltaT, i_end_trip])
+                    loads_Ts.append(loads_T)
+                    deltaTs.append(deltaT)
+                    i_end_trips.append(i_end_trip)
                 date_a += datetime.timedelta(
                     hours=int(i_end_trip - h_trip) * self.dt)
                 h_trip = i_end_trip
 
-        return trips
+        return loads_Ts, deltaTs, i_end_trips
 
     def min_max_charge_t(self, time_step=None, date=None, print_error=True,
                          simulation=True):
@@ -267,17 +269,18 @@ class Battery:
                 continue
 
             # obtain all future trips
-            trips = self._get_list_future_trips(
+            loads_Ts, deltaTs, i_end_trips = self._get_list_future_trips(
                 time_step, date, home, bool_penalty, print_error
             )
             if self.time_step <= self.N - 1:
-                max_charge_for_final_step[home] = \
+                max_charge_for_final_step = max_charge_for_final_step.at[home].set(
                     self.store0[home] \
-                    + jnp.sum(trip[0] for trip in trips) \
+                    + sum(loads_Ts) \
                     + self.d_max * jnp.sum(self.batch['avail_car'][home, time_step: self.N - 1])
+                )
 
             # obtain required charge before each trip, starting with end
-            final_i_endtrip = trips[-1][2] if len(trips) > 0 else time_step + 1
+            final_i_endtrip = i_end_trips[-1] if len(i_end_trips) > 0 else time_step + 1
             min_charge_after_final_trip = max(
                 self.store0[home]
                 - self.c_max * jnp.sum(self.batch['avail_car'][home, final_i_endtrip: self.N]),
@@ -286,9 +289,9 @@ class Battery:
                 0
             )
             min_charge_after_next_trip = min_charge_after_final_trip
-            for it in range(len(trips)):
-                loads_T, deltaT = trips[- (it + 1)][0: 2]
-                if it == len(trips) - 1:
+            for it in range(len(loads_Ts)):
+                loads_T, deltaT = loads_Ts[- (it + 1)], deltaTs[- (it + 1)]
+                if it == len(loads_Ts) - 1:
                     # do not count current time step
                     deltaT -= 1
                 min_charge_ahead_of_trip = max(
@@ -297,9 +300,7 @@ class Battery:
                     0
                 )
                 min_charge_after_next_trip = min_charge_ahead_of_trip
-
-            min_charge_required[home] = max(min_charge_after_next_trip, self.min_charge[home])
-
+            min_charge_required = min_charge_required.at[home].set(max(min_charge_after_next_trip, self.min_charge[home]))
         min_charge_t = jnp.maximum(min_charge_t_0, min_charge_required)
         self._check_min_charge_t_feasible(
             min_charge_t, time_step, date, bool_penalty, print_error, simulation
@@ -374,6 +375,10 @@ class Battery:
                f"charge[home] = {self.charge[home]}, " \
                f"c_max = {self.c_max}"
 
+        if not (
+                self.store[home] >= self.min_charge_t[home] * self.avail_car[home] - 1e-2
+        ):
+            print()
         assert \
             self.store[home] >= self.min_charge_t[home] * self.avail_car[home] - 1e-2, \
             f'store[{home}] {self.store[home]} ' \
@@ -431,11 +436,13 @@ class Battery:
                 self.start_store[home] + res[home]['ds'] - self.loads_car[home]
             )
             if self.store[home] < self.min_charge_t[home] - 5e-3:
-                print(f"home {home} store[{home}] {self.store[home]} "
-                      f"self.start_store[home] {self.start_store[home]} "
-                      f"res[{home}['ds'] {res[home]['ds']} "
-                      f"self.loads_car[home] {self.loads_car[home]} "
-                      f"self.min_charge_t[home] {self.min_charge_t[home]}")
+                print(
+                    f"home {home} store[{home}] {self.store[home]} "
+                    f"self.start_store[home] {self.start_store[home]} "
+                    f"res[{home}['ds'] {res[home]['ds']} "
+                    f"self.loads_car[home] {self.loads_car[home]} "
+                    f"self.min_charge_t[home] {self.min_charge_t[home]}"
+                )
             self.charge = self.charge.at[home].set(
                 res[home]['ds'] if res[home]['ds'] > 0 else 0
             )
@@ -666,17 +673,17 @@ class Battery:
         )
 
         for home in range(self.n_homes):
-            # check if any hourly load is larger than d_max
-            if any(self.batch['loads_car'][home, :] > self.d_max + 1e-2):
-                # you would have to break constraints to meet demand
-                bool_penalty[home] = True
-                self._print_error(
-                    f'home = {home}, load car larger than d_max',
-                    print_error
-                )
+        #     check if any hourly load is larger than d_max
+            # if any(self.batch['loads_car'][home, :] > self.d_max + 1e-2):
+            #     you would have to break constraints to meet demand
+                # bool_penalty = bool_penalty.at[home].set(True)
+                # self._print_error(
+                #     f'home = {home}, load car larger than d_max',
+                #     print_error
+                # )
 
             if min_charge_t[home] > self.caps[home] + 1e-2:
-                bool_penalty[home] = True  # min_charge_t larger than total cap
+                bool_penalty = bool_penalty.at[home].set(True)
                 error_message = f'home = {home}, min_charge_t {min_charge_t[home]} ' \
                     'larger than cap'
                 self._print_error(error_message, print_error)
@@ -684,7 +691,7 @@ class Battery:
                     - jnp.sum(self.batch['loads_car'][home, 0: time_step]) + (
                     jnp.sum(self.batch['loads_car'][home, 0: time_step]) + 1) \
                     * self.c_max + 1e-3:
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
                 error_message = f'home = {home}, min_charge_t {min_charge_t[home]} ' \
                     'larger what car can be charged to'
                 self._print_error(error_message, print_error)
@@ -695,7 +702,7 @@ class Battery:
                 and min_charge_t[home]
                 > (self.store[home] + self.c_max) * self.avail_car[home] + 1e-2
             ):
-                bool_penalty[home] = True
+                bool_penalty = bool_penalty.at[home].set(True)
                 error_message = \
                     f"date {date} time_step {time_step} " \
                     f"min_charge_t[{home}] {min_charge_t[home]} " \
@@ -711,7 +718,7 @@ class Battery:
                 store_t_a = self.store0[home] \
                     - jnp.sum(self.batch['loads_car'][home, 0: time_step])
                 if min_charge_t[home] > store_t_a + self.c_max + 1e-3:
-                    bool_penalty[home] = True
+                    bool_penalty = bool_penalty.at[home].set(True)
 
     def _print_error(self, error_message, print_error):
         if print_error:

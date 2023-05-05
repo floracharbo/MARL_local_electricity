@@ -6,6 +6,7 @@ author: Flora Charbonnier
 
 from typing import List
 
+import numpy as np
 import jax.numpy as jnp
 import torch as th
 
@@ -49,8 +50,8 @@ class LearningManager:
         if self.rl['type_learning'] == 'facmac':
             post_transition_data = {
                 "actions": action,
-                "reward": th.from_numpy(jnp.array(reward)),
-                "terminated": th.from_numpy(jnp.array(done)),
+                "reward": th.from_numpy(np.asarray(reward)),
+                "terminated": th.from_numpy(np.asarray(done)),
             }
 
             self.should_optimise_for_supervised_loss(epoch, step_vals)
@@ -70,7 +71,7 @@ class LearningManager:
                         -1
                     )
             post_transition_data["optimal_actions"] = th.from_numpy(
-                post_transition_data["optimal_actions"]
+                np.asarray(post_transition_data["optimal_actions"])
             )
             self.episode_batch[method].update(post_transition_data, ts=step)
 
@@ -100,10 +101,10 @@ class LearningManager:
         traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
 
         pre_transition_data = {
-            "state": th.from_numpy(jnp.reshape(
+            "state": th.from_numpy(np.reshape(
                 states, (self.n_homes, self.rl["obs_shape"]))),
             "avail_actions": th.from_numpy(self.rl["avail_actions"]),
-            "obs": th.from_numpy(jnp.reshape(
+            "obs": th.from_numpy(np.reshape(
                 states, (self.n_homes, self.rl["obs_shape"])))
         }
         post_transition_data = {

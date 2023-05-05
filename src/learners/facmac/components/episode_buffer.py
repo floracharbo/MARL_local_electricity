@@ -4,6 +4,7 @@
 from types import SimpleNamespace as SN
 
 import blosc
+from jax import numpy as jnp
 import numpy as np
 import torch as th
 
@@ -121,7 +122,9 @@ class EpisodeBatch:
                 else:
                     raise KeyError(f"{k} not found in transition "
                                    f"or episode data")
-                # v.to(self.device)
+                if isinstance(v, jnp.ndarray):
+                    v = th.from_numpy(np.asarray(v))
+                v.to(self.device)
                 target[k_][_slices] = v.view_as(target[k_][_slices])
                 if k_ in self.preprocess:
                     new_k = self.preprocess[k][0]
