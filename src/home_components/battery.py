@@ -302,7 +302,7 @@ class Battery:
                 min_charge_after_next_trip = min_charge_ahead_of_trip
             min_charge_required = min_charge_required.at[home].set(max(min_charge_after_next_trip, self.min_charge[home]))
         min_charge_t = jnp.maximum(min_charge_t_0, min_charge_required)
-        self._check_min_charge_t_feasible(
+        bool_penalty = self._check_min_charge_t_feasible(
             min_charge_t, time_step, date, bool_penalty, print_error, simulation
         )
         for home in range(self.n_homes):
@@ -313,6 +313,7 @@ class Battery:
 
         absolute_max_charge_t = jnp.where(last_step and self.avail_car, self.store0, self.caps)
         self.max_charge_t = jnp.minimum(max_charge_for_final_step, absolute_max_charge_t)
+
         self.min_charge_t = jnp.where(
             abs(min_charge_t - self.max_charge_t) < 1e-2, self.max_charge_t, min_charge_t
         )
@@ -549,7 +550,7 @@ class Battery:
         for e in ['charge', 'discharge']:
             a_loss[e] = (loss[e][1] - loss[e][0]) / (action_next - action_prev)
             b_loss[e] = loss[e][1] - a_loss[e] * action_next
-            k[f"{e}_losses"] = k[f"{e}_losses"].at[home, z].set([a_loss[e], b_loss[e]])
+            k[f"{e}_losses"][home].append([a_loss[e], b_loss[e]])
 
         return k
 
@@ -719,6 +720,8 @@ class Battery:
                     - jnp.sum(self.batch['loads_car'][home, 0: time_step])
                 if min_charge_t[home] > store_t_a + self.c_max + 1e-3:
                     bool_penalty = bool_penalty.at[home].set(True)
+
+        return bool_penalty
 
     def _print_error(self, error_message, print_error):
         if print_error:
