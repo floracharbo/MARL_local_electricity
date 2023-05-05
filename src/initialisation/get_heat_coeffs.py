@@ -45,7 +45,7 @@ def _get_building_characteristics(heat):
     kCm = heat['kCms'][heat['classbuild']]
 
     # SAP 2012 sect 3.2. eq (3)
-    Uwd_eff = 1 / ((1/heat['Uwd'][heat['Uvalues']]) + 0.04)
+    Uwd_eff = 1 / ((1 / heat['Uwd'][heat['Uvalues']]) + 0.04)
 
     # building geometry
     # Area of a single window (m^2)
@@ -138,8 +138,8 @@ def _get_required_temperatures(heat, syst):
 
     for home in range(n_homes):
         for interval in heat['hrs_c'][home]:
-            day_T_req = day_T_req.at[home,
-                interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
+            day_T_req = day_T_req.at[
+                        home, interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
             ].set(jnp.full((interval[1] - interval[0]) * syst['n_int_per_hr'], heat['Tc']))
 
     days_T_req = jnp.tile(day_T_req, syst['D'])

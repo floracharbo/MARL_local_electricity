@@ -4,9 +4,9 @@
 from types import SimpleNamespace as SN
 
 import blosc
-from jax import numpy as jnp
 import numpy as np
 import torch as th
+from jax import numpy as jnp
 
 from src.learners.facmac.utils.rl_utils import preprocess_scheme
 

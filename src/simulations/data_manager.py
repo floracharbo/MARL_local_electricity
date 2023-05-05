@@ -98,7 +98,7 @@ class DataManager:
         else:
             for load_type in range(loads['n_types']):
                 for time_step in range(syst['N']):
-                    potential_delay = potential_delay.at[(load_type,time_step)].set(
+                    potential_delay = potential_delay.at[(load_type, time_step)].set(
                         max(
                             min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0
                         )
@@ -117,7 +117,7 @@ class DataManager:
                 grd['Bcap'] = grd['Bcap'].at[home, time_step].set(car['caps' + ext][home])
                 for load_type in range(loads['n_types']):
                     potential_delay_t = int(potential_delay[load_type][time_step])
-                    grd['loads'] = grd['loads'].at[0,home, time_step].set(
+                    grd['loads'] = grd['loads'].at[0, home, time_step].set(
                         batch['loads'][home, time_step] * (1 - share_flexs[home])
                     )
                     grd['loads'] = grd['loads'].at[1, home, time_step].set(
@@ -125,7 +125,9 @@ class DataManager:
                     )
                     for time_cons in range(syst['N']):
                         if time_step <= time_cons <= time_step + potential_delay_t:
-                            grd['flex'] = grd['flex'].at[time_step, load_type, home, time_cons].set(1)
+                            grd['flex'] = grd['flex'].at[
+                                time_step, load_type, home, time_cons
+                            ].set(1)
 
         # optimisation of power flow
         if grd['manage_voltage']:
@@ -221,9 +223,9 @@ class DataManager:
 
         else:
             if opt_needed:
-                res = jnp.load(self.paths['opt_res']
-                              / self.res_name,
-                              allow_pickle=True).item()
+                res = jnp.load(
+                    self.paths['opt_res'] / self.res_name, allow_pickle=True
+                ).item()
                 pp_simulation_required = False
                 if 'house_cons' not in res:
                     res['house_cons'] = res['totcons'] - res['E_heat']
@@ -470,8 +472,7 @@ class DataManager:
             batch_file, batch = self.env.reset(
                 seed=seed, load_data=load_data, passive=passive, evaluation=evaluation
             )
-            jnp.save(f'deterministic_prms_seedind{self.ind_seed_deterministic}',
-                    [batch_file, batch])
+            jnp.save(f'deterministic_prms_seedind{self.ind_seed_deterministic}', [batch_file, batch])
             self.deterministic_created = True
 
         elif self.rl['deterministic'] == 2 and self.deterministic_created:

@@ -6,8 +6,8 @@ author: Flora Charbonnier
 
 from typing import List
 
-import numpy as np
 import jax.numpy as jnp
+import numpy as np
 import torch as th
 
 from src.utilities.env_spaces import granularity_to_multipliers
