@@ -177,7 +177,9 @@ class Action_translator:
             d['c'][i] = self.tot_l_fixed + tot_l_flex
         a_dp = d['dp']['F'] - d['dp']['A']
         a_dp = jnp.where((- 1e-2 < a_dp) & (a_dp < 0), 0, a_dp)
-        assert len(jnp.where(a_dp < 0)[0]) == 0, f"a_dp {a_dp}"
+        if jnp.any(a_dp < 0):
+            print()
+        assert not jnp.any(a_dp < 0), f"a_dp {a_dp}"
 
         b_dp = d['dp']['A']
 
@@ -226,9 +228,9 @@ class Action_translator:
                 action_points[i]
             )
         self.d = d
-        self.k = {}
-        self.action_intervals = []
         self.n_ks = jnp.zeros(self.n_homes, dtype=int)
+        self.action_intervals = {home: [] for home in homes}
+        self.k = {entry: {home: [] for home in homes} for entry in self.entries}
         for home in homes:
             self._compute_k(home, a_dp, b_dp, action_points, d)
             assert self.heat.E_heat_min[home] + loads['l_fixed'][home] \
@@ -239,10 +241,10 @@ class Action_translator:
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
         min_val_ds = jnp.array(
-            [(self.k['ds'][home, 0, 0] * 0 + self.k['ds'][home, 0, 1]) for home in homes]
+            [(self.k['ds'][home][0][0] * 0 + self.k['ds'][home][0][1]) for home in homes]
         )
         max_val_ds = jnp.array(
-            [self.k['ds'][home][self.n_ks[home] - 1][0] * 1 + self.k['ds'][home][self.n_ks[home] - 1][1] for home in homes]
+            [self.k['ds'][home][-1][0] * 1 + self.k['ds'][home][-1][1] for home in homes]
         )
 
         self.min_charge = jnp.where(min_val_ds > 0, min_val_ds, 0)
@@ -496,7 +498,7 @@ class Action_translator:
             ax1.legend(loc='right', bbox_to_anchor=(2, 0), fancybox=True)
         ax2 = fig.add_subplot(gs[3])
         discharge = [abs(ds) if ds < 0 else 0 for ds in ys['ds']]
-        all_dps = [x * self.k[0]['dp'][0][0] + self.k[0]['dp'][0][1]
+        all_dps = [x * self.k['dp'][0][0][0] + self.k['dp'][0][0][1]
                    for x in self.action_intervals[0]]
         export = [abs(dp) if dp < 0 else 0 for dp in all_dps]
         costs = [loss * 0.1 + self.bat_dep * d + e * self.export_C
@@ -526,11 +528,10 @@ class Action_translator:
     def _compute_k(self, home, a_dp, b_dp, action_points, d):
         """Get the coefficients of the linear function for the action variable."""
         letters = ['A', 'B', 'C', 'D', 'E', 'F']
-        self.k = {entry: jnp.full((self.n_homes, 5, 2), jnp.nan) for entry in self.entries}
 
         # reference line - dp
-        self.k['dp'] = self.k['dp'].at[home, jnp.arange(1)].set([a_dp[home], b_dp[home]])
-        self.action_intervals.append([0])
+        self.k['dp'][home].append([a_dp[home], b_dp[home]])
+        self.action_intervals[home].append(0)
 
         for z in range(5):
             l1, l2 = letters[z: z + 2]
@@ -549,9 +550,7 @@ class Action_translator:
                         ad = (d[e][l2][home] - d[e][l1][home]) / \
                              (action_points[l2][home] - action_points[l1][home])
                         bd = d[e][l2][home] - action_points[l2][home] * ad
-                        self.k[e] = self.k[e].at[home, self.n_ks[home]].set([ad, bd])
-
-                self.n_ks = self.n_ks.at[home].add(1)
+                        self.k[e][home].append([ad, bd])
 
     def _check_input_types(
             self, loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
