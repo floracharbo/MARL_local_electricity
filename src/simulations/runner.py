@@ -95,7 +95,9 @@ class Runner:
 
                     # append record
                     for e in ['seed', 'n_not_feas']:
-                        self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(train_steps_vals[-1][e])
+                        self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(
+                            train_steps_vals[-1][e]
+                        )
 
                     model_save_time = self._save_nn_model(model_save_time)
 
@@ -116,7 +118,9 @@ class Runner:
 
                 # record
                 for e in ['seed', 'n_not_feas']:
-                    self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(eval_steps[e])
+                    self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(
+                        eval_steps[e]
+                    )
                 duration_epoch = time.time() - t_start
 
                 # make a list, one exploration after the other
@@ -260,7 +264,7 @@ class Runner:
         # Set seeds (for reproduceability)
         random.seed(repeat)
         th.manual_seed(repeat)
-        jax_random_key = jax.random.PRNGKey(repeat)
+        self.prm['syst']['jax_random_key'] = jax.random.PRNGKey(repeat)
         if self.rl['type_learning'] == 'q_learning' \
                 and self.rl['q_learning']['control_eps'] == 2:
             self.learner.rMT, self.learner.rLT = 0, 0
@@ -289,7 +293,8 @@ class Runner:
             delta_days = int(
                 jax.random.choice(
                     self.prm['syst']['jax_random_key'],
-                    (self.prm['syst']['max_date_end_dtm'] - self.prm['syst']['date0_dtm']).days - self.prm['syst']['D']
+                    (self.prm['syst']['max_date_end_dtm'] - self.prm['syst']['date0_dtm']).days
+                    - self.prm['syst']['D']
                 )
             )
             date0 = self.prm['syst']['date0_dtm'] \

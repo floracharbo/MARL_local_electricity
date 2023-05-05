@@ -81,8 +81,10 @@ def _check_power_flow_equations(res, grd, N, input_hourly_lij):
         if grd['line_losses_method'] == 'subset_of_lines':
             assert jnp.all(
                 abs(
-                    res['v_line'][:, time_step]
-                    - jnp.matmul(grd['out_incidence_matrix'].T, res['voltage_squared'][:, time_step])
+                    res['v_line'][:, time_step] - jnp.matmul(
+                        grd['out_incidence_matrix'].T,
+                        res['voltage_squared'][:, time_step]
+                    )
                 ) < 1e-3
             )
             for line in range(grd['subset_line_losses_modelled']):
@@ -812,12 +814,17 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
                 + jnp.sum(res['netq0'], axis=0)
         res['p_solar_flex'] = grd['gen'][:, 0: N]
         res['q_solar_flex'] = grd['gen'][:, 0: N] * grd['active_to_reactive_flex']
-        res["hourly_reactive_losses"] = \
-            jnp.sum(jnp.matmul(jnp.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N])
-                   * grd['per_unit_to_kW_conversion'], axis=0)
+        res["hourly_reactive_losses"] = jnp.sum(
+            jnp.matmul(
+                jnp.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N]
+            ) * grd['per_unit_to_kW_conversion'],
+            axis=0
+        )
         for time_step in range(N):
             res['hourly_import_export_costs'][time_step], _, _ = \
-                compute_import_export_costs(res['grid'][time_step], prm['grd'], prm['syst']['n_int_per_hr'])
+                compute_import_export_costs(
+                    res['grid'][time_step], prm['grd'], prm['syst']['n_int_per_hr']
+                )
             res['hourly_voltage_costs'][time_step] = \
                 compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
             (mean, max, n_bus, n_hour) = \

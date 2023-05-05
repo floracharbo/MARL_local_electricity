@@ -19,7 +19,6 @@ for optimisation problem.
 - file_id: Generate string to identify the run in saved files.
 """
 
-import copy
 import glob
 import os
 import time
@@ -404,8 +403,7 @@ class DataManager:
     ) -> Tuple[dict, dict, dict, jnp.ndarray]:
         """Replace the data for infeasible homes."""
         its = 0
-        homes_0 = jnp.where(~data_feasibles)[0]
-        homes = copy.deepcopy(homes_0)
+        homes = jnp.where(~data_feasibles)[0]
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
             self.env.fix_data_a(homes, self.file_id(), its=its)
@@ -423,7 +421,7 @@ class DataManager:
             data_feasibles = self._format_data_optimiser(
                 batch, passive=passive, test=evaluation
             )
-            homes = [i for i, ok in enumerate(data_feasibles) if not ok]
+            homes = jnp.where(~data_feasibles)[0]
             if its > 50:
                 print(f'its {its}, sum(data_feasibles) {sum(data_feasibles)}')
                 print(f'infeasibles homes = {homes}')
@@ -472,7 +470,10 @@ class DataManager:
             batch_file, batch = self.env.reset(
                 seed=seed, load_data=load_data, passive=passive, evaluation=evaluation
             )
-            jnp.save(f'deterministic_prms_seedind{self.ind_seed_deterministic}', [batch_file, batch])
+            jnp.save(
+                f'deterministic_prms_seedind{self.ind_seed_deterministic}',
+                [batch_file, batch]
+            )
             self.deterministic_created = True
 
         elif self.rl['deterministic'] == 2 and self.deterministic_created:

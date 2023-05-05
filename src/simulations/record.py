@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Tuple
 
 import jax.numpy as jnp
+import numpy as np
 import scipy as sp
 
 from src.utilities.userdeftools import get_moving_average, initialise_dict
@@ -140,8 +141,9 @@ class Record:
             for method in all_evaluation_methods
         }
         self.train_actions[repeat] = {
-            method:
-                jnp.zeros((self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions_1))
+            method: jnp.zeros(
+                (self.n_epochs, self.n_explore * self.N, self.n_homes, self.dim_actions_1)
+            )
             for method in rl["exploration_methods"]
         }
         self.train_states[repeat] = {
@@ -167,11 +169,18 @@ class Record:
         """At the end of each epoch, append training or evaluation record."""
         if list_train_stepvals is not None:
             for method in rl["exploration_methods"]:
-                self.train_rewards[self.repeat][method][epoch] \
-                    = list_train_stepvals[method]["reward"]
-                self.train_actions[self.repeat][method][epoch] \
-                    = list_train_stepvals[method]["action"]
-                self.train_states[self.repeat][method][epoch] = list_train_stepvals[method]["state"]
+                self.train_rewards[self.repeat][method] \
+                    = self.train_rewards[self.repeat][method].at[epoch].set(
+                        list_train_stepvals[method]["reward"]
+                    )
+                self.train_actions[self.repeat][method] \
+                    = self.train_actions[self.repeat][method].at[epoch].set(
+                        list_train_stepvals[method]["action"]
+                    )
+                self.train_states[self.repeat][method] \
+                    = self.train_states[self.repeat][method].at[epoch].set(
+                        list_train_stepvals[method]["state"]
+                    )
 
         for method in rl["evaluation_methods"]:
             self._append_eval(eval_steps, method, epoch, end_test)
@@ -188,7 +197,7 @@ class Record:
 
         self._update_eps(rl, learner, epoch, end_test)
 
-        self.duration_epoch[self.repeat][epoch] = duration_epoch
+        self.duration_epoch = self.duration_epoch.at[self.repeat, epoch].set(duration_epoch)
 
     def last_epoch(self, evaluation, method, record_output, batch, done):
         """Record more information for the final epoch in self.last."""
@@ -209,16 +218,19 @@ class Record:
         """
         list_timer_attributes = [
             (self.manage_voltage or self.manage_agg_power, timer_pp, 'timer_pp'),
-            (self.manage_voltage and self.compare_pandapower_optimisation,
-                timer_comparison, 'timer_comparison'),
+            (
+                self.manage_voltage and self.compare_pandapower_optimisation,
+                timer_comparison,
+                'timer_comparison'
+            ),
             (True, timer_optimisation, 'timer_optimisation'),
             (True, timer_feasible_data, 'timer_feasible_data'),
         ]
 
         for condition, timer, timer_name in list_timer_attributes:
             if condition and len(timer) != 0:
-                timer_mean = jnp.mean(timer)
-                timer_std = jnp.std(timer)
+                timer_mean = np.mean(timer)
+                timer_std = np.std(timer)
                 timer_count = len(timer)
             else:
                 timer_mean = 0
@@ -350,9 +362,10 @@ class Record:
         for reward in [
             'monthly_mean_end_eval_rewards_per_home', 'monthly_mean_test_rewards_per_home'
         ]:
-            setattr(self, reward, {
-                    method: jnp.zeros(self.n_repeats) for method in self.evaluation_methods
-                }
+            setattr(
+                self,
+                reward,
+                {method: jnp.zeros(self.n_repeats) for method in self.evaluation_methods}
             )
 
         for repeat in range(prm["RL"]["n_repeats"]):  # loop through repetitions
@@ -384,20 +397,29 @@ class Record:
                         evaluation_methods_plot.remove(method)
 
             for method in evaluation_methods_plot:
-                self.monthly_mean_eval_rewards_per_home[method][repeat] = jnp.where(
-                    self.mean_eval_rewards[repeat][method] is None,
-                    None,
-                    self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all_test']
-                    * self.interval_to_month
-                )
-                self.monthly_mean_end_eval_rewards_per_home[method][repeat] = jnp.mean(
-                    self.monthly_mean_eval_rewards_per_home[method][repeat][
-                        prm["RL"]["start_end_eval"]: self.n_epochs
-                    ]
-                )
-                self.monthly_mean_test_rewards_per_home[method][repeat] = jnp.mean(
-                    self.monthly_mean_eval_rewards_per_home[method][repeat][self.n_epochs:]
-                )
+                self.monthly_mean_eval_rewards_per_home[method] \
+                    = self.monthly_mean_eval_rewards_per_home[method].at[repeat].set(
+                        jnp.where(
+                            self.mean_eval_rewards[repeat][method] is None,
+                            jnp.nan,
+                            self.mean_eval_rewards[repeat][method] / prm['syst']['n_homes_all_test']
+                            * self.interval_to_month
+                        )
+                    )
+                self.monthly_mean_end_eval_rewards_per_home[method] \
+                    = self.monthly_mean_end_eval_rewards_per_home[method].at[repeat].set(
+                        jnp.mean(
+                            self.monthly_mean_eval_rewards_per_home[method][repeat][
+                                prm["RL"]["start_end_eval"]: self.n_epochs
+                            ]
+                        )
+                    )
+                self.monthly_mean_test_rewards_per_home[method] \
+                    = self.monthly_mean_test_rewards_per_home[method].at[repeat].set(
+                        jnp.mean(
+                            self.monthly_mean_eval_rewards_per_home[method][repeat][self.n_epochs:]
+                        )
+                    )
 
     def compute_IQR_and_CVaR_repeat(self, monthly_mean_eval_rewards_per_home, all_nans):
         detrended_rewards = [
@@ -576,40 +598,52 @@ class Record:
                 epoch_mean_eval_t = None
             if method in eval_steps:
                 for info in ["reward", "action"]:
-                    self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
-                        = eval_steps[method][info]
+                    self.__dict__[f"eval_{info}s"][self.repeat][method] \
+                        = self.__dict__[f"eval_{info}s"][self.repeat][method].at[epoch].set(
+                            eval_steps[method][info]
+                    )
         else:
             for info in ["eval_rewards", "eval_actions"]:
-                self.__dict__[info][self.repeat][method][epoch] = None
+                self.__dict__[info][self.repeat][method] \
+                    = self.__dict__[info][self.repeat][method].at[epoch].set(jnp.nan)
             epoch_mean_eval_t = None
 
-        self.mean_eval_rewards[self.repeat][method][epoch] = epoch_mean_eval_t
+        self.mean_eval_rewards[self.repeat][method] \
+            = self.mean_eval_rewards[self.repeat][method].at[epoch].set(epoch_mean_eval_t)
         all_mean_eval_t = self.mean_eval_rewards[self.repeat][method]
         for info in self.break_down_rewards_entries:
             eval_step_t_e = \
                 None if method not in eval_steps \
                 else eval_steps[method][info]
             if info == 'max_voltage_deviation':
-                self.__dict__[info][self.repeat][method][epoch] = \
-                    max(eval_step_t_e) if eval_step_t_e is not None else None
+                self.__dict__[info][self.repeat][method] \
+                    = self.__dict__[info][self.repeat][method].at[epoch].set(
+                        jnp.max(eval_step_t_e) if eval_step_t_e is not None else None
+                    )
             # during one epoch, how many buses in total had a voltage deviation
             elif info == 'n_voltage_deviation_bus':
-                self.__dict__[info][self.repeat][method][epoch] = \
-                    jnp.sum(eval_step_t_e) if eval_step_t_e is not None else None
+                self.__dict__[info][self.repeat][method] \
+                    = self.__dict__[info][self.repeat][method].at[epoch].set(
+                        jnp.sum(eval_step_t_e) if eval_step_t_e is not None else None
+                    )
             # during one epoch, how many hours had at least one voltage deviation
             elif info == 'n_voltage_deviation_hour':
-                self.__dict__[info][self.repeat][method][epoch] = \
-                    jnp.sum(eval_step_t_e) if eval_step_t_e is not None else None
+                self.__dict__[info][self.repeat][method] \
+                    = self.__dict__[info][self.repeat][method].at[epoch].set(
+                        jnp.sum(eval_step_t_e) if eval_step_t_e is not None else None
+                    )
             else:
-                self.__dict__[info][self.repeat][method][epoch] = \
-                    jnp.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
+                self.__dict__[info][self.repeat][method] \
+                    = self.__dict__[info][self.repeat][method].at[epoch].set(
+                        jnp.mean(eval_step_t_e, axis=0)[0] if eval_step_t_e is not None else None
+                    )
 
         # we have done at least 6 steps
         if not end_test and len(all_mean_eval_t) > 5 and method != "opt":
-            equal_consecutive = \
-                [abs(all_mean_eval_t[- i]
-                     - all_mean_eval_t[- (i + 1)]) < 1e-5
-                 for i in range(4)]
+            equal_consecutive = [
+                abs(all_mean_eval_t[- i] - all_mean_eval_t[- (i + 1)]) < 1e-5
+                for i in range(4)
+            ]
             if sum(equal_consecutive) == 4:
                 self.stability[self.repeat][method] = epoch
 

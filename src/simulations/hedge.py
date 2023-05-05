@@ -160,7 +160,9 @@ class HEDGE:
         for data in self.data_types:
             self.list_factors[data] = self.list_factors[data].at[self.day].set(self.factors[data])
         for data in self.behaviour_types:
-            self.list_clusters[data] = self.list_clusters[data].at[self.day].set(self.clusters[data])
+            self.list_clusters[data] = self.list_clusters[data].at[self.day].set(
+                self.clusters[data]
+            )
         self.day += 1
         self._plotting_profiles(day, plotting)
 
@@ -280,9 +282,13 @@ class HEDGE:
                 if isinstance(factors0[data], int):
                     self.factors[data] = [factors0[data] for _ in self.homes]
 
-        self.list_factors = {data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.data_types}
+        self.list_factors = {
+            data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.data_types
+        }
         for data_type in self.data_types:
-            self.list_factors[data_type] = self.list_factors[data_type].at[0].set(self.factors[data_type])
+            self.list_factors[data_type] = self.list_factors[data_type].at[0].set(
+                self.factors[data_type]
+            )
 
     def _init_clusters(self, clusters0, n_days):
         day_type, transition = self._transition_type()
@@ -302,9 +308,13 @@ class HEDGE:
                 if isinstance(clusters0[data], int):
                     self.clusters[data] = [clusters0[data] for _ in self.homes]
 
-        self.list_clusters = {data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.behaviour_types}
+        self.list_clusters = {
+            data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.behaviour_types
+        }
         for data_type in self.behaviour_types:
-            self.list_clusters[data_type] = self.list_factors[data_type].at[0].set(self.clusters[data_type])
+            self.list_clusters[data_type] = self.list_factors[data_type].at[0].set(
+                self.clusters[data_type]
+            )
 
     def _next_factors(self, transition, prev_clusters):
         prev_factors = self.factors.copy()
@@ -333,7 +343,9 @@ class HEDGE:
                         random_f["car"][home],
                     )
                 )
-                factors["car"] = factors["car"].at[home].set(self.mid_fs_brackets[transition][int(interval_f_ev[home])])
+                factors["car"] = factors["car"].at[home].set(
+                    self.mid_fs_brackets[transition][int(interval_f_ev[home])]
+                )
 
             if "gen" in self.data_types:
                 i_month = self.date.month - 1
@@ -405,7 +417,10 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            while jnp.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home] and it < 100:
+            while (
+                    jnp.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home]
+                    and it < 100
+            ):
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:

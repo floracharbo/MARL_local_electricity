@@ -718,7 +718,8 @@ class Explorer:
         for load_type in range(2):
             sum_consa += jnp.sum(res[f'consa({load_type})'])
 
-        assert len(jnp.shape(batch['loads'])) == 2, f"jnp.shape(loads) == {jnp.shape(batch['loads'])}"
+        assert len(jnp.shape(batch['loads'])) == 2, \
+            f"jnp.shape(loads) == {jnp.shape(batch['loads'])}"
         assert abs((jnp.sum(batch['loads'][:, 0: self.N]) - sum_consa) / sum_consa) < 1e-2, \
             f"res cons {sum_consa} does not match input demand " \
             f"{jnp.sum(batch['loads'][:, 0: self.N])}"

@@ -274,8 +274,8 @@ class Battery:
             )
             if self.time_step <= self.N - 1:
                 max_charge_for_final_step = max_charge_for_final_step.at[home].set(
-                    self.store0[home] \
-                    + sum(loads_Ts) \
+                    self.store0[home]
+                    + sum(loads_Ts)
                     + self.d_max * jnp.sum(self.batch['avail_car'][home, time_step: self.N - 1])
                 )
 
@@ -300,7 +300,9 @@ class Battery:
                     0
                 )
                 min_charge_after_next_trip = min_charge_ahead_of_trip
-            min_charge_required = min_charge_required.at[home].set(max(min_charge_after_next_trip, self.min_charge[home]))
+            min_charge_required = min_charge_required.at[home].set(
+                max(min_charge_after_next_trip, self.min_charge[home])
+            )
         min_charge_t = jnp.maximum(min_charge_t_0, min_charge_required)
         bool_penalty = self._check_min_charge_t_feasible(
             min_charge_t, time_step, date, bool_penalty, print_error, simulation
@@ -674,15 +676,6 @@ class Battery:
         )
 
         for home in range(self.n_homes):
-        #     check if any hourly load is larger than d_max
-            # if any(self.batch['loads_car'][home, :] > self.d_max + 1e-2):
-            #     you would have to break constraints to meet demand
-                # bool_penalty = bool_penalty.at[home].set(True)
-                # self._print_error(
-                #     f'home = {home}, load car larger than d_max',
-                #     print_error
-                # )
-
             if min_charge_t[home] > self.caps[home] + 1e-2:
                 bool_penalty = bool_penalty.at[home].set(True)
                 error_message = f'home = {home}, min_charge_t {min_charge_t[home]} ' \
@@ -735,9 +728,9 @@ class Battery:
                 feasible = feasible.at[home].set(False)
                 for time_step in range(len(prm['car']['batch_loads_car'][home])):
                     if prm['car']['batch_loads_car'][home, time_step] > prm['car']['d_max']:
-                        prm['car']['batch_loads_car'] = prm['car']['batch_loads_car'].at[home, time_step].set(
-                            prm['car']['d_max']
-                        )
+                        prm['car']['batch_loads_car'] = prm['car']['batch_loads_car'].at[
+                            home, time_step
+                        ].set(prm['car']['d_max'])
         time_step = 0
 
         self.reset(prm)

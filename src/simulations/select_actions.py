@@ -312,10 +312,15 @@ class ActionSelector:
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv, method
     ):
         if self.rl['LSTM']:
-            tf_prev_states = [tf.expand_dims(tf.convert_to_tensor(
-                jnp.reshape(states[0: self.N, home],
-                           (1, self.rl['dim_states']))), 0)
-                for home in self.homes]
+            tf_prev_states = [
+                tf.expand_dims(
+                    tf.convert_to_tensor(
+                        jnp.reshape(states[0: self.N, home], (1, self.rl['dim_states']))
+                    ),
+                    0
+                )
+                for home in self.homes
+            ]
         else:
             tf_prev_states = [tf.expand_dims(tf.convert_to_tensor(
                 jnp.reshape(states[0: self.N, home], self.rl['dim_states'])

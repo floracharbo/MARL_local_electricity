@@ -111,7 +111,9 @@ class TabularQLearner:
                 # random_ind_action = [i for i in range(n_action) if rdn_action < cumps[i]][0]
                 actions_maxval = jnp.asarray(q_table[s] == jnp.max(q_table[s])).nonzero()[0]
                 cump_maxac = jnp.cumsum(jnp.ones(len(actions_maxval)) * 1 / len(actions_maxval))
-                greedy_ind_action = actions_maxval[jnp.asarray(cump_maxac > rdn_max).nonzero()[0][0]]
+                greedy_ind_action = actions_maxval[
+                    jnp.asarray(cump_maxac > rdn_max).nonzero()[0][0]
+                ]
                 if isinstance(self.eps, (float, int)):
                     eps = self.eps
                 else:

@@ -12,7 +12,6 @@ import pickle
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
-import jax
 import jax.numpy as jnp
 from gym import spaces
 from gym.utils import seeding
@@ -358,7 +357,9 @@ class LocalElecEnv:
 
             if implement:
                 for home in self.homes:
-                    self.batch_flex = self.batch_flex.at[home, jnp.arange(h, h + 2)].set(new_batch_flex[home])
+                    self.batch_flex = self.batch_flex.at[home, jnp.arange(h, h + 2)].set(
+                        new_batch_flex[home]
+                    )
                 self.tot_cons_loads.append(loads['tot_cons_loads'])
                 self.time_step += 1
                 self._test_flex_cons()
@@ -724,6 +725,8 @@ class LocalElecEnv:
         """
         if not self.load_data or len(homes) > 0:
             homes = homes if len(homes) > 0 else self.homes
+            if not isinstance(homes, jnp.ndarray):
+                print()
             assert isinstance(homes, jnp.ndarray), "homes must be jnp.ndarray"
             if len(homes) > 0:
                 if self.ext == '':
@@ -734,10 +737,13 @@ class LocalElecEnv:
                     day = self.test_hedge.make_next_day(homes)
 
                 for e in day.keys():
-                    for home in homes:
-                        self.batch[e] = self.batch[e].at[
-                            home, jnp.arange(i_load * self.N, (i_load + 1) * self.N)
-                        ].set(day[e][home])
+                    for i_home, home in enumerate(homes):
+                        try:
+                            self.batch[e] = self.batch[e].at[
+                                home, jnp.arange(i_load * self.N, (i_load + 1) * self.N)
+                            ].set(day[e][i_home])
+                        except Exception as ex:
+                            print(ex)
                 self._loads_to_flex(homes, i_load=i_load)
             self.dloaded += 1
         else:
@@ -766,7 +772,9 @@ class LocalElecEnv:
                 loads_t = self.batch["loads"][home, i_load * self.N + time_step]
                 dayflex_a = dayflex_a.at[time_step, 0].set((1 - share_flexs[home]) * loads_t)
                 dayflex_a = dayflex_a.at[time_step, self.max_delay].set(share_flexs[home] * loads_t)
-            self.batch['flex'] = self.batch['flex'].at[home, jnp.arange(i_load * self.N, (i_load + 1) * self.N)].set(dayflex_a)
+            self.batch['flex'] = self.batch['flex'].at[
+                home, jnp.arange(i_load * self.N, (i_load + 1) * self.N)
+            ].set(dayflex_a)
 
             assert jnp.shape(self.batch["flex"][home])[1] == self.max_delay + 1, \
                 f"shape batch['flex'][{home}] {jnp.shape(self.batch['flex'][home])} " \
@@ -856,7 +864,8 @@ class LocalElecEnv:
     def _compute_dT_next(self, home, time_step):
         T_req = self.prm['heat']['T_req' + self.ext][home]
         t_change_T_req = [
-            time_step for time_step in range(time_step + 1, self.N) if T_req[time_step] != T_req[time_step]
+            time_step for time_step in range(time_step + 1, self.N)
+            if T_req[time_step] != T_req[time_step]
         ]
         if len(t_change_T_req) > 0:
             current_T_req = T_req[time_step]
@@ -966,7 +975,7 @@ class LocalElecEnv:
                     > jnp.sum([batch_flex[home][ih][0] for ih in range(0, h + 1)])
                     / (1 - self.share_flexs[home]) * self.share_flexs[home] + 1e-3
                 ), "loads_next_flex error"
-            new_batch_flex = new_batch_flex.at[home,0, i_flex + 1].add(- loads_next_flex)
+            new_batch_flex = new_batch_flex.at[home, 0, i_flex + 1].add(- loads_next_flex)
             new_batch_flex = new_batch_flex.at[home, 1, i_flex].add(loads_next_flex)
             if self.test:
                 assert not (
@@ -999,10 +1008,10 @@ class LocalElecEnv:
         if len(i_grdC_level) > 0:
             self.normalised_grdC = [
                 (grid_energy_costs - min(self.prm['grd']['C'][0: self.N])) / (
-                        max(self.prm['grd']['C'][0: self.N])
-                        - min(self.prm['grd']['C'][0: self.N])
+                    max(self.prm['grd']['C'][0: self.N])
+                    - min(self.prm['grd']['C'][0: self.N])
                 )
-                 for grid_energy_costs in self.prm['grd']['C'][0: self.N + 1]
+                for grid_energy_costs in self.prm['grd']['C'][0: self.N + 1]
             ]
             if not self.spaces.type_env == "continuous":
                 self.spaces.brackets['state'][i_grdC_level[0]] = [
@@ -1056,7 +1065,6 @@ class LocalElecEnv:
             step_data = self.hedge.factors if descriptor[-9:-5] == 'fact' \
                 else self.hedge.clusters
             val = step_data[module][home]
-
 
         return val
 

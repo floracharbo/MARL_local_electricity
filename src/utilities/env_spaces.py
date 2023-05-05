@@ -706,19 +706,21 @@ class EnvSpaces:
                 max_val = descriptor_info['max'].values.item()[self.current_date0.month - 1]
                 min_val = descriptor_info['min'].values.item()[self.current_date0.month - 1]
             else:
+                max_is_jnp_array = (
+                    isinstance(descriptor_info['max'].values.item(), jnp.ndarray)
+                    and descriptor_info['max'].values.item().size > 1
+                )
                 max_val = descriptor_info['max'].values.item()[home] \
                     if isinstance(descriptor_info['max'].values.item(), list) \
-                    or (
-                            isinstance(descriptor_info['max'].values.item(), jnp.ndarray)
-                            and descriptor_info['max'].values.item().size > 1
-                       ) \
+                    or max_is_jnp_array \
                     else descriptor_info['max'].values.item()
+                min_is_jnp_array = (
+                    isinstance(descriptor_info['min'].values.item(), jnp.ndarray)
+                    and descriptor_info['min'].values.item().size > 1
+                )
                 min_val = descriptor_info['min'].values.item()[home] \
                     if isinstance(descriptor_info['max'].values.item(), list) \
-                    or (
-                            isinstance(descriptor_info['max'].values.item(), jnp.ndarray)
-                            and descriptor_info['max'].values.item().size > 1
-                       ) \
+                    or min_is_jnp_array \
                     else descriptor_info['min'].values.item()
             normalised_val = (val - min_val) / (max_val - min_val)
             if abs(normalised_val) < 1e-5:

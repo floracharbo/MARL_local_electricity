@@ -9,7 +9,7 @@ Created on Mon Nov 28 2022.
 import random
 import time
 
-import jax.numpy as np
+import jax.numpy as jnp
 import pandapower as pp
 import pandapower.networks
 
@@ -72,7 +72,7 @@ class Network:
             'max_voltage', 'min_voltage', 'manage_agg_power', 'penalty_import',
             'penalty_export', 'max_grid_import', 'max_grid_export'
         ]:
-             self.grd[info] = prm['grd'][info]
+            self.grd[info] = prm['grd'][info]
 
         if prm['grd']['manage_voltage']:
             self.folder_run = prm['paths']['folder_run']
@@ -365,7 +365,9 @@ class Network:
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp, _, _ = compute_import_export_costs(grid_pp, self.grd, self.n_int_per_hr)
+        import_export_costs_pp, _, _ = compute_import_export_costs(
+            grid_pp, self.grd, self.n_int_per_hr
+        )
         delta_import_export_costs = \
             import_export_costs_pp - res['hourly_import_export_costs'][time_step]
 

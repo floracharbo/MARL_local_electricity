@@ -783,12 +783,14 @@ class Optimiser:
             p.add_constraint(hourly_import_costs >= 0)
             p.add_constraint(
                 hourly_import_costs
-                >= self.grd['penalty_import'] * (grid_in * self.syst['n_int_per_hr'] - self.grd['max_grid_import'])
+                >= self.grd['penalty_import']
+                * (grid_in * self.syst['n_int_per_hr'] - self.grd['max_grid_import'])
             )
             p.add_constraint(hourly_export_costs >= 0)
             p.add_constraint(
                 hourly_export_costs
-                >= self.grd['penalty_export'] * (grid_out * self.syst['n_int_per_hr'] - self.grd['max_grid_export'])
+                >= self.grd['penalty_export']
+                * (grid_out * self.syst['n_int_per_hr'] - self.grd['max_grid_export'])
             )
             p.add_constraint(
                 import_export_costs == pic.sum(hourly_import_costs) + pic.sum(hourly_export_costs)
