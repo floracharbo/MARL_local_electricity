@@ -10,6 +10,7 @@ import os
 import random
 from pathlib import Path
 
+import numpy as np
 import jax
 import jax.numpy as jnp
 import pandas as pd
@@ -113,21 +114,21 @@ def get_moving_average(array, n_window, Nones=True):
     """Get moving average of array over window n_window."""
     x = max(int(n_window / 2 - 0.5), 1)
     n = len(array)
-    mova = jnp.full(n, jnp.nan)
+    mova = np.full(n, jnp.nan)
     for j in range(x):
         if not Nones:
             if sum(a is None for a in array[0: j * 2 + 1]) == 0:
-                mova[j] = jnp.mean(array[0: j * 2 + 1])
+                mova[j] = np.mean(array[0: j * 2 + 1])
 
     for j in range(x, n - x):
         if sum(a is None for a in array[j - x: j + x]) == 0:
-            mova[j] = jnp.mean(array[j - x: j + x])
+            mova[j] = np.mean(array[j - x: j + x])
 
     for j in range(n - x, n):
         if not Nones:
             n_to_end = len(array) - j
             if sum(a is None for a in array[j - n_to_end: -1]) == 0:
-                mova[j] = jnp.mean(array[j - n_to_end: -1])
+                mova[j] = np.mean(array[j - n_to_end: -1])
 
     return mova
 

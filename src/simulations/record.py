@@ -307,7 +307,7 @@ class Record:
     ):
         """For each epoch, percentiles of evaluation across repeats."""
         p_vals = [25, 50, 75]
-        percentiles = {p: jnp.zeros(self.n_all_epochs) for p in p_vals}
+        percentiles = {p: np.zeros(self.n_all_epochs) for p in p_vals}
         n_repeats = prm["RL"]["n_repeats"]
         for epoch in range(self.n_all_epochs):
             epoch_rewards = self.monthly_mean_eval_rewards_per_home[method][:, epoch]
@@ -319,14 +319,14 @@ class Record:
             ]
             for p in [25, 50, 75]:
                 percentiles[p][epoch] = \
-                    jnp.nan if len(diff_repeats) == 0 else jnp.percentile(diff_repeats, p)
+                    np.nan if len(diff_repeats) == 0 else np.percentile(diff_repeats, p)
         if mov_average:
             for p in [25, 50, 75]:
                 percentiles[p] = get_moving_average(percentiles[p], n_window, Nones=False)
 
         p25, p50, p75 = [percentiles[p] for p in p_vals]
-        not_nan = ~jnp.isnan(p25)
-        epoch_not_nan = jnp.arange(self.n_all_epochs)[not_nan]
+        not_nan = ~np.isnan(p25)
+        epoch_not_nan = np.arange(self.n_all_epochs)[not_nan]
         p25_not_nan, p75_not_nan = p25[not_nan], p75[not_nan]
 
         return p25, p50, p75, p25_not_nan, p75_not_nan, epoch_not_nan
@@ -434,10 +434,10 @@ class Record:
         ]
         detrended_rewards_notNone = [d for d in detrended_rewards if d is not None]
         IQR_repeat = sp.stats.iqr(detrended_rewards_notNone) if not all_nans else None
-        CVaR_repeat = jnp.mean(
+        CVaR_repeat = np.mean(
             [
                 dr for dr in detrended_rewards_notNone
-                if dr <= jnp.percentile(detrended_rewards_notNone, 5)
+                if dr <= np.percentile(detrended_rewards_notNone, 5)
             ]
         ) if not all_nans else None
 
@@ -566,23 +566,23 @@ class Record:
                     self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], all_nans
                 )
 
-                IQR[repeat] = IQR_repeat
-                CVaR[repeat] = CVaR_repeat
-                LRT[repeat] = largest_drawdown
+                IQR = IQR.at[repeat].set(IQR_repeat)
+                CVaR = CVaR.at[repeat].set(CVaR_repeat)
+                LRT = LRT.at[repeat].set(largest_drawdown)
 
             for metric, m in zip(
                     [mean_end_rewards_month, end_test_rewards_e, end_above_bl,
                      end_test_above_bl, ave_rewards, IQR, CVaR, LRT],
                     metric_entries[0:8]):
-                metrics[m]["ave"][eval_entry] = jnp.mean(metric)
-                metrics[m]["std"][eval_entry] = jnp.std(metric)
+                metrics[m]["ave"][eval_entry] = np.mean(metric)
+                metrics[m]["std"][eval_entry] = np.std(metric)
                 for p in [25, 50, 75]:
-                    metrics[m]["p" + str(p)][eval_entry] = jnp.percentile(metric, p)
+                    metrics[m]["p" + str(p)][eval_entry] = np.percentile(metric, p)
             metrics["DR"]["ave"][eval_entry] = sp.stats.iqr(mean_end_rewards_month)
             metrics["DR"]["std"][eval_entry] = None
-            metrics["RR"]["ave"][eval_entry] = jnp.mean(
+            metrics["RR"]["ave"][eval_entry] = np.mean(
                 mean_end_rewards_month[
-                    mean_end_rewards_month <= jnp.percentile(mean_end_rewards_month, 5)
+                    mean_end_rewards_month <= np.percentile(mean_end_rewards_month, 5)
                 ]
             )
             metrics["RR"]["std"][eval_entry] = None
