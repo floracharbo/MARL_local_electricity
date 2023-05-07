@@ -11,6 +11,8 @@ import random
 from pathlib import Path
 
 import numpy as np
+import jax
+import jax.numpy as jnp
 import pandas as pd
 import torch as th
 import yaml
@@ -22,7 +24,7 @@ def _is_empty(data):
             or data == ' ' \
             or data == [] \
             or data is None \
-            or not isinstance(data, str) and np.isnan(data):
+            or not isinstance(data, str) and jnp.isnan(data):
         return True
     else:
         return False
@@ -50,7 +52,7 @@ def str_to_float(listarr):
         obj = float(listarr) if not _is_empty(listarr) else []
     elif isinstance(listarr, pd.core.series.Series):
         obj = [float(s) if not _is_empty(s) else [] for s in listarr]
-    elif isinstance(listarr, np.float64):
+    elif isinstance(listarr, jnp.float64):
         obj = float(listarr)
     elif isinstance(listarr[0], list):
         obj = [float(s[0]) if not _is_empty(s) else [] for s in listarr]
@@ -66,7 +68,7 @@ def str_to_int(listarr):
         obj = int(listarr) if not _is_empty(listarr) else []
     elif isinstance(listarr, pd.core.series.Series):
         obj = [int(s) if not _is_empty(s) else [] for s in listarr]
-    elif isinstance(listarr, np.float64):
+    elif isinstance(listarr, jnp.float64):
         obj = int(listarr)
     elif isinstance(listarr[0], list):
         obj = [int(s[0]) if not _is_empty(s) else [] for s in listarr]
@@ -83,10 +85,10 @@ def initialise_dict(
     obj_dict = {
         'empty_list': [],
         'empty_dict': {},
-        'zeros': np.zeros(n),
+        'zeros': jnp.zeros(n),
         'zero': 0,
         'Nones': [None] * n,
-        'empty_np_array': np.array([])
+        'empty_np_array': jnp.array([])
     }
     if len(second_level_entries) > 0:
         type_obj = 'empty_dict'
@@ -112,7 +114,7 @@ def get_moving_average(array, n_window, Nones=True):
     """Get moving average of array over window n_window."""
     x = max(int(n_window / 2 - 0.5), 1)
     n = len(array)
-    mova = np.full(n, np.nan)
+    mova = np.full(n, jnp.nan)
     for j in range(x):
         if not Nones:
             if sum(a is None for a in array[0: j * 2 + 1]) == 0:
@@ -135,8 +137,11 @@ def set_seeds_rdn(seed):
     """Seed the random generators."""
     if not isinstance(seed, int):
         seed = int(seed)
-    np.random.seed(seed), random.seed(seed)
+    jax_random_key = jax.random.PRNGKey(seed)
+    random.seed(seed)
     th.manual_seed(seed)
+
+    return jax_random_key
 
 
 def data_source(q, epoch=None):
@@ -243,7 +248,7 @@ def get_prm_save(prm):
                 prm_save[key][sub_key] = prm[key][sub_key]
             else:
                 print(f"{sub_key} not in prm[{key}]")
-                # np.save(f"keys_prm_{key}", list(prm[key].keys()))
+                # jnp.save(f"keys_prm_{key}", list(prm[key].keys()))
 
     prm_save = get_prm_save_RL(prm_save, prm)
 
@@ -261,15 +266,15 @@ def compute_import_export_costs(grid, grd, n_int_per_hr):
     # grid_in in kWh in the time interval
     # grid_in * n_int_per_hr in kW
     if grd['manage_agg_power']:
-        grid_in = np.where(np.array(grid) >= 0, grid, 0)
-        grid_out = np.where(np.array(grid) < 0, - grid, 0)
+        grid_in = jnp.where(jnp.array(grid) >= 0, grid, 0)
+        grid_out = jnp.where(jnp.array(grid) < 0, - grid, 0)
         grid_in_power, grid_out_power = grid_in * n_int_per_hr, grid_out * n_int_per_hr
-        import_costs = np.where(
+        import_costs = jnp.where(
             grid_in_power >= grd['max_grid_import'],
             grd['penalty_import'] * (grid_in_power - grd['max_grid_import']),
             0
         )
-        export_costs = np.where(
+        export_costs = jnp.where(
             grid_out_power >= grd['max_grid_export'],
             grd['penalty_export'] * (grid_out_power - grd['max_grid_export']),
             0
@@ -282,29 +287,29 @@ def compute_import_export_costs(grid, grd, n_int_per_hr):
 
 
 def compute_voltage_costs(voltage_squared, grd):
-    over_voltage_costs = grd['penalty_overvoltage'] * np.where(
+    over_voltage_costs = grd['penalty_overvoltage'] * jnp.where(
         voltage_squared > grd['max_voltage'] ** 2,
         voltage_squared - grd['max_voltage'] ** 2,
         0
     )
-    under_voltage_costs = grd['penalty_undervoltage'] * np.where(
+    under_voltage_costs = grd['penalty_undervoltage'] * jnp.where(
         voltage_squared < grd['min_voltage'] ** 2,
         grd['min_voltage'] ** 2 - voltage_squared,
         0
     )
 
-    return np.sum(over_voltage_costs + under_voltage_costs)
+    return jnp.sum(over_voltage_costs + under_voltage_costs)
 
 
 def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
     overvoltage_deviation = \
-        (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
+        (jnp.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
     undervoltage_deviation = \
-        (min_voltage - np.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
-    voltage_deviation = np.concatenate([overvoltage_deviation, undervoltage_deviation])
+        (min_voltage - jnp.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
+    voltage_deviation = jnp.concatenate([overvoltage_deviation, undervoltage_deviation])
     if len(voltage_deviation) > 0:
-        mean = np.mean(voltage_deviation)
-        max = np.max(voltage_deviation)
+        mean = jnp.mean(voltage_deviation)
+        max = jnp.max(voltage_deviation)
         n_deviations_bus = len(voltage_deviation)
         n_deviations_hour = 1
     else:

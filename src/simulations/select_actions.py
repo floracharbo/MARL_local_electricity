@@ -7,7 +7,8 @@ Author: Flora Charbonnier
 from datetime import timedelta
 from typing import Tuple
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 import tensorflow as tf
 import torch as th
 
@@ -36,13 +37,14 @@ class ActionSelector:
             tf_prev_state = [
                 tf.expand_dims(
                     tf.convert_to_tensor(
-                        np.reshape(current_state[home], (1, 1))
+                        jnp.reshape(current_state[home], (1, 1))
                     ), 0
                 )
                 for home in self.homes
             ]
         elif self.rl['type_learning'] == 'facmac':
-            tf_prev_state = th.Tensor(current_state)
+            # tf_prev_state = th.Tensor(current_state)
+            tf_prev_state = current_state
         else:
             tf_prev_state = tf.convert_to_tensor(current_state)
 
@@ -70,7 +72,10 @@ class ActionSelector:
         # action choice for current time step
         action_dict = {
             'baseline': self.rl['default_action' + ext],
-            'random': np.random.random(np.shape(self.rl['default_action' + ext])),
+            'random': jax.random.uniform(
+                self.prm['syst']['jax_random_key'],
+                shape=jnp.shape(self.rl['default_action' + ext])
+            ),
         }
         if rl['type_learning'] in ['DDPG', 'DQN', 'facmac'] and rl['trajectory']:
             action = actions[:, step]
@@ -85,11 +90,11 @@ class ActionSelector:
                 )
             elif rl['type_learning'] == 'facmac':
                 if ext == '_test':
-                    action = np.zeros((self.n_homes_test, rl['dim_actions']))
+                    action = jnp.zeros((self.n_homes_test, rl['dim_actions']))
                     for it in range(rl['action_selection_its']):
-                        current_state_it = np.zeros((self.n_homes, rl['dim_states']))
+                        current_state_it = jnp.zeros((self.n_homes, rl['dim_states']))
                         for i in range(rl['dim_states']):
-                            current_state_it[:, i] = np.matmul(
+                            current_state_it[:, i] = jnp.matmul(
                                 current_state[:, i], rl['state_exec_to_train'][it]
                             )
                         tf_prev_state_it = self._format_tf_prev_state(current_state_it)
@@ -98,7 +103,7 @@ class ActionSelector:
                             current_state_it, tf_prev_state_it, step, evaluation, method, t_env
                         )
                         for home_train in range(self.n_homes):
-                            home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
+                            home_execs = jnp.where(rl['action_train_to_exec'][it][home_train])[0]
                             assert len(home_execs) <= 1
                             if len(home_execs) > 0:
                                 action[home_execs[0]] = action_it[home_train]
@@ -142,7 +147,7 @@ class ActionSelector:
         """Select actions for all episode time steps."""
         env, rl = self.env, self.rl
         n_homes = self.n_homes if ext is None else getattr(self, 'n_homes' + ext)
-        states = np.zeros(
+        states = jnp.zeros(
             (self.N + 1, n_homes, len(self.rl['state_space']))
         )
         for time_step in range(self.N + 1):
@@ -159,7 +164,7 @@ class ActionSelector:
         if method == 'baseline':
             actions = self.rl['default_action' + ext]
             if self.rl['type_env'] == "discrete":
-                ind_actions = np.ones(n_homes) * (env.spaces.n["actions"] - 1)
+                ind_actions = jnp.ones(n_homes) * (env.spaces.n["actions"] - 1)
 
         elif rl['type_learning'] == 'DDPG':
             actions, ind_actions = self._trajectory_actions_ddpg(
@@ -178,11 +183,11 @@ class ActionSelector:
             step = 0
 
             if ext == '_test':
-                actions = np.zeros((self.n_homes_test, rl['dim_actions']))
+                actions = jnp.zeros((self.n_homes_test, rl['dim_actions']))
                 for it in range(rl['action_selection_its']):
-                    state_it = np.zeros((self.N + 1, self.n_homes, rl['dim_states_1']))
+                    state_it = jnp.zeros((self.N + 1, self.n_homes, rl['dim_states_1']))
                     for i in range(rl['dim_states_1']):
-                        state_it[:, :, i] = np.matmul(
+                        state_it[:, :, i] = jnp.matmul(
                             states[:, :, i], rl['state_exec_to_train'][it]
                         )
                     tf_prev_state_it = self._format_tf_prev_state(state_it)
@@ -191,7 +196,7 @@ class ActionSelector:
                         state_it, tf_prev_state_it, step, evaluation, method, t_env
                     )
                     for home_train in range(self.n_homes):
-                        home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
+                        home_execs = jnp.where(rl['action_train_to_exec'][it][home_train])[0]
                         assert len(home_execs) <= 1
                         if len(home_execs) > 0:
                             actions[home_execs[0]] = action_it[home_train]
@@ -202,8 +207,8 @@ class ActionSelector:
                 )
 
         n_actions = 1 if self.rl['aggregate_actions'] else rl['dim_actions_1']
-        if isinstance(actions, np.ndarray):
-            actions = np.reshape(actions, (n_homes, self.N, n_actions))
+        if isinstance(actions, jnp.ndarray):
+            actions = jnp.reshape(actions, (n_homes, self.N, n_actions))
         elif th.is_tensor(actions):
             actions = actions.reshape((n_homes, self.N, n_actions))
 
@@ -235,7 +240,7 @@ class ActionSelector:
                 tf_prev_state[0], eps_greedy=eps_greedy,
                 rdn_eps_greedy=rdn_eps_greedy,
                 rdn_eps_greedy_indiv=rdn_eps_greedy_indiv)[0]
-            if np.shape(action) == ():
+            if jnp.shape(action) == ():
                 action = [float(action)]
             else:
                 action = list(action)
@@ -245,7 +250,9 @@ class ActionSelector:
     def _select_action_facmac(
         self, current_state, tf_prev_state, step, evaluation, method, t_env
     ):
-        pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
+        # pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
+        pre_transition_data = {"avail_actions": self.rl['avail_actions'], }
+
         if self.rl['trajectory']:
             pre_transition_data["state"] = tf_prev_state[0: self.N]
             pre_transition_data["obs"] = tf_prev_state[0: self.N]
@@ -305,13 +312,18 @@ class ActionSelector:
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv, method
     ):
         if self.rl['LSTM']:
-            tf_prev_states = [tf.expand_dims(tf.convert_to_tensor(
-                np.reshape(states[0: self.N, home],
-                           (1, self.rl['dim_states']))), 0)
-                for home in self.homes]
+            tf_prev_states = [
+                tf.expand_dims(
+                    tf.convert_to_tensor(
+                        jnp.reshape(states[0: self.N, home], (1, self.rl['dim_states']))
+                    ),
+                    0
+                )
+                for home in self.homes
+            ]
         else:
             tf_prev_states = [tf.expand_dims(tf.convert_to_tensor(
-                np.reshape(states[0: self.N, home], self.rl['dim_states'])
+                jnp.reshape(states[0: self.N, home], self.rl['dim_states'])
             ), 0) for home in self.homes]
 
         if self.rl["distr_learning"] == "decentralised":

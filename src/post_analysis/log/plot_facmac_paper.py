@@ -1,9 +1,9 @@
 
 from pathlib import Path
 
+import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from scipy import optimize
 
@@ -165,11 +165,11 @@ def polynomial3(x, a, b, c, d):
 
 
 def xlogx(x, a, b):
-    return a * x * np.log(x) + b
+    return a * x * jnp.log(x) + b
 
 
 def logx(x, a, b):
-    return a * np.log(x) + b
+    return a * jnp.log(x) + b
 
 
 x_max = n_homes[-1]
@@ -187,8 +187,8 @@ for line_label in labels.keys():
         reliability_metric_label: {}
         for reliability_metric_label in reliability_metric_labels
     }
-    values = {metric: np.full(len(n_homes), np.nan) for metric in metrics}
-    time_end = np.full(len(n_homes), np.nan)
+    values = {metric: jnp.full(len(n_homes), jnp.nan) for metric in metrics}
+    time_end = jnp.full(len(n_homes), jnp.nan)
     colour = colours[line_label]
     if isinstance(runs[line_label], tuple):
         runs[line_label] = runs[line_label][0]
@@ -213,7 +213,7 @@ for line_label in labels.keys():
                 )
 
     last_run = runs[line_label][-1]
-    reliability_metrics_run = np.load(
+    reliability_metrics_run = jnp.load(
         f"outputs/results/run{last_run}/figures/metrics.npy", allow_pickle=True
     ).item()
     for reliability_metric_label in reliability_metric_labels:
@@ -264,7 +264,7 @@ for line_label in labels.keys():
         print(f"times : {time_end}")
         sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(f_fitted, time_end))
         print(f"sum square error {sum_square_error:.2e}")
-        print(f"{label} a, b first errors = {np.sqrt(np.diag(pcov))}")
+        print(f"{label} a, b first errors = {jnp.sqrt(jnp.diag(pcov))}")
 
 
 axs[0].set_ylabel("Savings [£/home/month]")
@@ -372,7 +372,7 @@ for line_label in compare_times:
         sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
         print(f"sum square error {sum_square_error:.2e}")
         print(f"params {line_label} {label_func}: {params}")
-        print(f"variability params {line_label}  {label_func} = {np.sqrt(np.diag(pcov))}")
+        print(f"variability params {line_label}  {label_func} = {jnp.sqrt(jnp.diag(pcov))}")
         plt.plot(list(range(1, x_max + 1)), fitted,
                  label=label_func)
 
@@ -397,15 +397,15 @@ p75s = [47.42991041275560, 47.42991041275560,
 runs = [1205, 1186,
         # 1187,
         1200]
-all_data = np.zeros((10, 3))
+all_data = jnp.zeros((10, 3))
 for i, run in enumerate(runs):
-    data = np.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
+    data = jnp.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
     all_data[:, i] = data
     print(f"run {run} ave {aves[i]:.2f} p25 {p25s[i]:.2f} p75 {p75s[i]:.2f}")
     print(
-        f"from data ave {np.mean(data)}, "
-        f"p25 {np.percentile(data, 25)}, "
-        f"p75 {np.percentile(data, 75)}"
+        f"from data ave {jnp.mean(data)}, "
+        f"p25 {jnp.percentile(data, 25)}, "
+        f"p75 {jnp.percentile(data, 75)}"
     )
 
 labels = [
@@ -416,7 +416,7 @@ labels = [
 ]
 title = 'Ablations'
 
-positions = np.arange(3) + 1
+positions = jnp.arange(3) + 1
 
 fig = plt.figure(figsize=(3, 4))
 

@@ -19,14 +19,13 @@ for optimisation problem.
 - file_id: Generate string to identify the run in saved files.
 """
 
-import copy
 import glob
 import os
 import time
 import traceback
 from typing import List, Optional, Tuple
 
-import numpy as np
+import jax.numpy as jnp
 
 from src.simulations.optimisation import Optimiser
 from src.utilities.userdeftools import set_seeds_rdn
@@ -86,58 +85,70 @@ class DataManager:
         grd, loads, syst, car = [
             self.prm[data_file] for data_file in ['grd', 'loads', 'syst', 'car']
         ]
-        potential_delay = np.zeros((loads['n_types'], syst['N']), dtype=int)
+        potential_delay = jnp.zeros((loads['n_types'], syst['N']), dtype=int)
         if loads['flextype'] == 1:
-            potential_delay[0] = np.zeros(syst['N'])
+            potential_delay = potential_delay.at[0].set(jnp.zeros(syst['N']))
             for time_step in range(syst['N']):
-                potential_delay[1, time_step] = max(
-                    min(loads['flex'][1], syst['N'] - 1 - time_step), 0
+                potential_delay = potential_delay.at[1, time_step].set(
+                    max(
+                        min(loads['flex'][1], syst['N'] - 1 - time_step), 0
+                    )
                 )
         else:
             for load_type in range(loads['n_types']):
                 for time_step in range(syst['N']):
-                    potential_delay[load_type][time_step] = max(
-                        min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0)
-
+                    potential_delay = potential_delay.at[(load_type, time_step)].set(
+                        max(
+                            min(loads['flex'][load_type], syst['N'] - 1 - time_step), 0
+                        )
+                    )
         # make ntw matrices
-        grd['Bcap'] = np.zeros((syst['n_homes' + ext], syst['N']))
-        grd['loads'] = np.zeros((loads['n_types'], syst['n_homes' + ext], syst['N']))
-        grd['flex'] = np.zeros(
+        grd['Bcap'] = jnp.zeros((syst['n_homes' + ext], syst['N']))
+        grd['loads'] = jnp.zeros((loads['n_types'], syst['n_homes' + ext], syst['N']))
+        grd['flex'] = jnp.zeros(
             (syst['N'], loads['n_types'], syst['n_homes' + ext], syst['N']))
 
-        grd['gen'] = np.zeros((syst['n_homes' + ext], syst['N'] + 1))
+        grd['gen'] = jnp.zeros((syst['n_homes' + ext], syst['N'] + 1))
         share_flexs = loads['share_flexs' + ext]
         for home in range(syst['n_homes' + ext]):
-            grd['gen'][home] = batch['gen'][home, 0: len(grd['gen'][home])]
+            grd['gen'] = grd['gen'].at[home].set(batch['gen'][home, 0: len(grd['gen'][home])])
             for time_step in range(syst['N']):
-                grd['Bcap'][home, time_step] = car['caps' + ext][home]
+                grd['Bcap'] = grd['Bcap'].at[home, time_step].set(car['caps' + ext][home])
                 for load_type in range(loads['n_types']):
                     potential_delay_t = int(potential_delay[load_type][time_step])
-                    grd['loads'][0][home][time_step] \
-                        = batch['loads'][home, time_step] * (1 - share_flexs[home])
-                    grd['loads'][1][home][time_step] \
-                        = batch['loads'][home, time_step] * share_flexs[home]
+                    grd['loads'] = grd['loads'].at[0, home, time_step].set(
+                        batch['loads'][home, time_step] * (1 - share_flexs[home])
+                    )
+                    grd['loads'] = grd['loads'].at[1, home, time_step].set(
+                        batch['loads'][home, time_step] * share_flexs[home]
+                    )
                     for time_cons in range(syst['N']):
                         if time_step <= time_cons <= time_step + potential_delay_t:
-                            grd['flex'][time_step, load_type, home, time_cons] = 1
+                            grd['flex'] = grd['flex'].at[
+                                time_step, load_type, home, time_cons
+                            ].set(1)
 
         # optimisation of power flow
         if grd['manage_voltage']:
-            grd['flex_buses'] = self.env.network.flex_buses
-            grd['passive_buses'] = self.env.network.passive_buses
-            grd['incidence_matrix'] = self.env.network.incidence_matrix
-            grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
-            grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
+            for info in [
+                'flex_buses', 'passive_buses', 'incidence_matrix', 'net',
+                'in_incidence_matrix', 'out_incidence_matrix', 'bus_connection_matrix'
+            ]:
+                grd[info] = getattr(self.env.network, info)
+
+            # grd['flex_buses'] = self.env.network.flex_buses
+            # grd['passive_buses'] = self.env.network.passive_buses
+            # grd['incidence_matrix'] = self.env.network.incidence_matrix
+            # grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
+            # grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
             grd['line_resistance'] = self.env.network.line_resistance * \
                 grd['base_power'] / grd['base_voltage'] ** 2
             grd['line_reactance'] = self.env.network.line_reactance * \
                 grd['base_power'] / grd['base_voltage'] ** 2
-            grd['bus_connection_matrix'] = self.env.network.bus_connection_matrix
             grd['n_buses'] = len(self.env.network.net.bus)
             grd['n_lines'] = len(self.env.network.net.line)
-            grd['net'] = self.env.network.net
-            grd['line_losses_method'] = self.prm['grd']['line_losses_method']
-            grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
+            # grd['line_losses_method'] = self.prm['grd']['line_losses_method']
+            # grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
 
     def _passive_find_feasible_data(self, evaluation):
         passive = True
@@ -211,9 +222,9 @@ class DataManager:
 
         else:
             if opt_needed:
-                res = np.load(self.paths['opt_res']
-                              / self.res_name,
-                              allow_pickle=True).item()
+                res = jnp.load(
+                    self.paths['opt_res'] / self.res_name, allow_pickle=True
+                ).item()
                 pp_simulation_required = False
                 if 'house_cons' not in res:
                     res['house_cons'] = res['totcons'] - res['E_heat']
@@ -239,7 +250,7 @@ class DataManager:
                 self.timer_optimisation.append(duration_opti)
                 self.n_optimisations += 1
                 self.n_cons_constraint_violations += pp_simulation_required
-                self.max_cons_slack = np.max([self.max_cons_slack, res['max_cons_slack']])
+                self.max_cons_slack = jnp.max([self.max_cons_slack, res['max_cons_slack']])
             except Exception as ex:  # if infeasible, make new data
                 if str(ex)[0:6] != 'Code 3':
                     print(traceback.format_exc())
@@ -290,9 +301,8 @@ class DataManager:
             # try solving problem else making new data until problem solved
             iteration += 1
             feasibility_checked = self.get_seed(seed_ind)
-            set_seeds_rdn(self.seed[self.ext])
-            self.res_name = \
-                f"res_P{int(self.seed['P'])}_" \
+            self.prm['syst']['jax_random_key'] = set_seeds_rdn(self.seed[self.ext])
+            self.res_name = f"res_P{int(self.seed['P'])}_" \
                 f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
 
             if passive:
@@ -311,12 +321,12 @@ class DataManager:
                 seed_ind = self.infeasible_tidy_files_seeds(seed_ind)
 
         if not feasibility_checked:
-            self.seeds[self.ext] = np.append(
+            self.seeds[self.ext] = jnp.append(
                 self.seeds[self.ext], self.seed[self.ext]
             )
 
         if new_res:
-            np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
+            jnp.save(self.paths['opt_res'] / self.res_name, seed_data[0])
             time_opti = self.timer_optimisation[-1]
         else:
             time_opti = 0
@@ -387,14 +397,13 @@ class DataManager:
 
     def _loop_replace_data(
             self,
-            data_feasibles: np.ndarray,
+            data_feasibles: jnp.ndarray,
             passive: bool,
             evaluation: bool,
-    ) -> Tuple[dict, dict, dict, np.ndarray]:
+    ) -> Tuple[dict, dict, dict, jnp.ndarray]:
         """Replace the data for infeasible homes."""
         its = 0
-        homes_0 = np.where(~data_feasibles)[0]
-        homes = copy.deepcopy(homes_0)
+        homes = jnp.where(~data_feasibles)[0]
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
             self.env.fix_data_a(homes, self.file_id(), its=its)
@@ -412,7 +421,7 @@ class DataManager:
             data_feasibles = self._format_data_optimiser(
                 batch, passive=passive, test=evaluation
             )
-            homes = [i for i, ok in enumerate(data_feasibles) if not ok]
+            homes = jnp.where(~data_feasibles)[0]
             if its > 50:
                 print(f'its {its}, sum(data_feasibles) {sum(data_feasibles)}')
                 print(f'infeasibles homes = {homes}')
@@ -425,7 +434,7 @@ class DataManager:
     def _load_res(self, labels: list = ['factors', 'clusters']) -> List[dict]:
         """Load pre-saved day data."""
         files = [
-            np.load(
+            jnp.load(
                 self.paths['opt_res'] / f"{label}{self.file_id()}",
                 allow_pickle=True
             ).item() for label in labels
@@ -461,8 +470,10 @@ class DataManager:
             batch_file, batch = self.env.reset(
                 seed=seed, load_data=load_data, passive=passive, evaluation=evaluation
             )
-            np.save(f'deterministic_prms_seedind{self.ind_seed_deterministic}',
-                    [batch_file, batch])
+            jnp.save(
+                f'deterministic_prms_seedind{self.ind_seed_deterministic}',
+                [batch_file, batch]
+            )
             self.deterministic_created = True
 
         elif self.rl['deterministic'] == 2 and self.deterministic_created:
@@ -504,7 +515,7 @@ class DataManager:
             batch: dict,
             passive: bool = False,
             test: bool = False,
-    ) -> np.ndarray:
+    ) -> jnp.ndarray:
         """Turn input data into usable format for optimisation problem."""
         # initialise dicts
         grd, loads, syst, car, heat = [
@@ -516,15 +527,15 @@ class DataManager:
         # format battery info
         bat_entries = ['avail_car', 'loads_car']
         for bat_entry in bat_entries:
-            car['batch_' + bat_entry] = np.zeros((syst['n_homes' + ext], syst['N'] + 1))
+            car['batch_' + bat_entry] = jnp.zeros((syst['n_homes' + ext], syst['N'] + 1))
 
         bat_entries += ['bat_dem_agg']
-        car['bat_dem_agg'] = np.zeros((syst['n_homes' + ext], syst['N'] + 1))
+        car['bat_dem_agg'] = jnp.zeros((syst['n_homes' + ext], syst['N'] + 1))
         for home in range(syst["n_homes" + ext]):
             for info in self.env.car.batch_entries:
-                car['batch_' + info][home] = \
+                car['batch_' + info] = car['batch_' + info].at[home].set(
                     batch[info][home, 0: len(car['batch_' + info][home])]
-
+                )
         loads['n_types'] = 2
 
         self.format_grd(batch, ext)
@@ -543,17 +554,17 @@ class DataManager:
                 for t in range(self.N):
                     for t in range(self.N):
                         self.prm['loads']['active_power_passive_homes'].append(
-                            np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
+                            jnp.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
                         self.prm['loads']['reactive_power_passive_homes'].append(
-                            np.matmul(
+                            jnp.matmul(
                                 self.env.network.passive_buses,
                                 self.prm['loads']['q_heat_home_car_passive'][:, t]
                             )
                         )
         else:
-            self.prm['loads']['active_power_passive_homes'] = np.zeros([self.N, 1])
-            self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 1])
-            self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
+            self.prm['loads']['active_power_passive_homes'] = jnp.zeros([self.N, 1])
+            self.prm['loads']['reactive_power_passive_homes'] = jnp.zeros([self.N, 1])
+            self.prm['loads']['q_heat_home_car_passive'] = jnp.zeros([1, self.N])
 
         return feasible
 
@@ -562,9 +573,9 @@ class DataManager:
         n_homes = len(res["E_heat"])
         fixed_cons_opt = batchflex_opt[:, time_step, 0]
         flex_cons_opt = res["house_cons"][:, time_step] - fixed_cons_opt
-        assert np.all(np.greater(flex_cons_opt, - self.tol_constraints * 2)), \
+        assert jnp.all(jnp.greater(flex_cons_opt, - self.tol_constraints * 2)), \
             f"flex_cons_opt {flex_cons_opt}"
-        flex_cons_opt = np.where(flex_cons_opt > 0, flex_cons_opt, 0)
+        flex_cons_opt = jnp.where(flex_cons_opt > 0, flex_cons_opt, 0)
         inputs_update_flex = [
             time_step, batchflex_opt, self.prm["loads"]["max_delay"], n_homes
         ]

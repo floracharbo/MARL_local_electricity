@@ -16,7 +16,7 @@ import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
-import numpy as np
+import jax.numpy as jnp
 import torch as th
 import yaml
 from gym import spaces
@@ -117,9 +117,9 @@ def _make_action_space(rl, reactive_power_for_voltage_control):
         action_space = spaces.Discrete(rl["n_discrete_actions"])
     else:
         action_space = spaces.Box(
-            low=np.array(rl["low_action"], dtype=np.float32),
-            high=np.array(rl["high_action"], dtype=np.float32),
-            shape=(rl["dim_actions"],), dtype=np.float32)
+            low=jnp.array(rl["low_action"], dtype=jnp.float32),
+            high=jnp.array(rl["high_action"], dtype=jnp.float32),
+            shape=(rl["dim_actions"],), dtype=jnp.float32)
     rl["action_space"] = [action_space] * rl["n_homes"]
 
     ttype = th.FloatTensor if not rl["use_cuda"] else th.cuda.FloatTensor
@@ -140,17 +140,17 @@ def _make_action_space(rl, reactive_power_for_voltage_control):
     rl["actions_min"] = action_min_tensor
     rl["actions_min_cpu"] = action_min_tensor.cpu()
     rl["actions_min_numpy"] = action_min_tensor.cpu().numpy()
-    rl["avail_actions"] = np.ones((rl["n_homes"], rl["dim_actions"]))
+    rl["avail_actions"] = jnp.ones((rl["n_homes"], rl["dim_actions"]))
 
     # make conversion functions globally available
     rl["actions2unit"] = _actions_to_unit_box
     rl["unit2actions"] = _actions_from_unit_box
-    rl["actions_dtype"] = np.float32
+    rl["actions_dtype"] = jnp.float32
 
 
 def _make_scheme(rl):
     """Make scheme."""
-    action_dtype = th.long if not rl["actions_dtype"] == np.float32 \
+    action_dtype = th.long if not rl["actions_dtype"] == jnp.float32 \
         else th.float
     if not rl["discretize_actions"]:
         actions_vshape = rl["dim_actions"]
@@ -158,7 +158,7 @@ def _make_scheme(rl):
             isinstance(act_space, spaces.Tuple)
             for act_space in rl["action_spaces"]
     ):
-        actions_vshape = 1 if not rl["actions_dtype"] == np.float32 else \
+        actions_vshape = 1 if not rl["actions_dtype"] == jnp.float32 else \
             max([i.spaces[0].shape[0] + i.spaces[1].shape[0]
                  for i in rl["action_spaces"]])
 
@@ -187,7 +187,7 @@ def _make_scheme(rl):
         "agents_test": rl["n_homes_test"],
     }
 
-    if not rl["actions_dtype"] == np.float32:
+    if not rl["actions_dtype"] == jnp.float32:
         rl["preprocess"] = {
             "actions": ("actions_onehot", [OneHot(out_dim=rl["dim_actions"])])
         }
@@ -199,7 +199,7 @@ def _make_scheme(rl):
                       "n_actions": rl["dim_actions"],
                       "n_homes": rl["n_homes"],
                       "episode_limit": rl["episode_limit"],
-                      "actions_dtype": np.float32
+                      "actions_dtype": jnp.float32
                       }
 
 
@@ -326,7 +326,7 @@ def _update_bat_prm(prm):
     if prm['grd']['reactive_power_for_voltage_control'] or not prm['grd']['manage_voltage']:
         c_max_reactive_power = car['max_apparent_power_car'] * car['eta_ch']
     else:
-        c_max_reactive_power = np.sqrt(
+        c_max_reactive_power = jnp.sqrt(
             car['max_apparent_power_car'] ** 2 / (1 + car['pf_passive_homes'] ** 2)
         ) * car['eta_ch']
     if c_max_reactive_power < car['c_max']:
@@ -336,15 +336,15 @@ def _update_bat_prm(prm):
         car['c_max'] = c_max_reactive_power
 
     # have list of car capacities based on capacity and ownership inputs
-    car["caps"] = np.array(
+    car["caps"] = jnp.array(
         car["cap"]) if isinstance(car["cap"], list) \
-        else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
+        else jnp.full(syst["n_homes"], car["cap"], dtype=jnp.float32)
     if "own_car" in car:
         for ext in syst['n_homes_extensions_all']:
             car["own_car" + ext] \
-                = np.ones(syst["n_homes" + ext]) * car["own_car" + ext] \
+                = jnp.ones(syst["n_homes" + ext]) * car["own_car" + ext] \
                 if isinstance(car["own_car" + ext], (int, float)) \
-                else np.array(car["own_car" + ext])
+                else jnp.array(car["own_car" + ext])
 
     car = _load_bat_factors_parameters(paths, car)
 
@@ -355,15 +355,15 @@ def _update_bat_prm(prm):
         if "cap" + ext in car and isinstance(car["cap"], list):
             car["caps" + ext] = car['cap' + ext]
         elif "cap" + ext not in car or car["cap" + ext] is None:
-            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap"])
+            car["caps" + ext] = jnp.full(syst["n_homes" + ext], car["cap"])
         else:
-            car["caps" + ext] = np.full(syst["n_homes" + ext], car["cap" + ext])
+            car["caps" + ext] = jnp.full(syst["n_homes" + ext], car["cap" + ext])
         car["store0" + ext] = car["SoC0"] * car["caps" + ext]
         car["min_charge" + ext] = car["caps" + ext] * max(car["SoCmin"], car["baseld"])
     for ext in syst['n_homes_extensions_all']:
         for info in ['caps', 'store0', 'min_charge']:
-            car[info + ext] = np.where(car["own_car" + ext], car[info + ext], 0)
-    car["phi0"] = np.arctan(car["c_max"])
+            car[info + ext] = jnp.where(car["own_car" + ext], car[info + ext], 0)
+    car["phi0"] = jnp.arctan(car["c_max"])
 
     return car
 
@@ -475,8 +475,8 @@ def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
     if syst['run_mode'] == 1:
-        rl['low_actions'] = np.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
-        rl['high_actions'] = np.array(rl['high_actions'][0: rl["dim_actions_1"]])
+        rl['low_actions'] = jnp.array(rl['all_low_actions'][0: rl["dim_actions_1"]])
+        rl['high_actions'] = jnp.array(rl['high_actions'][0: rl["dim_actions_1"]])
         if not rl["aggregate_actions"]:
             rl["low_action"] = rl["low_actions"]
             rl["high_action"] = rl["high_actions"]
@@ -490,7 +490,7 @@ def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
             rl[key] *= syst["N"]
         if syst['run_mode'] == 1:
             for key in ["low_action", "high_action"]:
-                rl[key] = np.tile(rl[key], syst["N"])
+                rl[key] = jnp.tile(rl[key], syst["N"])
 
 
 def _remove_states_incompatible_with_trajectory(rl):
@@ -539,16 +539,16 @@ def rl_apply_n_homes_test(syst, rl):
             for home_exec in range(syst['n_homes_test']):
                 rl['homes_exec_per_home_train'][home_train].append(home_exec)
                 home_train = home_train + 1 if home_train + 1 < syst['n_homes'] else 0
-        rl['action_selection_its'] = np.max(
+        rl['action_selection_its'] = jnp.max(
             [
                 len(homes_exec_per_home_train)
                 for homes_exec_per_home_train in rl['homes_exec_per_home_train']
             ]
         )
-        rl['action_train_to_exec'] = np.zeros(
+        rl['action_train_to_exec'] = jnp.zeros(
             (rl['action_selection_its'], syst['n_homes'], syst['n_homes_test'])
         )
-        rl['state_exec_to_train'] = np.zeros(
+        rl['state_exec_to_train'] = jnp.zeros(
             (rl['action_selection_its'], syst['n_homes_test'], syst['n_homes'])
         )
         # actions[n_homes_test] = actions[n_homes_train] x [n_homes_train x n_homes_test]
@@ -559,19 +559,19 @@ def rl_apply_n_homes_test(syst, rl):
                     rl['action_train_to_exec'][
                         it, home_train, rl['homes_exec_per_home_train'][home_train][it]
                     ] = 1
-            rl['state_exec_to_train'][it] = np.transpose(rl['action_train_to_exec'][it])
+            rl['state_exec_to_train'][it] = jnp.transpose(rl['action_train_to_exec'][it])
     else:
         rl['action_selection_its'] = 1
-        rl['action_train_to_exec'] = np.ones(
+        rl['action_train_to_exec'] = jnp.ones(
             (rl['action_selection_its'], syst['n_homes'], syst['n_homes_test'])
         )
-        rl['state_exec_to_train'] = np.ones(
+        rl['state_exec_to_train'] = jnp.ones(
             (rl['action_selection_its'], syst['n_homes_test'], syst['n_homes'])
         )
 
-    if rl['type_learning'] == 'facmac':
-        for info in ['action_train_to_exec', 'state_exec_to_train']:
-            rl[info] = th.Tensor(rl[info])
+    # if rl['type_learning'] == 'facmac':
+    #     for info in ['action_train_to_exec', 'state_exec_to_train']:
+    #         rl[info] = th.Tensor(rl[info])
 
     return rl
 
@@ -615,7 +615,7 @@ def _update_rl_prm(prm, initialise_all):
 
     if syst['run_mode'] == 1:
         for ext in syst['n_homes_extensions_all']:
-            rl["default_action" + ext] = np.full(
+            rl["default_action" + ext] = jnp.full(
                 (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
             )
 
@@ -705,7 +705,7 @@ def opt_res_seed_save_paths(prm):
     rl, heat, syst, grd, paths, car, loads = \
         [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
-    if np.all(car['caps'] == car['cap']):
+    if jnp.all(car['caps'] == car['cap']):
         cap_str = car['cap']
     else:
         caps = {}
@@ -735,7 +735,7 @@ def opt_res_seed_save_paths(prm):
         ownership = obj[f'own_{label}']
         if sum(ownership) != len(ownership):
             paths["opt_res_file"] += f"_no_{label}"
-            for home in np.where(ownership == 0)[0]:
+            for home in jnp.where(ownership == 0)[0]:
                 paths["opt_res_file"] += f"_{home}"
 
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
@@ -758,11 +758,11 @@ def opt_res_seed_save_paths(prm):
         paths[file] += ".npy"
 
     if os.path.exists(paths["seeds_file"]):
-        rl["seeds"] = np.load(paths["seeds_file"], allow_pickle=True).item()
+        rl["seeds"] = jnp.load(paths["seeds_file"], allow_pickle=True).item()
         if "_test" not in rl['seeds']:
-            rl['seeds']['_test'] = []
+            rl['seeds']['_test'] = jnp.array([])
     else:
-        rl["seeds"] = {ext: [] for ext in syst['n_homes_extensions_all']}
+        rl["seeds"] = {ext: jnp.array([]) for ext in syst['n_homes_extensions_all']}
     rl["init_len_seeds"] = {}
     for passive_str in ["", "P"]:
         rl["init_len_seeds"][passive_str] = len(rl["seeds"][passive_str])
@@ -796,19 +796,15 @@ def _update_grd_prm(prm):
     # wholesale
     wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
     # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
-    wholesale = [x * 1e-2 for x in np.load(wholesale_path)]
+    wholesale = jnp.load(wholesale_path) * 1e-2
     grd["wholesale_all"] = wholesale
     carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity_file"]
 
     # gCO2/kWh to tCO2/kWh
-    grd["cintensity_all"] = np.load(
-        carbon_intensity_path, allow_pickle=True) * 1e-6
+    grd["cintensity_all"] = jnp.load(carbon_intensity_path, allow_pickle=True) * 1e-6
     # carbon intensity
-    grd["Call"] = [
-        price + carbon * syst["co2tax"]
-        for price, carbon in zip(wholesale, grd["cintensity_all"])
-    ]
-    grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
+    grd["Call"] = wholesale + grd["cintensity_all"] * syst["co2tax"]
+    grd["perc"] = [jnp.percentile(grd["Call"], i) for i in range(0, 101)]
 
     if grd['compare_pandapower_optimisation'] and not grd['manage_voltage']:
         # comparison between optimisation and pandapower is only relevant if simulating voltage.
@@ -859,14 +855,14 @@ def _syst_info(prm):
 
 def _homes_info(loads, syst, gen, heat):
     for ext in syst['n_homes_extensions_all']:
-        gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \
+        gen["own_PV" + ext] = jnp.ones(syst["n_homes" + ext]) \
             if gen["own_PV" + ext] == 1 else gen["own_PV" + ext]
-        heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) * heat["own_heat" + ext] \
+        heat["own_heat" + ext] = jnp.ones(syst["n_homes" + ext]) * heat["own_heat" + ext] \
             if isinstance(heat["own_heat" + ext], int) \
-            else np.array(heat["own_heat" + ext])
+            else jnp.array(heat["own_heat" + ext])
         for ownership in ["own_loads" + ext, "own_flex" + ext]:
             if ownership in loads:
-                loads[ownership] = np.ones(syst["n_homes" + ext]) * loads[ownership] \
+                loads[ownership] = jnp.ones(syst["n_homes" + ext]) * loads[ownership] \
                     if isinstance(loads[ownership], int) else loads[ownership]
 
 

@@ -8,8 +8,9 @@ Created on Tues 14 Dec 15:40:20 2021.
 
 import copy
 
+import jax
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import numpy as np
 import seaborn as sns
 from matplotlib import gridspec
 
@@ -65,7 +66,7 @@ class Action_translator:
         """
         self.car.min_max_charge_t(time_step, date)
         self.initial_processing(loads, home_vars)
-        error = np.zeros(self.n_homes, dtype=bool)
+        error = jnp.zeros(self.n_homes, dtype=bool)
 
         if self.aggregate_actions:
             actions, bool_flex = self.get_aggregate_actions(netp)
@@ -98,7 +99,7 @@ class Action_translator:
         tot_l_flex = loads['l_flex'] + self.heat.potential_E_flex()
 
         # gen to min charge
-        g_to_add0 = np.minimum(home_vars['gen'], s_add_0 / eta_dis)
+        g_to_add0 = jnp.minimum(home_vars['gen'], s_add_0 / eta_dis)
 
         # gen left after contributing to reaching min charge
         g_net_add0 = home_vars['gen'] - g_to_add0
@@ -106,10 +107,10 @@ class Action_translator:
         # required addition to storage for min charge left
         # after contribution from gen
         s_add0_net = s_add_0 - g_to_add0 * eta_ch
-        assert np.all(s_add0_net <= self.car.c_max + 1e-2), \
+        assert jnp.all(s_add0_net <= self.car.c_max + 1e-2), \
             f"s_add0_net {s_add0_net} > self.car.c_max {self.car.c_max}"
         # gen to fixed consumption
-        g_to_fixed = np.minimum(g_net_add0, self.tot_l_fixed)
+        g_to_fixed = jnp.minimum(g_net_add0, self.tot_l_fixed)
 
         # gen left after contributing to fixed consumption
         gnet_fixed = g_net_add0 - g_to_fixed
@@ -118,7 +119,7 @@ class Action_translator:
         lnet_fixed = self.tot_l_fixed - g_to_fixed
 
         # prof to flex consumption
-        g_to_flex = np.minimum(gnet_fixed, tot_l_flex)
+        g_to_flex = jnp.minimum(gnet_fixed, tot_l_flex)
 
         # gen left after contributing to flex consumption
         gnet_flex = gnet_fixed - g_to_flex
@@ -127,32 +128,31 @@ class Action_translator:
         lnet_flex = tot_l_flex - g_to_flex
 
         # gen that can be put in store
-        g_to_store = np.minimum(gnet_flex, potential_charge / eta_ch)
+        g_to_store = jnp.minimum(gnet_flex, potential_charge / eta_ch)
 
         # How much generation left after storing as much as possible
         gnet_store = gnet_flex - g_to_store
-        self.k = {home: {} for home in homes}
 
         # get relevant points in graph
         d = {entry: {} for entry in self.entries}
         action_points, xs = [{} for _ in range(2)]
 
         d['ds']['A'] = - s_avail_dis + s_add_0
-        dsB = np.maximum(- s_avail_dis + s_add_0, - lnet_fixed / eta_dis)
-        d['ds']['B'] = np.where(
-            s_remove_0 > 1e-2, np.minimum(dsB, - s_remove_0), dsB
+        dsB = jnp.maximum(- s_avail_dis + s_add_0, - lnet_fixed / eta_dis)
+        d['ds']['B'] = jnp.where(
+            s_remove_0 > 1e-2, jnp.minimum(dsB, - s_remove_0), dsB
         )
 
         d['ds']['C'] = s_add_0 - s_remove_0
         d['ds']['D'] = s_add_0 - s_remove_0
-        dsE = np.maximum(np.minimum(gnet_flex * eta_ch, potential_charge), s_add_0)
+        dsE = jnp.maximum(jnp.minimum(gnet_flex * eta_ch, potential_charge), s_add_0)
         d['ds']['E'] = [min(dsE[home], - s_remove_0[home])
                         if s_remove_0[home] > 1e-2 else dsE[home] for home in homes]
-        d['ds']['F'] = np.where(s_remove_0 > 1e-2, - s_remove_0, potential_charge)
+        d['ds']['F'] = jnp.where(s_remove_0 > 1e-2, - s_remove_0, potential_charge)
         d['dp']['A'] = - s_avail_dis * eta_dis - g_net_add0 \
             + s_add0_net / eta_ch + self.tot_l_fixed
 
-        dspB = np.where(
+        dspB = jnp.where(
             d['ds']['B'] > 0, s_add0_net / eta_ch, d['ds']['B'] * eta_dis
         )
 
@@ -164,33 +164,36 @@ class Action_translator:
         dpE_dspos = (dsE - eta_ch * (g_to_store + g_to_add0)) / eta_ch \
             + lnet_fixed + lnet_flex - gnet_store
         dpE_dsneg = lnet_fixed + lnet_flex - gnet_flex - eta_dis * s_remove_0
-        d['dp']['E'] = np.where(dsE > 0, dpE_dspos, dpE_dsneg)
+        d['dp']['E'] = jnp.where(dsE > 0, dpE_dspos, dpE_dsneg)
 
         dpF_dspos = (potential_charge - eta_ch * (g_to_add0 + g_to_store)) / eta_ch \
             + lnet_fixed + lnet_flex - gnet_store
         dpF_dsneg = - s_remove_0 * eta_dis + lnet_fixed + lnet_flex - gnet_flex
-        d['dp']['F'] = np.where(d['ds']['F'] >= 0, dpF_dspos, dpF_dsneg)
+        d['dp']['F'] = jnp.where(d['ds']['F'] >= 0, dpF_dspos, dpF_dsneg)
 
         for i in ['A', 'B', 'C']:
             d['c'][i] = self.tot_l_fixed
         for i in ['D', 'E', 'F']:
             d['c'][i] = self.tot_l_fixed + tot_l_flex
         a_dp = d['dp']['F'] - d['dp']['A']
-        a_dp = np.where((- 1e-2 < a_dp) & (a_dp < 0), 0, a_dp)
-        assert len(np.where(a_dp < 0)[0]) == 0, f"a_dp {a_dp}"
+        a_dp = jnp.where((- 1e-2 < a_dp) & (a_dp < 0), 0, a_dp)
+        if jnp.any(a_dp < 0):
+            print()
+        assert not jnp.any(a_dp < 0), f"a_dp {a_dp}"
 
         b_dp = d['dp']['A']
 
-        action_points['A'], action_points['F'] = np.zeros(self.n_homes), np.ones(self.n_homes)
+        action_points['A'], action_points['F'] = jnp.zeros(self.n_homes), jnp.ones(self.n_homes)
         for i in ['B', 'C', 'D', 'E']:
-            action_points[i] = np.zeros(self.n_homes)
+            action_points[i] = jnp.zeros(self.n_homes)
             mask = a_dp > 1e-3
-            action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
+            # action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
+            action_points[i] = jnp.where(mask, (d['dp'][i] - b_dp) / a_dp, action_points[i])
             for home in homes:
                 assert action_points[i][home] > - 5e-3, \
                     f"action_points[{i}][{home}] {action_points[i][home]} < 0"
                 if action_points[i][home] > 1 + 5e-3 and self.car.time_step == self.N:
-                    action_points[i][home] = 1
+                    action_points[i] = action_points[i].at[home].set(1)
                 if action_points[i][home] > 1 + 5e-3:
                     print(
                         f"ERROR: action_points[{i}][{home}] {action_points[i][home]} > 1 "
@@ -206,41 +209,48 @@ class Action_translator:
                         f"self.car.avail_car[home] {self.car.avail_car[home]}"
                         f"loads['l_flex'] {loads['l_flex'][home]}"
                     )
-                    np.save('loads_error', loads)
-                    np.save('home_vars_error', home_vars)
+                    jnp.save('loads_error', loads)
+                    jnp.save('home_vars_error', home_vars)
                     action_points[i][home] = 1
 
                 # assert action_points[i][home] < 1 + 5e-3, \
                 #     f"action_points[{i}][{home}] {action_points[i][home]} > 1 " \
                 #     f"mask {mask[home]} d['dp'][i][mask] {d['dp'][i][mask][home]}
                 #     a_dp {a_dp[home]} b_dp {b_dp[home]}"
-                if - 1e-4 < action_points[i][home] < 0:
-                    action_points[i][home] = 0
-                if 1 < action_points[i][home] < 1 + 5e-3:
-                    action_points[i][home] = 1
+            action_points[i] = jnp.where(
+                (- 5e-3 < action_points[i]) & (action_points[i] < 0),
+                0,
+                action_points[i]
+            )
+            action_points[i] = jnp.where(
+                (1 < action_points[i]) & (action_points[i] < 1 + 5e-3),
+                1,
+                action_points[i]
+            )
         self.d = d
-        self.k, self.action_intervals = [[] for _ in range(2)]
-
+        self.n_ks = jnp.zeros(self.n_homes, dtype=int)
+        self.action_intervals = {home: [] for home in homes}
+        self.k = {entry: {home: [] for home in homes} for entry in self.entries}
         for home in homes:
             self._compute_k(home, a_dp, b_dp, action_points, d)
             assert self.heat.E_heat_min[home] + loads['l_fixed'][home] \
-                   <= self.k[home]['c'][0][1] + 1e-3,\
+                   <= self.k['c'][home][0][1] + 1e-3,\
                    "min c smaller than min required"
-        self.k_dp = np.array([self.k[home]['dp'][0] for home in range(self.n_homes)])
+        self.k_dp = jnp.array([self.k['dp'][home][0] for home in range(self.n_homes)])
 
         # these variables are useful in optimisation_to_rl_env_action and actions_to_env_vars
         # in the case where action variables are not aggregated
-        min_val_ds = np.array(
-            [(self.k[home]['ds'][0][0] * 0 + self.k[home]['ds'][0][1]) for home in homes]
+        min_val_ds = jnp.array(
+            [(self.k['ds'][home][0][0] * 0 + self.k['ds'][home][0][1]) for home in homes]
         )
-        max_val_ds = np.array(
-            [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
+        max_val_ds = jnp.array(
+            [self.k['ds'][home][-1][0] * 1 + self.k['ds'][home][-1][1] for home in homes]
         )
 
-        self.min_charge = np.where(min_val_ds > 0, min_val_ds, 0)
-        self.max_discharge = np.where(min_val_ds < 0, min_val_ds, 0)
-        self.max_charge = np.where(max_val_ds > 0, max_val_ds, 0)
-        self.min_discharge = np.where(max_val_ds < 0, max_val_ds, 0)
+        self.min_charge = jnp.where(min_val_ds > 0, min_val_ds, 0)
+        self.max_discharge = jnp.where(min_val_ds < 0, min_val_ds, 0)
+        self.max_charge = jnp.where(max_val_ds > 0, max_val_ds, 0)
+        self.min_discharge = jnp.where(max_val_ds < 0, max_val_ds, 0)
 
     def actions_to_env_vars(self, loads, home_vars, action, date, time_step):
         """Update variables after non flexible consumption is met."""
@@ -251,23 +261,26 @@ class Action_translator:
         # problem variables
         bool_penalty = self.car.min_max_charge_t(time_step, date)
         for e in ['netp', 'tot_cons']:
-            home_vars[e] = np.zeros(self.n_homes)
+            home_vars[e] = jnp.zeros(self.n_homes)
 
         self.initial_processing(loads, home_vars)
 
         # check initial errors
         self.res = {}
-        [home_vars['bool_flex'], loads['flex_cons'],
-         loads['tot_cons_loads'], self.heat.tot_E] \
-            = [[] for _ in range(4)]
+        [
+            home_vars['bool_flex'], loads['flex_cons'],
+            loads['tot_cons_loads'], self.heat.tot_E
+        ] = [jnp.zeros(self.n_homes) for _ in range(4)]
         self.l_flex = loads['l_flex']
-        flex_heat = np.zeros(self.n_homes)
-        flexible_q_car = np.zeros(self.n_homes)
+        flex_heat = jnp.zeros(self.n_homes)
+        flexible_q_car = jnp.zeros(self.n_homes)
         for home in homes:
             # boolean for whether we have flexibility
-            home_vars['bool_flex'].append(abs(self.k[home]['dp'][0][0]) > 1e-2)
-            if len(np.shape(action)) != 2:
-                action = np.reshape(action, (self.n_homes, -1))
+            home_vars['bool_flex'] = home_vars['bool_flex'].at[home].set(
+                abs(self.k['dp'][home][0][0]) > 1e-2
+            )
+            if len(jnp.shape(action)) != 2:
+                action = jnp.reshape(action, (self.n_homes, -1))
             if self.aggregate_actions:
                 flex_heat = None
                 # update variables for given action
@@ -280,24 +293,26 @@ class Action_translator:
                 for e in self.entries:
                     ik_ = 0 if e == 'dp' else ik
                     # use coefficients to obtain value
-                    res[e] = self.k[home][e][ik_][0] * action[home][0] \
-                        + self.k[home][e][ik_][1]
+                    res[e] = self.k[e][home][ik_][0] * action[home][0] \
+                        + self.k[e][home][ik_][1]
 
                 home_vars['tot_cons'][home] = res['c']
                 home_vars['netp'][home] = res['dp']
                 if res['c'] > loads['l_flex'][home] + self.tot_l_fixed[home]:
-                    loads['flex_cons'].append(loads['l_flex'][home])
+                    loads['flex_cons'] = loads['flex_cons'].at[home].set(loads['l_flex'][home])
                 else:
-                    loads['flex_cons'].append(res['c'] - self.tot_l_fixed[home])
+                    loads['flex_cons'] = loads['flex_cons'].at[home].set(
+                        res['c'] - self.tot_l_fixed[home]
+                    )
                     assert loads['flex_cons'][-1] > - 1e-2, \
                         f"loads['flex_cons'][-1] {loads['flex_cons'][-1]} < 0"
                     if - 1e-2 < loads['flex_cons'][-1] < 0:
-                        loads['flex_cons'][-1] = 0
+                        loads['flex_cons'] = loads['flex_cons'].at[-1].set(0)
             else:
                 if not self.reactive_power_for_voltage_control:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action = action[home]
-                    flexible_q_car[home] = None
+                    flexible_q_car = flexible_q_car.at[home].set(jnp.nan)
                 else:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action, flexible_q_car_action = action[home]
@@ -309,30 +324,36 @@ class Action_translator:
                 # 1 max charge
                 res = {}
                 flexible_cons_action_ = 0 if flexible_cons_action is None else flexible_cons_action
-                loads['flex_cons'].append(flexible_cons_action_ * loads['l_flex'][home])
-                flex_heat[home] = flexible_heat_action * self.heat.potential_E_flex()[home]
-                home_vars['tot_cons'][home] = self.tot_l_fixed[home] \
-                    + loads['flex_cons'][home] \
-                    + flex_heat[home]
+                loads['flex_cons'] = loads['flex_cons'].at[home].set(
+                    flexible_cons_action_ * loads['l_flex'][home]
+                )
+                flex_heat = flex_heat.at[home].set(
+                    flexible_heat_action * self.heat.potential_E_flex()[home]
+                )
+                home_vars['tot_cons'] = home_vars['tot_cons'].at[home].set(
+                    self.tot_l_fixed[home] + loads['flex_cons'][home] + flex_heat[home]
+                )
                 res['c'] = home_vars['tot_cons'][home]
                 res = self._flexible_store_action_to_ds(home, flexible_store_action, res)
 
                 discharge = - res['ds'] * self.car.eta_dis \
                     if res['ds'] < 0 else 0
                 charge = res['ds'] if res['ds'] > 0 else 0
-                home_vars['netp'][home] = loads['flex_cons'][home] \
-                    + loads['l_fixed'][home] \
-                    + self.heat.E_heat_min[home] \
-                    + flex_heat[home] \
-                    + charge - discharge + res['charge_losses'] \
+                home_vars['netp'] = home_vars['netp'].at[home].set(
+                    loads['flex_cons'][home]
+                    + loads['l_fixed'][home]
+                    + self.heat.E_heat_min[home]
+                    + flex_heat[home]
+                    + charge - discharge + res['charge_losses']
                     - home_vars['gen'][home]
+                )
 
                 if self.reactive_power_for_voltage_control:
                     # based on flexible store actions, calculate flexible q_car action
                     # reactive power battery between -1 and 1 where
                     # -1 max export
                     # 1 max import
-                    res['q'] = flexible_q_car_action * np.sqrt(
+                    res['q'] = flexible_q_car_action * jnp.sqrt(
                         (self.max_apparent_power_car + 1e-6) ** 2
                         - (charge - discharge + res['charge_losses']) ** 2
                     )
@@ -340,8 +361,9 @@ class Action_translator:
 
                 res['dp'] = home_vars['netp'][home]
 
-            loads['tot_cons_loads'].append(
-                loads['flex_cons'][home] + loads['l_fixed'][home])
+            loads['tot_cons_loads'] = loads['tot_cons_loads'].at[home].set(
+                loads['flex_cons'][home] + loads['l_fixed'][home]
+            )
             self.res[home] = copy.copy(res)
 
         self.car.actions_to_env_vars(self.res)
@@ -352,9 +374,13 @@ class Action_translator:
         # check for errors
         for home in homes:
             # energy balance
-            e_balance = abs((self.res[home]['dp'] + home_vars['gen'][home]
-                             + self.car.discharge[home] - self.car.charge[home]
-                             - self.car.loss_ch[home] - home_vars['tot_cons'][home]))
+            e_balance = abs(
+                (
+                    self.res[home]['dp'] + home_vars['gen'][home]
+                    + self.car.discharge[home] - self.car.charge[home]
+                    - self.car.loss_ch[home] - home_vars['tot_cons'][home]
+                )
+            )
             assert e_balance <= 1e-2, f"energy balance {e_balance}"
             assert abs(loads['tot_cons_loads'][home] + self.heat.tot_E[home]
                    - home_vars['tot_cons'][home]) <= 1e-3, \
@@ -435,13 +461,17 @@ class Action_translator:
                     sum(self.k[0][e_][i][0] * xs[i] + self.k[0][e_][i][1]
                         for e_ in ['charge_losses', 'discharge_losses']) for i in range(n)]
                 ys[e].append(
-                    sum(self.k[0][e_][-1][0] * xs[-1] + self.k[0][e_][-1][1]
-                        for e_ in ['charge_losses', 'discharge_losses']))
+                    sum(
+                        self.k[e_][0, self.n_ks[0] - 1, 0] * xs[-1]
+                        + self.k[e_][0, self.n_ks[0] - 1, 1]
+                        for e_ in ['charge_losses', 'discharge_losses']
+                    )
+                )
             else:
-                ys[e] = [self.k[0][e][i][0] * xs[i] + self.k[0][e][i][1]
+                ys[e] = [self.k[e][0, i, 0] * xs[i] + self.k[e][0, i, 1]
                          for i in range(n)]
                 ys[e].append(
-                    self.k[0][e][-1][0] * xs[-1] + self.k[0][e][-1][1])
+                    self.k[e][0, self.n_ks[0] - 1, 0] * xs[-1] + self.k[e][0, self.n_ks[0] - 1, 1])
             ax1.plot(xs, ys[e], label=label, linewidth=wd,
                      color=col, zorder=zo)
             if min(ys[e]) < ymin:
@@ -480,7 +510,7 @@ class Action_translator:
             ax1.legend(loc='right', bbox_to_anchor=(2, 0), fancybox=True)
         ax2 = fig.add_subplot(gs[3])
         discharge = [abs(ds) if ds < 0 else 0 for ds in ys['ds']]
-        all_dps = [x * self.k[0]['dp'][0][0] + self.k[0]['dp'][0][1]
+        all_dps = [x * self.k['dp'][0][0][0] + self.k['dp'][0][0][1]
                    for x in self.action_intervals[0]]
         export = [abs(dp) if dp < 0 else 0 for dp in all_dps]
         costs = [loss * 0.1 + self.bat_dep * d + e * self.export_C
@@ -511,14 +541,10 @@ class Action_translator:
         """Get the coefficients of the linear function for the action variable."""
         letters = ['A', 'B', 'C', 'D', 'E', 'F']
 
-        self.k.append({entry: [] for entry in self.entries})
         # reference line - dp
+        self.k['dp'][home].append([a_dp[home], b_dp[home]])
+        self.action_intervals[home].append(0)
 
-        self.k[home]['dp'] = [[a_dp[home], b_dp[home]]]
-        self.action_intervals.append([0])
-
-        for e in ['ds', 'c', 'charge_losses', 'discharge_losses']:
-            self.k[home][e] = []
         for z in range(5):
             l1, l2 = letters[z: z + 2]
             if action_points[l2][home] > action_points[l1][home]:
@@ -529,33 +555,34 @@ class Action_translator:
                             home,
                             self.k,
                             action_points[l1][home],
-                            action_points[l2][home]
+                            action_points[l2][home],
+                            z
                         )
                     else:
                         ad = (d[e][l2][home] - d[e][l1][home]) / \
                              (action_points[l2][home] - action_points[l1][home])
                         bd = d[e][l2][home] - action_points[l2][home] * ad
-                        self.k[home][e].append([ad, bd])
+                        self.k[e][home].append([ad, bd])
 
     def _check_input_types(
             self, loads, home_vars, s_add_0, s_avail_dis, potential_charge, s_remove_0
     ):
         """Check the input types."""
-        assert isinstance(loads['l_fixed'], np.ndarray), \
+        assert isinstance(loads['l_fixed'], jnp.ndarray), \
             f"type(loads['l_fixed']) {type(loads['l_fixed'])}"
-        assert isinstance(loads['l_flex'], np.ndarray), \
+        assert isinstance(loads['l_flex'], jnp.ndarray), \
             f"type(loads['l_flex']) {type(loads['l_flex'])}"
-        assert isinstance(self.heat.E_heat_min, np.ndarray), \
+        assert isinstance(self.heat.E_heat_min, jnp.ndarray), \
             f"type(self.heat.E_heat_min) {type(self.heat.E_heat_min)}"
-        assert isinstance(home_vars['gen'], np.ndarray), \
+        assert isinstance(home_vars['gen'], jnp.ndarray), \
             f"type(home_vars['gen']) = {type(home_vars['gen'])}"
-        assert isinstance(s_add_0, np.ndarray), \
+        assert isinstance(s_add_0, jnp.ndarray), \
             f"type(s_add_0) = {type(s_add_0)}"
-        assert isinstance(s_avail_dis, np.ndarray), \
+        assert isinstance(s_avail_dis, jnp.ndarray), \
             f"type(s_avail_dis) = {type(s_avail_dis)}"
-        assert isinstance(potential_charge, np.ndarray), \
+        assert isinstance(potential_charge, jnp.ndarray), \
             f"type(potential_charge) = {type(potential_charge)}"
-        assert isinstance(s_remove_0, np.ndarray), \
+        assert isinstance(s_remove_0, jnp.ndarray), \
             f"type(s_remove_0) = {type(s_remove_0)}"
 
     def get_flexibility(self):
@@ -565,7 +592,7 @@ class Action_translator:
     def get_store_bool_flex(self):
         """Check that there is flexibility over the storage sub-action."""
         return [
-            abs(self.k[home]['ds'][0][1] - sum(self.k[home]['ds'][-1])) > 1e-3
+            abs(self.k['ds'][home][0][1] - sum(self.k['ds'][home][self.n_ks[home] - 1])) > 1e-3
             for home in range(self.n_homes)
         ]
 
@@ -573,7 +600,7 @@ class Action_translator:
         if self.no_flex_action == 'one':
             action = 1
         elif self.no_flex_action == 'random' or self.type_env == 'discrete':
-            action = np.random.rand()
+            action = jax.random.uniform(self.prm['syst']['jax_random_key'])
         elif self.no_flex_action == 'None':
             action = None
 
@@ -607,11 +634,11 @@ class Action_translator:
 
             if error[home]:
                 print(f"time_step {time_step} action[{home}] = {actions[home]}")
-                np.save('res_error', res)
-                np.save('loads', loads)
-                np.save('E_heat_min', self.heat.E_heat_min)
-                np.save('E_heat_max', self.heat.E_heat_max)
-                np.save('action_error', actions)
+                jnp.save('res_error', res)
+                jnp.save('loads', loads)
+                jnp.save('E_heat_min', self.heat.E_heat_min)
+                jnp.save('E_heat_max', self.heat.E_heat_max)
+                jnp.save('action_error', actions)
 
         actions_none = (self.aggregate_actions and actions[home] is None) \
             or (not self.aggregate_actions
@@ -627,13 +654,13 @@ class Action_translator:
         flexible_store_action, store_bool_flex = self._flex_store_actions(res, time_step)
         if self.reactive_power_for_voltage_control:
             flexible_q_car_action, q_car_bool_flex = self._flex_q_car_actions(res, time_step)
-            actions = np.stack(
+            actions = jnp.stack(
                 (flexible_cons_action, flexible_heat_action, flexible_store_action,
                     flexible_q_car_action), axis=1
             )
             bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex | q_car_bool_flex
         else:
-            actions = np.stack(
+            actions = jnp.stack(
                 (flexible_cons_action, flexible_heat_action, flexible_store_action), axis=1
             )
             bool_flex = loads_bool_flex | heat_bool_flex | store_bool_flex
@@ -647,7 +674,7 @@ class Action_translator:
         cons[cons < 1e-3] = 0
         flex_cons = cons - loads['l_fixed']
         flex_cons[flex_cons < 1e-3] = 0
-        flex_cons = np.where(
+        flex_cons = jnp.where(
             abs(loads['l_flex'] - flex_cons) < 1e-2,
             loads['l_flex'],
             flex_cons
@@ -672,7 +699,7 @@ class Action_translator:
 
         E_heat = res['E_heat'][:, time_step]
         E_heat[E_heat < 1e-3] = 0
-        E_heat = np.where(
+        E_heat = jnp.where(
             abs(E_heat - self.heat.E_heat_min) < 1e-3,
             self.heat.E_heat_min,
             E_heat
@@ -721,7 +748,7 @@ class Action_translator:
         ), f"res efficiency_corrected_discharge {efficiency_corrected_discharge} " \
            f"self.min_discharge] {- self.min_discharge} " \
            f"self.max_discharge] {- self.max_discharge}"
-        flexible_store_actions = np.zeros(self.n_homes)
+        flexible_store_actions = jnp.zeros(self.n_homes)
         for home in range(self.n_homes):
             if store_bool_flex[home]:
                 if abs(res['discharge_other'][home, time_step]) < 1e-3 \
@@ -739,7 +766,7 @@ class Action_translator:
                             res['charge'][home, time_step] - self.min_charge[home]
                         ) / (self.max_charge[home] - self.min_charge[home])
 
-        store_actions = np.where(
+        store_actions = jnp.where(
             store_bool_flex,
             flexible_store_actions,
             no_flex_actions
@@ -750,11 +777,11 @@ class Action_translator:
     def _flex_q_car_actions(self, res, time_step):
         """Compute the flexible battery reactive power action from the optimisation result."""
         no_flex_actions = self._get_no_flex_actions('flexible_q_car_action')
-        flexible_q_car_actions = np.zeros(self.n_homes)
+        flexible_q_car_actions = jnp.zeros(self.n_homes)
         for home in range(self.n_homes):
             active_power = res['charge'][home, time_step] / self.car.eta_ch \
                 - res['discharge_other'][home, time_step]
-            max_q_car_flexibility = np.sqrt(self.max_apparent_power_car ** 2 - active_power ** 2)
+            max_q_car_flexibility = jnp.sqrt(self.max_apparent_power_car ** 2 - active_power ** 2)
             flexible_q_car_actions[home] = \
                 res['q_car_flex'][home, time_step] / max_q_car_flexibility
         # if action is close to zero, consider it to be zero
@@ -763,7 +790,7 @@ class Action_translator:
         q_car_bool_flex = \
             (max_q_car_flexibility > 1e-3) | (max_q_car_flexibility < - 1e-3)
 
-        q_car_actions = np.where(
+        q_car_actions = jnp.where(
             q_car_bool_flex,
             flexible_q_car_actions,
             no_flex_actions
@@ -773,11 +800,11 @@ class Action_translator:
 
     def _get_no_flex_actions(self, action_type):
         if self.no_flex_action == 'one':
-            action = np.ones(self.n_homes)
+            action = jnp.ones(self.n_homes)
         elif self.no_flex_action == 'random' or self.type_env == 'discrete':
-            action = np.random.rand(self.n_homes)
+            action = jax.random.uniform(self.prm['syst']['jax_random_key'], shape=(self.n_homes,))
         elif self.no_flex_action == 'None':
-            action = np.full(self.n_homes, None)
+            action = jnp.full(self.n_homes, None)
 
         min_action, max_action = [
             self.action_info.loc[self.action_info["name"] == action_type, col].values[0]
@@ -797,7 +824,7 @@ class Action_translator:
         assert all(bool_flex | (netp - self.k_dp[:, 1] > - 1e-2)), \
             "netp smaller than k['dp'][0]"
 
-        delta = np.where(
+        delta = jnp.where(
             abs(netp - self.k_dp[:, 1]) < 1e-2,
             0,
             netp - self.k_dp[:, 1]
@@ -810,7 +837,7 @@ class Action_translator:
             for action in actions
         ), f"action should be between 0 and 1 but is {actions}"
 
-        actions = np.reshape(actions, (self.n_homes, 1))
+        actions = jnp.reshape(actions, (self.n_homes, 1))
 
         return actions, bool_flex
 

@@ -13,7 +13,8 @@ from datetime import date, timedelta
 from functools import partial
 from typing import Tuple
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 import torch as th
 from tqdm import tqdm
 
@@ -94,7 +95,9 @@ class Runner:
 
                     # append record
                     for e in ['seed', 'n_not_feas']:
-                        self.record.__dict__[e][repeat][epoch] = train_steps_vals[-1][e]
+                        self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(
+                            train_steps_vals[-1][e]
+                        )
 
                     model_save_time = self._save_nn_model(model_save_time)
 
@@ -115,7 +118,9 @@ class Runner:
 
                 # record
                 for e in ['seed', 'n_not_feas']:
-                    self.record.__dict__[e][repeat][epoch] = eval_steps[e]
+                    self.record.__dict__[e] = self.record.__dict__[e].at[repeat, epoch].set(
+                        eval_steps[e]
+                    )
                 duration_epoch = time.time() - t_start
 
                 # make a list, one exploration after the other
@@ -257,8 +262,9 @@ class Runner:
             self.explorer.ind_seed_deterministic
 
         # Set seeds (for reproduceability)
-        np.random.seed(repeat), random.seed(repeat)
+        random.seed(repeat)
         th.manual_seed(repeat)
+        self.prm['syst']['jax_random_key'] = jax.random.PRNGKey(repeat)
         if self.rl['type_learning'] == 'q_learning' \
                 and self.rl['q_learning']['control_eps'] == 2:
             self.learner.rMT, self.learner.rLT = 0, 0
@@ -283,11 +289,14 @@ class Runner:
             new_date = True if self.prm['syst']['change_start'] else False
         if new_date:
             seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
-            set_seeds_rdn(seed)
-            delta_days = int(np.random.choice(range(
-                (self.prm['syst']['max_date_end_dtm']
-                    - self.prm['syst']['date0_dtm']).days
-                - self.prm['syst']['D'])))
+            self.prm['syst']['jax_random_key'] = set_seeds_rdn(seed)
+            delta_days = int(
+                jax.random.choice(
+                    self.prm['syst']['jax_random_key'],
+                    (self.prm['syst']['max_date_end_dtm'] - self.prm['syst']['date0_dtm']).days
+                    - self.prm['syst']['D']
+                )
+            )
             date0 = self.prm['syst']['date0_dtm'] \
                 + datetime.timedelta(days=delta_days)
             delta = date0 - self.prm['syst']['date0_dtm']
@@ -331,9 +340,9 @@ class Runner:
             for e in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
                 if e not in ['seeds', 'n_not_feas'] \
                         and e in train_steps_vals[0][exploration_methods[0]].keys():
-                    shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][e])
+                    shape0 = jnp.shape(train_steps_vals[0][exploration_methods[0]][e])
                     new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
-                    list_train_stepvals[method][e] = np.full(new_shape, np.nan)
+                    list_train_stepvals[method][e] = jnp.full(new_shape, jnp.nan)
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             try:
@@ -592,7 +601,7 @@ def run(run_mode, settings, no_runs=None):
 
             if prm['RL']['type_learning'] == 'facmac':
                 # Setting the random seed throughout the modules
-                set_seeds_rdn(prm["syst"]["seed"])
+                prm['syst']['jax_random_key'] = set_seeds_rdn(prm["syst"]["seed"])
 
             env = LocalElecEnv(prm)
             # second part of initialisation specifying environment

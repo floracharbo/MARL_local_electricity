@@ -48,19 +48,28 @@ def _barplot(
     else:
         ax = ax0
 
+    print(f"error {error}")
     for ind_e in range(n_evaluation_methods):
         rsir = rs[ind_e]
-        err = None if error is None or not isinstance(error[ind_e], float) else error[ind_e]
-        asym_err = None if error is None or isinstance(error[ind_e], float) else error[ind_e]
+        if error is not None:
+            print(F"error[ind_e] {error[ind_e]}")
+            print(F"np.shape(error[ind_e]) {np.shape(error[ind_e])}")
+            print(F"type(error[ind_e]) {type(error[ind_e])}")
+            print(f"isinstance(error[ind_e], (float, np.float32)) {isinstance(error[ind_e], (float, np.float32))}")
+        err = None if error is None or not isinstance(error[ind_e], (float, np.float32)) else error[ind_e]
+        asym_err = None if error is None or isinstance(error[ind_e], (float, np.float32)) else error[ind_e]
+        print(f"asym_err {asym_err}")
+        print(f"err {err}")
         barplot = bars[ind_e]
         barplot = barplot - baseline if title[0:7] == 'Average' else barplot
-
-        if asym_err is not None:
-            ax.errorbar(
-                rsir, barplot, yerr=np.reshape(asym_err, (2, 1)),
-                fmt='.', ecolor=colours[ind_e]
-            )
-        else:
+        # err = error[ind_e]
+        # if asym_err is not None:
+        #     ax.errorbar(
+        #         rsir, barplot, yerr=np.reshape(asym_err, (2, 1)),
+        #         fmt='.', ecolor=colours[ind_e]
+        #     )
+        # else:
+        if True:
             ax.bar(
                 rsir, barplot, yerr=err, capsize=10, width=barWidth,
                 edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e]
@@ -162,12 +171,14 @@ def barplot_metrics(prm, lower_bound, upper_bound):
                     'DT': [1, 2]
                     }
     for plot_type in ['indivs', 'subplots']:
+        print(f'Plotting {plot_type} barplots')
         if plot_type == 'subplots':
             fig, axs = plt.subplots(2, 3)
         all_metrics_entries \
             = prm["RL"]["metrics_entries"] \
             + [m + '_p50' for m in prm["RL"]["metrics_entries"][0:4]]
         for m in all_metrics_entries:
+            print(f'Plotting {m}...')
             eval_entries_bars_ = eval_entries_bars
             ave = 'ave'
             m_ = m
@@ -197,12 +208,46 @@ def barplot_metrics(prm, lower_bound, upper_bound):
             ub = upper_bound if m_ == 'end' else None
             display_ticks = False if m_ == 'end' else True
             if plot_type == 'indivs':
+                # Print the shape of each input using np.shape()
+                print("Shape of bars:", np.shape(bars))
+                print("Shape of eval_entries_bars_:", np.shape(eval_entries_bars_))
+                print("Shape of prm:", np.shape(prm))
+                print("Shape of baseline:", np.shape(baseline))
+                print("Shape of opt:", np.shape(opt))
+                print("Shape of colours_barplot_:", np.shape(colours_barplot_))
+                print("Shape of err:", np.shape(err))
+                print("Shape of titles:", np.shape(titles))
+                print("Shape of m_:", np.shape(m_))
+                print("Shape of display_legend:", np.shape(display_legend))
+                print("Shape of display_title:", np.shape(display_title))
+                print("Shape of lb:", np.shape(lb))
+                print("Shape of ub:", np.shape(ub))
+                print("Shape of display_ticks:", np.shape(display_ticks))
+
+                # Save each input using np.save()
+                np.save("bars.npy", bars)
+                np.save("eval_entries_bars_.npy", eval_entries_bars_)
+                np.save("prm.npy", prm)
+                np.save("baseline.npy", baseline)
+                np.save("opt.npy", opt)
+                np.save("colours_barplot_.npy", colours_barplot_)
+                np.save("err.npy", err)
+                np.save("titles.npy", titles)
+                np.save("m_.npy", m_)
+                np.save("display_legend.npy", display_legend)
+                np.save("display_title.npy", display_title)
+                np.save("lb.npy", lb)
+                np.save("ub.npy", ub)
+                np.save("display_ticks.npy", display_ticks)
+                print(f"err {err}")
+                print(f"type(err) {type(err)}")
                 fig = _barplot(
                     bars, eval_entries_bars_, prm, baseline=baseline,
                     opt=opt, colours=colours_barplot_, error=err,
                     title=titles[m_], display_legend=display_legend,
                     display_title=display_title, lower_bound=lb,
-                    upper_bound=ub, display_ticks=display_ticks)
+                    upper_bound=ub, display_ticks=display_ticks
+                )
                 formatting_figure(
                     prm, fig=fig, title=m,
                     legend=False,
@@ -213,6 +258,7 @@ def barplot_metrics(prm, lower_bound, upper_bound):
             elif plot_type == 'subplots':
                 if m in subplots_i_j:
                     i, j = subplots_i_j[m]
+                    print(f"subplots {m} err {err}")
                     axs[i, j] = _barplot(
                         bars, eval_entries_bars_, prm,
                         baseline=baseline, opt=opt,
@@ -220,7 +266,8 @@ def barplot_metrics(prm, lower_bound, upper_bound):
                         title=m, display_legend=display_legend,
                         display_title=display_title, lower_bound=lb,
                         upper_bound=ub, display_ticks=display_ticks,
-                        ax0=axs[i, j])
+                        ax0=axs[i, j]
+                    )
                     if j == 0:
                         axs[i, j].set_ylabel('£/home/h')
 

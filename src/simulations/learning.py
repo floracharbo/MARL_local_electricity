@@ -6,6 +6,7 @@ author: Flora Charbonnier
 
 from typing import List
 
+import jax.numpy as jnp
 import numpy as np
 import torch as th
 
@@ -49,8 +50,8 @@ class LearningManager:
         if self.rl['type_learning'] == 'facmac':
             post_transition_data = {
                 "actions": action,
-                "reward": th.from_numpy(np.array(reward)),
-                "terminated": th.from_numpy(np.array(done)),
+                "reward": th.from_numpy(np.asarray(reward)),
+                "terminated": th.from_numpy(np.asarray(done)),
             }
 
             self.should_optimise_for_supervised_loss(epoch, step_vals)
@@ -58,19 +59,19 @@ class LearningManager:
                 if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action']
                 else:
-                    post_transition_data["optimal_actions"] = np.full(
+                    post_transition_data["optimal_actions"] = jnp.full(
                         (self.N, self.n_homes, self.rl['dim_actions_1']), - 1
                     )
             else:
                 if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
                 else:
-                    post_transition_data["optimal_actions"] = np.full(
-                        np.shape(step_vals['baseline']['action'][step]),
+                    post_transition_data["optimal_actions"] = jnp.full(
+                        jnp.shape(step_vals['baseline']['action'][step]),
                         -1
                     )
             post_transition_data["optimal_actions"] = th.from_numpy(
-                post_transition_data["optimal_actions"]
+                np.asarray(post_transition_data["optimal_actions"])
             )
             self.episode_batch[method].update(post_transition_data, ts=step)
 
@@ -81,7 +82,7 @@ class LearningManager:
                 self._learning_difference_rewards(
                     step_vals['diff_rewards'][step], current_state, action, state, method
                 )
-            elif type(reward) in [float, int, np.float64]:
+            elif type(reward) in [float, int, jnp.float64]:
                 self._learning_total_rewards(
                     reward, current_state, action, state, method
                 )
@@ -95,7 +96,7 @@ class LearningManager:
 
     def _learn_trajectory_opt_facmac(self, step_vals, epoch):
         states, actions = [
-            np.array(step_vals["opt"][e][0: self.N]) for e in ["state", "action"]
+            jnp.array(step_vals["opt"][e][0: self.N]) for e in ["state", "action"]
         ]
         traj_reward = sum(step_vals["opt"]["reward"][0: self.N])
 
@@ -108,14 +109,14 @@ class LearningManager:
         }
         post_transition_data = {
             "actions": th.from_numpy(actions),
-            "reward": th.from_numpy(np.array(traj_reward)),
-            "terminated": th.from_numpy(np.array(True)),
+            "reward": th.from_numpy(jnp.array(traj_reward)),
+            "terminated": th.from_numpy(jnp.array(True)),
         }
         if self.should_optimise_for_supervised_loss(epoch, step_vals):
             post_transition_data["optimal_actions"] = th.from_numpy(step_vals['opt']['action'])
         else:
-            post_transition_data["optimal_actions"] = th.from_numpy(np.full(
-                np.shape(step_vals['opt']['action']),
+            post_transition_data["optimal_actions"] = th.from_numpy(jnp.full(
+                jnp.shape(step_vals['opt']['action']),
                 -1
             ))
 
@@ -130,7 +131,7 @@ class LearningManager:
         else:
             for home in self.homes:
                 states_a, next_states_a = [
-                    np.reshape(
+                    jnp.reshape(
                         [step_vals["opt"][e][time_step][home] for time_step in range(self.N)],
                         self.rl["dim_states"]
                     ) for e in ["state", "next_state"]

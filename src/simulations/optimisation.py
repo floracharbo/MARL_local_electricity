@@ -10,7 +10,7 @@ Created on Tue Jan  7 17:10:28 2020.
 
 import copy
 
-import numpy as np
+import jax.numpy as jnp
 import picos as pic
 
 from src.simulations.optimisation_post_processing import (
@@ -55,7 +55,7 @@ class Optimiser:
 
     def _solve_line_losses_iteration(self):
         it = 0
-        self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
+        self.input_hourly_lij = jnp.zeros((self.grd['n_lines'], self.N))
         res, _, constl_consa_constraints, constl_loads_constraints = self._problem()
         perform_checks = False
         res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
@@ -65,7 +65,7 @@ class Optimiser:
             if self.n_homesP > 0:
                 netp0 = self.loads['netp0'][:, time_step]
             else:
-                netp0 = np.zeros([1, self.N])
+                netp0 = jnp.zeros([1, self.N])
             grdCt = self.grd['C'][time_step]
             res = self.compare_optimiser_pandapower(
                 res, time_step, netp0, grdCt)
@@ -88,7 +88,7 @@ class Optimiser:
                 if self.n_homesP > 0:
                     netp0 = self.loads['netp0'][:, time_step]
                 else:
-                    netp0 = np.zeros(1)
+                    netp0 = jnp.zeros(1)
                 grdCt = self.grd['C'][time_step]
                 res = self.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt)
@@ -125,14 +125,14 @@ class Optimiser:
                   f"= {res['constl(0, 0)'][0][0]}")
             if prm['grd']['loads'][0][0][0] < res['constl(0, 0)'][0][0]:
                 print('fixed loads smaller than fixed consumption home=0 time=0')
-            if abs(np.sum(res['totcons']) - np.sum(res['E_heat'])
-                   - np.sum(prm['grd']['loads'])) > 1e-3:
+            if abs(jnp.sum(res['totcons']) - jnp.sum(res['E_heat'])
+                   - jnp.sum(prm['grd']['loads'])) > 1e-3:
                 print(f"tot load cons "
-                      f"{np.sum(res['totcons']) - np.sum(res['E_heat'])} "
-                      f"not equal to loads {np.sum(prm['loads'])}")
+                      f"{jnp.sum(res['totcons']) - jnp.sum(res['E_heat'])} "
+                      f"not equal to loads {jnp.sum(prm['loads'])}")
             prm['car']['etach'] = efficiencies(
                 res, prm, prm['car']['caps'])
-            deltamax = np.amax(abs(prm['car']['etach'] - eta_old))
+            deltamax = jnp.amax(abs(prm['car']['etach'] - eta_old))
         prm['car']['etach'] = init_eta
         prm['car']['eff'] = 1
 
@@ -258,7 +258,7 @@ class Optimiser:
             p.add_list_of_constraints(
                 [q_ext_grid[time_step]
                     == pic.sum(netq_flex[:, time_step])
-                    + pic.sum(np.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
+                    + pic.sum(jnp.diag(self.grd['line_reactance'], k=0) * lij[:, time_step])
                     * self.per_unit_to_kW_conversion
                     + sum(self.prm['loads']['q_heat_home_car_passive'][:, time_step])
                     for time_step in range(self.N)])
@@ -267,9 +267,9 @@ class Optimiser:
                 [
                     pi[1:, time_step]
                     == - self.grd['incidence_matrix'][1:, :] * pij[:, time_step]
-                    + np.matmul(
+                    + jnp.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
-                        np.diag(self.grd['line_resistance'], k=0)
+                        jnp.diag(self.grd['line_resistance'], k=0)
                     ) * lij[:, time_step]
                     for time_step in range(self.N)
                 ]
@@ -279,9 +279,9 @@ class Optimiser:
             p.add_list_of_constraints(
                 [
                     qi[1:, time_step] == - self.grd['incidence_matrix'][1:, :] * qij[:, time_step]
-                    + np.matmul(
+                    + jnp.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
-                        np.diag(self.grd['line_reactance'], k=0)
+                        jnp.diag(self.grd['line_reactance'], k=0)
                     ) * lij[:, time_step]
                     for time_step in range(self.N)
                 ]
@@ -298,19 +298,19 @@ class Optimiser:
                     voltage_squared[1:, time_step] == self.grd['bus_connection_matrix'][1:, :]
                     * voltage_squared[:, time_step]
                     + 2 * (
-                        np.matmul(
+                        jnp.matmul(
                             self.grd['in_incidence_matrix'][1:, :],
-                            np.diag(self.grd['line_resistance'], k=0)
+                            jnp.diag(self.grd['line_resistance'], k=0)
                         )
                         * pij[:, time_step]
-                        + np.matmul(
+                        + jnp.matmul(
                             self.grd['in_incidence_matrix'][1:, :],
-                            np.diag(self.grd['line_reactance'], k=0)
+                            jnp.diag(self.grd['line_reactance'], k=0)
                         ) * qij[:, time_step]
-                    ) - np.matmul(
+                    ) - jnp.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
-                        np.diag(np.square(self.grd['line_resistance']))
-                        + np.diag(np.square(self.grd['line_reactance']))
+                        jnp.diag(jnp.square(self.grd['line_resistance']))
+                        + jnp.diag(jnp.square(self.grd['line_reactance']))
                     ) * lij[:, time_step]
                     for time_step in range(self.N)
                 ]
@@ -336,7 +336,7 @@ class Optimiser:
             p.add_list_of_constraints(
                 [
                     line_losses_pu[:, time_step]
-                    == np.diag(self.grd['line_resistance']) * lij[:, time_step]
+                    == jnp.diag(self.grd['line_resistance']) * lij[:, time_step]
                     for time_step in range(self.N)
                 ]
             )
@@ -345,7 +345,7 @@ class Optimiser:
             p.add_list_of_constraints(
                 [q_ext_grid[time_step]
                     == pic.sum(netq_flex[:, time_step])
-                    + sum(np.matmul(np.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
+                    + sum(jnp.matmul(jnp.diag(self.grd['line_reactance'], k=0), lij[:, time_step]))
                     * self.per_unit_to_kW_conversion
                     + sum(self.prm['loads']['q_heat_home_car_passive'][:, time_step])
                     for time_step in range(self.N)])
@@ -355,9 +355,9 @@ class Optimiser:
                 [
                     pi[1:, time_step]
                     == - self.grd['incidence_matrix'][1:, :] * pij[:, time_step]
-                    + np.matmul(np.matmul(
+                    + jnp.matmul(jnp.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
-                        np.diag(self.grd['line_resistance'], k=0)
+                        jnp.diag(self.grd['line_resistance'], k=0)
                     ), lij[:, time_step])
                     for time_step in range(self.N)
                 ]
@@ -367,9 +367,9 @@ class Optimiser:
             p.add_list_of_constraints(
                 [
                     qi[1:, time_step] == - self.grd['incidence_matrix'][1:, :] * qij[:, time_step]
-                    + np.matmul(np.matmul(
+                    + jnp.matmul(jnp.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
-                        np.diag(self.grd['line_reactance'], k=0)
+                        jnp.diag(self.grd['line_reactance'], k=0)
                     ), lij[:, time_step])
                     for time_step in range(self.N)
                 ]
@@ -380,19 +380,19 @@ class Optimiser:
                     voltage_squared[1:, time_step] == self.grd['bus_connection_matrix'][1:, :]
                     * voltage_squared[:, time_step]
                     + 2 * (
-                        np.matmul(
+                        jnp.matmul(
                             self.grd['in_incidence_matrix'][1:, :],
-                            np.diag(self.grd['line_resistance'], k=0)
+                            jnp.diag(self.grd['line_resistance'], k=0)
                         )
                         * pij[:, time_step]
-                        + np.matmul(
+                        + jnp.matmul(
                             self.grd['in_incidence_matrix'][1:, :],
-                            np.diag(self.grd['line_reactance'], k=0)
+                            jnp.diag(self.grd['line_reactance'], k=0)
                         ) * qij[:, time_step]
-                    ) - np.matmul(np.matmul(
+                    ) - jnp.matmul(jnp.matmul(
                         self.grd['in_incidence_matrix'][1:, :],
-                        np.diag(np.square(self.grd['line_resistance']))
-                        + np.diag(np.square(self.grd['line_reactance']))
+                        jnp.diag(jnp.square(self.grd['line_resistance']))
+                        + jnp.diag(jnp.square(self.grd['line_reactance']))
                     ), lij[:, time_step])
                     for time_step in range(self.N)
                 ]
@@ -400,7 +400,7 @@ class Optimiser:
             # hourly line losses
             p.add_list_of_constraints([
                 line_losses_pu[:, time_step]
-                == np.matmul(np.diag(self.grd['line_resistance']), lij[:, time_step])
+                == jnp.matmul(jnp.diag(self.grd['line_resistance']), lij[:, time_step])
                 for time_step in range(self.N)
             ])
 
@@ -442,8 +442,8 @@ class Optimiser:
         # constraints
         # substation energy balance
         self.loads['hourly_tot_netp0'] = \
-            np.sum(self.loads['netp0'], axis=0) if len(self.loads['netp0']) > 0 \
-            else np.zeros(self.N)
+            jnp.sum(self.loads['netp0'], axis=0) if len(self.loads['netp0']) > 0 \
+            else jnp.zeros(self.N)
         p.add_list_of_constraints(
             [
                 grid[time_step]
@@ -558,8 +558,8 @@ class Optimiser:
         p.add_constraint(
             battery_degradation_costs == self.car['C']
             * (pic.sum(discharge_tot) + pic.sum(charge)
-               + np.sum(self.loads['discharge_tot0'])
-               + np.sum(self.loads['charge0']))
+               + jnp.sum(self.loads['discharge_tot0'])
+               + jnp.sum(self.loads['charge0']))
         )
         p.add_constraint(store <= self.grd['Bcap'])
         p.add_constraint(car['c_max'] >= charge)
@@ -581,7 +581,7 @@ class Optimiser:
                 (self.n_homes, self.N),
                 vtype='continuous'
             )
-            self.loads['netp0_export'] = np.where(
+            self.loads['netp0_export'] = jnp.where(
                 self.loads['netp0'] < 0,
                 abs(self.loads['netp0']),
                 0
@@ -592,7 +592,7 @@ class Optimiser:
             # distribution costs
             p.add_constraint(
                 distribution_network_export_costs
-                == grd['export_C'] * (pic.sum(netp_export) + np.sum(self.loads['netp0_export']))
+                == grd['export_C'] * (pic.sum(netp_export) + jnp.sum(self.loads['netp0_export']))
             )
 
         else:
@@ -600,7 +600,7 @@ class Optimiser:
             netp2 = p.add_variable(
                 'netp2', (self.n_homes, self.N), vtype='continuous'
             )
-            sum_netp0_squared = np.sum(np.square(self.loads['netp0']))
+            sum_netp0_squared = jnp.sum(jnp.square(self.loads['netp0']))
             for home in range(self.n_homes):
                 p.add_list_of_constraints(
                     [netp2[home, time_step] >= netp[home, time_step] * netp[home, time_step]
@@ -631,7 +631,7 @@ class Optimiser:
         for load_type in range(self.loads['n_types']):
             consa.append(p.add_variable('consa({0})'.format(load_type), (self.n_homes, self.N)))
         constl = {}
-        tlpairs = comb(np.array([self.N, self.loads['n_types']]))
+        tlpairs = comb(jnp.array([self.N, self.loads['n_types']]))
         for tl in tlpairs:
             constl[tl] = p.add_variable('constl{0}'.format(tl), (self.n_homes, self.N))
 
@@ -783,12 +783,14 @@ class Optimiser:
             p.add_constraint(hourly_import_costs >= 0)
             p.add_constraint(
                 hourly_import_costs
-                >= self.grd['penalty_import'] * (grid_in * self.syst['n_int_per_hr'] - self.grd['max_grid_import'])
+                >= self.grd['penalty_import']
+                * (grid_in * self.syst['n_int_per_hr'] - self.grd['max_grid_import'])
             )
             p.add_constraint(hourly_export_costs >= 0)
             p.add_constraint(
                 hourly_export_costs
-                >= self.grd['penalty_export'] * (grid_out * self.syst['n_int_per_hr'] - self.grd['max_grid_export'])
+                >= self.grd['penalty_export']
+                * (grid_out * self.syst['n_int_per_hr'] - self.grd['max_grid_export'])
             )
             p.add_constraint(
                 import_export_costs == pic.sum(hourly_import_costs) + pic.sum(hourly_export_costs)

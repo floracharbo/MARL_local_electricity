@@ -6,9 +6,9 @@ from itertools import chain
 from pathlib import Path
 from textwrap import wrap
 
+import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import yaml
 from tqdm import tqdm
@@ -44,7 +44,7 @@ def remove_nans_best_scores_sorted(values_of_interest_sorted, best_scores_sorted
     new_values_of_interest_sorted = {}
     for k in ['all', 'env']:
         i_not_nans = [
-            i for i, y in enumerate(best_scores_sorted[k][best_score_type]) if not np.isnan(y)
+            i for i, y in enumerate(best_scores_sorted[k][best_score_type]) if not jnp.isnan(y)
         ]
         for key in best_scores_sorted[k]:
             best_scores_sorted[k][key] = [best_scores_sorted[k][key][i] for i in i_not_nans]
@@ -68,12 +68,12 @@ def fix_learning_specific_values(log):
 
     # gaussian_params = ['start_steps', 'act_noise']
     # for param in gaussian_params:
-    #     log[f'RL-{param}'] = np.where(
+    #     log[f'RL-{param}'] = jnp.where(
     #     log['RL-exploration_mode'] != 'gaussian', 0, log[f"RL-{param}"]
     #     )
     # ou_params = ['ou_theta', 'ou_sigma', 'ou_noise_scale', 'ou_stop_episode']
     # for param in ou_params:
-    #     log[f'RL-{param}'] = np.where(
+    #     log[f'RL-{param}'] = jnp.where(
     #     log['RL-exploration_mode'] != 'ornstein_uhlenbeck', 0, log[f'RL-{param}']
     #     )
 
@@ -156,7 +156,7 @@ def get_list_all_fields(results_path):
         path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
         there_are_figures = len(os.listdir(results_path / f"run{result_no}" / 'figures')) > 0
         if path_prm.is_file() and there_are_figures:
-            prm = np.load(path_prm, allow_pickle=True).item()
+            prm = jnp.load(path_prm, allow_pickle=True).item()
             for key, val in prm.items():
                 if key not in ignore:
                     for subkey, subval in val.items():
@@ -183,7 +183,7 @@ def get_names_evaluation_methods(results_path, result_nos):
     while not evaluation_methods_found and it < len(result_nos):
         it += 1
         path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
-        metrics0 = np.load(path_metrics0, allow_pickle=True).item()
+        metrics0 = jnp.load(path_metrics0, allow_pickle=True).item()
         keys_methods_run = list(metrics0['end_test_bl'][best_score_type].keys())
         for method in keys_methods_run:
             if method not in keys_methods:
@@ -376,7 +376,7 @@ def get_own_items_from_prm(prm, key, subkey):
         prm[key][subkey] = 1
     elif prm[key][subkey] is None:
         prm[key][subkey] = 1
-    elif isinstance(prm[key][subkey], (np.ndarray, list)):
+    elif isinstance(prm[key][subkey], (jnp.ndarray, list)):
         prm[key][subkey] = \
             sum(prm[key][subkey]) / prm['syst']['n_homes' + ext] \
             if prm['syst']['n_homes' + ext] > 0 \
@@ -443,7 +443,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
     path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
 
     if path_prm.is_file():
-        prm = np.load(path_prm, allow_pickle=True).item()
+        prm = jnp.load(path_prm, allow_pickle=True).item()
         if 'type_learning' not in prm['RL']:
             os.remove(path_prm)
             return None
@@ -467,7 +467,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                     row.append(list_obs_to_str(prm[key][subkey]))
                 elif subkey == 'caps':
                     x = prm[key][subkey]
-                    row.append(int(x[0]) if isinstance(x, np.ndarray) and all(
+                    row.append(int(x[0]) if isinstance(x, jnp.ndarray) and all(
                         x[i] == x[0] for i in range(len(x))) else get_caps_str(x))
                 else:
                     row.append(prm[key][subkey] if subkey in prm[key] else None)
@@ -497,7 +497,7 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
     path_metrics = results_path / f"run{result_no}" / 'figures' / 'metrics.npy'
     if row is not None and path_metrics.is_file():
         # now add results
-        metrics = np.load(path_metrics, allow_pickle=True).item()
+        metrics = jnp.load(path_metrics, allow_pickle=True).item()
         for method in keys_methods:
             method_ = method
             if method not in metrics['end_test_bl'][best_score_type]:
@@ -602,8 +602,8 @@ def check_that_only_grdCn_changes_in_state_space(
         indexes_ignore += indexes_columns_ignore_q_learning
     only_col_of_interest_changes_without_state_space = all(
         current_col == row_col or (
-            not isinstance(current_col, str) and np.isnan(current_col)
-            and not isinstance(row_col, str) and np.isnan(row_col))
+            not isinstance(current_col, str) and jnp.isnan(current_col)
+            and not isinstance(row_col, str) and jnp.isnan(row_col))
         for i, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
         if i not in indexes_ignore
     )
@@ -707,11 +707,11 @@ def get_indexes_to_ignore_in_setup_comparison(
             i_n_homes_test = other_columns.index('n_homes_test')
             row_n_homes = log[column_of_interest].loc[row]
             initial_setup_row_n_hommes = log[column_of_interest].loc[initial_setup_row]
-            # if n_homes_test = n_homes set as np.nan so as to ignore it changing with n_homes
+            # if n_homes_test = n_homes set as jnp.nan so as to ignore it changing with n_homes
             if current_setup[i_n_homes_test] == initial_setup_row_n_hommes:
-                current_setup[i_n_homes_test] = np.nan
+                current_setup[i_n_homes_test] = jnp.nan
             if row_setup[i_n_homes_test] == row_n_homes:
-                row_setup[i_n_homes_test] = np.nan
+                row_setup[i_n_homes_test] = jnp.nan
         if column_of_interest in ['n_homesP', 'n_homes_test']:
             indexes_ignore.append(other_columns.index('share_active_test'))
     else:
@@ -792,8 +792,8 @@ def compare_all_runs_for_column_of_interest(
                 )
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
-                        (not isinstance(current_col, str) and np.isnan(current_col))
-                        and (not isinstance(row_col, str) and np.isnan(row_col))
+                        (not isinstance(current_col, str) and jnp.isnan(current_col))
+                        and (not isinstance(row_col, str) and jnp.isnan(row_col))
                     )
                     for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
                     if i_col not in indexes_ignore
@@ -866,7 +866,7 @@ def compare_all_runs_for_column_of_interest(
                     assert len(i_sorted) == len(values_of_interest)
                     assert all(i in i_sorted for i in range(len(values_of_interest)))
                 else:
-                    i_sorted = np.argsort(values_of_interest)
+                    i_sorted = jnp.argsort(values_of_interest)
                 values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
                 best_scores_sorted = {k: {} for k in ['all', 'env']}
                 for k in ['all', 'env']:
@@ -915,7 +915,7 @@ def compare_all_runs_for_column_of_interest(
                         )
                         axs[ax_i].legend()
 
-                    i_best = np.argmax(best_scores_sorted[k][best_score_type])
+                    i_best = jnp.argmax(best_scores_sorted[k][best_score_type])
                     axs[ax_i].plot(
                         values_of_interest_sorted_k[k][i_best],
                         best_scores_sorted[k][best_score_type][i_best],
@@ -976,9 +976,9 @@ def adapt_figure_for_state_space(state_space_vals, axs):
         if label not in all_x_labels:
             all_x_labels.append(label)
 
-    all_best_vals = np.empty((len(x_labels), len(all_x_labels)))
-    all_env_vals = np.empty((len(x_labels), len(all_x_labels)))
-    all_time_vals = np.empty((len(x_labels), len(all_x_labels)))
+    all_best_vals = jnp.empty((len(x_labels), len(all_x_labels)))
+    all_env_vals = jnp.empty((len(x_labels), len(all_x_labels)))
+    all_time_vals = jnp.empty((len(x_labels), len(all_x_labels)))
 
     for i in range(len(x_labels)):
         for j in range(len(x_labels[i])):
@@ -989,7 +989,7 @@ def adapt_figure_for_state_space(state_space_vals, axs):
 
     plt.close()
 
-    i_sorted = np.argsort(all_x_labels)
+    i_sorted = jnp.argsort(all_x_labels)
     x_labels_sorted = [all_x_labels[i] for i in i_sorted]
 
     fig, axs = plt.subplots(3, 1, figsize=(6.4, 11))
@@ -998,13 +998,13 @@ def adapt_figure_for_state_space(state_space_vals, axs):
         env_sorted = [env[i] for i in i_sorted]
         time_sorted = [time[i] for i in i_sorted]
         p = axs[0].plot(x_labels_sorted, best_sorted, 'o', label=i + 1, markerfacecolor='None')
-        i_best = np.argmax(best_sorted)
+        i_best = jnp.argmax(best_sorted)
         axs[0].plot(
             x_labels_sorted[i_best], best_sorted[i_best],
             'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
         )
         p = axs[1].plot(x_labels_sorted, env_sorted, 'o', label=i + 1, markerfacecolor='None')
-        i_best = np.argmax(env_sorted)
+        i_best = jnp.argmax(env_sorted)
         axs[0].plot(
             x_labels_sorted[i_best], env_sorted[i_best],
             'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
@@ -1019,7 +1019,7 @@ def add_table_legend(setups, fig, varied_columns, column_of_interest, other_colu
     height_intra_row = 0.11
     if len(setups) > 1:
         col0 = ['\n'.join(wrap(col, 12)) for col in varied_columns if col != 'n']
-        setups_nos = np.array(list(range(len(setups)))) + 1
+        setups_nos = jnp.array(list(range(len(setups)))) + 1
         column_names = [''] + list(setups_nos)
         values = [
             [
@@ -1028,8 +1028,8 @@ def add_table_legend(setups, fig, varied_columns, column_of_interest, other_colu
             ]
             for column in varied_columns if column != 'n'
         ]
-        table_body = np.concatenate(
-            [np.reshape(col0, (len(col0), 1)), np.reshape(values, (np.shape(values)))],
+        table_body = jnp.concatenate(
+            [jnp.reshape(col0, (len(col0), 1)), jnp.reshape(values, (jnp.shape(values)))],
             axis=1
         )
         df = pd.DataFrame(table_body, columns=column_names)

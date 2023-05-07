@@ -8,7 +8,8 @@ tabular Q learner
 """
 import math
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 
 from src.utilities.userdeftools import (data_source, distr_learning,
                                         initialise_dict,
@@ -43,23 +44,22 @@ class TabularQLearner:
         """ for each repeat, reinitialise q_tables and counters """
         for method in self.rl['type_Qs']:
             str_frame = 'all' if distr_learning(method) in ['Cc0', 'Cd0'] else '1'
-            shape = [self.n_states[str_frame], self.n_actions[str_frame]]
             if self.rl['initialise_q'] == 'random':
-                minq, maxq = np.load('minq.npy'), np.load('maxq.npy')
-                np.random.seed(self.rand_init_seed)
+                minq, maxq = jnp.load('minq.npy'), jnp.load('maxq.npy')
+                # jnp.random.seed(self.rand_init_seed)
+                self.prm['syst']['jax_random_key'] = jax.random.PRNGKey(self.rand_init_seed)
             self.rand_init_seed += 1
             n_homes = self.n_agents if (
                 distr_learning(method) in ['d', 'Cd', 'd0']
                 or self.rl['competitive']
             ) else 1
+            shape = (n_homes, self.n_states[str_frame], self.n_actions[str_frame])
             if method[-1] == 'n' or self.rl['initialise_q'] == 'zeros':
                 # this is a count = copy of corresponding counter;
-                self.q_tables[method] = [np.zeros(shape) for _ in range(n_homes)]
+                self.q_tables[method] = jnp.zeros(shape)
             else:  # this is a normal q table - make random initialisation
-                self.q_tables[method] = \
-                    [np.random.uniform(low=minq, high=maxq, size=shape)
-                     for _ in range(n_homes)]
-            self.counter[method] = [np.zeros(shape) for _ in range(n_homes)]
+                self.q_tables[method] = jax.random.uniform(minval=minq, maxval=maxq, shape=shape)
+            self.counter[method] = jnp.zeros(shape)
 
     def new_repeat(self, repeat):
         """ method called at the beginning of a new repeat
@@ -98,20 +98,22 @@ class TabularQLearner:
     def sample_action(self, q, ind_state, home, eps_greedy=True):
         ind_action = []
         i_table = home if distr_learning(q) == 'd' else 0
-        q_table = np.array(self.q_tables[q][i_table])
+        q_table = jnp.array(self.q_tables[q][i_table])
         for s in ind_state:
             n_action = len(q_table[s])
-            rdn_eps = np.random.uniform(0, 1)
-            rdn_action = np.random.uniform(0, 1)
-            rdn_max = np.random.uniform(0, 1)
+            rdn_eps = jnp.random.uniform(0, 1)
+            rdn_action = jnp.random.uniform(0, 1)
+            rdn_max = jnp.random.uniform(0, 1)
             if self.rl['q_learning']['policy'] in ['eps-greedy', 'mixed']:
-                ps = np.ones(n_action) * (1 / n_action)
-                cumps = np.cumsum(ps)
-                random_ind_action = np.asarray(cumps > rdn_action).nonzero()[0][0]
+                ps = jnp.ones(n_action) * (1 / n_action)
+                cumps = jnp.cumsum(ps)
+                random_ind_action = jnp.asarray(cumps > rdn_action).nonzero()[0][0]
                 # random_ind_action = [i for i in range(n_action) if rdn_action < cumps[i]][0]
-                actions_maxval = np.asarray(q_table[s] == np.max(q_table[s])).nonzero()[0]
-                cump_maxac = np.cumsum(np.ones(len(actions_maxval)) * 1 / len(actions_maxval))
-                greedy_ind_action = actions_maxval[np.asarray(cump_maxac > rdn_max).nonzero()[0][0]]
+                actions_maxval = jnp.asarray(q_table[s] == jnp.max(q_table[s])).nonzero()[0]
+                cump_maxac = jnp.cumsum(jnp.ones(len(actions_maxval)) * 1 / len(actions_maxval))
+                greedy_ind_action = actions_maxval[
+                    jnp.asarray(cump_maxac > rdn_max).nonzero()[0][0]
+                ]
                 if isinstance(self.eps, (float, int)):
                     eps = self.eps
                 else:
@@ -121,7 +123,7 @@ class TabularQLearner:
             if self.rl['q_learning']['policy'] in ['boltzmann', 'mixed']:
                 actions = range(len(q_table[s]))
                 values_positive = \
-                    [v + max(- np.min(q_table[s]), 0) for v in q_table[s]]
+                    [v + max(- jnp.min(q_table[s]), 0) for v in q_table[s]]
                 values = [v / sum(values_positive)
                           for v in values_positive] \
                     if sum(values_positive) != 0 \
@@ -156,17 +158,17 @@ class TabularQLearner:
             self, reward, done, ind_state, ind_action, ind_next_state, epoch,
             i_table=0, q_table_name=None
     ):
-        val_q = 0 if ind_next_state is None or np.isnan(ind_next_state) \
+        val_q = 0 if ind_next_state is None or jnp.isnan(ind_next_state) \
             else max(self.q_tables[q_table_name][i_table][ind_next_state])
         qs_state = self.q_tables[q_table_name][i_table][ind_state]
-        if type(val_q) in [list, np.ndarray]:
+        if type(val_q) in [list, jnp.ndarray]:
             print(f'val_q {val_q}')
         value = reward + (not done) * self.rl['q_learning']['gamma'] * val_q
-        if type(value) in [list, np.ndarray]:
+        if type(value) in [list, jnp.ndarray]:
             print(f'value {value}')
         if ind_action is not None:
             td_error = value - qs_state[ind_action]
-            if type(td_error) in [list, np.ndarray]:
+            if type(td_error) in [list, jnp.ndarray]:
                 print(f'td_error {td_error}')
             add_supervised_loss = True \
                 if data_source(q_table_name, epoch) == 'opt' \
@@ -175,10 +177,10 @@ class TabularQLearner:
                 else False
             if add_supervised_loss:
                 n_possible_actions = len(qs_state)
-                lE = np.ones(n_possible_actions) * self.rl['expert_margin']
+                lE = jnp.ones(n_possible_actions) * self.rl['expert_margin']
                 lE[ind_action] = 0
-                Q_plus_lE = np.array(qs_state) + lE
-                supervised_loss = np.max(Q_plus_lE) - qs_state[ind_action]
+                Q_plus_lE = jnp.array(qs_state) + lE
+                supervised_loss = jnp.max(Q_plus_lE) - qs_state[ind_action]
                 td_error += self.rl['supervised_loss_weight'] * supervised_loss
             lr = self.get_lr(td_error, q_table_name)
             self.q_tables[q_table_name][i_table][ind_state][ind_action] += lr * td_error
@@ -234,14 +236,14 @@ class TabularQLearner:
         # XU et al. 2018 Reward-Based Exploration
         k = {}
         for method in self.rl['eval_action_choice']:
-            self.rMT = self.rMT / self.rl['tauMT'][method] + np.mean(
+            self.rMT = self.rMT / self.rl['tauMT'][method] + jnp.mean(
                 mean_eval_rewards[method][- self.rl['n_explore']:])
             self.rLT = self.rLT / self.rl['tauLT'][method] + self.rMT
-            sum_exp = np.exp(self.rMT / self.rl['q_learning']['T'][method]) \
-                + np.exp(self.rLT / self.rl['q_learning']['T'][method])
+            sum_exp = jnp.exp(self.rMT / self.rl['q_learning']['T'][method]) \
+                + jnp.exp(self.rLT / self.rl['q_learning']['T'][method])
             k[method] = (
-                np.exp(self.rMT / self.rl['q_learning']['T'][method])
-                - np.exp(self.rLT / self.rl['q_learning']['T'][method])
+                jnp.exp(self.rMT / self.rl['q_learning']['T'][method])
+                - jnp.exp(self.rLT / self.rl['q_learning']['T'][method])
             ) / sum_exp
 
         assert not (isinstance(self.eps, (float, int))), \
@@ -305,8 +307,8 @@ class TabularQLearner:
             step_vals[key][step]
             for key in ["reward", "diff_rewards", "indiv_grid_battery_costs"]
         ]
-        if len(np.shape(diff_rewards)) == 2 and np.shape(diff_rewards)[1] == 1:
-            diff_rewards = np.reshape(diff_rewards, (len(diff_rewards),))
+        if len(jnp.shape(diff_rewards)) == 2 and jnp.shape(diff_rewards)[1] == 1:
+            diff_rewards = jnp.reshape(diff_rewards, (len(diff_rewards),))
         [ind_global_s, ind_global_ac, indiv_s, indiv_ac, ind_next_global_s, next_indiv_s, done] = [
             step_vals[e][step] for e in [
                 'ind_global_state', 'ind_global_action', 'state', 'action',
@@ -415,9 +417,9 @@ class TabularQLearner:
                 q0_a = q0[ind_global_s[0]][ind_global_ac[0]]
                 q0_baseline_a = q0[ind_global_s[0]][ind_a_global_abaseline[home]]
                 if type(self.q_tables[q][i_table][ind_indiv_s[home]][
-                    ind_indiv_ac[home]]) in [float, np.float64] \
-                        and type(q0_a) in [float, np.float64] \
-                        and type(q0_baseline_a) in [float, np.float64]:
+                    ind_indiv_ac[home]]) in [float, jnp.float64] \
+                        and type(q0_a) in [float, jnp.float64] \
+                        and type(q0_baseline_a) in [float, jnp.float64]:
                     reward_a = q0_a - q0_baseline_a
                     error = reward_a - self.q_tables[q][i_table][
                         ind_indiv_s[home]][ind_indiv_ac[home]]

@@ -5,7 +5,7 @@ get_heat_coeffs.py computes the heating coefficients from
 the ISO simple hourly model given the input data
 """
 
-import numpy as np
+import jax.numpy as jnp
 
 
 def _get_building_characteristics(heat):
@@ -45,7 +45,7 @@ def _get_building_characteristics(heat):
     kCm = heat['kCms'][heat['classbuild']]
 
     # SAP 2012 sect 3.2. eq (3)
-    Uwd_eff = 1 / (np.divide(1, heat['Uwd']) + 0.04)
+    Uwd_eff = 1 / ((1 / heat['Uwd'][heat['Uvalues']]) + 0.04)
 
     # building geometry
     # Area of a single window (m^2)
@@ -89,7 +89,7 @@ def _get_building_characteristics(heat):
     H['tw'] = A['w'] * heat['Uw'][heat['Uvalues']]
     # % (R1) Transmission heat transfer coefficient:
     # Windows and doors (W/K) H_tr_w in matlab
-    H['twd'] = (A['wd'] + A['d']) * Uwd_eff[heat['Uvalues']]
+    H['twd'] = (A['wd'] + A['d']) * Uwd_eff
     # transmission roof
     H['tr'] = A['roof'] * heat['Ur'][heat['Uvalues']]
     # fg1 = 1.45 # EN 12831 D.4.3 correction factor heat
@@ -131,24 +131,24 @@ def _get_building_characteristics(heat):
 
 def _get_required_temperatures(heat, syst):
     n_homes = max(1, syst['n_homes'])
-    day_T_req = np.full((n_homes, syst['H']), heat['Ts'])
-    if len(np.shape(heat['hrs_c'][0])) == 1:
+    day_T_req = jnp.full((n_homes, syst['H']), heat['Ts'])
+    if len(jnp.shape(heat['hrs_c'][0])) == 1:
         # if hours comfort only specified once -> same for all
         heat['hrs_c'] = [heat['hrs_c'] for _ in range(n_homes)]
 
     for home in range(n_homes):
         for interval in heat['hrs_c'][home]:
-            day_T_req[home][
-                interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
-            ] = np.full((interval[1] - interval[0]) * syst['n_int_per_hr'], heat['Tc'])
+            day_T_req = day_T_req.at[
+                home, interval[0] * syst['n_int_per_hr']: interval[1] * syst['n_int_per_hr']
+            ].set(jnp.full((interval[1] - interval[0]) * syst['n_int_per_hr'], heat['Tc']))
 
-    days_T_req = np.tile(day_T_req, syst['D'])
-    days_T_req = np.concatenate((days_T_req, day_T_req[:, 0: 2]), axis=1)
+    days_T_req = jnp.tile(day_T_req, syst['D'])
+    days_T_req = jnp.concatenate((days_T_req, day_T_req[:, 0: 2]), axis=1)
 
-    heat['T_req'] = days_T_req if syst['n_homes'] > 0 else np.zeros((0, syst['N'] + 2))
+    heat['T_req'] = days_T_req if syst['n_homes'] > 0 else jnp.zeros((0, syst['N'] + 2))
 
     for ext in syst['n_homes_extensions']:
-        heat['T_req' + ext] = np.tile(days_T_req[0], (syst['n_homes' + ext], 1))
+        heat['T_req' + ext] = jnp.tile(days_T_req[0], (syst['n_homes' + ext], 1))
 
     for ext in syst['n_homes_extensions_all']:
         heat['T_UB' + ext] = heat['T_req' + ext] + heat['dT']
@@ -162,7 +162,7 @@ def _get_required_temperatures(heat, syst):
                         time_step < syst['N'] - 1 - dt
                         and T_UB[time_step + dt] > T_UB[time_step]
                     ):
-                        T_UB[time_step] = T_UB[time_step + dt]
+                        T_UB = T_UB.at[time_step].set(T_UB[time_step + dt])
         heat['T_LB' + ext] = heat['T_req' + ext] - heat['dT']
 
     return heat
@@ -190,7 +190,7 @@ def get_heat_coeffs(heat, syst, paths):
     # boolean for whether comfort temperature is required
     heat = _get_required_temperatures(heat, syst)
 
-    heat['T_out_all'] = np.load(paths['open_inputs'] / paths['temp_file'])
+    heat['T_out_all'] = jnp.load(paths['open_inputs'] / paths['temp_file'])
 
     tau = 60 * 60 * 24 / syst['N']  # time step in seconds
     A, H, psi, Cm = _get_building_characteristics(heat)
@@ -222,11 +222,11 @@ def get_heat_coeffs(heat, syst, paths):
     d_t_air = (H['is'] * j) / (H['is'] + H['ve'])
     e_t_air = (1 + H['is'] * k) / (H['is'] + H['ve']) * heat['COP']
 
-    t_coeff_0 = np.reshape([a_t, b_t, c_t, d_t, e_t], (1, 5))
-    t_air_coeff_0 = np.reshape([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], (1, 5))
+    t_coeff_0 = jnp.array([a_t, b_t, c_t, d_t, e_t], ndmin=2)
+    t_air_coeff_0 = jnp.array([a_t_air, b_t_air, c_t_air, d_t_air, e_t_air], ndmin=2)
     for ext in syst['n_homes_extensions_all']:
         for label, value in zip(['T_coeff', 'T_air_coeff'], [t_coeff_0, t_air_coeff_0]):
-            heat[label + ext] = np.tile(
+            heat[label + ext] = jnp.tile(
                 value, (syst["n_homes" + ext], 1)
             )
 

@@ -1,6 +1,6 @@
 """Given previous number of agents and run times, estimate future run times."""
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import numpy as np
 from scipy import optimize
 
 
@@ -36,15 +36,15 @@ ys = [3.41, 6.17, 9.05, 11.32, 14.42, 31.10, 48.36, 70.15, 115.04]
 
 popt, pcov = optimize.curve_fit(first_order, xs, ys)
 a, b = popt
-print(f"a, b first errors = {np.sqrt(np.diag(pcov))}")
+print(f"a, b first errors = {jnp.sqrt(jnp.diag(pcov))}")
 
 popt, pcov = optimize.curve_fit(second, xs, ys)
 c, d = popt
-print(f"c,d second errors = {np.sqrt(np.diag(pcov))}")
+print(f"c,d second errors = {jnp.sqrt(jnp.diag(pcov))}")
 
 popt, pcov = optimize.curve_fit(exponential, xs, ys)
 e, f = popt
-print(f"e,f exponential errors = {np.sqrt(np.diag(pcov))}")
+print(f"e,f exponential errors = {jnp.sqrt(jnp.diag(pcov))}")
 
 plt.figure()
 plt.plot(xs, ys, 'o', label='data')

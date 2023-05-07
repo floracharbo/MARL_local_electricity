@@ -15,10 +15,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import jax
+import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tick
-import numpy as np
 import yaml
 from scipy.stats import norm
 
@@ -42,7 +43,8 @@ class HEDGE:
         clusters0: Optional[dict] = None,
         prm: Optional[dict] = None,
         other_prm: Optional[dict] = None,
-        ext=''
+        ext='',
+        n_days=100,
     ):
         """Initialise HEDGE object and initial properties."""
         # update object properties
@@ -51,7 +53,8 @@ class HEDGE:
         self.homes = range(self.n_homes)
         self.ext = ext
         # load input data
-        self._load_input_data(prm, other_prm, factors0, clusters0)
+        self._load_input_data(prm, other_prm, factors0, clusters0, n_days)
+        self.day = 0
 
     def _replace_car_prm(self, prm, other_prm):
         prm = copy.deepcopy(prm)
@@ -61,15 +64,15 @@ class HEDGE:
                     prm[key][subkey] = subval
         # add relevant parameters to object properties
         self.car = prm["car"]
-        self.store0 = self.car["SoC0"] * np.array(self.car['caps' + self.ext])
+        self.store0 = self.car["SoC0"] * jnp.array(self.car['caps' + self.ext])
 
         return prm
 
-    def _load_input_data(self, prm, other_prm, factors0, clusters0):
+    def _load_input_data(self, prm, other_prm, factors0, clusters0, n_days=10):
         prm = self._load_inputs(prm)
         prm = self._replace_car_prm(prm, other_prm)
-        self._init_factors(factors0)
-        self._init_clusters(clusters0)
+        self._init_factors(factors0, n_days)
+        self._init_clusters(clusters0, n_days)
         self.profs = self._load_profiles(prm)
 
         # number of time steps per day
@@ -108,11 +111,11 @@ class HEDGE:
         # obtain days
         day = {}
         if "loads" in self.data_types:
-            day["loads"] = [
-                [p * factors["loads"][home]
-                 for p in self.profs["loads"][day_type][
-                     clusters["loads"][home]][i_profiles["loads"][home]]]
-                for home in homes]
+            day["loads"] = jnp.array([
+                self.profs["loads"][day_type][clusters["loads"][home]][i_profiles["loads"][home]]
+                * factors["loads"][home]
+                for home in homes
+            ])
 
         if "gen" in self.data_types:
             gen_profs = self.profs["gen"][i_month]
@@ -124,7 +127,7 @@ class HEDGE:
                 for home in homes
             ]
         if "car" in self.data_types:
-            day["loads_car"] = np.array([
+            day["loads_car"] = jnp.array([
                 [p * factors["car"][home] * self.car['own_car'][home]
                  for p in self.profs["car"]["cons"][day_type][
                      clusters["car"][home]][i_profiles["car"][home]]]
@@ -138,27 +141,29 @@ class HEDGE:
                 day_type, i_profiles["car"], homes
             )
 
-            day["avail_car"] = np.array([
+            day["avail_car"] = jnp.array([
                 self.profs["car"]["avail"][day_type][
                     clusters["car"][home]][i_profiles["car"][home]]
                 for home in homes
             ])
-
             for i_home, home in enumerate(homes):
-                day["avail_car"][i_home] = np.where(
-                    day["loads_car"][i_home] > 0, 0, day["avail_car"][i_home]
+                day["avail_car"] = day["avail_car"].at[i_home].set(
+                    jnp.where(
+                        day["loads_car"][i_home] > 0, 0, day["avail_car"][i_home]
+                    )
                 )
 
         self.factors = factors
         self.clusters = clusters
 
         # save factors and clusters
-        for home in homes:
-            for data in self.data_types:
-                self.list_factors[data][home].append(self.factors[data][home])
-            for data in self.behaviour_types:
-                self.list_clusters[data][home].append(self.clusters[data][home])
-
+        for data in self.data_types:
+            self.list_factors[data] = self.list_factors[data].at[self.day].set(self.factors[data])
+        for data in self.behaviour_types:
+            self.list_clusters[data] = self.list_clusters[data].at[self.day].set(
+                self.clusters[data]
+            )
+        self.day += 1
         self._plotting_profiles(day, plotting)
 
         return day
@@ -187,7 +192,9 @@ class HEDGE:
             with open("inputs/parameters.yaml", "rb") as file:
                 prm = yaml.safe_load(file)
 
-        self.data_types = prm["syst"]["data_types"]
+        for info in ['data_types', 'jax_random_key']:
+            setattr(self, info, prm['syst'][info])
+
         self.behaviour_types = [
             data_type for data_type in self.data_types if data_type != "gen"
         ]
@@ -240,7 +247,7 @@ class HEDGE:
 
         return prm
 
-    def _init_factors(self, factors0):
+    def _init_factors(self, factors0, n_days):
         _, transition = self._transition_type()
         self.factors = {}
         if factors0 is None:
@@ -248,7 +255,7 @@ class HEDGE:
                 self.factors["loads"] = [
                     self.f_mean["loads"]
                     + norm.ppf(
-                        np.random.rand(),
+                        jax.random.uniform(self.jax_random_key),
                         *self.residual_distribution_prms["loads"][transition])
                     for _ in self.homes
                 ]
@@ -257,12 +264,12 @@ class HEDGE:
                 self.factors["gen"] = [
                     self.f_mean["gen"][self.date.month - 1]
                     + norm.ppf(
-                        np.random.rand(),
+                        jax.random.uniform(self.jax_random_key),
                         *self.residual_distribution_prms["gen"])
                     for _ in self.homes]
 
             if "car" in self.data_types:
-                randoms = np.random.rand(self.n_homes)
+                randoms = jax.random.uniform(self.jax_random_key, shape=(self.n_homes,))
                 self.factors["car"] = [
                     self._ps_rand_to_choice(
                         self.p_zero2pos[transition],
@@ -275,37 +282,46 @@ class HEDGE:
                 if isinstance(factors0[data], int):
                     self.factors[data] = [factors0[data] for _ in self.homes]
 
-        self.list_factors = initialise_dict(self.data_types, second_level_entries=self.homes)
-        for home in self.homes:
-            for data in self.data_types:
-                self.list_factors[data][home] = [self.factors[data][home]]
+        self.list_factors = {
+            data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.data_types
+        }
+        for data_type in self.data_types:
+            self.list_factors[data_type] = self.list_factors[data_type].at[0].set(
+                self.factors[data_type]
+            )
 
-    def _init_clusters(self, clusters0):
+    def _init_clusters(self, clusters0, n_days):
         day_type, transition = self._transition_type()
         self.clusters = {}
 
         if clusters0 is None:
             for data in self.behaviour_types:
-                self.clusters[data] \
-                    = [self._ps_rand_to_choice(
-                        self.p_clus[data][day_type], np.random.rand())
-                        for _ in self.homes]
+                self.clusters[data] = [
+                    self._ps_rand_to_choice(
+                        self.p_clus[data][day_type],
+                        jax.random.uniform(self.jax_random_key)
+                    )
+                    for _ in self.homes
+                ]
         else:
             for data in self.behaviour_types:
                 if isinstance(clusters0[data], int):
                     self.clusters[data] = [clusters0[data] for _ in self.homes]
 
-        self.list_clusters = initialise_dict(self.behaviour_types, second_level_entries=self.homes)
-        for home in self.homes:
-            for data in self.behaviour_types:
-                self.list_clusters[data][home] = [self.clusters[data][home]]
+        self.list_clusters = {
+            data_type: jnp.zeros((n_days, self.n_homes)) for data_type in self.behaviour_types
+        }
+        for data_type in self.behaviour_types:
+            self.list_clusters[data_type] = self.list_factors[data_type].at[0].set(
+                self.clusters[data_type]
+            )
 
     def _next_factors(self, transition, prev_clusters):
         prev_factors = self.factors.copy()
-        factors = {data_type: np.zeros(self.n_homes) for data_type in self.data_types}
+        factors = {data_type: jnp.zeros(self.n_homes) for data_type in self.data_types}
         random_f = {}
         for data_type in self.data_types:
-            random_f[data_type] = [np.random.rand() for _ in self.homes]
+            random_f[data_type] = jax.random.uniform(self.jax_random_key, shape=(self.n_homes,))
         interval_f_ev = []
 
         for home in self.homes:
@@ -319,7 +335,7 @@ class HEDGE:
                     probabilities = self.p_zero2pos['all']
                 else:
                     probabilities = self.p_pos['all'][current_interval]
-                assert abs(np.sum(probabilities) - 1) < 1e-2, \
+                assert abs(jnp.sum(probabilities) - 1) < 1e-2, \
                     f"sum(probabilities) {sum(probabilities)}"
                 interval_f_ev.append(
                     self._ps_rand_to_choice(
@@ -327,7 +343,9 @@ class HEDGE:
                         random_f["car"][home],
                     )
                 )
-                factors["car"][home] = self.mid_fs_brackets[transition][int(interval_f_ev[home])]
+                factors["car"] = factors["car"].at[home].set(
+                    self.mid_fs_brackets[transition][int(interval_f_ev[home])]
+                )
 
             if "gen" in self.data_types:
                 i_month = self.date.month - 1
@@ -337,11 +355,14 @@ class HEDGE:
                     random_f["gen"][home],
                     *self.residual_distribution_prms["gen"]
                 )
-                factors["gen"][home] = \
+                factors["gen"] = factors["gen"].at[home].set(
                     prev_factors["gen"][home] + delta_f - self.mean_residual["gen"]
-                factors["gen"][home] = min(
-                    max(self.f_min["gen"][i_month], factors["gen"][home]),
-                    self.f_max["gen"][i_month]
+                )
+                factors["gen"] = factors["gen"].at[home].set(
+                    min(
+                        max(self.f_min["gen"][i_month], factors["gen"][home]),
+                        self.f_max["gen"][i_month]
+                    )
                 )
 
             if "loads" in self.data_types:
@@ -350,15 +371,17 @@ class HEDGE:
                     random_f["loads"][home],
                     *list(self.residual_distribution_prms["loads"][transition])
                 )
-                factors["loads"][home] = \
-                    prev_factors["loads"][home] \
-                    + delta_f \
+                factors["loads"] = factors["loads"].at[home].set(
+                    prev_factors["loads"][home]
+                    + delta_f
                     - self.mean_residual["loads"][transition]
-
+                )
             for data_type in self.behaviour_types:
-                factors[data_type][home] = min(
-                    max(self.f_min[data_type], factors[data_type][home]),
-                    self.f_max[data_type]
+                factors[data_type] = factors[data_type].at[home].set(
+                    min(
+                        max(self.f_min[data_type], factors[data_type][home]),
+                        self.f_max[data_type]
+                    )
                 )
 
         return factors, interval_f_ev
@@ -366,10 +389,10 @@ class HEDGE:
     def _next_clusters(self, transition, prev_clusters):
         clusters = initialise_dict(self.behaviour_types)
 
-        random_clus = [
-            [np.random.rand() for _ in self.homes]
-            for _ in self.behaviour_types
-        ]
+        random_clus = jax.random.uniform(
+            self.jax_random_key,
+            shape=(len(self.behaviour_types), self.n_homes)
+        )
         for home in self.homes:
             for it, data in enumerate(self.behaviour_types):
                 prev_cluster = prev_clusters[data][home]
@@ -394,7 +417,10 @@ class HEDGE:
                              transition, clusters, day_type, i_ev, homes):
         for i_home, home in enumerate(homes):
             it = 0
-            while np.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home] and it < 100:
+            while (
+                    jnp.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home]
+                    and it < 100
+            ):
                 if it == 99:
                     print("100 iterations _adjust_max_ev_loads")
                 if factors["car"][home] > 0 and interval_f_ev[home] > 0:
@@ -407,8 +433,10 @@ class HEDGE:
                         f"ev_cons {ev_cons}"
                     day["loads_car"][i_home] = ev_cons * factors["car"][home]
                 else:
-                    i_ev[home] = np.random.choice(np.arange(
-                        self.n_prof["car"][day_type][clusters["car"][home]]))
+                    i_ev[home] = jax.random.choice(
+                        self.jax_random_key,
+                        self.n_prof["car"][day_type][clusters["car"][home]]
+                    )
                 it += 1
 
         return interval_f_ev, factors, day, i_ev
@@ -450,7 +478,7 @@ class HEDGE:
             else:
                 n_profs_ = n_profs
                 n_profs -= 1
-            i_prof = round(np.random.rand() * (n_profs_ - 1))
+            i_prof = round(jax.random.uniform(self.jax_random_key) * (n_profs_ - 1))
             for previous_i_prof in sorted(i_profs):
                 if previous_i_prof <= i_prof < n_profs_ - 1 and n_profs_ > 1:
                     i_prof += 1
@@ -495,12 +523,12 @@ class HEDGE:
                 if file[0] != ".":
                     cluster = int(file[1])
                     data_type = file[3: 5]
-                    profiles_ = np.load(path / file, mmap_mode="r")
+                    profiles_ = jnp.load(path / file, mmap_mode="r")
                     # mmap_mode = 'r': not loaded, but elements accessible
 
-                    prof_shape = np.shape(profiles_)
+                    prof_shape = jnp.shape(profiles_)
                     if len(prof_shape) == 1:
-                        profiles_ = np.reshape(
+                        profiles_ = jnp.reshape(
                             prof_shape, (1, len(prof_shape))
                         )
                     profiles["car"][data][data_type][cluster] = profiles_
@@ -527,7 +555,7 @@ class HEDGE:
         path = prm["paths"]["hedge_inputs"] / "profiles" / "norm_loads"
         for day_type in prm["syst"]["weekday_types"]:
             profiles["loads"][day_type] = [
-                np.load(path / f"c{cluster}_{day_type}.npy", mmap_mode="r")
+                jnp.load(path / f"c{cluster}_{day_type}.npy", mmap_mode="r")
                 for cluster in range(n_dem_clus)
             ]
             self.n_prof["loads"][day_type] = [
@@ -540,7 +568,7 @@ class HEDGE:
     def _load_gen_profiles(self, inputs_path, profiles):
         path = inputs_path / "profiles" / "norm_gen"
 
-        profiles["gen"] = [np.load(
+        profiles["gen"] = [jnp.load(
             path / f"i_month{i_month}.npy", mmap_mode="r")
             for i_month in range(12)
         ]
@@ -572,10 +600,10 @@ class HEDGE:
 
     def _check_feasibility(self, day: dict) -> List[bool]:
         """Given profiles generated, check feasibility."""
-        feasible = np.ones(self.n_homes, dtype=bool)
+        feasible = jnp.ones(self.n_homes, dtype=bool)
         if self.max_discharge is not None:
             for home in self.homes:
-                if self.max_discharge < np.max(day["loads_car"][home]):
+                if self.max_discharge < jnp.max(day["loads_car"][home]):
                     feasible[home] = False
                     for time in range(len(day["loads_car"][home])):
                         if day["loads_car"][home][time] > self.max_discharge:
@@ -774,7 +802,7 @@ class HEDGE:
             t_end_trip = int(min(t_back, self.n_steps))
 
             # car load while on trip
-            trip_load = np.sum(day["loads_car"][home][t_trip: t_end_trip])
+            trip_load = jnp.sum(day["loads_car"][home][t_trip: t_end_trip])
 
             return trip_load, dt_to_trip, t_end_trip
 
