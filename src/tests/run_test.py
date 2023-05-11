@@ -125,7 +125,7 @@ def patch_compute_max_car_cons_gen_values(env, state_space):
     ]
 
 
-def patch_load_input_data(self, prm, other_prm, factors0, clusters0):
+def patch_load_input_data(self, prm, other_prm, factors0, clusters0, brackets_definition):
     test_data_path = prm['paths']['test_data']
 
     for info in ['f_min', 'f_max', 'n_clus']:
