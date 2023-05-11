@@ -52,7 +52,6 @@ tensorflow==2.8.0
 tensorflow-io-gcs-filesystem==0.24.0
 termcolor==1.1.0
 tf-estimator-nightly==2.8.0.dev2021122109
-threadpoolctl==3.1.0
 toml==0.10.2
 torch==1.10.1
 tqdm==4.62.3
