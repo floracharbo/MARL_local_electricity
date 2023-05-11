@@ -52,7 +52,7 @@ nvidia-cusparse-cu11==11.7.4.91
 nvidia-nccl-cu11==2.14.3
 nvidia-nvtx-cu11==11.7.91
 oauthlib==3.2.2
-object-detection==0.1
+object-detection==0.0.3
 opt-einsum==3.3.0
 ordered-set==4.1.0
 packaging==23.1
