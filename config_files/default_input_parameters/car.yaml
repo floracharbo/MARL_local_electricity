@@ -26,3 +26,4 @@ capP: ~  # the EV battery capacity in kWh for passive homes. If not specified, t
 cap_test: ~  # the EV battery capacity in kWh for testing homes. If not specified, the same value as active homes is used
 pf_passive_homes: 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes: 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
+max_daily_energy_cutoff: 200  # in kWh (over one day)
