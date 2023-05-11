@@ -111,11 +111,6 @@ def patch_init_factors_profiles_parameters(self, prm):
     }
 
 
-def patch_load_profiles(prm):
-    profiles = {}
-    return profiles
-
-
 def patch_load_bat_factors_parameters(paths, car):
     return car
 
@@ -130,7 +125,7 @@ def patch_compute_max_car_cons_gen_values(env, state_space):
     ]
 
 
-def patch_load_input_data(self, prm, other_prm, factors0, clusters0):
+def patch_load_input_data(self, prm, other_prm, factors0, clusters0, brackets_definition):
     test_data_path = prm['paths']['test_data']
 
     for info in ['f_min', 'f_max', 'n_clus']:
@@ -243,10 +238,6 @@ def test_all(mocker):
     mocker.patch(
         "src.initialisation.initialise_objects._load_data_dictionaries",
         side_effect=patch_load_data_dictionaries
-    )
-    mocker.patch(
-        "src.simulations.hedge.HEDGE._load_profiles",
-        side_effect=patch_load_profiles
     )
     mocker.patch(
         "src.initialisation.initialise_objects._load_bat_factors_parameters",
