@@ -555,6 +555,8 @@ class DataManager:
             self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 1])
             self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
 
+        feasible[self.env.hedge.factors['car'] > self.prm['car']['max_daily_energy_cutoff']] = False
+
         return feasible
 
     def update_flexibility_opt(self, batchflex_opt, res, time_step):
