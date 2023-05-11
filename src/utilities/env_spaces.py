@@ -55,41 +55,13 @@ def granularity_to_multipliers(granularity):
 def compute_max_car_cons_gen_values(env, state_space):
     """Get the maximum possible values for car consumption, household consumption and generation."""
     max_car_cons, max_normcons, max_normgen, max_car_dem_agg = [-1 for _ in range(4)]
-    weekday_types = env.prm["syst"]["weekday_types"]
 
     if any(descriptor[0: len("car_cons_")] == "car_cons_" for descriptor in state_space):
         max_car_cons = np.max(
             [np.max(env.hedge.fs_brackets[transition])
              for transition in env.prm['syst']['day_trans']]
         )
-        # np.max(
-        # [
-        #     [np.max(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
-        #     for c in range(env.prm['syst']['n_clus']["car"])
-        # ]
-
-        # )
-    if any(
-            descriptor[0: len("loads_cons_")] == "loads_cons_"
-            or descriptor == 'flexibility'
-            for descriptor in state_space
-    ):
-        max_normcons = np.max(
-            [
-                [np.max(env.hedge.profs["loads"][dt][c]) for dt in weekday_types]
-                for c in range(env.prm["loads"]['n_clus'])
-            ]
-        )
-    if any(descriptor[0: len("gen_prod_")] == "gen_prod_" for descriptor in state_space):
-        max_normgen = np.max([np.max(env.hedge.profs["gen"][m]) for m in range(12)])
-
-    if any(descriptor == "car_dem_agg" for descriptor in state_space):
-        max_car_dem_agg = np.max(
-            [
-                [sum(env.hedge.profs["car"]["cons"][dt][c]) for dt in weekday_types]
-                for c in range(env.prm['syst']['n_clus']["car"])
-            ]
-        )
+    max_normcons, max_normgen, max_car_dem_agg = 1, 1, 1
 
     return max_car_cons, max_normcons, max_normgen, max_car_dem_agg
 
@@ -583,10 +555,7 @@ class EnvSpaces:
                         1 if descriptor.split("_")[-1] == "prev" else day
                     index_day = max(index_day, 0)
                     data = self.factors if descriptor[-9: -5] == "fact" else self.cluss
-                    try:
-                        val = data[module][home][index_day]
-                    except Exception as ex:
-                        print(ex)
+                    val = data[module][home][index_day]
                 else:  # select current or previous time step - step or prev
                     time_step_val = time_step if descriptor[-4:] == "step" else time_step - 1
                     time_step_val = np.max(time_step_val, 0)
