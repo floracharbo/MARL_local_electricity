@@ -211,6 +211,7 @@ facmac:
         lr_end: 1.e-4
         critic_lr0: 5.e-3
         critic_lr_end: 5.e-5
+        lr: 1.e-3
 
 aggregate_actions: False
 

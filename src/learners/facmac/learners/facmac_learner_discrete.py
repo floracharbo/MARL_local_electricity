@@ -49,18 +49,18 @@ class FACMACDiscreteLearner(Learner):
 
         if rl["optimizer"] == "rmsprop":
             self.agent_optimiser = RMSprop(
-                params=self.agent_params, lr=rl["lr"],
+                params=self.agent_params, lr=rl['facmac']["lr"],
                 alpha=rl["optim_alpha"], eps=rl["optim_eps"])
         elif rl["optimizer"] == "adam":
             self.agent_optimiser = Adam(
-                params=self.agent_params, lr=rl["lr"],
+                params=self.agent_params, lr=rl['facmac']["lr"],
                 eps=rl["optimizer_epsilon"])
         else:
             raise Exception(f"unknown optimizer {rl['optimizer']}")
 
         if rl["optimizer"] == "rmsprop":
             self.critic_optimiser = RMSprop(
-                params=self.critic_params, lr=rl["critic_lr"],
+                params=self.critic_params, lr=rl['facmac']["critic_lr"],
                 alpha=rl["optim_alpha"], eps=rl["optim_eps"])
         elif rl["optimizer"] == "adam":
             self.critic_optimiser = Adam(

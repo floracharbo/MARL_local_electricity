@@ -20,7 +20,7 @@ class Learner:
         self.agent_params = list(mac.parameters())
         self.named_params = dict(mac.named_parameters())
         self.cuda_available = True if th.cuda.is_available() else False
-        self.lr = rl['facmac']['lr0'] if rl['facmac']['lr_decay'] else rl['lr']
+        self.lr = rl['facmac']['lr0'] if rl['facmac']['lr_decay'] else rl['facmac']['lr']
         self.critic_lr = \
             rl['facmac']['critic_lr0'] if rl['facmac']['lr_decay'] \
             else rl['facmac']['critic_lr']
@@ -34,8 +34,7 @@ class Learner:
             setattr(self, info, rl['facmac'][info])
 
     def init_mixer(self, rl):
-        if rl['mixer'] is not None \
-                and self.n_agents > 1:
+        if rl['mixer'] is not None and self.n_agents > 1:
             # if just 1 agent do not mix anything
             if rl['mixer'] == "vdn":
                 self.mixer = VDNMixer()
