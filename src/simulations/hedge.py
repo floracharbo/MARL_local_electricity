@@ -136,7 +136,6 @@ class HEDGE:
             self.list_factors[data_type] = np.hstack(
                 (self.list_factors[data_type], np.reshape(self.factors[data_type], (self.n_homes, 1)))
             )
-            print(f"np.shape(list_factors[{data_type}]) {np.shape(self.list_factors[data_type])}")
 
         for data_type in self.behaviour_types:
             self.list_clusters[data_type] = np.hstack(
@@ -408,6 +407,7 @@ class HEDGE:
     def _adjust_max_ev_loads(
         self, day, interval_f_car, factors, transition, clusters, day_type, homes
     ):
+        transition_ = 'all' if transition == 'we2wd' else transition
         for i_home, home in enumerate(homes):
             it = 0
             while (
@@ -419,7 +419,7 @@ class HEDGE:
                 if factors[i_home] > 0 and interval_f_car[i_home] > 0:
                     factor0 = factors[i_home].copy()
                     interval_f_car[i_home] -= 1
-                    factors[i_home] = self.mid_fs_brackets['car'][transition][int(interval_f_car[i_home])]
+                    factors[i_home] = self.mid_fs_brackets['car'][transition_][int(interval_f_car[i_home])]
                     day['loads_car'][i_home] *= factors[i_home] / factor0
 
                 else:
@@ -456,9 +456,9 @@ class HEDGE:
                 profile_validated = True
 
             if abs(np.sum(profile) - 1) > 0.2:
-                print(f"sum generated profile {np.sum(profile)}")
                 profile_validated = False
-                profile /= np.sum(profile)
+
+            profile /= np.sum(profile)
 
             its += 1
             if its > its < 1 / self.clus_dist_share * 10:
