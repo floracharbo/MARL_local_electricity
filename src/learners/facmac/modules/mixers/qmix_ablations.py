@@ -12,7 +12,7 @@ class VDNState(nn.Module):
         super(VDNState, self).__init__()
 
         self.args = args
-        self.n_agents = args.n_agents
+        self.n_homes = args.n_homes
         self.state_dim = int(np.prod(args.state_shape))
         self.embed_dim = args.mixing_embed_dim
 
@@ -24,7 +24,7 @@ class VDNState(nn.Module):
     def forward(self, agent_qs, states):
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
-        agent_qs = agent_qs.view(-1, 1, self.n_agents)
+        agent_qs = agent_qs.view(-1, 1, self.n_homes)
 
         v = self.V(states).view(-1, 1, 1)
 
@@ -34,34 +34,34 @@ class VDNState(nn.Module):
 
 
 class QMixerNonmonotonic(nn.Module):
-    def __init__(self, args):
+    def __init__(self, rl):
         super(QMixerNonmonotonic, self).__init__()
 
-        self.args = args
-        self.n_agents = args.n_agents
-        self.state_dim = int(np.prod(args.state_shape))
-        self.embed_dim = args.mixing_embed_dim
+        self.rl = rl
+        self.n_homes = rl['n_homes']
+        self.state_dim = int(np.prod(rl['state_shape']))
+        self.embed_dim = rl['mixing_embed_dim']
 
         self.hyper_w_1 = nn.Linear(
-            self.state_dim, self.embed_dim * self.n_agents)
+            self.state_dim, self.embed_dim * self.n_homes)
         self.hyper_w_final = nn.Linear(self.state_dim, self.embed_dim)
 
-        if getattr(self.args, "hypernet_layers", 1) > 1:
-            assert self.args.hypernet_layers == 2, \
+        if self.rl['hypernet_layers'] > 1:
+            assert self.rl['hypernet_layers'] == 2, \
                 "Only 1 or 2 hypernet_layers is supported atm!"
-            hypernet_embed = self.args.hypernet_embed
+            hypernet_embed = self.rl['hypernet_embed']
             self.hyper_w_1 = nn.Sequential(
                 nn.Linear(self.state_dim, hypernet_embed),
                 nn.ReLU(),
-                nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
+                nn.Linear(hypernet_embed, self.embed_dim * self.n_homes))
             self.hyper_w_final = nn.Sequential(
                 nn.Linear(self.state_dim, hypernet_embed),
                 nn.ReLU(),
                 nn.Linear(hypernet_embed, self.embed_dim))
 
         # Initialise the hyper networks with a fixed variance, if specified
-        if self.args.hyper_initialization_nonzeros > 0:
-            std = self.args.hyper_initialization_nonzeros ** -0.5
+        if self.rl['hyper_initialization_nonzeros'] > 0:
+            std = self.rl['hyper_initialization_nonzeros'] ** -0.5
             self.hyper_w_1.weight.data.normal_(std=std)
             self.hyper_w_1.bias.data.normal_(std=std)
             self.hyper_w_final.weight.data.normal_(std=std)
@@ -75,17 +75,17 @@ class QMixerNonmonotonic(nn.Module):
                                nn.ReLU(),
                                nn.Linear(self.embed_dim, 1))
 
-        if self.args.gated:
+        if self.rl['gated']:
             self.gate = nn.Parameter(th.ones(size=(1,)) * 0.5)
 
     def forward(self, agent_qs, states):
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
-        agent_qs = agent_qs.view(-1, 1, self.n_agents)
+        agent_qs = agent_qs.view(-1, 1, self.n_homes)
         # First layer
         w1 = self.hyper_w_1(states)
         b1 = self.hyper_b_1(states)
-        w1 = w1.view(-1, self.n_agents, self.embed_dim)
+        w1 = w1.view(-1, self.n_homes, self.embed_dim)
         b1 = b1.view(-1, 1, self.embed_dim)
         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
         # Second layer
@@ -95,10 +95,10 @@ class QMixerNonmonotonic(nn.Module):
         v = self.V(states).view(-1, 1, 1)
         # Skip connections
         s = 0
-        if self.args.skip_connections:
+        if self.rl['skip_connections']:
             s = agent_qs.sum(dim=2, keepdim=True)
 
-        if self.args.gated:
+        if self.rl['gated']:
             y = th.bmm(hidden, w_final) * self.gate + v + s
         else:
             # Compute final output

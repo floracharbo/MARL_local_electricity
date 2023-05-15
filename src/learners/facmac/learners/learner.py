@@ -6,6 +6,7 @@ from torch.optim import Adam, RMSprop
 from src.learners.facmac.modules.critics.maddpg import MADDPGCritic
 from src.learners.facmac.modules.mixers.qmix import QMixer
 from src.learners.facmac.modules.mixers.vdn import VDNMixer
+from src.learners.facmac.modules.mixers.qmix_ablations import QMixerNonmonotonic
 
 
 class Learner:
@@ -42,8 +43,8 @@ class Learner:
                 self.mixer = QMixer(rl)
             # elif rl['mixer'] == "vdn-s":
             #     self.mixer = VDNState(rl)
-            # elif rl['mixer'] == "qmix-nonmonotonic":
-            #     self.mixer = QMixerNonmonotonic(rl)
+            elif rl['mixer'] == "qmix-nonmonotonic":
+                self.mixer = QMixerNonmonotonic(rl)
             else:
                 raise ValueError(f"Mixer {rl['mixer']} not recognised.")
 
