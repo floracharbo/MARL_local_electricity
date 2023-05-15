@@ -137,9 +137,8 @@ def plot_best_actions(
             best_theta[method][home] = np.zeros((rl['possible_states'],))
             for s in range(rl['possible_states']):
                 indmax = np.argmax(q[method][home][s])
-                best_theta[method][home][s] = \
-                    spaces.index_to_val([indmax], typev='action')[0]
-
+                action_indexes = spaces.global_to_indiv_index("action", indmax)
+                best_theta[method][home][s] = spaces.index_to_val(action_indexes, typev='action')[0]
     if rl['state_space'] == [None]:
         _plot_unique_state_best_psi(
             prm, best_theta, spaces.index_to_val, q, repeat
