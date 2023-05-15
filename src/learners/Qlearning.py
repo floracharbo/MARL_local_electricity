@@ -76,7 +76,7 @@ class TabularQLearner:
                 for method in self.rl['evaluation_methods']:
                     self.eps[method] = self.rl['q_learning']['epsilon0']
         else:
-            if isinstance(self.rl['q_learning']['eps'], float):
+            if isinstance(self.rl['q_learning']['eps'], (float, int)):
                 self.eps = self.rl['q_learning']['eps']
             else:
                 for method in self.rl['eval_action_choice']:
