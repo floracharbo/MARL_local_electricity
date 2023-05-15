@@ -727,7 +727,8 @@ def opt_res_seed_save_paths(prm):
         paths["opt_res_file"] += f"_nP{syst['n_homesP']}"
     if syst['n_homes_test'] != syst['n_homes']:
         paths["opt_res_file"] += f"_ntest{syst['n_homes_test']}"
-
+    if syst['clus_dist_share'] < 1:
+        paths["opt_res_file"] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
     if "file" in heat and heat["file"] != "heat.yaml":
         paths["opt_res_file"] += f"_{heat['file']}"
 
