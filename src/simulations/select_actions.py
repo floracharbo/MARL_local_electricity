@@ -125,11 +125,13 @@ class ActionSelector:
                         ind_current_state, eps_greedy, rdn_eps_greedy_indiv, method
                     )
 
-                action_indexes = [self.env.spaces.global_to_indiv_index(
-                    "action", ind_action[a_]) for a_ in self.homes]
-                action = [self.env.spaces.index_to_val(
-                    action_indexes[a_], typev="action")
-                    for a_ in self.homes]
+                action_indexes = [
+                    self.env.spaces.global_to_indiv_index("action", ind_action[a_]) for a_ in self.homes
+                ]
+                action = [
+                    self.env.spaces.index_to_val(action_indexes[a_], typev="action")
+                    for a_ in self.homes
+                ]
         else:
             action = None
 

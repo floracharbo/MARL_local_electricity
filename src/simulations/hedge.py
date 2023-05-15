@@ -131,8 +131,6 @@ class HEDGE:
 
         # save factors and clusters
         for data_type in self.data_types:
-            if self.factors[data_type][0] == 0:
-                print()
             self.list_factors[data_type] = np.hstack(
                 (self.list_factors[data_type], np.reshape(self.factors[data_type], (self.n_homes, 1)))
             )
@@ -146,16 +144,18 @@ class HEDGE:
 
         return day
 
-    def _import_dem(self, prm):
-        self.select_cdfs["loads"] = {}
-        for day_type in prm["syst"]["weekday_types"]:
-            self.select_cdfs["loads"][day_type] = [
-                min_cdf + prm["syst"]["clus_dist_share"] * (max_cdf - min_cdf)
-                for min_cdf, max_cdf in zip(
-                    self.min_cdfs["loads"][day_type],
-                    self.max_cdfs["loads"][day_type]
-                )
-            ]
+    def _import_cdfs(self, prm):
+        self.select_cdfs = {}
+        for data_type in self.behaviour_types:
+            self.select_cdfs[data_type] = {}
+            for day_type in prm["syst"]["weekday_types"]:
+                self.select_cdfs[data_type][day_type] = [
+                    min_cdf + prm["syst"]["clus_dist_share"] * (max_cdf - min_cdf)
+                    for min_cdf, max_cdf in zip(
+                        self.min_cdfs[data_type][day_type],
+                        self.max_cdfs[data_type][day_type]
+                    )
+                ]
 
     def _load_inputs(self, prm, brackets_definition):
         # load inputs
@@ -223,10 +223,8 @@ class HEDGE:
         }
         self.n_all_clusters['gen'] = 12
 
-        self.select_cdfs = {}
         # household demand-specific inputs
-        if "loads" in self.data_types:
-            self._import_dem(prm)
+        self._import_cdfs(prm)
 
         # PV generation-specific inputs
         if "gen" in self.data_types:
@@ -439,6 +437,7 @@ class HEDGE:
         profile_validated = False
         generator = self.profile_generator[f"{data_type}_{day_type}_{cluster}"]
         fitted_kmeans_id = self.date.month - 1 if data_type == 'gen' else day_type
+        cluster_ = self.month0 - 1 if data_type == 'gen' else cluster
         while not profile_validated:
             if its % self.n_items == 0:
                 generated_profiles = generator(th.randn(1, 1)).detach().numpy()
@@ -448,10 +447,19 @@ class HEDGE:
 
             if self.clus_dist_share < 1:
                 transformed_features = self._get_transformed_features(profile, data_type, fitted_kmeans_id)
-                cluster_distance = self.fitted_kmeans_obj[data_type][fitted_kmeans_id].transform(transformed_features)
-                i_bin = np.where(cluster_distance >= self.clus_dist_bin_edges[data_type][fitted_kmeans_id])[0][0]
-                cdf = self.clus_dist_cdfs[data_type][fitted_kmeans_id][i_bin]
-                profile_validated = cdf < self.select_cdfs[data_type][fitted_kmeans_id]
+                cluster_distance = self.fitted_kmeans_obj[data_type][fitted_kmeans_id].transform(transformed_features)[0, cluster_]
+                if data_type == 'gen':
+                    clus_dist_cdfs = self.clus_dist_cdfs[data_type][fitted_kmeans_id]
+                    select_cdfs = self.select_cdfs[data_type][fitted_kmeans_id]
+                    clus_dist_bin_edges = self.clus_dist_bin_edges[data_type][fitted_kmeans_id]
+                else:
+                    clus_dist_cdfs = self.clus_dist_cdfs[data_type][fitted_kmeans_id][cluster]
+                    select_cdfs = self.select_cdfs[data_type][fitted_kmeans_id][cluster]
+                    clus_dist_bin_edges = self.clus_dist_bin_edges[data_type][fitted_kmeans_id][cluster]
+                i_bin = np.where(cluster_distance >= np.concatenate([[0], clus_dist_bin_edges]))[0][-1]
+                i_bin = np.min([len(clus_dist_cdfs) - 1, i_bin])
+                cdf = clus_dist_cdfs[i_bin]
+                profile_validated = cdf < select_cdfs
             else:
                 profile_validated = True
 
@@ -527,10 +535,8 @@ class HEDGE:
     def _ps_rand_to_choice(self, probs: List[float], rand: float) -> int:
         """Given list of probabilities, select index."""
         p_intervals = np.cumsum(probs)
-        try:
-            choice = np.where(rand <= p_intervals)[0][0]
-        except Exception as ex:
-            print(ex)
+        choice = np.where(rand <= p_intervals)[0][0]
+
         return choice
 
     def _load_dem_profiles(self, profiles, prm):
@@ -941,7 +947,7 @@ class HEDGE:
 
     def _init_params(self, prm):
         # add relevant parameters to object properties
-        for info in ['data_types', 'n_items', 'clus_dist_share', 'dem_intervals']:
+        for info in ['data_types', 'n_items', 'clus_dist_share', 'dem_intervals', 'month0']:
             setattr(self, info, prm['syst'][info])
 
         self.behaviour_types = [
@@ -974,6 +980,6 @@ class HEDGE:
             features = profile[
                 int(6 * 24 / self.n_steps): int(22 * 24 / self.n_steps)
             ]
-        transformed_features = self.fitted_scaler[data_type][cluster_id].transform(features.reshape(1, -1))
+        transformed_features = self.fitted_scaler[data_type][cluster_id].transform(np.reshape(features, (1, -1)))
 
         return transformed_features

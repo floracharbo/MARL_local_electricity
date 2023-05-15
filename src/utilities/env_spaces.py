@@ -240,22 +240,19 @@ class EnvSpaces:
         else:
             if multipliers is None:
                 if typev == "global_state":
-                    granularity = [self.n["state"]
-                                   for _ in range(self.n_homes)]
+                    granularity = np.full(self.n_homes, self.n["state"])
                     multipliers = granularity_to_multipliers(granularity)
 
                 elif typev == "global_action":
-                    granularity = [self.n["action"]
-                                   for _ in range(self.n_homes)]
+                    granularity = np.full(self.n_homes, self.n["action"])
                     multipliers = granularity_to_multipliers(granularity)
                 else:
                     multipliers = self.multipliers[typev]
             n = len(multipliers)
-            indexes = [[] for _ in range(len(multipliers))]
+            indexes = np.zeros(n)
             remaining = global_ind
             for i in range(n):
-                indexes[i] = int((remaining - remaining % multipliers[i])
-                                 / multipliers[i])
+                indexes[i] = int((remaining - remaining % multipliers[i]) / multipliers[i])
                 remaining -= indexes[i] * multipliers[i]
 
         return indexes
@@ -291,7 +288,7 @@ class EnvSpaces:
             if self.discrete[typev][i] == 1:
                 val.append(index_i)
             else:
-                brackets_s = self.brackets[typev][i] + [self.maxval[typev][i]]
+                brackets_s = self.brackets[typev][i]
                 if typev == "action" and index_i == 0:
                     val.append(0)
                 elif typev == "action" and index_i == self.n_discrete_actions - 1:
