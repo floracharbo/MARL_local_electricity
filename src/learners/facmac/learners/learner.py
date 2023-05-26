@@ -5,8 +5,9 @@ from torch.optim import Adam, RMSprop
 
 from src.learners.facmac.modules.critics.maddpg import MADDPGCritic
 from src.learners.facmac.modules.mixers.qmix import QMixer
+from src.learners.facmac.modules.mixers.qmix_ablations import \
+    QMixerNonmonotonic
 from src.learners.facmac.modules.mixers.vdn import VDNMixer
-from src.learners.facmac.modules.mixers.qmix_ablations import QMixerNonmonotonic
 
 
 class Learner:

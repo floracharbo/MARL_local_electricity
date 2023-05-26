@@ -312,10 +312,12 @@ def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage
 
     return mean, max, n_deviations_bus, n_deviations_hour
 
+
 def f_to_interval(f, fs_brackets):
     interval = np.where(f >= fs_brackets[:-1])[0][-1]
 
     return interval
+
 
 def list_potential_paths(
         prm, data_types=['gen', 'loads', 'car'],
@@ -327,9 +329,15 @@ def list_potential_paths(
         prm['n_rows0'] = {data_type: 'all' for data_type in data_types}
     potential_paths = []
     for folder in os.listdir(root_path / data_folder):
-        if f"n{prm['syst']['H']}" in folder and all(f"{data_type}_{prm['n_rows0'][data_type]}" in folder for data_type in data_types):
+        data_in_folder = all(
+            f"{data_type}_{prm['n_rows0'][data_type]}" in folder
+            for data_type in data_types
+        )
+        if f"n{prm['syst']['H']}" in folder and data_in_folder:
             potential_paths.append(Path("data") / data_folder / folder / sub_data_folder)
     if all(prm['n_rows0'][data_type] == 'all' for data_type in data_types):
-        potential_paths.append(Path(root_path) / data_folder / f"n{prm['syst']['H']}" / sub_data_folder)
+        potential_paths.append(
+            Path(root_path) / data_folder / f"n{prm['syst']['H']}" / sub_data_folder
+        )
 
     return potential_paths

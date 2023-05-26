@@ -1,7 +1,6 @@
 import os
 import pickle
 import shutil
-import sys
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
@@ -388,7 +387,7 @@ def get_own_items_from_prm(prm, key, subkey):
             if prm['syst']['n_homes' + ext] > 0 \
             else 1
     elif prm[key][subkey] != 1:
-                print(f"prm[{key}][{subkey}] = {prm[key][subkey]}")
+        print(f"prm[{key}][{subkey}] = {prm[key][subkey]}")
 
     return prm
 
@@ -894,12 +893,6 @@ def compare_all_runs_for_column_of_interest(
                         current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
                         else len(setups)
-                    if (
-                        k == 'env'
-                        and best_scores_sorted[k][best_score_type][-1] < 0
-                        and best_scores_sorted[k][best_score_type][0] > 0
-                    ):
-                        print(f"best score {best_score_type} decreasing for {label} {k} runs_sorted {runs_sorted}")
                     p = axs[ax_i].plot(
                         values_of_interest_sorted_k[k],
                         best_scores_sorted[k][best_score_type],

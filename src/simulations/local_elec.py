@@ -853,7 +853,8 @@ class LocalElecEnv:
     def _compute_dT_next(self, home, time_step):
         T_req = self.prm['heat']['T_req' + self.ext][home]
         t_change_T_req = [
-            time_step for time_step in range(time_step + 1, self.N) if T_req[time_step] != T_req[time_step]
+            time_step for time_step in range(time_step + 1, self.N)
+            if T_req[time_step] != T_req[time_step]
         ]
         if len(t_change_T_req) > 0:
             current_T_req = T_req[time_step]
@@ -1051,7 +1052,6 @@ class LocalElecEnv:
             step_data = self.hedge.factors if descriptor[-9:-5] == 'fact' \
                 else self.hedge.clusters
             val = step_data[module][home]
-
 
         return val
 

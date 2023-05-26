@@ -4,9 +4,8 @@
 Created on Sun Feb  9 11:36:21 2020.
 
 @author: floracharbonnier
-
+g
 """
-import datetime
 import os.path
 import sys
 from pathlib import Path

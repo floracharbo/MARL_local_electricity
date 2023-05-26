@@ -1,4 +1,3 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -60,13 +59,16 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
             ls = 'dashed'
         else:
             ls = 'solid'
-        plt.plot(p50[0: prm['RL']['n_epochs']], label=e, color=prm['save']['colourse'][e], ls=ls)
+        n_epochs = prm['RL']['n_epochs']
+        plt.plot(p50[0: n_epochs], label=e, color=prm['save']['colourse'][e], ls=ls)
         plt.fill_between(
-            epoch_not_nan[0: prm['RL']['n_epochs']], p25_not_nan[0: prm['RL']['n_epochs']], p75_not_nan[0: prm['RL']['n_epochs']],
+            epoch_not_nan[0: n_epochs],
+            p25_not_nan[0: n_epochs],
+            p75_not_nan[0: n_epochs],
             color=prm['save']['colourse'][e], alpha=0.1
         )
     plt.hlines(
-        y=0, xmin=0, xmax=prm['RL']['n_epochs'] - 1, colors='k',
+        y=0, xmin=0, xmax=n_epochs - 1, colors='k',
         linestyle='dotted'
     )
     plt.legend()
@@ -84,7 +86,7 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
     plt.title(title_display)
     ax = fig.gca()
     labels = [item.get_text() for item in ax.get_xticklabels()]
-    new_labels = [int(str_to_float(l)) for l in labels]
+    new_labels = [int(str_to_float(label)) for label in labels]
     ax.set_xticklabels(new_labels)
     ylabel = '[£/hr/home]'
     plt.ylabel(ylabel)

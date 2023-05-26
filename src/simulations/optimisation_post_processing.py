@@ -816,8 +816,9 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N])
                    * grd['per_unit_to_kW_conversion'], axis=0)
         for time_step in range(N):
-            res['hourly_import_export_costs'][time_step], _, _ = \
-                compute_import_export_costs(res['grid'][time_step], prm['grd'], prm['syst']['n_int_per_hr'])
+            res['hourly_import_export_costs'][time_step], _, _ = compute_import_export_costs(
+                res['grid'][time_step], prm['grd'], prm['syst']['n_int_per_hr']
+            )
             res['hourly_voltage_costs'][time_step] = \
                 compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
             (mean, max, n_bus, n_hour) = \

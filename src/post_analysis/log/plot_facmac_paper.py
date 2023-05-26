@@ -64,7 +64,8 @@ opt_informed = {
 # runQ = list(range(534, 539)) + [677]
 # runQ = [534, 535, 536, 537, 538, 677]
 
-# FACMAC PAPER:  runQ = list(range(1132, 1136)) + list(range(1137, 1138)) + list(range(1166, 1174)) + [1176]
+# FACMAC PAPER:
+# runQ = list(range(1132, 1136)) + list(range(1137, 1138)) + list(range(1166, 1174)) + [1176]
 
 # THESIS:
 # runQ = [1917, 1919] + list(range(1956, 1965))
@@ -74,40 +75,38 @@ runs = {
     [t for t in type_learning if t[-1] == 'Q'] + ['opt']
 }
 
-
-    # 'FD': [160, 105, 106, 123, 124, 125],
-    # 'FD': list(range(265, 271)),
-    # 'FD': list(range(516, 522)),
-    # 'FD': list(range(684, 690)),
-    # 'FD': list(range(1089, 1091)) + list(range(1092, 1096)),
-    # FACMAC PAPER: 'FD': list(range(1146, 1152)) + list(range(1158, 1166)),
+# 'FD': [160, 105, 106, 123, 124, 125],
+# 'FD': list(range(265, 271)),
+# 'FD': list(range(516, 522)),
+# 'FD': list(range(684, 690)),
+# 'FD': list(range(1089, 1091)) + list(range(1092, 1096)),
+# FACMAC PAPER: 'FD': list(range(1146, 1152)) + list(range(1158, 1166)),
 # runs['FD'] = list(range(1974, 1985))
 runs['FD'] = list(range(2035, 2045))
 
-    # 'FDO': list(range(257, 261)) + list(range(263, 265)),
-    # 'FDO': list(range(528, 534)),
-    # 'FDO': list(range(582, 587)) + [697],
-    # 'FDO': [1115, 1116, 1119, 1121, 1122, 1123],
-    # FACMAC PAPER: 'FDO': list(range(1152, 1158)) + [1174, 1175],
-    # missing 30
+# 'FDO': list(range(257, 261)) + list(range(263, 265)),
+# 'FDO': list(range(528, 534)),
+# 'FDO': list(range(582, 587)) + [697],
+# 'FDO': [1115, 1116, 1119, 1121, 1122, 1123],
+# FACMAC PAPER: 'FDO': list(range(1152, 1158)) + [1174, 1175],
+# missing 30
 # runs['FDO'] = list(range(1987, 1997))
 runs['FDO'] = list(range(2045, 2054)) + [2055]
-    # 'FH': [126, 127, 128, 129, 130, 131],
-    # 'FH': list(range(245, 251)),
-    # 'FH': list(range(510, 516)),
-    # 'FH': list(range(678, 684)),
-    # FACMAC PAPER: 'FH': list(range(1103, 1109)),
+
+# 'FH': [126, 127, 128, 129, 130, 131],
+# 'FH': list(range(245, 251)),
+# 'FH': list(range(510, 516)),
+# 'FH': list(range(678, 684)),
+# FACMAC PAPER: 'FH': list(range(1103, 1109)),
 runs['FH'] = [1926, 1931, 1933] + list(range(1965, 1972)) + [1973]
 
-    # 'FHO': [161, 162, 163, 164, 168, 169]
-    # 'FHO': list(range(251, 257)),
-    # 'FHO': list(range(522, 528)),
-    # 'FHO': list(range(522, 527)),
-    # 'FHO': list(range(771, 775)) + list(range(776, 778)),
-    # FACMAC PAPER: 'FHO': list(range(1109, 1115))
+# 'FHO': [161, 162, 163, 164, 168, 169]
+# 'FHO': list(range(251, 257)),
+# 'FHO': list(range(522, 528)),
+# 'FHO': list(range(522, 527)),
+# 'FHO': list(range(771, 775)) + list(range(776, 778)),
+# FACMAC PAPER: 'FHO': list(range(1109, 1115))
 runs['FHO'] = list(range(1998, 2005))
-
-
 
 green = (117 / 255, 189 / 255, 167 / 255)
 # '#ff7f00' colorblind orange
@@ -267,7 +266,7 @@ for line_label in labels.keys():
         )
         ys_time[line_label] = time_end
         function = polynomial2
-            # if line_label == 'OMQ' else first_order
+        # if line_label == 'OMQ' else first_order
         if sum(~np.isnan(time_end)) > 2:
             popt, pcov = optimize.curve_fit(function, np.array(n_homes)[mask], time_end[mask])
             coeffs = popt
@@ -374,7 +373,10 @@ for n_home in [10, 30]:
 
     plt.tight_layout()
 
-    fig.savefig(f"outputs/results_analysis/metrics_{n_home}_homes_{save_label}_results_thesis.pdf", bbox_inches='tight', format='pdf', dpi=1200)
+    fig.savefig(
+        f"outputs/results_analysis/metrics_{n_home}_homes_{save_label}_results_thesis.pdf",
+        bbox_inches='tight', format='pdf', dpi=1200
+    )
 
 # time facmac
 
@@ -477,14 +479,15 @@ positions = np.arange(3) + 1
 fig = plt.figure(figsize=(3, 4))
 
 # matplotlib > 1.4
-bp = plt.boxplot(all_data, positions=positions,
-                 showmeans=True,
-                 showfliers=False,
-                whis=1e-5,
-                 )
+bp = plt.boxplot(
+    all_data, positions=positions, showmeans=True, showfliers=False, whis=1e-5,
+)
 
 plt.ylabel('Savings [£/home/month]')
 # plt.gca().set_xticklabels(labels, rotation=45, ha='right')
 plt.tight_layout()
 
-fig.savefig(f"outputs/results_analysis/ablations_{save_label}_results_thesis.pdf", bbox_inches='tight', format='pdf', dpi=1200)
+fig.savefig(
+    f"outputs/results_analysis/ablations_{save_label}_results_thesis.pdf",
+    bbox_inches='tight', format='pdf', dpi=1200
+)

@@ -76,7 +76,10 @@ def _colours_to_prm(save, prm, colours, colours0, all_evaluation_methods):
     # then allocate to the other environment-based learning
     allocate_2 = [
         evaluation_method for evaluation_method in all_evaluation_methods
-        if not (evaluation_method in ['opt', 'baseline'] or distr_learning(evaluation_method) == 'd')
+        if not (
+            evaluation_method in ['opt', 'baseline']
+            or distr_learning(evaluation_method) == 'd'
+        )
         and evaluation_method not in save['colourse'].keys()
     ]
     for i, evaluation_method in enumerate(allocate_2):

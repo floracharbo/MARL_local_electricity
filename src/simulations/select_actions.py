@@ -126,7 +126,8 @@ class ActionSelector:
                     )
 
                 action_indexes = [
-                    self.env.spaces.global_to_indiv_index("action", ind_action[a_]) for a_ in self.homes
+                    self.env.spaces.global_to_indiv_index("action", ind_action[a_])
+                    for a_ in self.homes
                 ]
                 action = [
                     self.env.spaces.index_to_val(action_indexes[a_], typev="action")

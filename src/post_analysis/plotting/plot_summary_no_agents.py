@@ -217,7 +217,6 @@ def plot_results_vs_nag():
     # runs = list(range(530, 537)) + list(range(538, 543))[:-3]
     # n_ags = [1, 2, 3, 5, 10, 20, 30, 4, 15, 7, 6, 50][:-3]
 
-
     # 22 may 2023- thesis q learning
     runs = [1917] + list(range(1956, 1965)) + [1919]
     n_ags = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30]

@@ -350,7 +350,8 @@ class Record:
         for reward in [
             'monthly_mean_end_eval_rewards_per_home', 'monthly_mean_test_rewards_per_home'
         ]:
-            setattr(self, reward, {
+            setattr(
+                self, reward, {
                     method: np.zeros(self.n_repeats) for method in self.evaluation_methods
                 }
             )
@@ -537,7 +538,10 @@ class Record:
                 r - b for r, b in zip(end_test_rewards_e, end_test_bl_rewards)
             ]
             if eval_entry == 'env_r_c':
-                np.save(Path(self.record_folder) / "end_test_above_bl_env_r_c.npy", end_test_above_bl)
+                np.save(
+                    Path(self.record_folder) / "end_test_above_bl_env_r_c.npy",
+                    end_test_above_bl
+                )
             for repeat in range(n_repeats):
                 largest_drawdown = self.compute_largest_drawdown_repeat(
                     self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], best_eval
