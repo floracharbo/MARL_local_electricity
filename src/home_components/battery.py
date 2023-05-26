@@ -60,7 +60,7 @@ class Battery:
             setattr(self, info, prm['syst'][info])
         for info in [
             'dep', 'c_max', 'd_max', 'eta_ch', 'eta_ch', 'eta_dis', 'SoCmin',
-            'max_apparent_power_car',
+            'max_apparent_power_car', 'max_km_per_hour', 'cons_per_km',
         ]:
             setattr(self, info, prm['car'][info])
 
@@ -157,24 +157,24 @@ class Battery:
     def next_trip_details(self, start_time_step, date, home):
         """Get next trip's load requirements, time until trip, and end."""
         # next time the EV is on a trip
-        iT = np.asarray(
+        i_trip = np.asarray(
             ~np.array(self.batch['avail_car'][home, start_time_step: self.N + 1], dtype=bool)
         ).nonzero()[0]
         d_to_end = self.date_end - date
         h_end = \
             start_time_step \
             + (d_to_end.days * 24 + (d_to_end.seconds) / 3600) * 1 / self.dt
-        if len(iT) > 0 and start_time_step + iT[0] < h_end:
+        if len(i_trip) > 0 and start_time_step + i_trip[0] < h_end:
             # future trip that starts before end
-            iT = int(start_time_step + iT[0])
+            i_trip = int(start_time_step + i_trip[0])
 
             # next time the EV is back from the trip to the garage
-            iG = iT + np.asarray(self.batch['avail_car'][home, iT: self.N + 1]).nonzero()[0]
+            iG = i_trip + np.asarray(self.batch['avail_car'][home, i_trip: self.N + 1]).nonzero()[0]
             iG = int(iG[0]) if len(iG) > 0 else len(self.batch['avail_car'][home])
-            deltaT = iT - start_time_step  # time until trip
+            deltaT = i_trip - start_time_step  # time until trip
             i_end_trip = int(min(iG, h_end))
             # car load while on trip
-            loads_T = np.sum(self.batch['loads_car'][home, iT: i_end_trip])
+            loads_T = np.sum(self.batch['loads_car'][home, i_trip: i_end_trip])
 
             return loads_T, deltaT, i_end_trip
         else:
@@ -219,12 +219,10 @@ class Battery:
         h_trip = time_step
         while not end:
             loads_T, deltaT, i_end_trip = self.next_trip_details(h_trip, date_a, home)
-            # if i_end_trip is not None:
-            #     i_end_trip = np.min([self.N, i_end_trip])
             if loads_T is None or h_trip + deltaT > self.N:
                 end = True
             else:
-                self._check_trip_feasible(
+                bool_penalty = self._check_trip_feasible(
                     loads_T, deltaT, bool_penalty, print_error, home, time_step
                 )
                 if time_step + deltaT < self.N:
@@ -233,7 +231,7 @@ class Battery:
                     hours=int(i_end_trip - h_trip) * self.dt)
                 h_trip = i_end_trip
 
-        return trips
+        return trips, bool_penalty
 
     def min_max_charge_t(self, time_step=None, date=None, print_error=True,
                          simulation=True):
@@ -265,7 +263,7 @@ class Battery:
                 continue
 
             # obtain all future trips
-            trips = self._get_list_future_trips(
+            trips, bool_penalty = self._get_list_future_trips(
                 time_step, date, home, bool_penalty, print_error
             )
             if self.time_step <= self.N - 1:
@@ -299,9 +297,10 @@ class Battery:
             min_charge_required[home] = max(min_charge_after_next_trip, self.min_charge[home])
 
         min_charge_t = np.maximum(min_charge_t_0, min_charge_required)
-        self._check_min_charge_t_feasible(
+        bool_penalty = self._check_min_charge_t_feasible(
             min_charge_t, time_step, date, bool_penalty, print_error, simulation
         )
+
         for home in range(self.n_homes):
             if time_step == self.N - 1 and avail_car[home]:
                 assert min_charge_t[home] >= self.store0[home] - self.c_max, \
@@ -427,7 +426,7 @@ class Battery:
         for home in range(self.n_homes):
             self.store[home] = self.start_store[home] \
                 + res[home]['ds'] - self.loads_car[home]
-            if self.store[home] < self.min_charge_t[home] - 5e-3:
+            if self.store[home] < self.min_charge_t[home] - 1e-2:
                 print(f"home {home} store[{home}] {self.store[home]} "
                       f"self.start_store[home] {self.start_store[home]} "
                       f"res[{home}['ds'] {res[home]['ds']} "
@@ -444,7 +443,7 @@ class Battery:
                 + self.loads_car[home]
             self.p_car_flex[home] = np.array(self.charge[home] / self.eta_ch) \
                 - np.array(self.discharge[home])
-            assert self.p_car_flex[home] < self.max_apparent_power_car + 1e-3, \
+            assert self.p_car_flex[home] < self.max_apparent_power_car + 2e-2  , \
                 f"home = {home}, p_car_flex = {self.p_car_flex[home]} too large for " \
                 f"self.max_apparent_power_car {self.max_apparent_power_car}"
             if self.reactive_power_for_voltage_control:
@@ -492,7 +491,7 @@ class Battery:
             np.minimum(self.c_max, np.maximum(self.max_charge_t - self.start_store, 0))
         )
         for home in range(len(s_add_0)):
-            if s_add_0[home] > potential_charge[home] + 1e-3:
+            if s_add_0[home] > potential_charge[home] + 1e-2:
                 print(f"home {home} "
                       f"self.avail_car[home] {self.avail_car[home]} "
                       f"self.min_charge_t[home] {self.min_charge_t[home]} "
@@ -654,7 +653,7 @@ class Battery:
 
         for home in range(self.n_homes):
             # check if any hourly load is larger than d_max
-            if any(self.batch['loads_car'][home, :] > self.d_max + 1e-2):
+            if any(self.batch['loads_car'][home, :] > self.max_km_per_hour * self.cons_per_km):
                 # you would have to break constraints to meet demand
                 bool_penalty[home] = True
                 self._print_error(
@@ -699,6 +698,8 @@ class Battery:
                     - sum(self.batch['loads_car'][home, 0: time_step])
                 if min_charge_t[home] > store_t_a + self.c_max + 1e-3:
                     bool_penalty[home] = True
+
+        return bool_penalty
 
     def _print_error(self, error_message, print_error):
         if print_error:

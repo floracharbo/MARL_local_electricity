@@ -27,3 +27,5 @@ cap_test: ~  # the EV battery capacity in kWh for testing homes. If not specifie
 pf_passive_homes: 0.95 # Power factor used for passive houses, from IEEE Low Voltage Test Feeder
 pf_flexible_homes: 0.95 # Power factor used for flexible houses, from IEEE Low Voltage Test Feeder
 max_daily_energy_cutoff: 200  # in kWh (over one day)
+cons_per_km: 136.e-3 # kWh/km (rural travel, most conservative estimate)
+max_km_per_hour: 200 # km/h
