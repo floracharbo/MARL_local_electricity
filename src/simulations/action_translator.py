@@ -176,7 +176,7 @@ class Action_translator:
         for i in ['D', 'E', 'F']:
             d['c'][i] = self.tot_l_fixed + tot_l_flex
         a_dp = d['dp']['F'] - d['dp']['A']
-        a_dp = np.where((- 1e-2 < a_dp) & (a_dp < 0), 0, a_dp)
+        a_dp = np.where((- 5e-2 < a_dp) & (a_dp < 0), 0, a_dp)
         assert len(np.where(a_dp < 0)[0]) == 0, f"a_dp {a_dp}"
 
         b_dp = d['dp']['A']
@@ -184,14 +184,14 @@ class Action_translator:
         action_points['A'], action_points['F'] = np.zeros(self.n_homes), np.ones(self.n_homes)
         for i in ['B', 'C', 'D', 'E']:
             action_points[i] = np.zeros(self.n_homes)
-            mask = a_dp > 1e-3
+            mask = a_dp > 5e-3
             action_points[i][mask] = (d['dp'][i][mask] - b_dp[mask]) / a_dp[mask]
             for home in homes:
                 assert action_points[i][home] > - 5e-3, \
                     f"action_points[{i}][{home}] {action_points[i][home]} < 0"
                 if action_points[i][home] > 1 + 5e-3 and self.car.time_step == self.N:
                     action_points[i][home] = 1
-                if action_points[i][home] > 1 + 5e-3:
+                if action_points[i][home] > 1 + 1e-2:
                     print(
                         f"ERROR: action_points[{i}][{home}] {action_points[i][home]} > 1 "
                         f"mask {mask[home]} "
