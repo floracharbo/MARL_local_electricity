@@ -32,9 +32,9 @@ class TabularQLearner:
         self.indiv_to_global_index = env.spaces.indiv_to_global_index
         self.get_space_indexes = env.spaces.get_space_indexes
         self.rand_init_seed = 0
-        self.q_tables, self.counter = \
-            [initialise_dict(rl['type_Qs'], 'empty_dict')
-             for _ in range(2)]
+        self.q_tables, self.counter = [
+            {type_Q: {} for type_Q in rl['type_Qs']} for _ in range(2)
+        ]
         self.repeat = 0
         for info in ['hysteretic', 'alpha']:
             setattr(self, info, self.rl['q_learning'][info])
@@ -43,23 +43,27 @@ class TabularQLearner:
         """ for each repeat, reinitialise q_tables and counters """
         for method in self.rl['type_Qs']:
             str_frame = 'all' if distr_learning(method) in ['Cc0', 'Cd0'] else '1'
-            shape = [self.n_states[str_frame], self.n_actions[str_frame]]
-            if self.rl['initialise_q'] == 'random':
-                minq, maxq = np.load('minq.npy'), np.load('maxq.npy')
-                np.random.seed(self.rand_init_seed)
-            self.rand_init_seed += 1
             n_homes = self.n_agents if (
                 distr_learning(method) in ['d', 'Cd', 'd0']
                 or self.rl['competitive']
             ) else 1
+            shape = [n_homes, self.n_states[str_frame], self.n_actions[str_frame]]
+            if self.rl['initialise_q'] == 'random':
+                # minq, maxq = np.load('minq.npy'), np.load('maxq.npy')
+                minq, maxq = 0, self.rl['q_noise_0']
+                np.random.seed(self.rand_init_seed)
+            self.rand_init_seed += 1
+
             if method[-1] == 'n' or self.rl['initialise_q'] == 'zeros':
                 # this is a count = copy of corresponding counter;
-                self.q_tables[method] = [np.zeros(shape) for _ in range(n_homes)]
+                self.q_tables[method] = np.zeros(shape)
+            elif self.rl['initialise_q'] == 'bias_towards_0':
+                self.q_tables[method] = np.zeros(shape)
+                self.q_tables[method][:, :, 0] = self.rl['q_noise_0']
+
             else:  # this is a normal q table - make random initialisation
-                self.q_tables[method] = \
-                    [np.random.uniform(low=minq, high=maxq, size=shape)
-                     for _ in range(n_homes)]
-            self.counter[method] = [np.zeros(shape) for _ in range(n_homes)]
+                self.q_tables[method] = np.random.uniform(low=minq, high=maxq, size=shape)
+            self.counter[method] = np.zeros(shape)
 
     def new_repeat(self, repeat):
         """ method called at the beginning of a new repeat
@@ -316,11 +320,10 @@ class TabularQLearner:
 
         ind_indiv_ac = self.get_space_indexes(
             done=done, all_vals=indiv_ac, value_type='action')
-        ind_indiv_s, ind_next_indiv_s = \
-            [self.get_space_indexes(
-                done=done, all_vals=vals, value_type=types)
-                for vals, types in zip([indiv_s, next_indiv_s],
-                                       ['state', 'next_state'])]
+        ind_indiv_s, ind_next_indiv_s = [
+            self.get_space_indexes(done=done, all_vals=vals, value_type=types)
+            for vals, types in zip([indiv_s, next_indiv_s], ['state', 'next_state'])
+        ]
 
         if reward_type(q) == 'n':
             for home in range(self.n_agents):

@@ -237,6 +237,7 @@ supervised_loss_weight: 0
 nn_learned: True
 normalise_states: True
 nn_type: 'linear' # 'linear' 'cnn' 'lstm'
+nn_type_critic: 'linear'
 num_layers_lstm: 1
 cnn_out_channels: 5
 cnn_kernel_size: 3
@@ -245,10 +246,10 @@ n_cnn_layers: 1
 n_cnn_layers_critic: 1
 n_hidden_layers: 2
 n_hidden_layers_critic: 1
-nn_type_critic: 'linear'
 num_layers_rnn: 1
 grdC_n: 0
 flexibility_states: ['bool_flex', 'store_bool_flex', 'flexibility']
 n_epochs_supervised_loss: 0
 homes_exec_per_home_train: ~
 device: cpu
+q_noise_0: 1.e-8  # for initialise_q = bias_towards_0 / random
