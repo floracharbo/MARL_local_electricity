@@ -536,6 +536,8 @@ class Record:
             end_test_above_bl = [
                 r - b for r, b in zip(end_test_rewards_e, end_test_bl_rewards)
             ]
+            if eval_entry == 'env_r_c':
+                np.save(Path(self.record_folder) / "end_test_above_bl_env_r_c.npy", end_test_above_bl)
             for repeat in range(n_repeats):
                 largest_drawdown = self.compute_largest_drawdown_repeat(
                     self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], best_eval
