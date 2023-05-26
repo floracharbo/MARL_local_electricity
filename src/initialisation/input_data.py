@@ -108,7 +108,7 @@ def get_settings_i(settings, i):
     for key, sub_dict in settings.items():
         settings_i[key] = {}
         for sub_key, val in sub_dict.items():
-            if isinstance(val, list):
+            if isinstance(val, (list, np.ndarray)):
                 settings_i[key][sub_key] = val[i]
             elif isinstance(val, dict):
                 settings_i[key][sub_key] = {}
