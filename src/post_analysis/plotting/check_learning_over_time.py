@@ -105,10 +105,12 @@ def check_model_changes_facmac(prm):
                 path = prm["paths"]["record_folder"] / f"models_{method}_{no}"
                 try:
                     agent = th.load(path / "agent.th")
-                    mixer = th.load(path / "mixer.th")
+                    if prm['syst']['n_homes'] > 1 and prm['RL']['mixer'] is not None:
+                        mixer = th.load(path / "mixer.th")
                 except Exception:
                     agent = th.load(path / "agent.th", map_location=th.device('cpu'))
-                    mixer = th.load(path / "mixer.th", map_location=th.device('cpu'))
+                    if prm['syst']['n_homes'] > 1 and prm['RL']['mixer'] is not None:
+                        mixer = th.load(path / "mixer.th", map_location=th.device('cpu'))
                 agents.append(agent)
                 if prm['syst']['n_homes'] > 1:
                     mixers.append(mixer)

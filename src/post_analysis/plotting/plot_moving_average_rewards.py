@@ -1,8 +1,9 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
 from src.post_analysis.plotting.plotting_utils import formatting_figure
-from src.utilities.userdeftools import get_moving_average
+from src.utilities.userdeftools import data_source, get_moving_average
 
 
 def _update_lower_upper_bounds(min_val, max_val, lower_bound, upper_bound, paths):
@@ -19,18 +20,25 @@ def _update_lower_upper_bounds(min_val, max_val, lower_bound, upper_bound, paths
     return lower_bound, upper_bound
 
 
+def str_to_float(label):
+    if label[0] == '−':
+        return -float(label[1:])
+    else:
+        return float(label)
+
+
 def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False):
     plt.rcParams['font.size'] = '16'
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(8, 8))
 
     min_val, max_val = 100, - 100
-    plt.rcParams['font.size'] = '10'
+    plt.rcParams['font.size'] = '14'
     lower_bound, upper_bound = [
         np.load(prm['paths']['open_inputs'] / f"{e}0.npy")
         for e in ['lower_bound', 'upper_bound']
     ]
     baseline = 'opt' if diff_to_opt else 'baseline'
-    for e in [e for e in prm["save"]["eval_entries_plot"] if e != baseline]:
+    for e in [e for e in prm["save"]["eval_entries_plot"] if e not in [baseline, 'opt_n_d']]:
         p25, p50, p75, p25_not_nan, p75_not_nan, epoch_not_nan = record.results_to_percentiles(
             e, prm,
             mov_average=moving_average,
@@ -46,30 +54,38 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
         lower_bound, upper_bound = _update_lower_upper_bounds(
             min_val, max_val, lower_bound, upper_bound, prm['paths']
         )
-
-        ls = 'dotted' if e == 'opt' else '-'
-        plt.plot(p50, label=e, color=prm['save']['colourse'][e], ls=ls)
+        if e == 'opt':
+            ls = 'dotted'
+        elif data_source(e) == 'opt':
+            ls = 'dashed'
+        else:
+            ls = 'solid'
+        plt.plot(p50[0: prm['RL']['n_epochs']], label=e, color=prm['save']['colourse'][e], ls=ls)
         plt.fill_between(
-            epoch_not_nan, p25_not_nan, p75_not_nan,
-            color=prm['save']['colourse'][e], alpha=0.3
+            epoch_not_nan[0: prm['RL']['n_epochs']], p25_not_nan[0: prm['RL']['n_epochs']], p75_not_nan[0: prm['RL']['n_epochs']],
+            color=prm['save']['colourse'][e], alpha=0.1
         )
     plt.hlines(
-        y=0, xmin=0, xmax=len(p25), colors='k',
+        y=0, xmin=0, xmax=prm['RL']['n_epochs'] - 1, colors='k',
         linestyle='dotted'
     )
     plt.legend()
-    plt.ylim([lower_bound, upper_bound])
+    # plt.ylim([lower_bound, upper_bound])
+    plt.ylim(- 30, 135)
+
     plt.tight_layout()
     if moving_average:
         plt.title('Moving average of difference between baseline and reward')
 
-    # plt.gca().set_yticks(np.arange(-0.15, 0.2, 0.05))
     plt.xlabel('Episode')
-    # ylabel = 'Moving average ' if moving_average else ''
     title_display = "Savings relative to baseline"
     if moving_average:
         title_display += " (moving average)"
     plt.title(title_display)
+    ax = fig.gca()
+    labels = [item.get_text() for item in ax.get_xticklabels()]
+    new_labels = [int(str_to_float(l)) for l in labels]
+    ax.set_xticklabels(new_labels)
     ylabel = '[£/hr/home]'
     plt.ylabel(ylabel)
     title = f"moving average n_window = {prm['save']['n_window']} " if moving_average else ""
@@ -102,6 +118,7 @@ def plot_mova_eval_per_repeat(repeat, prm):
                 for m, mb in zip(mova_e, mova_baseline)]
         plt.plot(diff, label=e, color=prm['save']['colourse'][e])
     plt.xlabel('episodes')
+
     plt.ylabel('reward difference rel. to baseline')
     title = f"Moving average all rewards minus baseline " \
             f"state comb {prm['RL']['statecomb_str']} repeat {repeat} " \

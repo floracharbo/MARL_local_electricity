@@ -151,10 +151,10 @@ def _plot_indoor_air_temp(
 
 def _plot_cum_rewards(
         axs, last, methods_to_plot, labels, prm, row=0,
-        col=0, alpha=1, lw=2, display_labels=True, sum_agents=False
+        col=0, alpha=1, lw=2, display_labels=True, sum_agents=False, reduced_version=False
 ):
     cumrewards = {}
-    if sum_agents:
+    if sum_agents or reduced_version:
         ax = axs[row]
     else:
         ax = axs[row, col]
@@ -386,6 +386,10 @@ def _plot_indiv_agent_res(
     for repeat in range(prm["RL"]["n_repeats"]):
         last, cintensity_kg, methods_to_plot = \
             _get_repeat_data(repeat, all_methods_to_plot, prm["paths"]["folder_run"])
+        methods_to_plot = [
+            method for method in ['baseline', 'opt', 'opt_d_d']
+            if method in last['reward'].keys()
+        ]
 
         # plot EV availability + EV cons on same plot
         loads_car, availabilities_car = [
@@ -401,17 +405,13 @@ def _plot_indiv_agent_res(
             figsize = (13, 13)
             row_method_legend = n_rows - 1
 
-        # for home in range(
-        #     min(prm["syst"]["n_homes"], prm["save"]["max_n_profiles_plot"])
-        # ):
-        for home in range(50):
+        for home in range(prm["syst"]["n_homes"]):
             xs = range(len(loads_car[home]))
             bands_car_availability = _get_bands_car_availability(
                 availabilities_car, home, prm['syst']['N']
             )
 
             fig, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
-
             # carbon intensity, wholesale price and grid cost coefficient
             _plot_grid_price(
                 title_ylabel_dict, prm['syst']['N'], axs=axs, cintensity_kg=cintensity_kg,
@@ -419,22 +419,21 @@ def _plot_indiv_agent_res(
                 colours_non_methods=colours_non_methods,
                 lw=lw_indiv, reduced_version=reduced_version
             )
-
             if reduced_version:
-                row, col = 2, 0
+                row, col = 1, 0
             else:
                 row, col = 2, 1
             axs = _plot_ev_loads_and_availability(
                 axs, xs, loads_car, home, bands_car_availability, prm['syst']['N'],
                 row=row, col=col, reduced_version=reduced_version
             )
-
+            row = 2 if reduced_version else 3
+            _plot_cum_rewards(
+                axs, last, methods_to_plot, labels, prm,
+                row=row, col=0, lw=lw_indiv, reduced_version=reduced_version
+            )
             # cum rewards
             if not reduced_version:
-                _plot_cum_rewards(
-                    axs, last, methods_to_plot, labels, prm,
-                    row=3, col=0, lw=lw_indiv)
-
                 # indoor air temp
                 _plot_indoor_air_temp(
                     axs, methods_to_plot, last,
@@ -443,9 +442,12 @@ def _plot_indiv_agent_res(
                 )
 
             if reduced_version:
-                rows = [1, 2]
-                columns = [0, 0]
-                entries = ["totcons", "store"]
+                # rows = [1, 2]
+                # columns = [0, 0]
+                # entries = ["totcons", "store"]
+                rows = [1]
+                columns = [0]
+                entries = ["store"]
             else:
                 rows = [1, 2, 0, 3]
                 columns = [0, 0, 1, 1]
@@ -467,14 +469,14 @@ def _plot_indiv_agent_res(
                             ys = [prm["car"]["store0"][home]] + ys
                         else:
                             ys = [0] + ys
-                        if reduced_version and method != 'baseline':
-                            colour = (192 / 255, 0, 0)
-                        else:
-                            colour = prm["save"]["colourse"][method]
-                        if reduced_version and method != 'baseline':
-                            label = 'MARL policy'
-                        else:
-                            label = method
+                        # if reduced_version and method not in ['baseline', 'opt']:
+                        #     colour = (192 / 255, 0, 0)
+                        # else:
+                        colour = prm["save"]["colourse"][method]
+                        # if reduced_version and method not in ['baseline', 'opt']:
+                        #     label = 'MARL policy'
+                        # else:
+                        label = method
                         ax.step(xs, ys, where="post", label=label,
                                 color=colour,
                                 lw=lw_indiv)

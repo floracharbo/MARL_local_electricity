@@ -1,6 +1,7 @@
 import os
 import pickle
 import shutil
+import sys
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
@@ -14,18 +15,23 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
-    'facmac-hysteretic'
+    'lr'
 ]
 
 FILTER = {
     'SoC0': 1,
     'error_with_opt_to_rl_discharge': False,
-    'n_repeats': 10,
-    'type_learning': 'facmac',
-    'nn_type': 'linear',
+    'n_repeats': 3,
+    'type_learning': 'q_learning',
+    'gan_generation': True,
+    # 'act_noise': 0.01,
+    'clus_dist_share': 0.99,
+    # 'n_homes': 1,
+    'trajectory': False,
+    # 'n_discrete_actions': 3,
 }
 
 best_score_type = 'p50'
@@ -382,7 +388,7 @@ def get_own_items_from_prm(prm, key, subkey):
             if prm['syst']['n_homes' + ext] > 0 \
             else 1
     elif prm[key][subkey] != 1:
-        print(f"prm[{key}][{subkey}] = {prm[key][subkey]}")
+                print(f"prm[{key}][{subkey}] = {prm[key][subkey]}")
 
     return prm
 
@@ -523,7 +529,7 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
     new_columns = []
     do_not_remove = [
         'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
-        'syst-n_homes', 'syst-share_active_test', 'syst-force_optimisation'
+        'syst-n_homes', 'syst-share_active_test', 'syst-force_optimisation', 'syst-gan_generation'
     ]
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
@@ -888,6 +894,12 @@ def compare_all_runs_for_column_of_interest(
                         current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
                         else len(setups)
+                    if (
+                        k == 'env'
+                        and best_scores_sorted[k][best_score_type][-1] < 0
+                        and best_scores_sorted[k][best_score_type][0] > 0
+                    ):
+                        print(f"best score {best_score_type} decreasing for {label} {k} runs_sorted {runs_sorted}")
                     p = axs[ax_i].plot(
                         values_of_interest_sorted_k[k],
                         best_scores_sorted[k][best_score_type],

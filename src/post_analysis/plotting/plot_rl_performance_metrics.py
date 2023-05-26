@@ -226,8 +226,7 @@ def barplot_metrics(prm, lower_bound, upper_bound):
 
             # do end for with signs for each
             _plot_compare_all_signs(
-                prm, colours_barplot_baseentries, eval_entries_notCd,
-                m_, ave, lower_bound, upper_bound, m
+                prm, eval_entries_notCd, m_, ave, lower_bound, upper_bound, m
             )
 
     formatting_figure(
@@ -238,13 +237,13 @@ def barplot_metrics(prm, lower_bound, upper_bound):
 
 
 def _plot_compare_all_signs(
-        prm, colours_barplot_baseentries, eval_entries_notCd,
-        m_, ave, lower_bound, upper_bound, m
+        prm, eval_entries_notCd, m_, ave, lower_bound, upper_bound, m
 ):
     metrics = prm["RL"]["metrics"]
     fig2 = plt.figure(figsize=(3.25, 7 * 0.75))
     ax = plt.gca()
     xs, colours_plot_end = {}, {}
+
     for i, entry in enumerate(eval_entries_notCd):
         label = data_source(entry) + '_' + reward_type(entry) \
             if len(entry.split('_')) > 1 else entry

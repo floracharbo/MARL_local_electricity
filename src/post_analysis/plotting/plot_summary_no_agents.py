@@ -214,9 +214,14 @@ def plot_results_vs_nag():
     # 25 aug 2021 - new data as changed temperature control
     # - for update IEEEv2 - also for 1st submission applied energy
     # for update paper applied energy
-    runs = list(range(530, 537)) + list(range(538, 543))[:-3]
+    # runs = list(range(530, 537)) + list(range(538, 543))[:-3]
+    # n_ags = [1, 2, 3, 5, 10, 20, 30, 4, 15, 7, 6, 50][:-3]
 
-    n_ags = [1, 2, 3, 5, 10, 20, 30, 4, 15, 7, 6, 50][:-3]
+
+    # 22 may 2023- thesis q learning
+    runs = [1917] + list(range(1956, 1965)) + [1919]
+    n_ags = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30]
+
     # opts = [True for _ in range(len(runs))]
     # diff = [True for _ in range(len(runs))]
     # larQ = [False for _ in range(len(runs))]
@@ -299,7 +304,7 @@ def plot_results_vs_nag():
     if SMALL:
         TITLE += '_small'
     prm['save']['high_res'] = True
-    TITLE = 'simplified_results_withlegend'
+    TITLE = 'q_learning_vs_nag_20230522'
     if save:
         if 'high_res' in prm['save'] and prm['save']['high_res']:
             fig.savefig(PATH0 + TITLE + '.pdf', bbox_inches='tight',
