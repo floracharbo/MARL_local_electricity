@@ -223,7 +223,8 @@ def _facmac_initialise(prm):
         rl['obs_shape'] *= prm['syst']['N']
     rl["state_shape"] = rl["obs_shape"] * rl["n_homes"]
     rl["state_shape_test"] = rl["obs_shape"] * rl["n_homes_test"]
-
+    if not rl['offset_reward']:
+        rl['delta_reward'] = 0
     if not prm['syst']["server"]:
         rl["use_cuda"] = False
     if rl['use_cuda'] and not th.cuda.is_available():

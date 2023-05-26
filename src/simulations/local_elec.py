@@ -320,7 +320,6 @@ class LocalElecEnv:
         if h == 1 and self.time_step > 1 \
                 and self.dloaded < daynumber + 2 == 0 \
                 and not self.slid_day:
-            print("sliding day need to fix this")
             for key in self.batch:
                 self.batch[key][:, 0: self.N] = self.batch[key][:, self.N: self.N * 2]
             self._load_next_day(i_load=1)
@@ -532,8 +531,7 @@ class LocalElecEnv:
             f"== len(self.prm['syst']['break_down_rewards_entries']) " \
             f"{len(self.prm['syst']['break_down_rewards_entries'])}"
 
-        if self.offset_reward:
-            reward -= self.delta_reward
+        reward += self.delta_reward
 
         return reward, break_down_rewards
 

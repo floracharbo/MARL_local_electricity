@@ -743,7 +743,7 @@ class Explorer:
 
         # check reward from environment and res variables match
         if not prm["RL"]["competitive"]:
-            if abs(reward + res['hourly_total_costs'][time_step]) > 5e-3:
+            if abs(reward - self.rl['delta_reward'] + res['hourly_total_costs'][time_step]) > 5e-3:
                 tot_delta = reward + res['hourly_total_costs'][time_step]
                 print(
                     f"reward {reward} != "
@@ -769,7 +769,7 @@ class Explorer:
                             f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
                         )
 
-            assert abs(reward + res['hourly_total_costs'][time_step]) < 5e-3, \
+            assert abs(reward - self.rl['delta_reward'] + res['hourly_total_costs'][time_step]) < 5e-3, \
                 f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
 
     def _instant_feedback_steps_opt(
@@ -832,7 +832,7 @@ class Explorer:
 
     def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
         if not (self.prm["RL"]["competitive"] and not evaluation):
-            assert abs(sum_rl_rewards + res['total_costs']) < 1e-2, \
+            assert abs(sum_rl_rewards - self.N * self.rl['delta_reward'] + res['total_costs']) < 1e-2, \
                 "tot rewards don't match: " \
                 f"sum_RL_rewards = {sum_rl_rewards}, " \
                 f"sum costs opt = {res['total_costs']}" \
