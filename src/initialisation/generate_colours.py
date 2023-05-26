@@ -10,6 +10,7 @@ comparison of results.
 import random
 
 import matplotlib.pyplot as plt
+from matplotlib import colors
 
 from src.utilities.userdeftools import distr_learning
 
@@ -49,7 +50,7 @@ def _check_colour_diffs(colours, new_colour, min_diffs=None):
     return enough_diff
 
 
-def _colours_to_prm(save, prm, colours0, colours, all_evaluation_methods):
+def _colours_to_prm(save, prm, colours, colours0, all_evaluation_methods):
     """
     Add initial list of colours 'colours0' + the generated list of colours.
 
@@ -60,24 +61,24 @@ def _colours_to_prm(save, prm, colours0, colours, all_evaluation_methods):
         save = {}
         prm['save'] = save
 
-    save['colours'] = colours0 + colours
-    save['colourse'] = {}
-    save['colourse']['baseline'] = 'k'  # the baseline is always black
-    save['colourse']['random'] = 'b'
+    save['colours'] = colours + colours0
 
-    save['colourse']['opt'] = save['colours'][0]
-
-    # first allocate the colours to decentralised environment-based learning
-    allocate_1 = [evaluation_method for evaluation_method in all_evaluation_methods
-                  if evaluation_method not in ['opt', 'baseline']
-                  and distr_learning(evaluation_method) == 'd']
+    allocate_1 = [
+        evaluation_method for evaluation_method in all_evaluation_methods
+        if evaluation_method not in ['opt', 'baseline']
+        and distr_learning(evaluation_method) == 'd'
+        and evaluation_method not in save['colourse'].keys()
+    ]
+    print(f"allocate_1 {allocate_1}")
     for i, evaluation_method in enumerate(allocate_1):
         save['colourse'][evaluation_method] = save['colours'][i + 1]
 
     # then allocate to the other environment-based learning
-    allocate_2 = [evaluation_method for evaluation_method in all_evaluation_methods
-                  if not (evaluation_method in ['opt', 'baseline']
-                          or distr_learning(evaluation_method) == 'd')]
+    allocate_2 = [
+        evaluation_method for evaluation_method in all_evaluation_methods
+        if not (evaluation_method in ['opt', 'baseline'] or distr_learning(evaluation_method) == 'd')
+        and evaluation_method not in save['colourse'].keys()
+    ]
     for i, evaluation_method in enumerate(allocate_2):
         save['colourse'][evaluation_method] = save['colours'][i + 1]
 
@@ -102,55 +103,56 @@ def list_all_evaluation_methods(entries):
     return all_evaluation_methods
 
 
-def add_colours_from_candidate_palettes(n_colours, n_colours0):
+def add_colours_from_candidate_palettes(n_colours, colours0, candidate_colours):
     """Add colours from candidate palettes to the list if they are different enough."""
-    n_added = 0
-    colours = []
     palettes = [
         'Set1', 'Set2', 'Set3', 'viridis', 'plasma', 'inferno',
         'magma', 'cividis', 'Pastel1', 'Pastel2', 'Paired',
         'Accent', 'Dark2', 'tab10', 'tab20', 'tab20b', 'tab20c'
     ]
-
+    colours = []
     for palette in palettes:
         # the colour map we select additional colours from
         colour_map = plt.get_cmap(palette)
         colours_palette = [
             colour_map(j) for j in range(len(colour_map.__dict__['colors']))
         ]
-        n_add = min(n_colours - n_added - n_colours0, len(colours_palette))
-        added_i = 0
-        for colour in colours_palette:
-            # loop through colours in the palette
-            if added_i < n_add:
-                # for as long as we still need colours,
-                # check the proposed colours
-                # are different enough
-                enough_diff = _check_colour_diffs(
-                    colours, colour, min_diffs=[0.21, 0.6, 0.5, 1]
-                )
-                if len(colours) == 0 or enough_diff:
-                    # if different enough, add to the list of colours
-                    colours += [colour]
-                    added_i += 1
-        n_added += added_i
+        candidate_colours += colours_palette
+
+    n_add = n_colours - len(colours)
+    n_added = 0
+    it = 0
+    while n_added < n_add and it < 1000:
+        colour = candidate_colours[it]
+        # loop through colours in the palette
+        # for as long as we still need colours,
+        # check the proposed colours
+        # are different enough
+        enough_diff = _check_colour_diffs(
+            colours0 + colours, colour, min_diffs=[0.21, 0.6, 0.5, 1]
+        )
+        if len(colours) == 0 or enough_diff:
+            # if different enough, add to the list of colours
+            colours += [colour]
+            n_added += 1
+
+        it += 1
 
     return colours, n_added
 
 
-def add_random_colours(colours, n_added, n_colours, n_colours0):
+def add_random_colours(colours, colours0, n_colours):
     """Add random colours to the list if they are different enough."""
     iteration = 0
     random.seed(0)
-    while n_added < n_colours - n_colours0 and iteration < 1000:
+    while len(colours + colours0) < n_colours and iteration < 1000:
         # if we still need more colours, just try random colours
         colour = (random.random(), random.random(), random.random(), 1)
         enough_diff = _check_colour_diffs(
-            colours, colour, min_diffs=[0, 0, 0, 3]
+            colours + colours0, colour, min_diffs=[0, 0, 0, 3]
         )
         if len(colours) == 0 or enough_diff:
             colours += [colour]
-            n_added += 1
         iteration += 1
 
     return colours
@@ -197,19 +199,38 @@ def generate_colours(save, prm, colours_only=False, entries=None):
             if len(method_replacement) > 0:
                 all_evaluation_methods[i] = method_replacement[0]
 
-    # first, loop through candidate colours and colour palettes
-    colours0 = [
-        'red', 'darkorange', 'grey', 'forestgreen',
-        'deepskyblue', 'mediumblue', 'darkviolet', 'lawngreen'
+    # first, user defined colours
+    colourse = {}
+    colourse['baseline'] = (0, 0, 0)  # the baseline is always black
+
+    grey = colors.to_rgba('#999999')
+    blue = colors.to_rgba('#377eb8')  # colorblind blue
+    red = (192 / 255, 0, 0)
+    for c in ['d', 'c']:
+        for explo in ['env', 'opt']:
+            colourse[f'{explo}_r_{c}'] = red
+            colourse[f'{explo}_d_{c}'] = blue
+            colourse[f'{explo}_A_{c}'] = colors.to_rgba('forestgreen')
+
+        colourse[f'opt_n_{c}'] = colors.to_rgba('darkorange')
+    colourse['opt'] = grey
+
+    # then, loop through candidate colours and colour palettes
+    colours0 = list(colourse.values())
+    candidate_colours = [
+        colors.to_rgba(colour_name) for colour_name in
+        ['darkviolet', 'deepskyblue', 'mediumblue', 'lawngreen']
     ]
 
-    colours, n_added = add_colours_from_candidate_palettes(n_colours, len(colours0))
-    colours = add_random_colours(colours, n_added, n_colours, len(colours0))
+    colours, n_added = add_colours_from_candidate_palettes(n_colours, colours0, candidate_colours)
+    colours = add_random_colours(colours, colours0, n_colours)
 
     if colours_only:
         return colours0 + colours
 
+    save['colourse'] = colourse
+
     # save the list to the parameters
-    save, prm = _colours_to_prm(save, prm, colours0, colours, all_evaluation_methods)
+    save, prm = _colours_to_prm(save, prm, colours, colours0, all_evaluation_methods)
 
     return save, prm
