@@ -205,54 +205,54 @@ def test_all(mocker):
     run_mode = 1
 
     mocker.patch(
-        "src.simulations.data_manager.DataManager.find_feasible_data",
+        "src.environment.experiment_manager.data_manager.DataManager.find_feasible_data",
         side_effect=patch_find_feasible_data,
         autospec=True
     )
     mocker.patch(
-        "src.simulations.local_elec.LocalElecEnv.update_date",
+        "src.environment.simulations.local_elec.LocalElecEnv.update_date",
         side_effect=patch_update_date,
         autospec=True
     )
     mocker.patch(
-        "src.simulations.local_elec.LocalElecEnv._file_id",
+        "src.environment.simulations.local_elec.LocalElecEnv._file_id",
         side_effect=patch_file_id,
         autospec=True
     )
     mocker.patch(
-        "src.simulations.hedge.HEDGE._load_input_data",
+        "src.environment.experiment_manager.hedge.HEDGE._load_input_data",
         side_effect=patch_load_input_data,
         autospec=True
     )
     mocker.patch(
-        "src.simulations.local_elec.LocalElecEnv.set_i0_costs",
+        "src.environment.simulations.local_elec.LocalElecEnv.set_i0_costs",
         side_effect=patch_set_i0_costs,
         autospec=True
     )
     mocker.patch(
-        "src.simulations.runner.Runner._set_date",
+        "src.environment.experiment_manager.runner.Runner._set_date",
         side_effect=patch_set_date,
         autospec=True
     )
     mocker.patch(
-        "src.initialisation.initialise_objects._load_data_dictionaries",
+        "src.environment.initialisation.initialise_objects._load_data_dictionaries",
         side_effect=patch_load_data_dictionaries
     )
     mocker.patch(
-        "src.initialisation.initialise_objects._load_bat_factors_parameters",
+        "src.environment.initialisation.initialise_objects._load_bat_factors_parameters",
         side_effect=patch_load_bat_factors_parameters
     )
     mocker.patch(
-        "src.utilities.env_spaces.EnvSpaces._init_factors_profiles_parameters",
+        "src.environment.utilities.env_spaces.EnvSpaces._init_factors_profiles_parameters",
         side_effect=patch_init_factors_profiles_parameters,
         autospec=True
     )
     mocker.patch(
-        "src.utilities.env_spaces.compute_max_car_cons_gen_values",
+        "src.environment.utilities.env_spaces.compute_max_car_cons_gen_values",
         side_effect=patch_compute_max_car_cons_gen_values
     )
     mocker.patch(
-        "src.post_analysis.plotting.plot_rl_performance_metrics._plot_compare_all_signs",
+        "src.environment.post_analysis.plotting.plot_rl_performance_metrics._plot_compare_all_signs",
         patch_plot_compare_all_signs
     )
 
