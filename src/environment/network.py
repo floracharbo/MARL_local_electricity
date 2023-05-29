@@ -13,8 +13,8 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.environment.utilities.utilities import (compute_import_export_costs,
-                                                 compute_voltage_costs)
+from src.environment.utilities.userdeftools import (
+    compute_import_export_costs, compute_voltage_costs)
 
 
 class Network:

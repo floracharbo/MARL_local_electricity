@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.environment.simulations.optimisation import Optimiser
-from src.environment.utilities.utilities import set_seeds_rdn
+from src.environment.utilities.userdeftools import set_seeds_rdn
 
 
 class DataManager:

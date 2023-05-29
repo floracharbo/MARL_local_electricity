@@ -3,7 +3,8 @@ import numpy as np
 
 from src.environment.post_analysis.plotting.plotting_utils import \
     formatting_figure
-from src.environment.utilities.utilities import data_source, get_moving_average
+from src.environment.utilities.userdeftools import (data_source,
+                                                    get_moving_average)
 
 
 def _update_lower_upper_bounds(min_val, max_val, lower_bound, upper_bound, paths):

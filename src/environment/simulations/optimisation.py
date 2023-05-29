@@ -16,7 +16,7 @@ import picos as pic
 from src.environment.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
     save_results)
-from src.environment.utilities.utilities import comb
+from src.environment.utilities.userdeftools import comb
 
 
 class Optimiser:

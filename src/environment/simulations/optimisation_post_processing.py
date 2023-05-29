@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.environment.utilities.utilities import (
+from src.environment.utilities.userdeftools import (
     compute_import_export_costs, compute_voltage_costs,
     mean_max_hourly_voltage_deviations)
 

@@ -10,7 +10,7 @@ import math
 
 import numpy as np
 
-from src.environment.utilities.utilities import (
+from src.environment.utilities.userdeftools import (
     data_source, distr_learning, methods_learning_from_exploration,
     reward_type)
 

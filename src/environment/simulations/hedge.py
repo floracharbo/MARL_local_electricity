@@ -24,9 +24,9 @@ import torch as th
 import yaml
 from scipy.stats import norm
 
-from src.environment.utilities.utilities import (f_to_interval,
-                                                 initialise_dict,
-                                                 list_potential_paths)
+from src.environment.utilities.userdeftools import (f_to_interval,
+                                                    initialise_dict,
+                                                    list_potential_paths)
 
 
 def car_loads_to_availability(car_loads, tol=1e-2):

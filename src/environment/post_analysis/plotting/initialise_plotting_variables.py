@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.environment.utilities.utilities import distr_learning, initialise_dict
+from src.environment.utilities.userdeftools import (distr_learning,
+                                                    initialise_dict)
 
 
 def _save(prm):

@@ -7,7 +7,7 @@ import torch as th
 
 from src.environment.post_analysis.plotting.plotting_utils import \
     title_and_save
-from src.environment.utilities.utilities import get_prm_save
+from src.environment.utilities.userdeftools import get_prm_save
 
 
 def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_action, repeat):

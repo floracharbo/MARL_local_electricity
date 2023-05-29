@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 import torch as th
 
-from src.environment.utilities.utilities import granularity_to_multipliers
+from src.environment.utilities.env_spaces import granularity_to_multipliers
 
 
 class ActionSelector:

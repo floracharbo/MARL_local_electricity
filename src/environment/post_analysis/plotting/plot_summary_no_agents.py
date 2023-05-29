@@ -17,8 +17,10 @@ import yaml
 
 from src.environment.initialisation.initialise_objects import \
     initialise_objects
-from src.environment.utilities.utilities import (data_source, distr_learning,
-                                                 initialise_dict, reward_type)
+from src.environment.utilities.userdeftools import (data_source,
+                                                    distr_learning,
+                                                    initialise_dict,
+                                                    reward_type)
 
 
 def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag, run_mode=1):

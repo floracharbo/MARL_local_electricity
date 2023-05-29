@@ -25,10 +25,11 @@ from src.environment.initialisation.generate_colours import generate_colours
 from src.environment.initialisation.get_heat_coeffs import get_heat_coeffs
 from src.environment.initialisation.input_data import input_params
 from src.environment.simulations.record import Record
-from src.environment.utilities.utilities import (_actions_from_unit_box,
-                                                 _actions_to_unit_box,
-                                                 current_no_run,
-                                                 distr_learning, reward_type)
+from src.environment.utilities.env_spaces import (_actions_from_unit_box,
+                                                  _actions_to_unit_box)
+from src.environment.utilities.userdeftools import (current_no_run,
+                                                    distr_learning,
+                                                    reward_type)
 from src.learners.facmac.components.transforms import OneHot
 
 

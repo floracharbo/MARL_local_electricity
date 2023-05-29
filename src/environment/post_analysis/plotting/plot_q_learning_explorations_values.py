@@ -5,9 +5,10 @@ import numpy as np
 
 from src.environment.post_analysis.plotting.plotting_utils import (
     formatting_ticks, title_and_save)
-from src.environment.utilities.utilities import (distr_learning,
-                                                 granularity_to_multipliers,
-                                                 initialise_dict, reward_type)
+from src.environment.utilities.env_spaces import granularity_to_multipliers
+from src.environment.utilities.userdeftools import (distr_learning,
+                                                    initialise_dict,
+                                                    reward_type)
 
 
 def _plot_1d_state_space_best_psi(

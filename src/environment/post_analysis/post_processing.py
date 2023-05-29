@@ -21,7 +21,7 @@ from src.environment.post_analysis.plotting.check_learning_over_time import \
     check_model_changes
 from src.environment.post_analysis.plotting.plotting import plotting
 from src.environment.post_analysis.print_results import print_results
-from src.environment.utilities.utilities import distr_learning, get_prm_save
+from src.environment.utilities.userdeftools import distr_learning, get_prm_save
 
 
 def _print_stats_voltage_losses_errors(prm, network):

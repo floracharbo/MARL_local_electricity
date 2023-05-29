@@ -12,7 +12,7 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib import colors
 
-from src.environment.utilities.utilities import distr_learning
+from src.environment.utilities.userdeftools import distr_learning
 
 
 def _check_colour_diffs(colours, new_colour, min_diffs=None):
