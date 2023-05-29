@@ -18,9 +18,9 @@ from typing import Tuple
 import numpy as np
 import torch as th
 
-from src.environment.simulations.data_manager import DataManager
-from src.environment.simulations.learning import LearningManager
-from src.environment.simulations.select_actions import ActionSelector
+from src.environment.experiment_manager.data_manager import DataManager
+from src.learners.learning import LearningManager
+from src.environment.experiment_manager.select_actions import ActionSelector
 from src.environment.utilities.userdeftools import (
     initialise_dict, methods_learning_from_exploration, reward_type,
     set_seeds_rdn)

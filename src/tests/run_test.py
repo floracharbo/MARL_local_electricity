@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.environment.simulations.runner import run
+from src.environment.experiment_manager.runner import run
 from src.environment.utilities.userdeftools import (current_no_run,
                                                     set_seeds_rdn)
 

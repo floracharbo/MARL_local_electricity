@@ -24,7 +24,7 @@ from src.environment.initialisation.initialise_objects import \
 from src.environment.post_analysis.plotting.plot_summary_no_agents import \
     plot_results_vs_nag
 from src.environment.post_analysis.post_processing import post_processing
-from src.environment.simulations.explorer import Explorer
+from src.environment.experiment_manager.explorer import Explorer
 from src.environment.simulations.local_elec import LocalElecEnv
 from src.environment.utilities.userdeftools import (
     data_source, initialise_dict, methods_learning_from_exploration,
