@@ -2,13 +2,11 @@ import pickle
 import shutil
 from datetime import timedelta
 from pathlib import Path
-from unittest import mock
 
 import numpy as np
-import pytest
 
-from src.simulations.runner import run
-from src.utilities.userdeftools import current_no_run, set_seeds_rdn
+from src.environment.simulations.runner import run
+from src.environment.utilities.utilities import current_no_run, set_seeds_rdn
 
 I0_COSTS = 288
 
