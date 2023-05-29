@@ -17,11 +17,12 @@ from gym import spaces
 from gym.utils import seeding
 from six import integer_types
 
+from src.environment.experiment_manager.action_translator import \
+    Action_translator
+from src.environment.experiment_manager.hedge import HEDGE
 from src.environment.simulations.battery import Battery
 from src.environment.simulations.heat import Heat
 from src.environment.simulations.network import Network
-from src.environment.experiment_manager.action_translator import Action_translator
-from src.environment.experiment_manager.hedge import HEDGE
 from src.environment.utilities.env_spaces import EnvSpaces
 from src.environment.utilities.userdeftools import (
     compute_import_export_costs, compute_voltage_costs,

@@ -17,14 +17,14 @@ import numpy as np
 import torch as th
 from tqdm import tqdm
 
-from src.environment.initialisation import (get_settings_i, input_paths,
+from src.environment.experiment_manager.explorer import Explorer
+from src.environment.initialisation.input_data import (get_settings_i, input_paths,
                                             load_existing_prm)
 from src.environment.initialisation.initialise_objects import \
     initialise_objects
 from src.environment.post_analysis.plotting.plot_summary_no_agents import \
     plot_results_vs_nag
 from src.environment.post_analysis.post_processing import post_processing
-from src.environment.experiment_manager.explorer import Explorer
 from src.environment.simulations.local_elec import LocalElecEnv
 from src.environment.utilities.userdeftools import (
     data_source, initialise_dict, methods_learning_from_exploration,
