@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.environment.initialisation import generate_colours
+from src.environment.initialisation.generate_colours import generate_colours
 from src.environment.post_analysis.plotting.plotting_utils import (
     formatting_figure, title_and_save)
 from src.environment.utilities.userdeftools import (data_source,
