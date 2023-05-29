@@ -156,7 +156,7 @@ def patch_load_input_data(self, prm, other_prm, factors0, clusters0, brackets_de
 
 
 def patch_plot_compare_all_signs(
-    prm, colours_barplot_baseentries, eval_entries_notCd,
+    prm, eval_entries_notCd,
         m_, ave, lower_bound, upper_bound, m
 ):
     pass
