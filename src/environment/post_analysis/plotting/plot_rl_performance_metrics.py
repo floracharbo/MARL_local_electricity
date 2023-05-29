@@ -2,9 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from src.environment.initialisation import generate_colours
-from src.environment.post_analysis.plotting.plotting_utils import (formatting_figure,
-                                                                   title_and_save)
-from src.environment.utilities.utilities import data_source, distr_learning, reward_type
+from src.environment.post_analysis.plotting.plotting_utils import (
+    formatting_figure, title_and_save)
+from src.environment.utilities.utilities import (data_source, distr_learning,
+                                                 reward_type)
 
 
 def _barplot_text_labels(ax, text_labels):

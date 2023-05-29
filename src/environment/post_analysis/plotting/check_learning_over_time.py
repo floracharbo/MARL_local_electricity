@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch as th
 
-from src.environment.post_analysis.plotting.plotting_utils import title_and_save
+from src.environment.post_analysis.plotting.plotting_utils import \
+    title_and_save
 from src.environment.utilities.utilities import get_prm_save
 
 

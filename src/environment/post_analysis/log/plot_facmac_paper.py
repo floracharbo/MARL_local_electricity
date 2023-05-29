@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
-from src.environment.post_analysis.plotting.plot_rl_performance_metrics import _barplot
+from src.environment.post_analysis.plotting.plot_rl_performance_metrics import \
+    _barplot
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
 font = {'size': 14}

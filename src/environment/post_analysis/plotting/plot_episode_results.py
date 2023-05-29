@@ -6,8 +6,8 @@ import numpy as np
 import pandapower.plotting as plot
 import seaborn as sns
 
-from src.environment.post_analysis.plotting.plotting_utils import (formatting_figure,
-                                                                   title_and_save)
+from src.environment.post_analysis.plotting.plotting_utils import (
+    formatting_figure, title_and_save)
 from src.environment.utilities.utilities import (data_source, initialise_dict,
                                                  reward_type)
 

@@ -1,8 +1,8 @@
 import numpy as np
 
-from src.environment.utilities.utilities import (compute_import_export_costs,
-                                                 compute_voltage_costs,
-                                                 mean_max_hourly_voltage_deviations)
+from src.environment.utilities.utilities import (
+    compute_import_export_costs, compute_voltage_costs,
+    mean_max_hourly_voltage_deviations)
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):

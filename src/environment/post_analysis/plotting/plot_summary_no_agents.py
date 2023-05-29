@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
-from src.environment.initialisation.initialise_objects import initialise_objects
+from src.environment.initialisation.initialise_objects import \
+    initialise_objects
 from src.environment.utilities.utilities import (data_source, distr_learning,
                                                  initialise_dict, reward_type)
 

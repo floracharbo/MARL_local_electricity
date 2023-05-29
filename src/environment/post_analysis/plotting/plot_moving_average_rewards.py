@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.environment.post_analysis.plotting.plotting_utils import formatting_figure
+from src.environment.post_analysis.plotting.plotting_utils import \
+    formatting_figure
 from src.environment.utilities.utilities import data_source, get_moving_average
 
 

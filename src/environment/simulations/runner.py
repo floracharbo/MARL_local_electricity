@@ -17,9 +17,18 @@ import numpy as np
 import torch as th
 from tqdm import tqdm
 
-from src.environment.initialisation.initialise_objects import initialise_objects
 from src.environment.initialisation import (get_settings_i, input_paths,
                                             load_existing_prm)
+from src.environment.initialisation.initialise_objects import \
+    initialise_objects
+from src.environment.post_analysis.plotting.plot_summary_no_agents import \
+    plot_results_vs_nag
+from src.environment.post_analysis.post_processing import post_processing
+from src.environment.simulations.explorer import Explorer
+from src.environment.simulations.local_elec import LocalElecEnv
+from src.environment.utilities.userdeftools import (
+    data_source, initialise_dict, methods_learning_from_exploration,
+    reward_type, set_seeds_rdn, should_optimise_for_supervised_loss)
 from src.learners.DDPG import Learner_DDPG
 from src.learners.DDQN import Agent_DDQN
 from src.learners.DQN import Agent_DQN
@@ -27,16 +36,7 @@ from src.learners.facmac.components.episode_buffer import (EpisodeBatch,
                                                            ReplayBuffer)
 from src.learners.facmac.controllers import REGISTRY as mac_REGISTRY
 from src.learners.facmac.learners import REGISTRY as le_REGISTRY
-from src.learners.Qlearning import TabularQLearner
-from src.environment.post_analysis.plotting.plot_summary_no_agents import \
-    plot_results_vs_nag
-from src.environment.post_analysis.post_processing import post_processing
-from src.environment.simulations.explorer import Explorer
-from src.environment.simulations.local_elec import LocalElecEnv
-from src.environment.utilities.utilities import (data_source, initialise_dict,
-                                                 methods_learning_from_exploration,
-                                                 reward_type, set_seeds_rdn,
-                                                 should_optimise_for_supervised_loss)
+from src.learners.q_learning import TabularQLearner
 
 
 class Runner:

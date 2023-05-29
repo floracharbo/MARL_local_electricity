@@ -22,10 +22,9 @@ from src.environment.home_components.heat import Heat
 from src.environment.network import Network
 from src.environment.simulations.action_translator import Action_translator
 from src.environment.simulations.hedge import HEDGE
-from src.environment.utilities.utilities import EnvSpaces
-from src.environment.utilities.utilities import (compute_import_export_costs,
-                                                 compute_voltage_costs,
-                                                 mean_max_hourly_voltage_deviations)
+from src.environment.utilities.utilities import (
+    EnvSpaces, compute_import_export_costs, compute_voltage_costs,
+    mean_max_hourly_voltage_deviations)
 
 
 class LocalElecEnv:

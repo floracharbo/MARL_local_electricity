@@ -9,11 +9,9 @@ from typing import List
 import numpy as np
 import torch as th
 
-from src.environment.utilities.utilities import granularity_to_multipliers
-from src.environment.utilities.utilities import (data_source,
-                                                 methods_learning_from_exploration,
-                                                 reward_type,
-                                                 should_optimise_for_supervised_loss)
+from src.environment.utilities.utilities import (
+    data_source, granularity_to_multipliers, methods_learning_from_exploration,
+    reward_type, should_optimise_for_supervised_loss)
 
 
 class LearningManager:

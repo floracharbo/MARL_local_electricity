@@ -24,7 +24,8 @@ import torch as th
 import yaml
 from scipy.stats import norm
 
-from src.environment.utilities.utilities import (f_to_interval, initialise_dict,
+from src.environment.utilities.utilities import (f_to_interval,
+                                                 initialise_dict,
                                                  list_potential_paths)
 
 
