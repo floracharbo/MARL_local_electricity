@@ -18,10 +18,11 @@ import torch as th
 from tqdm import tqdm
 
 from src.environment.experiment_manager.explorer import Explorer
-from src.environment.initialisation.input_data import (get_settings_i, input_paths,
-                                            load_existing_prm)
 from src.environment.initialisation.initialise_objects import \
     initialise_objects
+from src.environment.initialisation.input_data import (get_settings_i,
+                                                       input_paths,
+                                                       load_existing_prm)
 from src.environment.post_analysis.plotting.plot_summary_no_agents import \
     plot_results_vs_nag
 from src.environment.post_analysis.post_processing import post_processing

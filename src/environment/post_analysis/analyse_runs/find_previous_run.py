@@ -2,10 +2,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.environment.initialisation import (get_settings_i, input_params,
-                                            input_paths)
 from src.environment.initialisation.initialise_objects import initialise_prm
-from src.environment.post_analysis.log.organise_results import list_obs_to_str
+from src.environment.initialisation.input_data import (get_settings_i,
+                                                       input_params,
+                                                       input_paths)
+from src.environment.post_analysis.analyse_runs.organise_results import \
+    list_obs_to_str
 
 results_analysis_path = Path("outputs/results_analysis")
 log_path = results_analysis_path / "log_runs.csv"
