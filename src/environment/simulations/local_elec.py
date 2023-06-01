@@ -26,7 +26,7 @@ from src.environment.simulations.network import Network
 from src.environment.utilities.env_spaces import EnvSpaces
 from src.environment.utilities.userdeftools import (
     compute_import_export_costs, compute_voltage_costs,
-    mean_max_hourly_voltage_deviations)
+    mean_max_hourly_voltage_deviations, get_opt_res_file)
 
 
 class LocalElecEnv:
@@ -84,7 +84,6 @@ class LocalElecEnv:
         ]:
             setattr(self, data, self.rl[data])
         self.share_flexs = prm['loads']['share_flexs']
-        self.opt_res_file = self.prm['paths']['opt_res_file']
         self.res_path = prm['paths']['opt_res']
         self.slid_day = False
 
@@ -201,12 +200,14 @@ class LocalElecEnv:
     def set_passive_active(self, passive: bool = False, evaluation: bool = False):
         """Update environment properties for passive or active case."""
         passive_ext = 'P' if passive else ''
+        self.evaluation = evaluation
         test_ext = \
             '_test' if evaluation \
             and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
             else ''
         self.ext = passive_ext + test_ext
         self.n_homes = self.prm['syst']['n_homes' + self.ext]
+        self.action_translator.n_homes = self.n_homes
         self.homes = range(self.n_homes)
         setattr(self.action_translator, 'n_homes', getattr(self, 'n_homes'))
         setattr(self.spaces, 'n_homes', getattr(self, 'n_homes'))
@@ -614,7 +615,7 @@ class LocalElecEnv:
                 q_car_flex = flexible_q_car
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
-                self.network._power_flow_res_with_pandapower(home_vars, netp0, q_car_flex)
+                self.network._power_flow_res_with_pandapower(home_vars, netp0, q_car_flex, passive=self.ext=='P')
             q_house = netq_flex - q_car_flex
         else:
             voltage_squared = None
@@ -692,7 +693,8 @@ class LocalElecEnv:
         return transition_type_
 
     def _file_id(self):
-        return f"{self.no_name_file}{self.ext}{self.opt_res_file}"
+        opt_res_file = get_opt_res_file(self.prm, self.evaluation)['opt_res_file']
+        return f"{self.no_name_file}{self.ext}{opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:
         """Given probability of each choice and a random number, select."""
