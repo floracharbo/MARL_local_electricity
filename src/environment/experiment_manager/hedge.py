@@ -395,11 +395,11 @@ class HEDGE:
             for it, data_type in enumerate(self.behaviour_types):
                 prev_cluster = prev_clusters[data_type][home]
                 probs = self.p_trans[data_type][transition][prev_cluster]
-                cum_p = [sum(probs[0:i]) for i in range(1, len(probs))] + [1]
-                clusters[data_type].append(
-                    [c > random_clus[it][home] for c in cum_p].index(True)
-                )
-                # clusters[data_type].append(prev_cluster)
+                # cum_p = [sum(probs[0:i]) for i in range(1, len(probs))] + [1]
+                # clusters[data_type].append(
+                #     [c > random_clus[it][home] for c in cum_p].index(True)
+                # )
+                clusters[data_type].append(prev_cluster)
         return clusters
 
     def _transition_type(self):
@@ -418,7 +418,7 @@ class HEDGE:
         for i_home, home in enumerate(homes):
             it = 0
             while (
-                    np.max(day["loads_car"][i_home]) > self.car['caps'][home]
+                    np.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home]
                     or factors[i_home] > self.car['max_daily_energy_cutoff']
             ) and it < 100:
                 if it == 99:
@@ -460,9 +460,9 @@ class HEDGE:
         if data_type == 'car' and cluster == self.n_all_clusters['car'] - 1:
             return np.zeros(self.n_steps)
         profile_validated = False
-        generator = self.profile_generator[f"{data_type}_{day_type}_{cluster}"]
-        fitted_kmeans_id = self.date.month - 1 if data_type == 'gen' else day_type
         cluster_ = self.month0 - 1 if data_type == 'gen' else cluster
+        fitted_kmeans_id = self.month0 - 1 if data_type == 'gen' else day_type
+        generator = self.profile_generator[f"{data_type}_{day_type}_{cluster_}"]
         if data_type == 'gen':
             clus_dist_cdfs = self.clus_dist_cdfs[data_type][fitted_kmeans_id]
             select_cdfs = self.select_cdfs[data_type][fitted_kmeans_id]
@@ -473,18 +473,32 @@ class HEDGE:
             clus_dist_bin_edges = self.clus_dist_bin_edges[data_type][fitted_kmeans_id][cluster]
         max_dist = clus_dist_bin_edges[np.where(select_cdfs > clus_dist_cdfs)[0][-1]]
 
-        while not profile_validated:
+        while not profile_validated and its < 1000:
+            if its == 999:
+                print("1000 iterations _generate_profile")
             if its % self.n_items == 0:
                 generated_profiles = self.forward(generator, data_type)
-            i_profile = random.randint(0, self.n_items - 1)
-            idx = self.n_steps * i_profile
-            profile = generated_profiles[0, idx: idx + self.n_steps]
+            it_i_profile = 0
+            found_non_nan_profile = False
+            while it_i_profile < 1000 and not found_non_nan_profile:
+                i_profile = random.randint(0, self.n_items - 1)
+                idx = self.n_steps * i_profile
+                profile = generated_profiles[0, idx: idx + self.n_steps]
+                if np.sum(np.isnan(profile)) == 0:
+                    found_non_nan_profile = True
+                else:
+                    print(f"nans in profile {data_type} fitted_kmeans_id {fitted_kmeans_id} cluster_ {cluster_}")
+                if it_i_profile == 999:
+                    print("1000 iterations _generate_profile")
             if self.clus_dist_share < 1:
                 transformed_features = self._get_transformed_features(
                     profile, data_type, fitted_kmeans_id
                 )
                 fitted_kmeans_obj = self.fitted_kmeans_obj[data_type][fitted_kmeans_id]
-                cluster_distance = fitted_kmeans_obj.transform(transformed_features)[0, cluster_]
+                try:
+                    cluster_distance = fitted_kmeans_obj.transform(transformed_features)[0, cluster_]
+                except Exception as ex:
+                    print(ex)
                 profile_validated = cluster_distance < max_dist
             else:
                 profile_validated = True
@@ -986,7 +1000,7 @@ class HEDGE:
         ]
         self.car = prm["car"]
         if 'caps' not in self.car and isinstance(self.car['cap'], int):
-            self.car['caps'] = np.full(self.n_homes, self.car['cap'])
+            self.car['caps' + self.ext] = np.full(self.n_homes, self.car['cap'])
         self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
         # update date and time information
         self.date = datetime(*prm["syst"]["date0"])
