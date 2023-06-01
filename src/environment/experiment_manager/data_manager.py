@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.environment.simulations.optimisation import Optimiser
-from src.environment.utilities.userdeftools import set_seeds_rdn
+from src.environment.utilities.userdeftools import set_seeds_rdn, get_opt_res_file
 
 
 class DataManager:
@@ -79,6 +79,7 @@ class DataManager:
         self.n_optimisations = 0
         self.n_cons_constraint_violations = 0
         self.max_cons_slack = - 1
+        self.ext = ''
 
     def format_grd(self, batch, ext):
         """Format network parameters in preparation for optimisation."""
@@ -123,26 +124,24 @@ class DataManager:
 
         # optimisation of power flow
         if grd['manage_voltage']:
-            grd['flex_buses'] = self.env.network.flex_buses
-            grd['passive_buses'] = self.env.network.passive_buses
-            grd['incidence_matrix'] = self.env.network.incidence_matrix
-            grd['in_incidence_matrix'] = self.env.network.in_incidence_matrix
-            grd['out_incidence_matrix'] = self.env.network.out_incidence_matrix
+            for info in [
+                'flex_buses', 'flex_buses_test', 'passive_buses',
+                'incidence_matrix', 'in_incidence_matrix', 'out_incidence_matrix',
+                'bus_connection_matrix', 'net'
+            ]:
+                grd[info] = getattr(self.env.network, info)
+
             grd['line_resistance'] = self.env.network.line_resistance * \
                 grd['base_power'] / grd['base_voltage'] ** 2
             grd['line_reactance'] = self.env.network.line_reactance * \
                 grd['base_power'] / grd['base_voltage'] ** 2
-            grd['bus_connection_matrix'] = self.env.network.bus_connection_matrix
             grd['n_buses'] = len(self.env.network.net.bus)
             grd['n_lines'] = len(self.env.network.net.line)
-            grd['net'] = self.env.network.net
-            grd['line_losses_method'] = self.prm['grd']['line_losses_method']
-            grd['tol_voltage_iteration'] = self.prm['grd']['tol_voltage_iteration']
 
     def _passive_find_feasible_data(self, evaluation):
         passive = True
 
-        file_id_path = self.paths['opt_res'] / f"batch{self.file_id()}"
+        file_id_path = self.paths['opt_res'] / f"batch{self.file_id(evaluation)}"
         if file_id_path.is_file():
             # [factors, clusters] = self._load_res()
             self.batch_file, batch = self.env.reset(
@@ -165,18 +164,19 @@ class DataManager:
         res = None
         new_res = False
         seed_data = res, batch
+
         return seed_data, new_res, data_feasible
 
-    def _check_data_computations_required(self, type_actions, feasibility_checked):
+    def _check_data_computations_required(self, type_actions, feasibility_checked, evaluation):
         opt_needed = \
             'opt' in type_actions \
             or (not feasibility_checked and self.rl['check_feasibility_with_opt'])
 
         if opt_needed:
-            file_exists = (self.paths['opt_res'] / self.res_name).is_file()
+            file_exists = (self.paths['opt_res'] / self.get_res_name(evaluation)).is_file()
         else:
             file_exists = (
-                self.paths['opt_res'] / f"batch{self.file_id()}"
+                self.paths['opt_res'] / f"batch{self.file_id(evaluation)}"
             ).is_file()
 
         new_data_needed = self.rl['deterministic'] == 2 or not file_exists
@@ -197,7 +197,7 @@ class DataManager:
         res = None
 
         opt_needed, new_data_needed = self._check_data_computations_required(
-            type_actions, feasibility_checked
+            type_actions, feasibility_checked, evaluation
         )
 
         # check if data is feasible by solving optimisation problem
@@ -212,7 +212,7 @@ class DataManager:
         else:
             if opt_needed:
                 res = np.load(self.paths['opt_res']
-                              / self.res_name,
+                              / self.get_res_name(evaluation),
                               allow_pickle=True).item()
                 pp_simulation_required = False
                 if 'house_cons' not in res:
@@ -233,7 +233,7 @@ class DataManager:
         if all(data_feasibles) and opt_needed and (new_data_needed or self.force_optimisation):
             try:
                 start = time.time()
-                res, pp_simulation_required = self.optimiser.solve(self.prm)
+                res, pp_simulation_required = self.optimiser.solve(self.prm, evaluation)
                 end = time.time()
                 duration_opti = end - start
                 self.timer_optimisation.append(duration_opti)
@@ -256,6 +256,14 @@ class DataManager:
         seed_data = [res, batch]
 
         return seed_data, new_res, data_feasible, step_vals, feasibility_checked
+
+
+    def get_res_name(self, evaluation):
+        res_name = \
+            f"res_P{int(self.seed['P'])}_" \
+            f"{int(self.seed[''])}{get_opt_res_file(self.prm, evaluation)['opt_res_file']}"
+
+        return res_name
 
     def find_feasible_data(
             self,
@@ -289,12 +297,10 @@ class DataManager:
         while not data_feasible and iteration < 100:
             # try solving problem else making new data until problem solved
             iteration += 1
+            if iteration == 99:
+                print('iteration 99 find_feasible_data')
             feasibility_checked = self.get_seed(seed_ind)
             set_seeds_rdn(self.seed[self.ext])
-            self.res_name = \
-                f"res_P{int(self.seed['P'])}_" \
-                f"{int(self.seed[''])}{self.prm['paths']['opt_res_file']}"
-
             if passive:
                 seed_data, new_res, data_feasible \
                     = self._passive_find_feasible_data(evaluation)
@@ -308,7 +314,7 @@ class DataManager:
                 seed_data = [None, None]
 
             if not data_feasible:
-                seed_ind = self.infeasible_tidy_files_seeds(seed_ind)
+                seed_ind = self.infeasible_tidy_files_seeds(seed_ind, evaluation)
 
         if not feasibility_checked:
             self.seeds[self.ext] = np.append(
@@ -316,7 +322,7 @@ class DataManager:
             )
 
         if new_res:
-            np.save(self.paths['opt_res'] / self.res_name, seed_data[0])
+            np.save(self.paths['opt_res'] / self.get_res_name(evaluation), seed_data[0])
             time_opti = self.timer_optimisation[-1]
         else:
             time_opti = 0
@@ -337,7 +343,7 @@ class DataManager:
 
         return feasibility_checked
 
-    def infeasible_tidy_files_seeds(self, seed_ind):
+    def infeasible_tidy_files_seeds(self, seed_ind, evaluation):
         """If data is infeasible, update seeds and remove saved files."""
         if seed_ind < len(self.seeds[self.ext]):
             self.d_ind_seed[self.ext] += 1
@@ -346,11 +352,11 @@ class DataManager:
             for seeded_data in ['factors', 'clusters', 'batch']:
                 file_names = glob.glob(
                     str(self.paths['opt_res']
-                        / f"{seeded_data}{self.file_id()}"))
+                        / f"{seeded_data}{self.file_id(evaluation)}"))
                 for file_name in file_names:
                     os.remove(file_name)
             file_names = glob.glob(
-                str(self.paths['opt_res'] / self.res_name))
+                str(self.paths['opt_res'] / self.get_res_name(evaluation)))
             for file_name in file_names:
                 os.remove(file_name)
             self.d_seed[self.ext] += 1
@@ -380,10 +386,10 @@ class DataManager:
 
         return seed_ind
 
-    def file_id(self):
+    def file_id(self, evaluation):
         """Generate string to identify the run in saved files."""
         return f"{int(self.seed[self.ext])}{self.ext}" \
-               f"{self.prm['paths']['opt_res_file']}"
+               f"{get_opt_res_file(self.prm, evaluation)['opt_res_file']}"
 
     def _loop_replace_data(
             self,
@@ -397,7 +403,7 @@ class DataManager:
         homes = copy.deepcopy(homes_0)
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
-            self.env.fix_data_a(homes, self.file_id(), its=its)
+            self.env.fix_data_a(homes, self.file_id(evaluation), its=its)
             # [factors, clusters] = self._load_res()
 
             self.batch_file, batch = self.env.reset(
@@ -422,11 +428,11 @@ class DataManager:
 
         return batch, data_feasibles
 
-    def _load_res(self, labels: list = ['factors', 'clusters']) -> List[dict]:
+    def _load_res(self, labels: list = ['factors', 'clusters'], evaluation: bool = False) -> List[dict]:
         """Load pre-saved day data."""
         files = [
             np.load(
-                self.paths['opt_res'] / f"{label}{self.file_id()}",
+                self.paths['opt_res'] / f"{label}{self.file_id(evaluation)}",
                 allow_pickle=True
             ).item() for label in labels
         ]
@@ -484,7 +490,7 @@ class DataManager:
 
         # for subsequent methods, on reinitialisation, it will use this data
         # obtain data needed saved in batchfile
-        [batch] = self._load_res(labels=['batch'])
+        [batch] = self._load_res(labels=['batch'], evaluation=evaluation)
 
         new_batch_file = 'batch_file' in self.__dict__ \
                          and batch_file != self.batch_file
@@ -555,7 +561,14 @@ class DataManager:
             self.prm['loads']['reactive_power_passive_homes'] = np.zeros([self.N, 1])
             self.prm['loads']['q_heat_home_car_passive'] = np.zeros([1, self.N])
 
-        feasible[self.env.hedge.factors['car'] > self.prm['car']['max_daily_energy_cutoff']] = False
+        if self.ext == '':
+            hedge = self.env.hedge
+        elif self.ext == 'P':
+            hedge = self.env.passive_hedge
+        elif self.ext == '_test':
+            hedge = self.env.test_hedge
+
+        feasible[hedge.factors['car'] > self.prm['car']['max_daily_energy_cutoff']] = False
 
         return feasible
 
