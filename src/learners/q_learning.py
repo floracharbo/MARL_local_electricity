@@ -21,9 +21,9 @@ class TabularQLearner:
     def __init__(self, env, rl):
         self.name = 'TabularQLearner'
         self.rl = rl
-        self.n_agents = env.n_homes
+        self.n_homes = env.n_homes
         self.n_states, self.n_actions = {}, {}
-        for str_frame, multiplier in zip(['1', 'all'], [1, self.n_agents]):
+        for str_frame, multiplier in zip(['1', 'all'], [1, self.n_homes]):
             self.n_states[str_frame], self.n_actions[str_frame] = \
                 [n ** multiplier for n in
                  [env.spaces.n['state'], env.spaces.n['action']]]
@@ -42,7 +42,7 @@ class TabularQLearner:
         """ for each repeat, reinitialise q_tables and counters """
         for method in self.rl['type_Qs']:
             str_frame = 'all' if distr_learning(method) in ['Cc0', 'Cd0'] else '1'
-            n_homes = self.n_agents if (
+            n_homes = self.n_homes if (
                 distr_learning(method) in ['d', 'Cd', 'd0']
                 or self.rl['competitive']
             ) else 1
@@ -325,7 +325,7 @@ class TabularQLearner:
         ]
 
         if reward_type(q) == 'n':
-            for home in range(self.n_agents):
+            for home in range(self.n_homes):
                 if indiv_ac[home] is not None:
                     i_table = home if distr_learning(q) == 'd' else 0
                     self.q_tables[q][i_table][ind_indiv_s[home]][
@@ -347,7 +347,7 @@ class TabularQLearner:
                         ind_global_ac[0], ind_next_global_s[0], epoch,
                         i_table=0, q_table_name=q + '0'
                     )
-                    for home in range(self.n_agents):
+                    for home in range(self.n_homes):
                         i_table = 0 if distr_learning == 'Cc' else home
                         local_q_val = self.q_tables[q][i_table][
                             ind_indiv_s[home]][ind_indiv_ac[home]]
@@ -360,7 +360,7 @@ class TabularQLearner:
                         self.counter[q][i_table][ind_indiv_s[home]][
                             ind_indiv_ac[home]] += 1
             else:
-                for home in range(self.n_agents):
+                for home in range(self.n_homes):
                     if indiv_ac[home] is not None:
                         i_table = 0 if distr_learning(q) == 'c' else home
                         reward_home = self._get_reward_home(
@@ -405,12 +405,12 @@ class TabularQLearner:
             )
         indiv_ind_actions_baselinea = \
             [[self.rl['dim_actions'] - 1 if i_home == home else ind_indiv_ac[home]
-              for i_home in range(self.n_agents)]
-             for home in range(self.n_agents)]
+              for i_home in range(self.n_homes)]
+             for home in range(self.n_homes)]
         ind_a_global_abaseline = \
             [self.indiv_to_global_index('action', indexes=iab)
              for iab in indiv_ind_actions_baselinea]
-        for home in range(self.n_agents):
+        for home in range(self.n_homes):
             if indiv_ac[home] is not None:
                 i_table = 0 if distr_learning(q) == 'Cc' else home
                 q0 = self.q_tables[q + '0'][0]
@@ -436,7 +436,7 @@ class TabularQLearner:
             self, reward, done, ind_indiv_s, ind_indiv_ac,
             ind_next_indiv_s, indiv_ac, q, epoch
     ):
-        for home in range(self.n_agents):
+        for home in range(self.n_homes):
             if ind_indiv_ac[home] is not None:
                 self.update_q(
                     reward, done, ind_indiv_s[home], ind_indiv_ac[home],
@@ -459,7 +459,7 @@ class TabularQLearner:
             self, reward, done, ind_indiv_s, ind_indiv_ac,
             ind_next_indiv_s, indiv_ac, q, epoch
     ):
-        for home in range(self.n_agents):
+        for home in range(self.n_homes):
             if ind_indiv_ac[home] is not None:
                 self.update_q(
                     reward, done, ind_indiv_s[home], ind_indiv_ac[home],
