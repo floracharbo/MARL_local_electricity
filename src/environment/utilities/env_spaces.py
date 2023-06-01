@@ -522,7 +522,7 @@ class EnvSpaces:
                 "day_type": 0 if date.weekday() < 5 else 1,
                 "loads_cons_step": loads_step[home],
                 "loads_cons_prev": loads_prev[home],
-                "dT": prm["heat"]["T_req"][home][time_step]
+                "dT": prm["heat"]["T_req" + self.ext][home][time_step]
                 - res["T_air"][home][min(time_step, len(res["T_air"][home]) - 1)]
             }
 
