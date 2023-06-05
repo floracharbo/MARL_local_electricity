@@ -29,8 +29,8 @@ from src.environment.utilities.env_spaces import (_actions_from_unit_box,
                                                   _actions_to_unit_box)
 from src.environment.utilities.userdeftools import (current_no_run,
                                                     distr_learning,
-                                                    reward_type,
-                                                    get_opt_res_file)
+                                                    get_opt_res_file,
+                                                    reward_type)
 from src.learners.facmac.components.transforms import OneHot
 
 

@@ -73,9 +73,7 @@ class Explorer:
 
     def _initialise_step_vals_entries(self, prm):
 
-        self.indiv_step_vals_entries = [
-            "state", "action", "diff_rewards", "next_state", "bool_flex"
-        ]
+
         self.dim_step_vals = {
             "state": prm['RL']['dim_states_1'],
             "next_state": prm['RL']['dim_states_1'],
@@ -89,7 +87,7 @@ class Explorer:
             "ind_next_global_state", "done", "constraint_ok"
         ]
         self.step_vals_entries = \
-            self.indiv_step_vals_entries \
+            prm['syst']['indiv_step_vals_entries'] \
             + self.global_step_vals_entries \
             + prm['syst']['break_down_rewards_entries']
 
@@ -487,7 +485,7 @@ class Explorer:
                 shape = (self.N, n_homes)
             else:
                 shape = (self.N, 1)
-        elif info in self.indiv_step_vals_entries:
+        elif info in self.prm['syst']['indiv_step_vals_entries']:
             shape = (self.N, n_homes, self.dim_step_vals[info])
         elif info in self.global_step_vals_entries:
             shape = (self.N,)
@@ -512,7 +510,7 @@ class Explorer:
             step_vals[method] = initialise_dict(
                 self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
             )
-            for info in self.indiv_step_vals_entries + self.global_step_vals_entries + self.prm['syst']['break_down_rewards_entries']:
+            for info in self.prm['syst']['indiv_step_vals_entries'] + self.global_step_vals_entries + self.prm['syst']['break_down_rewards_entries']:
                 shape = self._get_shape_step_vals(info)
                 step_vals[method][info] = np.full(shape, np.nan)
 
@@ -656,17 +654,14 @@ class Explorer:
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
             step_vals[method][info][time_step] = var
-        for info, var in zip(self.indiv_step_vals_entries, indiv_step_vals):
+        for info, var in zip(self.prm['syst']['indiv_step_vals_entries'], indiv_step_vals):
             if var is not None:
                 if info == 'diff_rewards' and len(var) == self.n_homes + 1:
                     var = var[:-1]
                 var_ = np.array(var.cpu()) if th.is_tensor(var) else var
-                try:
-                    step_vals[method][info][time_step, 0: n_homes, :] = np.reshape(
-                        var_, (n_homes, self.dim_step_vals[info])
-                    )
-                except Exception as ex:
-                    print(ex)
+                step_vals[method][info][time_step, 0: n_homes, :] = np.reshape(
+                    var_, (n_homes, self.dim_step_vals[info])
+                )
 
         for info, var in zip(self.global_step_vals_entries, global_step_vals):
             step_vals[method][info][time_step] = var
@@ -685,22 +680,18 @@ class Explorer:
         for key_ in step_vals_i.keys():
             if step_vals_i[key_] is None:
                 break
-            try:
-                target_shape = self._get_shape_step_vals(key_, evaluation)
-                if not isinstance(target_shape, int):
-                    target_shape = target_shape[1:]
-                if key_ == 'diff_rewards' and len(step_vals_i[key_]) == self.n_homes + 1:
-                    step_vals_i[key_] = step_vals_i[key_][:-1]
-                if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
-                    step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
-                if key_[0: len('indiv')] == 'indiv' or key_ in self.indiv_step_vals_entries:
-                    n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
-                    step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
-                else:
-                    step_vals[method][key_][time_step] = step_vals_i[key_]
-
-            except Exception as ex:
-                print(ex)
+            target_shape = self._get_shape_step_vals(key_, evaluation)
+            if not isinstance(target_shape, int):
+                target_shape = target_shape[1:]
+            if key_ == 'diff_rewards' and len(step_vals_i[key_]) == self.n_homes + 1:
+                step_vals_i[key_] = step_vals_i[key_][:-1]
+            if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
+                step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
+            if key_[0: len('indiv')] == 'indiv' or key_ in self.prm['syst']['indiv_step_vals_entries']:
+                n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
+                step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
+            else:
+                step_vals[method][key_][time_step] = step_vals_i[key_]
 
         if time_step > 0:
             step_vals[method]["next_state"][time_step] = step_vals_i["state"]

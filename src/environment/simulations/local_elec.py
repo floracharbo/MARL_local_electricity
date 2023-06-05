@@ -25,8 +25,8 @@ from src.environment.simulations.heat import Heat
 from src.environment.simulations.network import Network
 from src.environment.utilities.env_spaces import EnvSpaces
 from src.environment.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs,
-    mean_max_hourly_voltage_deviations, get_opt_res_file)
+    compute_import_export_costs, compute_voltage_costs, get_opt_res_file,
+    mean_max_hourly_voltage_deviations)
 
 
 class LocalElecEnv:

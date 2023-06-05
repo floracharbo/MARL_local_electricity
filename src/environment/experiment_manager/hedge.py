@@ -495,10 +495,7 @@ class HEDGE:
                     profile, data_type, fitted_kmeans_id
                 )
                 fitted_kmeans_obj = self.fitted_kmeans_obj[data_type][fitted_kmeans_id]
-                try:
-                    cluster_distance = fitted_kmeans_obj.transform(transformed_features)[0, cluster_]
-                except Exception as ex:
-                    print(ex)
+                cluster_distance = fitted_kmeans_obj.transform(transformed_features)[0, cluster_]
                 profile_validated = cluster_distance < max_dist
             else:
                 profile_validated = True
