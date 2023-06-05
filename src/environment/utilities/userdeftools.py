@@ -108,9 +108,6 @@ def play_sound():
     wave_obj.play()
 
 
-
-
-
 def _naming_file_extension_network_parameters(grd):
     """ Adds the manage_voltage and manage_agg_power settings to optimization results in opt_res """
     upper_quantities = ['max_voltage', 'max_grid_import']
@@ -125,6 +122,7 @@ def _naming_file_extension_network_parameters(grd):
             lower_quantities, upper_quantities, penalties_upper, penalties_lower, managements
     ):
         if grd[management]:
+            file_extension += f"_{management}"
             if default_grd[upper_quantity] != grd[upper_quantity]:
                 file_extension += f"_{management}_limit" + str(grd[upper_quantity])
             if (
@@ -153,6 +151,7 @@ def get_opt_res_file(prm, test=False):
     syst, heat, car, loads, paths, rl, grd = [
         prm[info] for info in ['syst', 'heat', 'car', 'loads', 'paths', 'RL', 'grd']
     ]
+
     ext = '_test' if test else ''
 
     if np.all(car['caps'] == car['cap']):
