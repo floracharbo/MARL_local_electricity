@@ -333,14 +333,26 @@ class Runner:
                 if e not in ['seeds', 'n_not_feas'] \
                         and e in train_steps_vals[0][exploration_methods[0]].keys():
                     shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][e])
+                    if e[0: len('indiv')] == 'indiv' or e in self.prm['syst']['indiv_step_vals_entries']:
+                        shape0 = list(shape0)
+                        shape0[1] = self.n_homes
+                        shape0 = tuple(shape0)
+                        train_steps_vals[i_explore][method][e] = train_steps_vals[i_explore][method][e][:, :self.n_homes]
+
                     new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
                     list_train_stepvals[method][e] = np.full(new_shape, np.nan)
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             try:
-                                list_train_stepvals[method][e][
+                                if e[0: len('indiv')] == 'indiv' or e in self.prm['syst'][
+                                    'indiv_step_vals_entries']:
+                                    list_train_stepvals[method][e][
                                     i_explore * self.N: (i_explore + 1) * self.N
-                                ] = train_steps_vals[i_explore][method][e]
+                                    ] = train_steps_vals[i_explore][method][e][:, 0: self.n_homes]
+                                else:
+                                    list_train_stepvals[method][e][
+                                        i_explore * self.N: (i_explore + 1) * self.N
+                                    ] = train_steps_vals[i_explore][method][e]
                             except Exception:
                                 # these may be recorded differently for optimisation,
                                 # e.g. no grid_energy_costs, etc.
