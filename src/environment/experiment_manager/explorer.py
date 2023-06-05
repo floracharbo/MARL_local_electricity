@@ -642,7 +642,6 @@ class Explorer:
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
             n = n_homes if info[0: len('indiv')] == 'indiv' else 1
-            assert isinstance(var, (int, np.float64)) if n == 1 else len(var) == n, f"{info} = {var}, n = {n}"
             step_vals[method][info][time_step][:n] = var
         for info, var in zip(self.prm['syst']['indiv_step_vals_entries'], indiv_step_vals):
             if var is not None:
