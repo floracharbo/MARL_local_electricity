@@ -124,7 +124,7 @@ def _naming_file_extension_network_parameters(grd):
         if grd[management]:
             file_extension += f"_{management}"
             if default_grd[upper_quantity] != grd[upper_quantity]:
-                file_extension += f"_{management}_limit" + str(grd[upper_quantity])
+                file_extension += f"_limit" + str(grd[upper_quantity])
             if (
                 default_grd[lower_quantity] != grd[lower_quantity]
                 and grd[upper_quantity] != grd[lower_quantity]
@@ -136,13 +136,13 @@ def _naming_file_extension_network_parameters(grd):
                 default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
                 and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
             ):
-                file_extension += "_" + str(grd[f'penalty_{penalty_lower}'])
+                file_extension += f"_{grd[f'penalty_{penalty_lower}']}"
 
             if management == 'manage_voltage':
                 if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
-                    file_extension += f"subset_losses{grd['subset_line_losses_modelled']}"
+                    file_extension += f"_subset_losses{grd['subset_line_losses_modelled']}"
                 if grd['reactive_power_for_voltage_control']:
-                    file_extension += 'q_action'
+                    file_extension += '_q_action'
 
     return file_extension
 
