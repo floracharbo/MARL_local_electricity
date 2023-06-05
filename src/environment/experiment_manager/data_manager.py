@@ -259,9 +259,13 @@ class DataManager:
 
 
     def get_res_name(self, evaluation):
+        active_seed = self.seed['_test'] \
+            if evaluation and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
+            else self.seed['']
+
         res_name = \
             f"res_P{int(self.seed['P'])}_" \
-            f"{int(self.seed[''])}{get_opt_res_file(self.prm, evaluation)['opt_res_file']}"
+            f"{int(active_seed)}{get_opt_res_file(self.prm, evaluation)['opt_res_file']}"
 
         return res_name
 
@@ -339,6 +343,7 @@ class DataManager:
             self.seed[self.ext] = self.seeds[self.ext][seed_ind]
         else:
             self.seed[self.ext] = seed_ind + self.d_seed[self.ext]
+
             feasibility_checked = False
 
         return feasibility_checked
