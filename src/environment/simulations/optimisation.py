@@ -54,7 +54,7 @@ class Optimiser:
             res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
 
         if 'voltage_squared' in res:
-            assert np.all(res['voltage_squared'] >= 0)
+            assert np.all(res['voltage_squared'] >= 0), f"res['voltage_squared'] {res['voltage_squared']}"
 
         return res, pp_simulation_required
 
