@@ -433,6 +433,9 @@ class HEDGE:
         homes = np.where(np.array(self.car['own_car']))[0]
         for i_home, home in enumerate(homes):
             it = 0
+            max_loads_car = np.max(day["loads_car"][i_home])
+            car_cap = self.car['caps' + self.ext][home]
+            factor = factors[i_home]
             while (
                     np.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home]
                     or factors[i_home] > self.car['max_daily_energy_cutoff']
