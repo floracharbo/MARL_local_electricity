@@ -409,7 +409,12 @@ def compute_voltage_costs(voltage_squared, grd):
 
 
 def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
-    if voltage_squared is None or np.isnan(voltage_squared) or voltage_squared < 0:
+    if any(
+            voltage_squared_i is None
+            or np.isnan(voltage_squared_i)
+            or voltage_squared_i < 0
+            for voltage_squared_i in voltage_squared
+    ):
         print(f"voltage_squared: {voltage_squared}")
     overvoltage_deviation = \
         (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
