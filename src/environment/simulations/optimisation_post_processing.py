@@ -835,7 +835,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             res['n_voltage_deviation_hour'].append(n_hour)
 
     else:
-        res['voltage_squared'] = np.empty((1, N))
+        res['voltage_squared'] = np.zeros((1, N))
         res['voltage_costs'] = 0
         res['hourly_voltage_costs'] = np.zeros(N)
         res['hourly_line_losses'] = np.zeros(N)
