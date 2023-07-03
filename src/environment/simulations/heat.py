@@ -116,6 +116,7 @@ class Heat:
             self.T_LB = prm["heat"]["T_LB" + self.ext]
         else:
             self.T_UB, self.T_LB = [self.T_req for _ in range(2)]
+            # self.T_UB, self.T_LB = [prm["heat"]["T_LB" + self.ext] for _ in range(2)]
 
     def update_i0_costs(self, prm, i0_costs):
         self.i0_costs = i0_costs

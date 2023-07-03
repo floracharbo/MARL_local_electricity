@@ -95,16 +95,17 @@ class ActionSelector:
                         tf_prev_state_it = self._format_tf_prev_state(current_state_it)
 
                         action_it = self._select_action_facmac(
-                            current_state_it, tf_prev_state_it, step, evaluation, method, t_env
-                        )
+                            tf_prev_state_it, step, evaluation, method, t_env
+                        )[0]
                         for home_train in range(self.n_homes):
                             home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
                             assert len(home_execs) <= 1
                             if len(home_execs) > 0:
                                 action[home_execs[0]] = action_it[home_train]
+
                 else:
                     action = self._select_action_facmac(
-                        current_state, tf_prev_state, step, evaluation, method, t_env
+                        tf_prev_state, step, evaluation, method, t_env
                     )
             else:
                 ind_current_state = np.array(
@@ -183,6 +184,7 @@ class ActionSelector:
             ]
             states[time_step] = env.get_state_vals(inputs=inputs_state_val)
         ind_actions = None
+        n_actions = 1 if self.rl['aggregate_actions'] else rl['dim_actions_1']
 
         if method == 'baseline':
             actions = self.rl['default_action' + ext]
@@ -206,7 +208,7 @@ class ActionSelector:
             step = 0
 
             if ext == '_test':
-                actions = np.zeros((self.n_homes_test, rl['dim_actions']))
+                actions = np.zeros((self.n_homes_test, self.N, n_actions))
                 for it in range(rl['action_selection_its']):
                     state_it = np.zeros((self.N + 1, self.n_homes, rl['dim_states_1']))
                     for i in range(rl['dim_states_1']):
@@ -216,8 +218,9 @@ class ActionSelector:
                     tf_prev_state_it = self._format_tf_prev_state(state_it)
 
                     action_it = self._select_action_facmac(
-                        state_it, tf_prev_state_it, step, evaluation, method, t_env
+                        tf_prev_state_it, step, evaluation, method, t_env
                     )
+                    action_it = action_it.reshape((self.n_homes, self.N, n_actions))
                     for home_train in range(self.n_homes):
                         home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
                         assert len(home_execs) <= 1
@@ -226,10 +229,9 @@ class ActionSelector:
             else:
                 tf_prev_state = self._format_tf_prev_state(states)
                 actions = self._select_action_facmac(
-                    states, tf_prev_state, step, evaluation, method, t_env
+                    tf_prev_state, step, evaluation, method, t_env
                 )
 
-        n_actions = 1 if self.rl['aggregate_actions'] else rl['dim_actions_1']
         if isinstance(actions, np.ndarray):
             actions = np.reshape(actions, (n_homes, self.N, n_actions))
         elif th.is_tensor(actions):
@@ -271,7 +273,7 @@ class ActionSelector:
         return action
 
     def _select_action_facmac(
-        self, current_state, tf_prev_state, step, evaluation, method, t_env
+        self, tf_prev_state, step, evaluation, method, t_env
     ):
         pre_transition_data = {"avail_actions": th.Tensor(self.rl['avail_actions']), }
         if self.rl['trajectory']:
@@ -293,11 +295,6 @@ class ActionSelector:
                 self.episode_batch[method], t_ep=step,
                 t_env=t_env, test_mode=evaluation
             )
-
-        # action = [
-        #     [float(action[0][home][i]) for i in range(self.rl['dim_actions'])]
-        #     for home in range(self.n_homes)
-        # ]
 
         return action
 

@@ -291,23 +291,25 @@ def _load_data_dictionaries(paths, syst):
     return syst
 
 
-def _load_bat_factors_parameters(paths, car):
-    path = paths["factors_path"] / "car_p_pos.pickle"
-    with open(path, "rb") as file:
-        car['f_prob_pos'] = pickle.load(file)
-    path = paths["factors_path"] / "car_p_zero2pos.pickle"
-    with open(path, "rb") as file:
-        car['f_prob_zero2pos'] = pickle.load(file)
-
-    path = paths["factors_path"] / "car_mid_fs_brackets.pickle"
-    with open(path, "rb") as file:
-        car['mid_fs_brackets'] = pickle.load(file)
-
-    path = paths["factors_path"] / "car_fs_brackets.pickle"
-    with open(path, "rb") as file:
-        car['fs_brackets'] = pickle.load(file)
-
-    return car
+# def _load_bat_factors_parameters(paths, car, syst):
+#     label = f"n_consecutive_days{syst['n_consecutive_days']}_" \
+#             f"brackets_definition_{syst['brackets_definition']}.pickle"
+#     path = paths["factors_path"] / f"p_pos_{label}.pickle"
+#     with open(path, "rb") as file:
+#         car['f_prob_pos'] = pickle.load(file)
+#     path = paths["factors_path"] / f"p_zero2pos_{label}.pickle"
+#     with open(path, "rb") as file:
+#         car['f_prob_zero2pos'] = pickle.load(file)
+#
+#     path = paths["factors_path"] / f"mid_fs_brackets_{label}.pickle"
+#     with open(path, "rb") as file:
+#         car['mid_fs_brackets'] = pickle.load(file)
+#
+#     path = paths["factors_path"] / f"fs_brackets_{label}.pickle"
+#     with open(path, "rb") as file:
+#         car['fs_brackets'] = pickle.load(file)
+#
+#     return car
 
 
 def _update_bat_prm(prm):
@@ -322,7 +324,7 @@ def _update_bat_prm(prm):
     car:
         correpsonding to prm["car"]; with updated parameters
     """
-    car, syst, paths = [prm[key] for key in ["car", "syst", "paths"]]
+    car, heat, syst, paths = [prm[key] for key in ["car", "heat", "syst", "paths"]]
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
     car['c_max0'] = car['c_max']
@@ -342,14 +344,16 @@ def _update_bat_prm(prm):
     car["caps"] = np.array(
         car["cap"]) if isinstance(car["cap"], list) \
         else np.full(syst["n_homes"], car["cap"], dtype=np.float32)
-    if "own_car" in car:
-        for ext in syst['n_homes_extensions_all']:
-            car["own_car" + ext] \
-                = np.ones(syst["n_homes" + ext]) * car["own_car" + ext] \
-                if isinstance(car["own_car" + ext], (int, float)) \
-                else np.array(car["own_car" + ext])
 
-    car = _load_bat_factors_parameters(paths, car)
+    for der, obj in zip(["car", "heat"], [car, heat]):
+        if f"own_{der}" in obj:
+            for ext in syst['n_homes_extensions_all']:
+                obj[f"own_{der}" + ext] \
+                    = np.ones(syst["n_homes" + ext]) * obj[f"own_{der}" + ext] \
+                    if isinstance(obj[f"own_{der}" + ext], (int, float)) \
+                    else np.array(obj[f"own_{der}" + ext])
+
+    # car = _load_bat_factors_parameters(paths, car, syst)
 
     # battery characteristics
     car["min_charge"] = car["caps"] * max(car["SoCmin"], car["baseld"])
@@ -616,11 +620,11 @@ def _update_rl_prm(prm, initialise_all):
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
 
-    if syst['run_mode'] == 1:
-        for ext in syst['n_homes_extensions_all']:
-            rl["default_action" + ext] = np.full(
-                (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
-            )
+    # if syst['run_mode'] == 1:
+    for ext in syst['n_homes_extensions_all']:
+        rl["default_action" + ext] = np.full(
+            (syst["n_homes" + ext], rl["dim_actions"]), rl["default_action"]
+        )
 
     if prm["grd"]["reactive_power_for_voltage_control"]:
         reactive_power_default = rl["default_action"][0][2] * prm['grd']['active_to_reactive_flex']

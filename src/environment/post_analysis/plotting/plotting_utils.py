@@ -23,11 +23,12 @@ def title_and_save(
     if prm['save']['save_run']:
         fig_folder = prm['paths']['fig_folder']
         if prm['save']['high_res']:
-            fig.savefig(fig_folder / f"{title.replace(' ', '_')}.pdf",
-                        bbox_inches='tight', format='pdf', dpi=1200)
+            fig.savefig(
+                fig_folder / f"{title.replace(' ', '_')}.pdf",
+                bbox_inches='tight', format='pdf', dpi=1200
+            )
         else:
-            fig.savefig(fig_folder / title.replace(' ', '_'),
-                        bbox_inches='tight')
+            fig.savefig(fig_folder / title.replace(' ', '_'), bbox_inches='tight')
     plt.close('all')
 
     return fig
