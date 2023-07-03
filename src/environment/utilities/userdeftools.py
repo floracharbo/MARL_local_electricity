@@ -190,7 +190,9 @@ def get_opt_res_file(prm, test=False):
         if sum(ownership) != len(ownership):
             paths['opt_res_file'] += f"_no_{label}"
             homes = np.where(ownership == 0)[0]
-            if all(homes[1:] == homes[:-1] + 1):
+            if len(homes) == 1:
+                paths['opt_res_file'] += f"_{homes[0]}"
+            elif all(homes[1:] == homes[:-1] + 1):
                 paths['opt_res_file'] += f"_{homes[0]}_to_{homes[-1]}"
             else:
                 for home in np.where(ownership == 0)[0]:
