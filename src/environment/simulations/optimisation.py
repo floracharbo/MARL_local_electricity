@@ -249,6 +249,9 @@ class Optimiser:
             ]
         )
 
+        # voltage squared positive
+        p.add_constraint(voltage_squared >= 0)
+
         # bus voltage
         p.add_list_of_constraints([
             voltage_squared[0, time_step] == 1.0
