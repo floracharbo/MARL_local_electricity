@@ -153,9 +153,8 @@ def get_opt_res_file(prm, test=False):
     ]
 
     ext = '_test' if test else ''
-
     if np.all(car['caps'] == car['cap']):
-        cap_str = car['cap']
+        cap_str = f"car_cap{car['cap']}"
     else:
         caps = {}
         for home, cap in enumerate(car['caps']):
@@ -165,9 +164,14 @@ def get_opt_res_file(prm, test=False):
         cap_str = ''
         for cap, homes in caps.items():
             cap_str += f"{cap}"
-            for home in homes:
-                cap_str += f"_{home}"
-
+            if all(np.array(homes[1:]) == np.array(homes[:-1] )+1):
+                cap_str += f"_{homes[0]}_to_{homes[-1]}"
+            else:
+                for home in homes:
+                    cap_str += f"_{home}"
+    for der, f0 in zip(['car', 'gen', 'loads'], [8, 8, 9]):
+        if prm['syst']['f0'][der] != f0:
+            cap_str += f"_f0_{der}_{prm['syst']['f0'][der]}"
     paths['opt_res_file'] = \
         f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
         f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
@@ -185,8 +189,12 @@ def get_opt_res_file(prm, test=False):
         ownership = obj[f'own_{label}']
         if sum(ownership) != len(ownership):
             paths['opt_res_file'] += f"_no_{label}"
-            for home in np.where(ownership == 0)[0]:
-                paths['opt_res_file'] += f"_{home}"
+            homes = np.where(ownership == 0)[0]
+            if all(homes[1:] == homes[:-1] + 1):
+                paths['opt_res_file'] += f"_{homes[0]}_to_{homes[-1]}"
+            else:
+                for home in np.where(ownership == 0)[0]:
+                    paths['opt_res_file'] += f"_{home}"
 
     paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
     if rl["deterministic"] == 2:
