@@ -41,7 +41,7 @@ class Optimiser:
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
         self.n_homes = prm['syst']['n_homes_test'] if test else prm['syst']['n_homes']
-        self.ext = '_test' if test else ''
+        self.ext = '_test' if test and prm['syst']['n_homes_test'] != prm['syst']['n_homes'] else ''
         if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res, pp_simulation_required = self._solve_line_losses_iteration(test)
         else:
@@ -465,7 +465,8 @@ class Optimiser:
         if self.grd['manage_voltage']:
             p, voltage_costs, _ = self._power_flow_equations(
                 p, netp, grid, hourly_line_losses_pu,
-                charge, discharge_other, totcons)
+                charge, discharge_other, totcons
+            )
         else:
             p.add_constraint(hourly_line_losses_pu == 0)
             voltage_costs = 0
@@ -814,7 +815,8 @@ class Optimiser:
         p, totcons, constl_consa_constraints, constl_loads_constraints \
             = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(
-            p, charge, discharge_other, totcons)
+            p, charge, discharge_other, totcons
+        )
         # prosumer energy balance, active power
         p.add_constraint(
             netp - charge / self.car['eta_ch']
