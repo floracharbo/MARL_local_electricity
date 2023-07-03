@@ -430,7 +430,7 @@ class HEDGE:
         self, day, interval_f_car, factors, transition, clusters, day_type, homes
     ):
         transition_ = 'all' if transition == 'we2wd' else transition
-        homes = np.where(np.array(self.car['own_car']))[0]
+        homes = [home for home in homes if self.car['own_car'][home]]
         for i_home, home in enumerate(homes):
             it = 0
             max_loads_car = np.max(day["loads_car"][i_home])
