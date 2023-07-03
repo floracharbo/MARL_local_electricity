@@ -430,12 +430,9 @@ class HEDGE:
         self, day, interval_f_car, factors, transition, clusters, day_type, homes
     ):
         transition_ = 'all' if transition == 'we2wd' else transition
-        homes = [home for home in homes if self.car['own_car'][home]]
+        homes = homes[self.car['own_car'][homes]]
         for i_home, home in enumerate(homes):
             it = 0
-            max_loads_car = np.max(day["loads_car"][i_home])
-            car_cap = self.car['caps' + self.ext][home]
-            factor = factors[i_home]
             while (
                     np.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home]
                     or factors[i_home] > self.car['max_daily_energy_cutoff']
