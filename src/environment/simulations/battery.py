@@ -452,11 +452,14 @@ class Battery:
         if not self.reactive_power_for_voltage_control:
             # calculate active and reactive power for all homes with fixed pf
             self.q_car_flex = self.p_car_flex * self.active_to_reactive_flex
+
         apparent_power_car = np.sqrt(np.square(self.p_car_flex) + np.square(self.q_car_flex))
+
         assert all(apparent_power_car <= self.max_apparent_power_car ** 2 + 1e-2), \
             f"The sum of squares of p_car_flex and q_car_flex exceeds the" \
             f" maximum apparent power of the car: {self.max_apparent_power_car} < " \
-            f"{apparent_power_car.max()}"
+            f"{apparent_power_car.max()} apparent_power_car {apparent_power_car} " \
+            f"self.p_car_flex {self.p_car_flex} self.q_car_flex {self.q_car_flex}"
 
     def initial_processing(self):
         """Get current available battery flexibility."""
@@ -470,6 +473,7 @@ class Battery:
         s_add_0 = np.multiply(self.avail_car, np.maximum(self.min_charge_t - self.start_store, 0))
         if self.time_step == self.N:
             s_add_0 = np.where(s_add_0 > self.c_max + 1e-3, self.c_max, s_add_0)
+        s_add_0 = np.where((self.c_max < s_add_0) & (s_add_0 < self.c_max + 1e-2), self.c_max, s_add_0)
         assert all(s_add_0 <= self.c_max + 1e-2), \
             f"s_add_0: {s_add_0} > self.c_max {self.c_max} " \
             f"self.min_charge_t[i_too_large[0]] {self.min_charge_t} " \

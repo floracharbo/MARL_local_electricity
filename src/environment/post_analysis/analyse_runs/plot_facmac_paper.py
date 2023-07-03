@@ -13,24 +13,24 @@ from src.environment.post_analysis.plotting.plot_rl_performance_metrics import \
 # plot timing vs performance for n layers / dim layers; runs 742-656
 font = {'size': 14}
 matplotlib.rc('font', **font)
-save_label = 'facmac'
-plot_times = True
+save_label = 'vary_passive'
+plot_times = False
 
 compare_times = ['OMQ',
                  'FD']
 labels = {
-    'IQ': 'Independent Q-learning',
-    'OIQ': 'Optimisation-informed independent Q-learning',
+    # 'IQ': 'Independent Q-learning',
+    # 'OIQ': 'Optimisation-informed independent Q-learning',
     # 'AQ': 'Advantage-based Q-learning',
     # 'OAQ': 'Optimisation-informed, Advantage-based Q-learning',
-    'MQ': 'Marginal reward Q-learning',
-    'OMQ': 'Optimisation-informed, marginal reward Q-learning',
+    # 'MQ': 'Marginal reward Q-learning',
+    # 'OMQ': 'Optimisation-informed, marginal reward Q-learning',
     # 'OCQ': 'Optimisation-informed, count-based Q-learning',
 
     'opt': 'Optimal',
     # 'OCQ': 'Optimisation-informed, count-based Q-learning',
     'FD': 'Centralised but factored critic',
-    'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
+    # 'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
     # 'FH': 'FACMAC',  # (hourly)
     # 'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
@@ -71,6 +71,9 @@ opt_informed = {
 # THESIS:
 # runQ = [1917, 1919] + list(range(1956, 1965))
 runQ = [2024] + list(range(2026, 2035))
+
+# for impacts varying n testing homes
+# runQ = [2196, 2210]
 runs = {
     entry: runQ for entry in
     [t for t in type_learning if t[-1] == 'Q'] + ['opt']
@@ -83,8 +86,10 @@ runs = {
 # 'FD': list(range(1089, 1091)) + list(range(1092, 1096)),
 # FACMAC PAPER: 'FD': list(range(1146, 1152)) + list(range(1158, 1166)),
 # runs['FD'] = list(range(1974, 1985))
-runs['FD'] = list(range(2035, 2045))
+# THESIS runs['FD'] = list(range(2035, 2045))
 
+# impacts varying passive homes
+runs['FD'] = list(range(2216, 2219)) + [2227, 2228]
 # 'FDO': list(range(257, 261)) + list(range(263, 265)),
 # 'FDO': list(range(528, 534)),
 # 'FDO': list(range(582, 587)) + [697],
@@ -332,52 +337,56 @@ fig, axs = plt.subplots(2, 3, figsize=(8, 10))
 #     plt.subplot2grid((2, 6), (1, 3), 1, 2),
 # ]
 
+save_fig = True
 for n_home in [10, 30]:
     for line_label in labels.keys():
         reliability_metrics[line_label] = {
             reliability_metric_label: {}
             for reliability_metric_label in reliability_metric_labels
         }
-        run = n_home_to_run[line_label][n_home]
-        reliability_metrics_run = np.load(
-            f"outputs/results/run{run}/figures/metrics.npy", allow_pickle=True
-        ).item()
-        for reliability_metric_label in reliability_metric_labels:
-            reliability_metrics[line_label][reliability_metric_label]['ave'] = \
-                reliability_metrics_run[reliability_metric_label]['ave'][type_learning[line_label]]
-            reliability_metrics[line_label][reliability_metric_label]['std'] = \
-                reliability_metrics_run[reliability_metric_label]['std'][type_learning[line_label]]
-    for i_subplot, reliability_metric_label in enumerate(reliability_metric_labels):
-        bars, err = [
-            [
-                reliability_metrics[line_label][reliability_metric_label][s]
-                for line_label in compare_times
+        if n_home in n_home_to_run[line_label]:
+            run = n_home_to_run[line_label][n_home]
+            reliability_metrics_run = np.load(
+                f"outputs/results/run{run}/figures/metrics.npy", allow_pickle=True
+            ).item()
+            for reliability_metric_label in reliability_metric_labels:
+                reliability_metrics[line_label][reliability_metric_label]['ave'] = \
+                    reliability_metrics_run[reliability_metric_label]['ave'][type_learning[line_label]]
+                reliability_metrics[line_label][reliability_metric_label]['std'] = \
+                    reliability_metrics_run[reliability_metric_label]['std'][type_learning[line_label]]
+        else:
+            save_fig = False
+    if save_fig:
+        for i_subplot, reliability_metric_label in enumerate(reliability_metric_labels):
+            bars, err = [
+                [
+                    reliability_metrics[line_label][reliability_metric_label][s]
+                    for line_label in compare_times
+                ]
+                for s in ['ave', 'std']
             ]
-            for s in ['ave', 'std']
-        ]
-        ax = axs[subplots_i_j[reliability_metric_label]]
-        ax = _barplot(
-            bars, compare_times, None,
-            # error=err,
-            title=reliability_metric_label,
-            ax0=ax,
-            colours=[colours[line_label] for line_label in compare_times],
-            text_labels=False
-        )
-        if i_subplot in [0, 3]:
-            ax.set_ylabel('£/home/h')
+            ax = axs[subplots_i_j[reliability_metric_label]]
+            ax = _barplot(
+                bars, compare_times, None,
+                # error=err,
+                title=reliability_metric_label,
+                ax0=ax,
+                colours=[colours[line_label] for line_label in compare_times],
+                text_labels=False
+            )
+            if i_subplot in [0, 3]:
+                ax.set_ylabel('£/home/h')
     # for i, method in enumerate(compare_times):
     #     axs[1, 2].bar(i + 0.5, [0], label=labels[method], color=colours[method])
     # axs[1, 2].legend(fancybox=True)
     # axs[1, 2].set_yticks([])
     # axs[1, 2].set_xticks([])
-
-    plt.tight_layout()
-
-    fig.savefig(
-        f"outputs/results_analysis/metrics_{n_home}_homes_{save_label}_results_thesis.pdf",
-        bbox_inches='tight', format='pdf', dpi=1200
-    )
+    if save_fig:
+        plt.tight_layout()
+        fig.savefig(
+            f"outputs/results_analysis/metrics_{n_home}_homes_{save_label}_results_thesis.pdf",
+            bbox_inches='tight', format='pdf', dpi=1200
+        )
 
 # time facmac
 
@@ -405,31 +414,32 @@ for n_home in [10, 30]:
 # ]
 if plot_times:
     for line_label in compare_times:
-        xs = n_homes
-        ys = ys_time[line_label]
-        fig = plt.figure()
-        plt.plot(xs, ys, 'o', label='data')
+        if line_label in ys_time and len(ys_time[line_label]) > 0:
+            xs = n_homes
+            ys = ys_time[line_label]
+            fig = plt.figure()
+            plt.plot(xs, ys, 'o', label='data')
 
-        functions = [
-            first_order, second_order, second_order_b, exponential, polynomial2, polynomial3,
-            unknown_order, xlogx
-        ]
-        labels_functions = [
-            'first_order', 'second_order', 'second_order_b', 'exponential', 'polynomial2',
-            'polynomial3', 'unknown_order', 'xlogx'
-        ]
-        for function, label_func in zip(functions, labels_functions):
-            mask = ~np.isnan(ys)
-            if sum(mask) > 2:
-                xs, ys = np.array(xs)[mask], ys[mask]
-                params, pcov = optimize.curve_fit(function, xs, ys)
-                fitted = [function(x, *params) for x in list(range(1, x_max + 1))]
-                sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
-                print(f"sum square error {sum_square_error:.2e}")
-                print(f"params {line_label} {label_func}: {params}")
-                print(f"variability params {line_label}  {label_func} = {np.sqrt(np.diag(pcov))}")
-                plt.plot(list(range(1, x_max + 1)), fitted,
-                         label=label_func)
+            functions = [
+                first_order, second_order, second_order_b, exponential, polynomial2, polynomial3,
+                unknown_order, xlogx
+            ]
+            labels_functions = [
+                'first_order', 'second_order', 'second_order_b', 'exponential', 'polynomial2',
+                'polynomial3', 'unknown_order', 'xlogx'
+            ]
+            for function, label_func in zip(functions, labels_functions):
+                mask = ~np.isnan(ys)
+                if sum(mask) > 4:
+                    xs, ys = np.array(xs)[mask], ys[mask]
+                    params, pcov = optimize.curve_fit(function, xs, ys)
+                    fitted = [function(x, *params) for x in list(range(1, x_max + 1))]
+                    sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
+                    print(f"sum square error {sum_square_error:.2e}")
+                    print(f"params {line_label} {label_func}: {params}")
+                    print(f"variability params {line_label}  {label_func} = {np.sqrt(np.diag(pcov))}")
+                    plt.plot(list(range(1, x_max + 1)), fitted,
+                             label=label_func)
 
         plt.legend()
         plt.gca().set_yscale('log')

@@ -130,25 +130,26 @@ def plotting(record, spaces, prm, f):
         if prm['save']['plot_type'] > 0:
             # 10 - plot moving average of all evaluation rewards for each repeat
             plot_mova_eval_per_repeat(repeat, prm)
+        if prm["save"]["plotting_batch"]:
+            # 11 - plot environment input
+            plot_env_input(repeat, prm, record)
+
         if prm['save']['plot_type'] > 1:
-            # 11 - plot epsilon over time for each repeat
+            # 12 - plot epsilon over time for each repeat
             _plot_epsilon(repeat, prm, record)
-            # 12 - plot best action value per state (q learning)
+            # 13 - plot best action value per state (q learning)
             plot_best_actions(
                 repeat, prm, record, spaces
             )
-            # 13 - plot q values
+            # 14 - plot q values
             plot_q_values(repeat, spaces.index_to_val, prm)
 
-            # 14 - make video of visits to each state (q learning)
+            # 15 - make video of visits to each state (q learning)
             video_visit_states(repeat, record, spaces, prm)
 
-            # 15 -  final number of exploration of actions in each state
+            # 16 -  final number of exploration of actions in each state
             # (q learning)
             plot_final_explorations(repeat, record, prm)
-
-            # 16 - plot environment input
-            plot_env_input(repeat, prm, record)
 
             # 17 - n not feas vs variables vs time step
             _plot_unfeasible_attempts(repeat, record, prm)
@@ -161,10 +162,9 @@ def plotting(record, spaces, prm, f):
     all_methods_to_plot = prm['RL']['evaluation_methods']
     folder_run = prm["paths"]["folder_run"]
     # 20 - plot the aggregated hourly import and export and the limits
-    if prm['grd']['manage_agg_power']:
-        plot_imp_exp_violations(
-            prm, all_methods_to_plot, folder_run)
-        if not prm['grd']['manage_voltage']:
+    if prm['grd']['manage_agg_power'] or prm['grd']['simulate_panda_power_only']:
+        plot_imp_exp_violations(prm, all_methods_to_plot, folder_run)
+        if not prm['grd']['manage_voltage'] or prm['grd']['simulate_panda_power_only']:
             barplot_breakdown_savings(record, prm, plot_type='costs')
     # 21 - (Sanity Check) plot grid = grid_in - grid_out
     if prm['save']['plot_imp_exp_check']:
@@ -172,12 +172,11 @@ def plotting(record, spaces, prm, f):
             prm, all_methods_to_plot, folder_run)
 
     # 21 - over- and undervoltage
-    if prm['grd']['manage_voltage']:
+    if prm['grd']['manage_voltage'] or prm['grd']['simulate_panda_power_only']:
         map_over_undervoltage(
             prm, all_methods_to_plot, folder_run, net=prm["grd"]["net"]
         )
-        plot_voltage_violations(
-            prm, all_methods_to_plot, folder_run)
+        plot_voltage_violations(prm, all_methods_to_plot, folder_run)
         barplot_breakdown_savings(record, prm, plot_type='costs')
         barplot_grid_energy_costs(record, prm, plot_type='costs')
         plot_voltage_statistics(record, prm)

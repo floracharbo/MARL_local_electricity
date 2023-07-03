@@ -29,6 +29,9 @@ from src.environment.utilities.userdeftools import (f_to_interval,
                                                     list_potential_paths)
 
 
+def check_file_start(name, file):
+    return file[0: len(name)] == name
+
 def car_loads_to_availability(car_loads, tol=1e-2):
     """Tag car availability based on trips' origins and destinations."""
     car_loads[car_loads < tol] = 0
@@ -195,6 +198,15 @@ class HEDGE:
             with open(path, "rb") as file:
                 setattr(self, property_, pickle.load(file))
 
+        for brackets in ['fs_brackets', 'mid_fs_brackets']:
+            self.__dict__[brackets]['gen']['all'] = np.array(self.__dict__[brackets]['gen']['all'])
+            self.__dict__[brackets]['gen']['all'] *= prm['syst']['f0']['gen'] / self.f_mean['gen'][0]
+            for info in ['car', 'loads']:
+                for transition in prm['syst']['day_trans'] + ['all']:
+                    if not (info == 'car' and transition == 'we2wd'):
+                        self.__dict__[brackets][info][transition] = np.array(self.__dict__[brackets][info][transition])
+                        self.__dict__[brackets][info][transition] *= prm['syst']['f0'][info] / self.f_mean[info]
+
         clusters_path = prm["paths"]["hedge_inputs"] / "clusters"
         for property_ in [
             "p_clus", "p_trans", "min_cdfs", "max_cdfs", "clus_dist_bin_edges",
@@ -295,7 +307,7 @@ class HEDGE:
                 ]
         else:
             for data_type in self.data_types:
-                if isinstance(self.factors0[data_type], int):
+                if isinstance(self.factors0[data_type], (int, float)):
                     self.factors[data_type] = np.full(
                         self.n_homes, self.factors0[data_type], dtype=float
                     )
@@ -354,33 +366,36 @@ class HEDGE:
         random_f = {data_type: np.random.rand(len(homes)) for data_type in self.data_types}
         for i_home, home in enumerate(homes):
             for data_type in self.data_types:
-                if data_type == 'gen' or (data_type == 'car' and transition == 'we2wd'):
-                    transition_ = 'all'
-                else:
-                    transition_ = transition
-                previous_intervals = tuple(
-                    f_to_interval(
-                        prev_factors[data_type][home][- (self.n_consecutive_days - 1 - d)],
-                        self.fs_brackets[data_type][transition_]
+                if self.own_der[data_type][home]:
+                    if data_type == 'gen' or (data_type == 'car' and transition == 'we2wd'):
+                        transition_ = 'all'
+                    else:
+                        transition_ = transition
+                    previous_intervals = tuple(
+                        f_to_interval(
+                            prev_factors[data_type][home][- (self.n_consecutive_days - 1 - d)],
+                            self.fs_brackets[data_type][transition_]
+                        )
+                        for d in range(self.n_consecutive_days - 1)
                     )
-                    for d in range(self.n_consecutive_days - 1)
-                )
-                if (
-                        data_type == 'car'
-                        and prev_clusters[data_type][home] == self.n_all_clusters[data_type] - 1
-                ):
-                    # no trip day
-                    probabilities = self.p_zero2pos[data_type][transition_]
+                    if (
+                            data_type == 'car'
+                            and prev_clusters[data_type][home] == self.n_all_clusters[data_type] - 1
+                    ):
+                        # no trip day
+                        probabilities = self.p_zero2pos[data_type][transition_]
+                    else:
+                        probabilities = self.p_pos[data_type][transition_][previous_intervals]
+                    interval_f[data_type][i_home] = self._ps_rand_to_choice(
+                        probabilities,
+                        random_f[data_type][i_home],
+                    )
+                    prev_factor = self.list_factors[data_type][home][-1]
+                    factor = self.mid_fs_brackets[data_type][transition_][interval_f[data_type][i_home]]
+                    factor = prev_factor + self.clus_dist_share * (factor - prev_factor)
+                    factors[data_type][i_home] = factor
                 else:
-                    probabilities = self.p_pos[data_type][transition_][previous_intervals]
-                interval_f[data_type][i_home] = self._ps_rand_to_choice(
-                    probabilities,
-                    random_f[data_type][i_home],
-                )
-                prev_factor = self.list_factors[data_type][home][-1]
-                factor = self.mid_fs_brackets[data_type][transition_][interval_f[data_type][i_home]]
-                factor = prev_factor + self.clus_dist_share * (factor - prev_factor)
-                factors[data_type][i_home] = factor
+                    factors[data_type][i_home] = 0
 
         return factors, interval_f
 
@@ -395,11 +410,11 @@ class HEDGE:
             for it, data_type in enumerate(self.behaviour_types):
                 prev_cluster = prev_clusters[data_type][home]
                 probs = self.p_trans[data_type][transition][prev_cluster]
-                cum_p = [sum(probs[0:i]) for i in range(1, len(probs))] + [1]
-                clusters[data_type].append(
-                    [c > random_clus[it][home] for c in cum_p].index(True)
-                )
-                # clusters[data_type].append(prev_cluster)
+                # cum_p = [sum(probs[0:i]) for i in range(1, len(probs))] + [1]
+                # clusters[data_type].append(
+                #     [c > random_clus[it][home] for c in cum_p].index(True)
+                # )
+                clusters[data_type].append(0)
         return clusters
 
     def _transition_type(self):
@@ -415,10 +430,11 @@ class HEDGE:
         self, day, interval_f_car, factors, transition, clusters, day_type, homes
     ):
         transition_ = 'all' if transition == 'we2wd' else transition
+        homes = np.where(np.array(self.car['own_car']))[0]
         for i_home, home in enumerate(homes):
             it = 0
             while (
-                    np.max(day["loads_car"][i_home]) > self.car['caps'][home]
+                    np.max(day["loads_car"][i_home]) > self.car['caps' + self.ext][home]
                     or factors[i_home] > self.car['max_daily_energy_cutoff']
             ) and it < 100:
                 if it == 99:
@@ -431,9 +447,9 @@ class HEDGE:
                     day['loads_car'][i_home] *= factors[i_home] / factor0
 
                 else:
-                    profile = self._generate_profile('car', day_type, clusters[home])
+                    profile = self._generate_profile('car', day_type, clusters['car'][home])
                     day['loads_car'][i_home] = profile * factors[i_home]
-                    day['ev_avail'][i_home], day['loads_car'][i_home] = car_loads_to_availability(
+                    day['avail_car'][i_home], day['loads_car'][i_home] = car_loads_to_availability(
                         day['loads_car'][i_home]
                     )
 
@@ -441,15 +457,15 @@ class HEDGE:
 
         return interval_f_car, factors, day
 
-    def forward(self, generator, data_type):
+    def forward(self, generator, data_type, n_steps_nonzero, min=None, max=None):
         output = generator(th.randn(1, 1))
-        output = th.clamp(output, min=0, max=1)
-
-        if data_type == 'gen':
-            output = output.reshape(-1, 24)
-            output = th.div(
-                output, th.sum(output, dim=1).reshape(-1, 1)
-            ).reshape(-1, self.size_output_generator)
+        size_output = n_steps_nonzero * self.n_items
+        if data_type != 'car':
+            output = output.reshape(-1, n_steps_nonzero)
+            output = th.div(output, th.sum(output, dim=1).reshape(-1, 1)).reshape(-1, size_output)
+            output = th.clamp(output, min=min, max=max)
+        else:
+            output = th.clamp(output, min=min)
         output = output.detach().numpy()
 
         return output
@@ -460,9 +476,9 @@ class HEDGE:
         if data_type == 'car' and cluster == self.n_all_clusters['car'] - 1:
             return np.zeros(self.n_steps)
         profile_validated = False
-        generator = self.profile_generator[f"{data_type}_{day_type}_{cluster}"]
-        fitted_kmeans_id = self.date.month - 1 if data_type == 'gen' else day_type
-        cluster_ = self.month0 - 1 if data_type == 'gen' else cluster
+        cluster_ = 12 if data_type == 'gen' else cluster
+        fitted_kmeans_id = self.month0 - 1 if data_type == 'gen' else day_type
+        generator = self.profile_generator[f"{data_type}_{day_type}_{cluster_}"]
         if data_type == 'gen':
             clus_dist_cdfs = self.clus_dist_cdfs[data_type][fitted_kmeans_id]
             select_cdfs = self.select_cdfs[data_type][fitted_kmeans_id]
@@ -472,36 +488,60 @@ class HEDGE:
             select_cdfs = self.select_cdfs[data_type][fitted_kmeans_id][cluster]
             clus_dist_bin_edges = self.clus_dist_bin_edges[data_type][fitted_kmeans_id][cluster]
         max_dist = clus_dist_bin_edges[np.where(select_cdfs > clus_dist_cdfs)[0][-1]]
-
-        while not profile_validated:
+        zero_values = self.zero_values[f"{data_type}_{day_type}_{cluster_}"]
+        n_steps_nonzero = sum(~zero_values)
+        while not profile_validated and its < 1000:
+            if its == 999:
+                print("1000 iterations _generate_profile")
             if its % self.n_items == 0:
-                generated_profiles = self.forward(generator, data_type)
-            i_profile = random.randint(0, self.n_items - 1)
-            idx = self.n_steps * i_profile
-            profile = generated_profiles[0, idx: idx + self.n_steps]
+                generated_profiles = self.forward(
+                    generator, data_type, n_steps_nonzero,
+                    min=self.min[f"{data_type}_{day_type}_{cluster_}"],
+                    max=self.max[f"{data_type}_{day_type}_{cluster_}"]
+                )
+            it_i_profile = 0
+            found_non_nan_profile = False
+            while it_i_profile < 1000 and not found_non_nan_profile:
+                i_profile = random.randint(0, self.n_items - 1)
+                idx = n_steps_nonzero * i_profile
+                profile_nonzero = generated_profiles[0, idx: idx + n_steps_nonzero]
+                profile = np.zeros(self.n_steps)
+                profile[~zero_values] = profile_nonzero
+                if np.sum(np.isnan(profile)) == 0:
+                    found_non_nan_profile = True
+                else:
+                    print(f"nans in profile {data_type} fitted_kmeans_id {fitted_kmeans_id} cluster_ {cluster_}")
+                if it_i_profile == 999:
+                    print("1000 iterations _generate_profile")
             if self.clus_dist_share < 1:
                 transformed_features = self._get_transformed_features(
                     profile, data_type, fitted_kmeans_id
                 )
                 fitted_kmeans_obj = self.fitted_kmeans_obj[data_type][fitted_kmeans_id]
-                cluster_distance = fitted_kmeans_obj.transform(transformed_features)[0, cluster_]
+                idx = 0 if data_type == 'gen' else cluster_
+                cluster_distance = fitted_kmeans_obj.transform(transformed_features)[0, idx]
                 profile_validated = cluster_distance < max_dist
             else:
                 profile_validated = True
 
             if abs(np.sum(profile) - 1) > 1:
-                profile_validated = False
+                if abs(np.sum(profile) - 1) > 1.5:
+                    profile_validated = False
+                else:
+                    profile = profile / np.sum(profile)
 
             if its > 1 / self.clus_dist_share * 100 and not profile_validated:
                 print(
                     f"{its} iterations _generate_profile {data_type} "
                     f"np.sum(profile) {np.sum(profile)} "
-                    f"cluster_distance {cluster_distance} (max_dist {max_dist})"
                 )
+                if self.clus_dist_share < 1:
+                    print(f"cluster_distance {cluster_distance} (max_dist {max_dist})")
                 break
 
             profile /= np.sum(profile)
             its += 1
+
         return profile
 
     def _compute_number_of_available_profiles(self, data_type, day_type, i_month):
@@ -597,16 +637,24 @@ class HEDGE:
         """Load profile generators."""
         prm['profiles_path'] = prm["paths"]["hedge_inputs"] / "profiles"
         profile_generator = {}
+        self.zero_values = {}
+        self.min = {}
+        self.max = {}
         for data_type in self.data_types:
-            files = os.listdir(prm['profiles_path'] / f"norm_{data_type}")
+            path = prm['profiles_path'] / f"norm_{data_type}"
+            files = os.listdir(path)
             for file in files:
-                if file[0: len('generator')] == "generator":
+                if any(check_file_start(name, file) for name in ['generator', 'zerovalues', 'min', 'max']):
                     day_type = file.split('_')[2]
                     cluster = file.split('_')[3].split('.')[0]
-                    profile_generator[f"{data_type}_{day_type}_{cluster}"] = th.load(
-                        prm['profiles_path'] / f"norm_{data_type}" / file
-                    )
-        self.size_output_generator = prm['syst']['H'] * prm['syst']['n_items']
+                    if check_file_start("generator", file):
+                        profile_generator[f"{data_type}_{day_type}_{cluster}"] = th.load(path / file)
+                    if check_file_start("zerovalues", file):
+                        self.zero_values[f"{data_type}_{day_type}_{cluster}"] = np.load(path / file)
+                    if check_file_start("min", file):
+                        self.min[f"{data_type}_{day_type}_{cluster}"] = th.Tensor(np.load(path / file))
+                    if check_file_start("max", file):
+                        self.max[f"{data_type}_{day_type}_{cluster}"] = th.Tensor(np.load(path / file))
 
         return profile_generator
 
@@ -978,15 +1026,22 @@ class HEDGE:
 
     def _init_params(self, prm):
         # add relevant parameters to object properties
-        for info in ['data_types', 'n_items', 'clus_dist_share', 'dem_intervals', 'month0']:
+        for info in ['data_types', 'n_items', 'n_items_gen', 'clus_dist_share', 'dem_intervals', 'month0']:
             setattr(self, info, prm['syst'][info])
-
+        self.own_loads = prm['loads']['own_loads' + self.ext]
+        self.own_PV = prm['gen']['own_PV' + self.ext]
+        self.own_car = prm['car']['own_car' + self.ext]
+        self.own_der = {
+            'car': self.own_car,
+            'loads': self.own_loads,
+            'gen': self.own_PV,
+        }
         self.behaviour_types = [
             data_type for data_type in self.data_types if data_type != "gen"
         ]
         self.car = prm["car"]
         if 'caps' not in self.car and isinstance(self.car['cap'], int):
-            self.car['caps'] = np.full(self.n_homes, self.car['cap'])
+            self.car['caps' + self.ext] = np.full(self.n_homes, self.car['cap'])
         self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
         # update date and time information
         self.date = datetime(*prm["syst"]["date0"])

@@ -126,7 +126,7 @@ class EnvSpaces:
         max_flexibility = \
             prm['car']['c_max'] / prm['car']['eta_ch'] \
             + prm['car']['d_max'] \
-            + max_normcons * f_max["loads"] * prm['loads']['flex'][0] * 0.75
+            + max_normcons * f_max["loads"] * prm['loads']['flex'][0]
         n_clus = prm['n_clus']
         max_dT = prm["heat"]["Tc"] - prm["heat"]["Ts"] + prm['heat']['dT']
         columns = ["name", "min", "max", "n", "discrete"]
@@ -178,9 +178,6 @@ class EnvSpaces:
             ["battery_action", rl['all_low_actions'][2], 1, rl["n_discrete_actions"], 0],
             ["flexible_q_car_action", rl['all_low_actions'][3], 1, rl["n_discrete_actions"], 0],
         ]
-
-        if not self.reactive_power_for_voltage_control:
-            info = [i for i in info if i[0] != "flexible_q_car_action"]
 
         self.space_info = pd.DataFrame(info, columns=columns)
 
@@ -522,7 +519,7 @@ class EnvSpaces:
                 "day_type": 0 if date.weekday() < 5 else 1,
                 "loads_cons_step": loads_step[home],
                 "loads_cons_prev": loads_prev[home],
-                "dT": prm["heat"]["T_req"][home][time_step]
+                "dT": prm["heat"]["T_req" + self.ext][home][time_step]
                 - res["T_air"][home][min(time_step, len(res["T_air"][home]) - 1)]
             }
 

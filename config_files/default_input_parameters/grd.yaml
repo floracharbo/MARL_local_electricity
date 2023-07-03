@@ -28,3 +28,4 @@ tol_abs_line_losses: 1.e-3  # absolute difference tolerance for line losses betw
 reactive_power_for_voltage_control: False  # if True, the power factor is not fixed for the EV batteries but instead an optimisation decision variable/determined by an RL agent action
 line_losses_method : 'subset_of_lines' # choice between subset_of_lines and iteration
 tol_voltage_iteration: 0.001 # tolerance on voltages when iteratively solving the optimization
+simulate_panda_power_only: True

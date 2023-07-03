@@ -108,6 +108,118 @@ def play_sound():
     wave_obj.play()
 
 
+def _naming_file_extension_network_parameters(grd):
+    """ Adds the manage_voltage and manage_agg_power settings to optimization results in opt_res """
+    upper_quantities = ['max_voltage', 'max_grid_import']
+    lower_quantities = ['min_voltage', 'max_grid_export']
+    penalties_upper = ['overvoltage', 'import']
+    penalties_lower = ['undervoltage', 'export']
+    managements = ['manage_voltage', 'manage_agg_power']
+    file_extension = ''
+    with open("config_files/default_input_parameters/grd.yaml", "rb") as file:
+        default_grd = yaml.safe_load(file)
+    for lower_quantity, upper_quantity, penalty_upper, penalty_lower, management in zip(
+            lower_quantities, upper_quantities, penalties_upper, penalties_lower, managements
+    ):
+        if grd[management]:
+            file_extension += f"_{management}"
+            if default_grd[upper_quantity] != grd[upper_quantity]:
+                file_extension += f"_limit" + str(grd[upper_quantity])
+            if (
+                default_grd[lower_quantity] != grd[lower_quantity]
+                and grd[upper_quantity] != grd[lower_quantity]
+            ):
+                file_extension += f"_{grd[lower_quantity]}"
+            if default_grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_upper}']:
+                file_extension += "_penalty_coeff" + str(grd[f'penalty_{penalty_upper}'])
+            if (
+                default_grd[f'penalty_{penalty_lower}'] != grd[f'penalty_{penalty_lower}']
+                and grd[f'penalty_{penalty_upper}'] != grd[f'penalty_{penalty_lower}']
+            ):
+                file_extension += f"_{grd[f'penalty_{penalty_lower}']}"
+
+            if management == 'manage_voltage':
+                if grd['subset_line_losses_modelled'] != default_grd['subset_line_losses_modelled']:
+                    file_extension += f"_subset_losses{grd['subset_line_losses_modelled']}"
+                if grd['reactive_power_for_voltage_control']:
+                    file_extension += '_q_action'
+
+    return file_extension
+
+
+def get_opt_res_file(prm, test=False):
+    syst, heat, car, loads, paths, rl, grd = [
+        prm[info] for info in ['syst', 'heat', 'car', 'loads', 'paths', 'RL', 'grd']
+    ]
+
+    ext = '_test' if test else ''
+    if np.all(car['caps'] == car['cap']):
+        cap_str = f"car_cap{car['cap']}"
+    else:
+        caps = {}
+        for home, cap in enumerate(car['caps']):
+            if cap not in caps:
+                caps[cap] = []
+            caps[cap].append(home)
+        cap_str = ''
+        for cap, homes in caps.items():
+            cap_str += f"{cap}"
+            if all(np.array(homes[1:]) == np.array(homes[:-1] )+1):
+                cap_str += f"_{homes[0]}_to_{homes[-1]}"
+            else:
+                for home in homes:
+                    cap_str += f"_{home}"
+    for der, f0 in zip(['car', 'gen', 'loads'], [8, 8, 9]):
+        if prm['syst']['f0'][der] != f0:
+            cap_str += f"_f0_{der}_{prm['syst']['f0'][der]}"
+    paths['opt_res_file'] = \
+        f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
+        f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
+        f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
+    if syst['n_homesP'] > 0:
+        paths['opt_res_file'] += f"_nP{syst['n_homesP' + ext]}"
+    # if syst['n_homes_test'] != syst['n_homes']:
+    #     opt_res_file += f"_ntest{syst['n_homes_test']}"
+    if syst['clus_dist_share'] < 1:
+        paths['opt_res_file'] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
+    if "file" in heat and heat["file"] != "heat.yaml":
+        paths['opt_res_file'] += f"_{heat['file']}"
+
+    for obj, label in zip([car, heat, loads], ['car', 'heat', 'loads']):
+        ownership = np.array(obj[f'own_{label}'])
+        if sum(ownership) != len(ownership):
+            paths['opt_res_file'] += f"_no_{label}"
+            homes = np.where(ownership == 0)[0]
+            if len(homes) == 1:
+                paths['opt_res_file'] += f"_{homes[0]}"
+            elif all(homes[1:] == homes[:-1] + 1):
+                paths['opt_res_file'] += f"_{homes[0]}_to_{homes[-1]}"
+            else:
+                for home in np.where(ownership == 0)[0]:
+                    paths['opt_res_file'] += f"_{home}"
+
+    paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
+    if rl["deterministic"] == 2:
+        for file in ["opt_res_file", "seeds_file"]:
+            paths[file] += "_noisy"
+
+    for file in ["opt_res_file", "seeds_file"]:
+        if rl["deterministic"] == 2:
+            paths[file] += "_noisy"
+        paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
+                       f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
+        if file == "opt_res_file" and prm["syst"]["change_start"]:
+            paths["opt_res_file"] += "_changestart"
+        paths[file] += _naming_file_extension_network_parameters(grd)
+        # eff does not matter for seeds, but only for res
+        if file == "opt_res_file" and prm["car"]["efftype"] == 1:
+            paths["opt_res_file"] += "_eff1"
+
+        paths[file] += ".npy"
+
+    return paths
+
+
 def get_moving_average(array, n_window, Nones=True):
     """Get moving average of array over window n_window."""
     x = max(int(n_window / 2 - 0.5), 1)

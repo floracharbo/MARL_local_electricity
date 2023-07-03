@@ -110,10 +110,6 @@ def patch_init_factors_profiles_parameters(self, prm):
     }
 
 
-def patch_load_bat_factors_parameters(paths, car):
-    return car
-
-
 def patch_compute_max_car_cons_gen_values(env, state_space):
     labels = [
         "max_car_cons", "max_normcons", "max_normgen", "max_car_dem_agg"
@@ -237,10 +233,6 @@ def test_all(mocker):
     mocker.patch(
         "src.environment.initialisation.initialise_objects._load_data_dictionaries",
         side_effect=patch_load_data_dictionaries
-    )
-    mocker.patch(
-        "src.environment.initialisation.initialise_objects._load_bat_factors_parameters",
-        side_effect=patch_load_bat_factors_parameters
     )
     mocker.patch(
         "src.environment.utilities.env_spaces.EnvSpaces._init_factors_profiles_parameters",

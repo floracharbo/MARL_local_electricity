@@ -25,7 +25,7 @@ from src.environment.simulations.heat import Heat
 from src.environment.simulations.network import Network
 from src.environment.utilities.env_spaces import EnvSpaces
 from src.environment.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs,
+    compute_import_export_costs, compute_voltage_costs, get_opt_res_file,
     mean_max_hourly_voltage_deviations)
 
 
@@ -57,7 +57,7 @@ class LocalElecEnv:
         self.homes = range(self.n_homes)
         self.ext = ''
 
-        if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
+        if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power'] or self.prm['grd']['simulate_panda_power_only']:
             self.network = Network(prm)
 
         # initialise parameters
@@ -84,7 +84,6 @@ class LocalElecEnv:
         ]:
             setattr(self, data, self.rl[data])
         self.share_flexs = prm['loads']['share_flexs']
-        self.opt_res_file = self.prm['paths']['opt_res_file']
         self.res_path = prm['paths']['opt_res']
         self.slid_day = False
 
@@ -201,12 +200,14 @@ class LocalElecEnv:
     def set_passive_active(self, passive: bool = False, evaluation: bool = False):
         """Update environment properties for passive or active case."""
         passive_ext = 'P' if passive else ''
+        self.evaluation = evaluation
         test_ext = \
             '_test' if evaluation \
             and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
             else ''
         self.ext = passive_ext + test_ext
         self.n_homes = self.prm['syst']['n_homes' + self.ext]
+        self.action_translator.n_homes = self.n_homes
         self.homes = range(self.n_homes)
         setattr(self.action_translator, 'n_homes', getattr(self, 'n_homes'))
         setattr(self.spaces, 'n_homes', getattr(self, 'n_homes'))
@@ -374,7 +375,7 @@ class LocalElecEnv:
             if record:
                 loads_flex = np.zeros(self.n_homes) if next_done \
                     else [sum(self.batch_flex[home][h][1:]) for home in homes]
-                if self.prm['grd']['manage_voltage']:
+                if self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']:
                     loaded_buses, sgen_buses = self.network.loaded_buses, self.network.sgen_buses
                 else:
                     loaded_buses, sgen_buses = None, None
@@ -455,23 +456,29 @@ class LocalElecEnv:
         grid = sum(netp) + sum(netp0) + hourly_line_losses
 
         # import and export limits
-        if self.prm['grd']['manage_agg_power']:
+        if self.prm['grd']['manage_agg_power'] or self.prm['grd']['simulate_panda_power_only']:
             import_export_costs, _, _ = compute_import_export_costs(
                 grid, self.prm['grd'], self.prm['syst']['n_int_per_hr']
             )
         else:
             import_export_costs = 0
-        if self.prm['grd']['manage_voltage']:
+        if (self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']):
             voltage_costs = compute_voltage_costs(
                 voltage_squared, self.prm['grd']
             )
-            mean_voltage_deviation, max_voltage_deviation, \
-                n_voltage_deviation_bus, n_voltage_deviation_hour =  \
-                mean_max_hourly_voltage_deviations(
-                    voltage_squared,
-                    self.prm['grd']['max_voltage'],
-                    self.prm['grd']['min_voltage']
-                )
+            if time_step < self.N - 1:
+                mean_voltage_deviation, max_voltage_deviation, \
+                    n_voltage_deviation_bus, n_voltage_deviation_hour =  \
+                    mean_max_hourly_voltage_deviations(
+                        voltage_squared,
+                        self.prm['grd']['max_voltage'],
+                        self.prm['grd']['min_voltage']
+                    )
+            else:
+                mean_voltage_deviation = 0
+                max_voltage_deviation = 0
+                n_voltage_deviation_bus = 0
+                n_voltage_deviation_hour = 0
         else:
             voltage_costs = 0
             mean_voltage_deviation = 0
@@ -605,8 +612,8 @@ class LocalElecEnv:
             netp0 = self.prm['loads']['netp0'][:, h]
         else:
             netp0 = []
-        if self.prm['grd']['manage_voltage']:
-            if not self.prm['grd']['reactive_power_for_voltage_control']:
+        if self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']:
+            if not self.prm['grd']['reactive_power_for_voltage_control'] or self.prm['grd']['simulate_panda_power_only']:
                 # retrieve info from battery if not a decision variable
                 q_car_flex = self.car.p_car_flex * self.prm['grd']['active_to_reactive_flex']
             else:
@@ -614,7 +621,7 @@ class LocalElecEnv:
                 q_car_flex = flexible_q_car
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
-                self.network._power_flow_res_with_pandapower(home_vars, netp0, q_car_flex)
+                self.network._power_flow_res_with_pandapower(home_vars, netp0, q_car_flex, passive=self.ext == 'P')
             q_house = netq_flex - q_car_flex
         else:
             voltage_squared = None
@@ -692,7 +699,8 @@ class LocalElecEnv:
         return transition_type_
 
     def _file_id(self):
-        return f"{self.no_name_file}{self.ext}{self.opt_res_file}"
+        opt_res_file = get_opt_res_file(self.prm, self.evaluation)['opt_res_file']
+        return f"{self.no_name_file}{self.ext}{opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:
         """Given probability of each choice and a random number, select."""

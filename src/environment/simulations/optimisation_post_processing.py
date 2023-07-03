@@ -600,9 +600,10 @@ def _check_constl_non_negative(
 
 def _update_res_variables(
         res, homes_to_update, time_steps_to_update, time_steps_grid,
-        pp_simulation_required, prm, input_hourly_lij
+        pp_simulation_required, prm, input_hourly_lij, test
 ):
     grd, loads, car = [prm[info] for info in ['grd', 'loads', 'car']]
+    ext = '_test' if test else ''
     N = prm['syst']['N']
     for home, time_step in zip(
         homes_to_update, time_steps_to_update
@@ -650,10 +651,10 @@ def _update_res_variables(
                     ) * grd['per_unit_to_kW_conversion'] \
                     + sum(loads['q_heat_home_car_passive'][:, time_step])
                 res['pi'][:, time_step] = \
-                    np.matmul(grd['flex_buses'], res['netp'][:, time_step]) \
+                    np.matmul(grd['flex_buses' + ext], res['netp'][:, time_step]) \
                     * grd['kW_to_per_unit_conversion']
                 res['qi'][:, time_step] = \
-                    np.matmul(grd['flex_buses'], res['netq_flex'][:, time_step]) \
+                    np.matmul(grd['flex_buses' + ext], res['netq_flex'][:, time_step]) \
                     * grd['kW_to_per_unit_conversion']
 
         pp_simulation_required = True
@@ -714,7 +715,7 @@ def _check_consa_to_totcons_netp_grid(
 
 
 def check_and_correct_constraints(
-    res, constl_consa_constraints, constl_loads_constraints, prm, input_hourly_lij=None
+    res, constl_consa_constraints, constl_loads_constraints, prm, input_hourly_lij=None, evaluation=False
 ):
     N = prm['syst']['N']
     loads = prm['loads']
@@ -746,10 +747,11 @@ def check_and_correct_constraints(
     for time_step in range(N):
         for load_type in range(loads['n_types']):
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
+
     # 4 - update tot_cons and grid etc
     res, pp_simulation_required = _update_res_variables(
         res, homes_to_update, time_steps_to_update, time_steps_grid,
-        pp_simulation_required, prm, input_hourly_lij
+        pp_simulation_required, prm, input_hourly_lij, evaluation
     )
     for time_step in range(N):
         for load_type in range(loads['n_types']):

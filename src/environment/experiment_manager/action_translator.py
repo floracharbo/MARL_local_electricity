@@ -236,8 +236,9 @@ class Action_translator:
         max_val_ds = np.array(
             [self.k[home]['ds'][-1][0] * 1 + self.k[home]['ds'][-1][1] for home in homes]
         )
-
         self.min_charge = np.where(min_val_ds > 0, min_val_ds, 0)
+        assert all(self.min_charge <= self.car.c_max + 1e-3), \
+            f"self.min_charge {self.min_charge} self.car.c_max {self.car.c_max}"
         self.max_discharge = np.where(min_val_ds < 0, min_val_ds, 0)
         self.max_charge = np.where(max_val_ds > 0, max_val_ds, 0)
         self.min_discharge = np.where(max_val_ds < 0, max_val_ds, 0)
@@ -332,6 +333,19 @@ class Action_translator:
                     # reactive power battery between -1 and 1 where
                     # -1 max export
                     # 1 max import
+                    assert not np.isnan(charge), f"{charge}"
+                    assert not np.isnan(discharge), f"{discharge}"
+                    assert not np.isnan(res['charge_losses']), f"{res['charge_losses']}"
+                    assert not np.isnan(flexible_q_car_action), f"{flexible_q_car_action}"
+                    assert abs(charge - discharge + res['charge_losses']) <= self.max_apparent_power_car + 1e-3, \
+                        f"(charge - discharge + res['charge_losses']) {(charge - discharge + res['charge_losses'])} " \
+                        f"self.max_apparent_power_car {self.max_apparent_power_car}"
+                    if 0 < abs(charge - discharge + res['charge_losses']) - self.max_apparent_power_car < 1e-3:
+                        delta = abs(charge - discharge + res['charge_losses']) - self.max_apparent_power_car
+                        if charge > 0:
+                            charge -= delta
+                        elif discharge > 0:
+                            discharge -= delta
                     res['q'] = flexible_q_car_action * np.sqrt(
                         (self.max_apparent_power_car + 1e-6) ** 2
                         - (charge - discharge + res['charge_losses']) ** 2

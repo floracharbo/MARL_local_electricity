@@ -58,7 +58,7 @@ class Network:
         prm:
             input parameters
         """
-        for info in ['n_homes', 'M', 'N', 'n_homesP', 'n_int_per_hr']:
+        for info in ['n_homes', 'n_homesP', 'n_homes_test', 'n_int_per_hr', 'M', 'N']:
             setattr(self, info, prm['syst'][info])
         self.homes = range(self.n_homes)
         self.homesP = range(self.n_homesP)
@@ -74,7 +74,7 @@ class Network:
         ]:
             self.grd[info] = prm['grd'][info]
 
-        if prm['grd']['manage_voltage']:
+        if prm['grd']['manage_voltage'] or prm['grd']['simulate_panda_power_only']:
             self.folder_run = prm['paths']['folder_run']
 
             # ieee network and corresponding incidence matrix
@@ -113,11 +113,23 @@ class Network:
 
         self.homes = range(self.n_homes)
 
-    def _matrix_flexible_buses(self):
+    def _matrix_flexible_buses(self, test=False):
         """ Creates a matrix indicating at which bus there is a flexible agents """
-        flex_buses = np.zeros((len(self.net.bus), self.n_homes))
-        for i in range(self.n_homes):
-            flex_buses[self.existing_homes_network[i], i] = 1
+        n_homes = self.n_homes_test if test else self.n_homes
+        flex_buses = np.zeros((len(self.net.bus), n_homes))
+        free_buses = [i for i in range(len(self.net.bus)) if i not in self.existing_homes_network]
+        free_buses.remove(0)
+        self.home_to_bus = np.zeros(n_homes)
+        for i in range(n_homes):
+            if i < len(self.existing_homes_network):
+                flex_buses[self.existing_homes_network[i], i] = 1
+                self.home_to_bus[i] = self.existing_homes_network[i]
+            else:
+                bus = random.choice(free_buses)
+                flex_buses[bus, i] = 1
+                free_buses.remove(bus)
+                self.home_to_bus[i] = bus
+
         return flex_buses
 
     def _matrix_passive_buses(self):
@@ -127,7 +139,8 @@ class Network:
             for i in range(self.n_passive_homes):
                 passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
         else:
-            passive_buses = np.zeros((len(self.net.bus), 1))
+            passive_buses = np.zeros((len(self.net.bus), 0))
+
         return passive_buses
 
     def network_line_data(self):
@@ -162,6 +175,8 @@ class Network:
         self.bus_connection_matrix = self._network_bus_connection()
         # Generate matice of (non) flexible buses/loads
         self.flex_buses = self._matrix_flexible_buses()
+        self.flex_buses_test = self._matrix_flexible_buses(test=True)
+
         self.passive_buses = self._matrix_passive_buses()
 
         if len(self.net.asymmetric_load) > 0:
@@ -169,15 +184,18 @@ class Network:
             self.net.asymmetric_load['in_service'] = False
             # Add single phase loads and generations instead
             for home in self.homes:
-                pp.create_load(self.net, bus=self.existing_homes_network[home],
-                               p_mw=0, q_mvar=0, name=f'flex{home}')
-                pp.create_sgen(self.net, bus=self.existing_homes_network[home],
-                               p_mw=0, q_mvar=0, name=f'flex{home}')
+                pp.create_load(
+                    self.net, bus=self.home_to_bus[home],
+                    p_mw=0, q_mvar=0, name=f'flex{home}'
+                )
+                pp.create_sgen(
+                    self.net, bus=self.home_to_bus[home],
+                    p_mw=0, q_mvar=0, name=f'flex{home}')
             if self.n_homesP > 0:
                 for homeP in self.homesP:
-                    pp.create_load(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                    pp.create_load(self.net, bus=self.home_to_bus[self.n_homes + homeP],
                                    p_mw=0, q_mvar=0, name=f'passive{homeP}')
-                    pp.create_sgen(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                    pp.create_sgen(self.net, bus=self.home_to_bus[self.n_homes + homeP],
                                    p_mw=0, q_mvar=0, name=f'passive{homeP}')
 
             # Remove zero sequence line resistance and reactance
@@ -189,6 +207,7 @@ class Network:
         self.bus_connection_matrix = np.delete(self.bus_connection_matrix, (0), axis=0)
         self.bus_connection_matrix = np.delete(self.bus_connection_matrix, (0), axis=1)
         self.flex_buses = np.delete(self.flex_buses, (0), axis=0)
+        self.flex_buses_test = np.delete(self.flex_buses_test, (0), axis=0)
         self.passive_buses = np.delete(self.passive_buses, (0), axis=0)
 
     def pf_simulation(
@@ -196,20 +215,22 @@ class Network:
             netp: list,
             netp0: list = None,
             netq_flex: list = None,
-            netq_passive: list = None):
+            netq_passive: list = None,
+            passive=False
+    ):
         start = time.time()
         """ Given selected action, obtain voltage on buses and lines using pandapower """
         # removing old loads
         for power in ['p_mw', 'q_mvar']:
             self.net.load[power] = 0
             self.net.sgen[power] = 0
+
         # assign flexible homes
-        if self.n_homes > 0:
+        if self.n_homes > 0 and not passive:
             for home in self.homes:
-                self._assign_power_to_load_or_sgen(
-                    netp[home], home, type='p_mw')
-                self._assign_power_to_load_or_sgen(
-                    netq_flex[home], home, type='q_mvar')
+                self._assign_power_to_load_or_sgen(netp[home], home, type='p_mw')
+                self._assign_power_to_load_or_sgen(netq_flex[home], home, type='q_mvar')
+
         # assign passive homes
         if self.n_homesP > 0:
             for homeP in self.homesP:
@@ -239,7 +260,7 @@ class Network:
         else:
             self.net.sgen[type].iloc[house_index] = abs(power) / 1000
 
-    def _power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex):
+    def _power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex, passive=False):
         """Using active power, calculates reactive power and solves power flow
         with pandapower """
 
@@ -254,7 +275,7 @@ class Network:
         netq_passive = q_heat_home_car_passive
 
         hourly_line_losses, voltage, _, _, reactive_power_losses = self.pf_simulation(
-            home_vars['netp'], netp0, netq_flex, netq_passive
+            home_vars['netp'], netp0, netq_flex, netq_passive, passive=passive
         )
         #  import/export external grid
         q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \

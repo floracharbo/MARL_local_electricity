@@ -3,7 +3,7 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandapower.plotting as plot
+import pandapower.plotting as pp_plot
 import seaborn as sns
 
 from src.environment.post_analysis.plotting.plotting_utils import (
@@ -17,6 +17,8 @@ def _plot_last_epochs_actions(
         list_repeat, means, e, method, prm, all_vals, ax, xs, lw_mean, linestyles
 ):
     means[e][method] = []
+    if e == 'action' and not prm['RL']['aggregate_actions']:
+        return ax
     for action in range(prm["RL"]["dim_actions_1"]):
         all_vals_e_t_step_mean = np.zeros(prm["syst"]["N"])
         for step in range(prm["syst"]["N"]):
@@ -241,6 +243,8 @@ def _plot_all_agents_all_repeats_res(
                     all_T_air[method].append(T_air_a[method])
         for r, c, e in zip(rows, columns, entries):
             for home in range(prm["syst"]["n_homes"]):
+                if e == 'action' and not prm['RL']['aggregate_actions']:
+                    continue
                 for method in methods_to_plot:
                     xs, ys = list(range(prm['syst']['N'])), last[e][method]
                     ys = [ys[step][home] for step in range(len(ys))]
@@ -248,9 +252,11 @@ def _plot_all_agents_all_repeats_res(
                         xs = [-0.01] + xs
                         ys = [prm["car"]["store0"][home]] + ys
                     if not sum_agents:
-                        axs[r, c].step(xs, ys, where="post",
-                                       color=prm["save"]["colourse"][method],
-                                       lw=lw_all, alpha=alpha_not_indiv)
+                        axs[r, c].step(
+                            xs, ys,
+                            where="post", lw=lw_all, alpha=alpha_not_indiv,
+                            color=prm["save"]["colourse"][method]
+                        )
                     all_vals[e][method][repeat].append(ys)
                 if not sum_agents:
                     axs[r, c].set_ylabel(
@@ -483,7 +489,8 @@ def _plot_indiv_agent_res(
                                 lw=lw_indiv)
 
                 ax.set_ylabel(
-                    f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}")
+                    f"{title_ylabel_dict[e][0]} {title_ylabel_dict[e][1]}"
+                )
                 if r == n_rows - 1:
                     ax.set_xlabel("Time [h]")
                 if r == row_method_legend:
@@ -613,11 +620,6 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, repeat):
 
 
 def plot_env_input(repeat, prm, record):
-    if prm["RL"]["deterministic"] is None \
-            or prm["RL"]["deterministic"] == 0 \
-            or not prm["save"]["plotting_batch"]:
-        return
-
     batch_entries = ["loads", "gen", "loads_car", "avail_car"]
     if prm["RL"]["deterministic"] == 2:
         # 0 is indeterministic, 1 is deterministic, 2 is deterministic noisy
@@ -632,14 +634,17 @@ def plot_env_input(repeat, prm, record):
                             allow_pickle=True)[-1]
         elif prm["RL"]["deterministic"] == 0 and "batch" in record.last[repeat]:
             # indeterministic, just plot the last epoch, evaluation step
-            batch = record.last[repeat]["batch"]["eval"]
-        n_homes_plot = max(prm["syst"]["n_homes"], 10)
+            batch = record.last[repeat]["batch"]
+        n_homes_plot = min(prm["syst"]["n_homes"], 10)
         for e in batch_entries:
             fig, axs = plt.subplots(n_homes_plot, 1, squeeze=0)
             axs = axs.ravel()
             for home in range(n_homes_plot):
                 axs[home].plot(batch[e][home])
                 axs[home].set_title("{home}")
+                for day in range(int(len(batch[e][0])/prm['syst']['H'])):
+                    axs[home].axvline(day * prm['syst']['H'], ls='--', color='k', alpha=0.1)
+
             title = f"deterministic repeat {repeat} {e}"
             title_and_save(title, fig, prm)
         else:
@@ -652,7 +657,8 @@ def plot_imp_exp_violations(
     plt.rcParams['font.size'] = '16'
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
-            repeat, all_methods_to_plot, folder_run)
+            repeat, all_methods_to_plot, folder_run
+        )
         for method in methods_to_plot:
             print(method)
             fig, ax1 = plt.subplots(figsize=(8, 6))
@@ -781,13 +787,13 @@ def plot_indiv_reactive_power(
             title_and_save(title, fig, prm)
 
 
-def plot_voltage_violations(
-        prm, all_methods_to_plot, folder_run):
+def plot_voltage_violations(prm, all_methods_to_plot, folder_run):
     """ Plots grid [kWh] and voltage penalties for last day """
     plt.rcParams['font.size'] = '16'
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
-            repeat, all_methods_to_plot, folder_run)
+            repeat, all_methods_to_plot, folder_run
+        )
         for method in methods_to_plot:
             fig, ax1 = plt.subplots(figsize=(8, 6))
             ax2 = ax1.twinx()
@@ -910,95 +916,142 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             title_and_save(title, fig, prm)
 
 
-def get_index_over_under_voltage_last_time_step(last, method, prm):
+def get_index_over_under_voltage_last_time_step(last, method, prm, time_step=23):
     overvoltage_bus_index = np.where(
-        last['voltage_squared'][method][prm["syst"]["N"] - 1] > prm['grd']['max_voltage'] ** 2
+        last['voltage_squared'][method][time_step] > prm['grd']['max_voltage'] ** 2
     )[0]
     undervoltage_bus_index = np.where(
-        last['voltage_squared'][method][prm["syst"]["N"] - 1] < prm['grd']['min_voltage'] ** 2
+        last['voltage_squared'][method][time_step] < prm['grd']['min_voltage'] ** 2
     )[0]
 
     return overvoltage_bus_index, undervoltage_bus_index
 
 
 def map_over_undervoltage(
-        prm, all_methods_to_plot, folder_run, net):
+        prm, all_methods_to_plot, folder_run, net
+):
     """ Map of the network with over- and undervoltages marked """
+    n_over_voltages = {
+        method: np.zeros((prm['RL']['n_repeats'], prm['syst']['N']))
+        for method in all_methods_to_plot
+    }
+    n_under_voltages = {
+        method: np.zeros((prm['RL']['n_repeats'], prm['syst']['N']))
+        for method in all_methods_to_plot
+    }
+
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
-            repeat, all_methods_to_plot, folder_run)
+            repeat, all_methods_to_plot, folder_run
+        )
         for method in methods_to_plot:
             if method != 'opt':
                 # Plot all the buses
-                bc = plot.create_bus_collection(net, net.bus.index, size=.2,
-                                                color="black", zorder=10)
-
+                bc = pp_plot.create_bus_collection(
+                    net, net.bus.index, size=.2,
+                    color="black", zorder=10
+                )
                 # Plot Transformers
-                tlc, tpc = plot.create_trafo_collection(net, net.trafo.index,
-                                                        color="dimgrey", size=1.5)
-
+                tlc, tpc = pp_plot.create_trafo_collection(
+                    net, net.trafo.index, color="dimgrey", size=1.5
+                )
                 # Plot all the lines
-                lcd = plot.create_line_collection(net, net.line.index, color="grey",
-                                                  linewidths=0.5, use_bus_geodata=True)
-
+                lcd = pp_plot.create_line_collection(
+                    net, net.line.index, color="grey",
+                    linewidths=0.5, use_bus_geodata=True
+                )
                 # Plot the external grid
-                sc = plot.create_bus_collection(net, net.ext_grid.bus.values, patch_type="poly3",
-                                                size=.7, color="grey", zorder=11)
-
+                sc = pp_plot.create_bus_collection(
+                    net, net.ext_grid.bus.values, patch_type="poly3",
+                    size=.7, color="grey", zorder=11
+                )
                 # Plot all the loads and generations
-                ldA = plot.create_bus_collection(
+                ldA = pp_plot.create_bus_collection(
                     net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
-                    patch_type="poly3", size=1.4, color="r", zorder=11
+                    patch_type="poly3", size=1.4, color="coral", alpha=0.5, zorder=11
                 )
-                ldB = plot.create_bus_collection(
+                ldB = pp_plot.create_bus_collection(
                     net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
-                    patch_type="poly3", size=1.4, color="g", zorder=11
+                    patch_type="poly3", size=1.4, color="g", alpha=0.5, zorder=11
                 )
+                for time_step in range(prm['syst']['N']):
+                    # Plot over and under voltages
+                    overvoltage_bus_index, undervoltage_bus_index = \
+                        get_index_over_under_voltage_last_time_step(last, method, prm, time_step=time_step)
+                    print(
+                        f"method {method}, repeat {repeat}, time {time_step} "
+                        f"overvoltage bus n={len(overvoltage_bus_index)}, "
+                        f"undervoltage_bus n={len(undervoltage_bus_index)}"
+                    )
+                    n_over_voltages[method][repeat, time_step] = len(overvoltage_bus_index)
+                    n_under_voltages[method][repeat, time_step] = len(undervoltage_bus_index)
+                    if time_step in range(9, 23):
+                        over = pp_plot.create_bus_collection(
+                            net,
+                            overvoltage_bus_index,
+                            size=0.6, color="red", zorder=10
+                        )
+                        under = pp_plot.create_bus_collection(
+                            net,
+                            undervoltage_bus_index,
+                            size=0.6, color="dodgerblue", zorder=10
+                        )
+                        # Draw all the collected plots
+                        ax = pp_plot.draw_collections(
+                            [lcd, bc, tlc, tpc, sc, ldA, ldB, over, under],
+                            figsize=(20, 20)
+                        )
+                        # Add legend to homes
+                        annotate = False
+                        if annotate:
+                            for bus, i in zip(
+                                last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
+                            ):
+                                q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+                                q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+                                voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+                                x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+                                pp_plot.plt.annotate(
+                                    f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
+                                    f"\n Q_house is {round(q_house, 3)} kVAR"
+                                    f"\n Q_car is {round(q_car, 3)} kVAR",
+                                    xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
 
-                # Plot over and under voltages
-                overvoltage_bus_index, undervoltage_bus_index = \
-                    get_index_over_under_voltage_last_time_step(last, method, prm)
+                            for bus, i in zip(
+                                last['loaded_buses'][method][prm["syst"]["N"] - 1],
+                                range(prm["syst"]["n_homes"])
+                            ):
+                                q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+                                q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+                                voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+                                x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+                                pp_plot.plt.annotate(
+                                    f"Load bus, \n Voltage is {round(voltage, 3)} p.u."
+                                    f"\n Q_house is {round(q_house, 3)} kVAR"
+                                    f"\n Q_car is {round(q_car, 3)} kVAR",
+                                    xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
 
-                over = plot.create_bus_collection(
-                    net,
-                    overvoltage_bus_index,
-                    size=0.6, color="coral", zorder=10
-                )
-                under = plot.create_bus_collection(
-                    net,
-                    undervoltage_bus_index,
-                    size=0.6, color="dodgerblue", zorder=10
-                )
-                # Draw all the collected plots
-                ax = plot.draw_collections([lcd, bc, tlc, tpc, sc, ldA, ldB, over, under],
-                                           figsize=(20, 20))
-                # Add legend to homes
-                for bus, i in zip(
-                    last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
-                ):
-                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
-                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
-                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
-                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
-                    plot.plt.annotate(
-                        f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
-                        f"\n Q_house is {round(q_house, 3)} kVAR"
-                        f"\n Q_car is {round(q_car, 3)} kVAR",
-                        xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
-                for bus, i in zip(
-                    last['loaded_buses'][method][prm["syst"]["N"] - 1],
-                    range(prm["syst"]["n_homes"])
-                ):
-                    q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
-                    q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
-                    voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
-                    x, y = net.bus_geodata.loc[bus, ["x", "y"]]
-                    plot.plt.annotate(
-                        f"Load bus, \n Voltage is {round(voltage, 3)} p.u."
-                        f"\n Q_house is {round(q_house, 3)} kVAR"
-                        f"\n Q_car is {round(q_car, 3)} kVAR",
-                        xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
+                        # Save
+                        title = f'map_over_under_voltage{repeat}_{method}_t{time_step}'
+                        title_and_save(title, ax.figure, prm)
 
-                # Save
-                title = f'map_over_under_voltage{repeat}_{method}'
-                title_and_save(title, ax.figure, prm)
+    fig, axs = plt.subplots(2)
+
+    for axis_i, n_deviations, title in zip(range(2), [n_over_voltages, n_under_voltages], ['over', 'under']):
+        for method in methods_to_plot:
+            axs[axis_i].plot(
+                np.mean(n_deviations[method], axis=0),
+                label=method,
+                color=prm['save']['colourse'][method]
+            )
+            axs[axis_i].fill_between(
+                range(prm['syst']['N']),
+                np.percentile(n_deviations[method], 75, axis=0),
+                np.percentile(n_deviations[method], 25, axis=0),
+                alpha=0.2,
+                color=prm['save']['colourse'][method]
+            )
+        axs[axis_i].set_title(f"Number of {title}-voltages")
+        axs[axis_i].set_xlabel("Time step")
+        axs[axis_i].set_ylabel("Number of deviations")
+    title_and_save('n_voltage_deviations_vs_time', fig, prm)

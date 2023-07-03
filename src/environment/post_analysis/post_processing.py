@@ -232,9 +232,10 @@ def post_processing(
         file = open(paths["results_file"], "a", encoding="utf-8")  # append
 
     # print stats voltage and losses error
-    if prm['grd']['manage_voltage']:
+    if prm['grd']['manage_voltage'] or prm['grd']['simulate_panda_power_only']:
         _print_stats_voltage_losses_errors(prm, env.network)
-        _print_stats_cons_constraints_errors(prm, data_manager)
+        if data_manager is not None:
+            _print_stats_cons_constraints_errors(prm, data_manager)
 
     if "description_run" in prm["save"]:
         file.write("run description: " + prm["save"]["description_run"] + "\n")
