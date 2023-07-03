@@ -790,7 +790,7 @@ class Optimiser:
                     grid_in * self.syst['n_int_per_hr'] - self.grd['max_grid_import']
                 )
             )
-            p.add_condstraint(hourly_export_costs >= 0)
+            p.add_constraint(hourly_export_costs >= 0)
             p.add_constraint(
                 hourly_export_costs
                 >= self.grd['penalty_export'] * (
