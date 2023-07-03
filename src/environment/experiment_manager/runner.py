@@ -94,8 +94,8 @@ class Runner:
                         self._facmac_episode_batch_insert_and_sample(epoch)
 
                     # append record
-                    for e in ['seed', 'n_not_feas']:
-                        self.record.__dict__[e][repeat][epoch] = train_steps_vals[-1][e]
+                    for info in ['seed', 'n_not_feas']:
+                        self.record.__dict__[info][repeat][epoch] = train_steps_vals[-1][info]
 
                     model_save_time = self._save_nn_model(model_save_time)
 
@@ -115,8 +115,8 @@ class Runner:
                 )
 
                 # record
-                for e in ['seed', 'n_not_feas']:
-                    self.record.__dict__[e][repeat][epoch] = eval_steps[e]
+                for info in ['seed', 'n_not_feas']:
+                    self.record.__dict__[info][repeat][epoch] = eval_steps[info]
                 duration_epoch = time.time() - t_start
 
                 # make a list, one exploration after the other
@@ -329,30 +329,30 @@ class Runner:
         list_train_stepvals = initialise_dict(self.rl["exploration_methods"], type_obj='empty_dict')
 
         for method in self.rl["exploration_methods"]:
-            for e in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
-                if e not in ['seeds', 'n_not_feas'] \
-                        and e in train_steps_vals[0][exploration_methods[0]].keys():
-                    shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][e])
-                    if e[0: len('indiv')] == 'indiv' or e in self.prm['syst']['indiv_step_vals_entries']:
+            for info in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
+                if info not in ['seeds', 'n_not_feas'] \
+                        and info in train_steps_vals[0][exploration_methods[0]].keys():
+                    shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][info])
+                    if info[0: len('indiv')] == 'indiv' or info in self.prm['syst']['indiv_step_vals_entries']:
                         shape0 = list(shape0)
                         shape0[1] = self.n_homes
                         shape0 = tuple(shape0)
-                        train_steps_vals[i_explore][method][e] = train_steps_vals[i_explore][method][e][:, :self.n_homes]
+                        train_steps_vals[i_explore][method][info] = train_steps_vals[i_explore][method][info][:, :self.n_homes]
 
                     new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
-                    list_train_stepvals[method][e] = np.full(new_shape, np.nan)
+                    list_train_stepvals[method][info] = np.full(new_shape, np.nan)
                     for i_explore in range(self.rl['n_explore']):
                         if method in exploration_methods:
                             try:
-                                if e[0: len('indiv')] == 'indiv' or e in self.prm['syst'][
+                                if info[0: len('indiv')] == 'indiv' or info in self.prm['syst'][
                                     'indiv_step_vals_entries']:
-                                    list_train_stepvals[method][e][
+                                    list_train_stepvals[method][info][
                                     i_explore * self.N: (i_explore + 1) * self.N
-                                    ] = train_steps_vals[i_explore][method][e][:, 0: self.n_homes]
+                                    ] = train_steps_vals[i_explore][method][info][:, 0: self.n_homes]
                                 else:
-                                    list_train_stepvals[method][e][
+                                    list_train_stepvals[method][info][
                                         i_explore * self.N: (i_explore + 1) * self.N
-                                    ] = train_steps_vals[i_explore][method][e]
+                                    ] = train_steps_vals[i_explore][method][info]
                             except Exception:
                                 # these may be recorded differently for optimisation,
                                 # e.g. no grid_energy_costs, etc.
@@ -580,9 +580,9 @@ def run(run_mode, settings, no_runs=None):
         n_runs = get_number_runs(settings)
         # loop through runs
         for i in range(n_runs):
-            remove_old_prms = [e for e in prm if e != 'paths']
-            for e in remove_old_prms:
-                del prm[e]
+            remove_old_prms = [info for info in prm if info != 'paths']
+            for info in remove_old_prms:
+                del prm[info]
 
             start_time = time.time()  # start recording time
             # obtain run-specific settings
