@@ -792,7 +792,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['max_voltage_deviation'] = []
         res['n_voltage_deviation_bus'] = []
         res['n_voltage_deviation_hour'] = []
-        res['voltage_squared'][(res['voltage_squared'] < 1e-6) & (res['voltage_squared'] > 0)] = 0
+        res['voltage_squared'][abs(res['voltage_squared']) < 1e-6] = 0
         res['voltage'] = np.sqrt(res['voltage_squared'])
         res['hourly_voltage_costs'] = np.sum(
             res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
