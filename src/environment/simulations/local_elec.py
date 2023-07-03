@@ -433,7 +433,7 @@ class LocalElecEnv:
             q_ext_grid: int = 0,
     ) -> Tuple[list, list]:
         """Compute reward from netp and battery charge at time step."""
-        assert all(voltage_squared > 0), f"voltage squared has negative values {voltage_squared}"
+        assert np.all(voltage_squared >= 0), f"voltage squared has negative values {voltage_squared}"
         if passive_vars is not None:
             netp0, discharge_tot0, charge0 = passive_vars
         elif self.ext == 'P':
