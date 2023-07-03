@@ -126,7 +126,7 @@ class EnvSpaces:
         max_flexibility = \
             prm['car']['c_max'] / prm['car']['eta_ch'] \
             + prm['car']['d_max'] \
-            + max_normcons * f_max["loads"] * prm['loads']['flex'][0] * 0.75
+            + max_normcons * f_max["loads"] * prm['loads']['flex'][0]
         n_clus = prm['n_clus']
         max_dT = prm["heat"]["Tc"] - prm["heat"]["Ts"] + prm['heat']['dT']
         columns = ["name", "min", "max", "n", "discrete"]
@@ -178,9 +178,6 @@ class EnvSpaces:
             ["battery_action", rl['all_low_actions'][2], 1, rl["n_discrete_actions"], 0],
             ["flexible_q_car_action", rl['all_low_actions'][3], 1, rl["n_discrete_actions"], 0],
         ]
-
-        if not self.reactive_power_for_voltage_control:
-            info = [i for i in info if i[0] != "flexible_q_car_action"]
 
         self.space_info = pd.DataFrame(info, columns=columns)
 
