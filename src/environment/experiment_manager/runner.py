@@ -588,9 +588,10 @@ def run(run_mode, settings, no_runs=None):
             # obtain run-specific settings
 
             settings_i = get_settings_i(settings, i)
-            settings_i['RL']['type_learning'] = 'q_learning' if settings_i['syst']['n_homes'] < 10 else 'facmac'
-            settings_i['RL']['trajectory'] = False if settings_i['syst']['n_homes'] < 10 else True
-            settings_i['RL']['evaluation_methods'] = None if settings_i['syst']['n_homes'] < 10 else 'env_r_c'
+            if 'type_learning' not in settings_i['RL']:
+                settings_i['RL']['type_learning'] = 'q_learning' if settings_i['syst']['n_homes'] < 10 else 'facmac'
+                settings_i['RL']['trajectory'] = False if settings_i['syst']['n_homes'] < 10 else True
+                settings_i['RL']['evaluation_methods'] = None if settings_i['syst']['n_homes'] < 10 else 'env_r_c'
 
             if 'trajectory' in settings_i['RL']:
                 trajectory = settings_i['RL']['trajectory']
