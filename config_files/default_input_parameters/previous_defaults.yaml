@@ -25,6 +25,7 @@ timestamp_changes:
   7: 1677590232.949602
   8: 1681635222.697911
   9: 1683903827.916349
+  10: 1686209972.731433
 
 'RL-n_hidden_layers': [1, 1]
 'RL-aggregate_actions': [1, True]
@@ -48,3 +49,4 @@ grd-tol_rel_voltage_diff: [7, 1.e-2]
 RL-lr: [8, 1.e-3]
 RL-facmac-lr: [9, -1]
 syst-gan_generation: [9, False]
+grd-simulate_panda_power_only: [10, False]
