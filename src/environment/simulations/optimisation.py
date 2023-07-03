@@ -53,6 +53,9 @@ class Optimiser:
             res = self._car_efficiency_iterations(prm, res, test)
             res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
 
+        if 'voltage_squared' in res:
+            assert np.all(res['voltage_squared'] >= 0)
+
         return res, pp_simulation_required
 
     def _solve_line_losses_iteration(self, evaluation):
