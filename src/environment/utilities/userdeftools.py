@@ -186,11 +186,11 @@ def get_opt_res_file(prm, test=False):
         paths['opt_res_file'] += f"_{heat['file']}"
 
     for obj, label in zip([car, heat, loads], ['car', 'heat', 'loads']):
-        ownership = obj[f'own_{label}']
+        ownership = np.array(obj[f'own_{label}'])
         if sum(ownership) != len(ownership):
             paths['opt_res_file'] += f"_no_{label}"
             homes = np.where(ownership == 0)[0]
-            if len(homes) == 1 or all(homes[1:] == homes[:-1] + 1):
+            if all(homes[1:] == homes[:-1] + 1):
                 paths['opt_res_file'] += f"_{homes[0]}_to_{homes[-1]}"
             else:
                 for home in np.where(ownership == 0)[0]:
