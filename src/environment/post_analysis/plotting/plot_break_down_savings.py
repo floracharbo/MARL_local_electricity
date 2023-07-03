@@ -1,6 +1,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import ScalarFormatter
 
 from src.environment.post_analysis.plotting.plotting_utils import (
     formatting_figure, title_and_save)
@@ -349,16 +350,58 @@ def plot_voltage_statistics(record, prm):
     ]
     for label in labels:
         record_obj = getattr(record, label)
-        for repeat in range(prm['RL']['n_repeats']):
-            fig, ax = plt.subplots(figsize=(16, 8))
-            for method in prm['RL']['evaluation_methods']:
-                values = record_obj[repeat][method]
-                x_axis = range(len(record_obj[repeat][method]))
-                ax.plot(x_axis, values, label=method)
-            ax.set_xlabel('Epoch')
-            ax.set_ylabel(f"{label}")
-            ax.set_title(f"{label} by epoch")
-            ax.legend()
-            title = f"plot_{label}_repeat{repeat}"
-            title_and_save(title, fig, prm)
-            plt.close('all')
+        fig, ax = plt.subplots(figsize=(16, 8))
+        for method in prm['RL']['evaluation_methods']:
+            n = len(record_obj[0][method])
+            x_axis = range(n)
+            values = np.zeros((prm['RL']['n_repeats'], n))
+            for repeat in range(prm['RL']['n_repeats']):
+                values[repeat] = record_obj[repeat][method]
+            ax.plot(x_axis, np.mean(values, axis=0), label=method)
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel(f"Mean {label} over repeats")
+        ax.legend()
+        title = f"{label} vs epochs"
+        title_and_save(title, fig, prm)
+        plt.close('all')
+
+    hist_values = {
+        method: {} for method in prm['RL']['evaluation_methods']
+    }
+    for method in prm['RL']['evaluation_methods']:
+        for label in labels:
+            hist_values[method][label] = np.mean(
+                [
+                    np.mean(getattr(record, label)[repeat][method][: - prm['RL']['n_end_test']])
+                    for repeat in range(prm['RL']['n_repeats'])
+                ]
+            )
+
+    y_axis_labels = [
+        'Mean \nvoltage deviation \n[p.u.]', 'Max \nvoltage deviation \n[p.u.]',
+        'Number of buses \nwith voltage deviations',
+        'Number of hours \nwith voltage deviations'
+    ]
+    methods_labels = ['Baseline', 'MARL']
+    fig, axs = plt.subplots(2, 2, figsize=(16, 8))
+    rows = [0, 0, 1, 1]
+    cols = [0, 1, 0, 1]
+    for i, (label, row, col) in enumerate(zip(labels, rows, cols)):
+        Y = [hist_values[method][label] for method in prm['RL']['evaluation_methods']]
+        axs[row, col].bar(methods_labels, Y, color='gray')
+        print(f"{label} {methods_labels} {Y}")
+        # axs[row, col].set_xlabel("Learning method")
+        axs[row, col].set_ylabel(y_axis_labels[i])
+        # Set the tick label formatter to ScalarFormatter
+        formatter = ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-3, 4))  # Adjust the power limits as needed
+        # Apply the formatter to the tick labels on the y-axis
+        axs[row, col].yaxis.set_major_formatter(formatter)
+        # axs[row, col].set_ticklabel_format(axis='both', style='sci', scilimits=(4, 4))
+
+    plt.tight_layout()
+    # plt.ticklabel_format(axis='both', style='sci', scilimits=(4, 4))
+    title = f"histogram voltage deviations"
+    title_and_save(title, fig, prm, display_title=False)
+    plt.close('all')
