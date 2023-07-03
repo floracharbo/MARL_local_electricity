@@ -430,6 +430,7 @@ class HEDGE:
         self, day, interval_f_car, factors, transition, clusters, day_type, homes
     ):
         transition_ = 'all' if transition == 'we2wd' else transition
+        homes = np.array(homes)
         homes = homes[self.car['own_car'][homes]]
         for i_home, home in enumerate(homes):
             it = 0
