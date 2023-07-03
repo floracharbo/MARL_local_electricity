@@ -430,7 +430,7 @@ class HEDGE:
         self, day, interval_f_car, factors, transition, clusters, day_type, homes
     ):
         transition_ = 'all' if transition == 'we2wd' else transition
-        homes = [home for home in homes if self.car['own_car'][home]]
+        homes = np.where(np.array(self.car['own_car']))[0]
         for i_home, home in enumerate(homes):
             it = 0
             while (
@@ -541,6 +541,7 @@ class HEDGE:
 
             profile /= np.sum(profile)
             its += 1
+
         return profile
 
     def _compute_number_of_available_profiles(self, data_type, day_type, i_month):
