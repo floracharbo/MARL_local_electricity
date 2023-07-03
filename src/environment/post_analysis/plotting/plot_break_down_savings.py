@@ -382,14 +382,17 @@ def plot_voltage_statistics(record, prm):
         'Number of buses \nwith voltage deviations',
         'Number of hours \nwith voltage deviations'
     ]
-    methods_labels = ['Baseline', 'MARL']
+    methods_labels = {method: method for method in prm['RL']['evaluation_methods']}
+    methods_labels['baseline'] = 'Baseline'
+    methods_labels['env_r_c'] = 'MARL'
     fig, axs = plt.subplots(2, 2, figsize=(16, 8))
     rows = [0, 0, 1, 1]
     cols = [0, 1, 0, 1]
     for i, (label, row, col) in enumerate(zip(labels, rows, cols)):
         Y = [hist_values[method][label] for method in prm['RL']['evaluation_methods']]
-        axs[row, col].bar(methods_labels, Y, color='gray')
-        print(f"{label} {methods_labels} {Y}")
+        methods_labels_i = [methods_labels[method] for method in prm['RL']['evaluation_methods']]
+        axs[row, col].bar(methods_labels_i, Y, color='gray')
+        print(f"{label} {methods_labels_i} {Y}")
         # axs[row, col].set_xlabel("Learning method")
         axs[row, col].set_ylabel(y_axis_labels[i])
         # Set the tick label formatter to ScalarFormatter
