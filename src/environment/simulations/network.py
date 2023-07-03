@@ -74,7 +74,7 @@ class Network:
         ]:
             self.grd[info] = prm['grd'][info]
 
-        if prm['grd']['manage_voltage']:
+        if prm['grd']['manage_voltage'] or prm['grd']['simulate_panda_power_only']:
             self.folder_run = prm['paths']['folder_run']
 
             # ieee network and corresponding incidence matrix
@@ -117,8 +117,18 @@ class Network:
         """ Creates a matrix indicating at which bus there is a flexible agents """
         n_homes = self.n_homes_test if test else self.n_homes
         flex_buses = np.zeros((len(self.net.bus), n_homes))
+        free_buses = [i for i in range(len(self.net.bus)) if i not in self.existing_homes_network]
+        free_buses.remove(0)
+        self.home_to_bus = np.zeros(n_homes)
         for i in range(n_homes):
-            flex_buses[self.existing_homes_network[i], i] = 1
+            if i < len(self.existing_homes_network):
+                flex_buses[self.existing_homes_network[i], i] = 1
+                self.home_to_bus[i] = self.existing_homes_network[i]
+            else:
+                bus = random.choice(free_buses)
+                flex_buses[bus, i] = 1
+                free_buses.remove(bus)
+                self.home_to_bus[i] = bus
 
         return flex_buses
 
@@ -129,7 +139,7 @@ class Network:
             for i in range(self.n_passive_homes):
                 passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
         else:
-            passive_buses = np.zeros((len(self.net.bus), 1))
+            passive_buses = np.zeros((len(self.net.bus), 0))
 
         return passive_buses
 
@@ -174,15 +184,18 @@ class Network:
             self.net.asymmetric_load['in_service'] = False
             # Add single phase loads and generations instead
             for home in self.homes:
-                pp.create_load(self.net, bus=self.existing_homes_network[home],
-                               p_mw=0, q_mvar=0, name=f'flex{home}')
-                pp.create_sgen(self.net, bus=self.existing_homes_network[home],
-                               p_mw=0, q_mvar=0, name=f'flex{home}')
+                pp.create_load(
+                    self.net, bus=self.home_to_bus[home],
+                    p_mw=0, q_mvar=0, name=f'flex{home}'
+                )
+                pp.create_sgen(
+                    self.net, bus=self.home_to_bus[home],
+                    p_mw=0, q_mvar=0, name=f'flex{home}')
             if self.n_homesP > 0:
                 for homeP in self.homesP:
-                    pp.create_load(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                    pp.create_load(self.net, bus=self.home_to_bus[self.n_homes + homeP],
                                    p_mw=0, q_mvar=0, name=f'passive{homeP}')
-                    pp.create_sgen(self.net, bus=self.existing_homes_network[self.n_homes + homeP],
+                    pp.create_sgen(self.net, bus=self.home_to_bus[self.n_homes + homeP],
                                    p_mw=0, q_mvar=0, name=f'passive{homeP}')
 
             # Remove zero sequence line resistance and reactance

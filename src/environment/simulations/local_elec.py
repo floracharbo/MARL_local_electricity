@@ -57,7 +57,7 @@ class LocalElecEnv:
         self.homes = range(self.n_homes)
         self.ext = ''
 
-        if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power']:
+        if self.prm['grd']['manage_voltage'] or self.prm['grd']['manage_agg_power'] or self.prm['grd']['simulate_panda_power_only']:
             self.network = Network(prm)
 
         # initialise parameters
@@ -375,7 +375,7 @@ class LocalElecEnv:
             if record:
                 loads_flex = np.zeros(self.n_homes) if next_done \
                     else [sum(self.batch_flex[home][h][1:]) for home in homes]
-                if self.prm['grd']['manage_voltage']:
+                if self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']:
                     loaded_buses, sgen_buses = self.network.loaded_buses, self.network.sgen_buses
                 else:
                     loaded_buses, sgen_buses = None, None
@@ -456,13 +456,13 @@ class LocalElecEnv:
         grid = sum(netp) + sum(netp0) + hourly_line_losses
 
         # import and export limits
-        if self.prm['grd']['manage_agg_power']:
+        if self.prm['grd']['manage_agg_power'] or self.prm['grd']['simulate_panda_power_only']:
             import_export_costs, _, _ = compute_import_export_costs(
                 grid, self.prm['grd'], self.prm['syst']['n_int_per_hr']
             )
         else:
             import_export_costs = 0
-        if self.prm['grd']['manage_voltage']:
+        if (self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']) and time_step < self.N - 1:
             voltage_costs = compute_voltage_costs(
                 voltage_squared, self.prm['grd']
             )
@@ -606,8 +606,8 @@ class LocalElecEnv:
             netp0 = self.prm['loads']['netp0'][:, h]
         else:
             netp0 = []
-        if self.prm['grd']['manage_voltage']:
-            if not self.prm['grd']['reactive_power_for_voltage_control']:
+        if self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']:
+            if not self.prm['grd']['reactive_power_for_voltage_control'] or self.prm['grd']['simulate_panda_power_only']:
                 # retrieve info from battery if not a decision variable
                 q_car_flex = self.car.p_car_flex * self.prm['grd']['active_to_reactive_flex']
             else:
@@ -615,7 +615,7 @@ class LocalElecEnv:
                 q_car_flex = flexible_q_car
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
-                self.network._power_flow_res_with_pandapower(home_vars, netp0, q_car_flex, passive=self.ext=='P')
+                self.network._power_flow_res_with_pandapower(home_vars, netp0, q_car_flex, passive=self.ext == 'P')
             q_house = netq_flex - q_car_flex
         else:
             voltage_squared = None

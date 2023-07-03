@@ -29,7 +29,8 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.environment.simulations.optimisation import Optimiser
-from src.environment.utilities.userdeftools import set_seeds_rdn, get_opt_res_file
+from src.environment.utilities.userdeftools import (get_opt_res_file,
+                                                    set_seeds_rdn)
 
 
 class DataManager:
@@ -123,7 +124,7 @@ class DataManager:
                             grd['flex'][time_step, load_type, home, time_cons] = 1
 
         # optimisation of power flow
-        if grd['manage_voltage']:
+        if grd['manage_voltage'] or grd['simulate_panda_power_only']:
             for info in [
                 'flex_buses', 'flex_buses_test', 'passive_buses',
                 'incidence_matrix', 'in_incidence_matrix', 'out_incidence_matrix',
@@ -547,14 +548,15 @@ class DataManager:
         # reactive power for passive homes
         self.prm['loads']['active_power_passive_homes'] = []
         self.prm['loads']['reactive_power_passive_homes'] = []
-        if self.n_homesP > 0 and self.prm['grd']['manage_voltage']:
+        if self.n_homesP > 0 and self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']:
             self.prm['loads']['q_heat_home_car_passive'] = \
                 loads['netp0'] * self.prm['grd']['active_to_reactive_passive']
             if self.prm['grd']['manage_voltage']:
                 for t in range(self.N):
                     for t in range(self.N):
                         self.prm['loads']['active_power_passive_homes'].append(
-                            np.matmul(self.env.network.passive_buses, loads['netp0'][:, t]))
+                            np.matmul(self.env.network.passive_buses, loads['netp0'][:, t])
+                        )
                         self.prm['loads']['reactive_power_passive_homes'].append(
                             np.matmul(
                                 self.env.network.passive_buses,

@@ -457,7 +457,7 @@ class Explorer:
 
             if not sequence_feasible:  # if data is not feasible, make new data
                 n_not_feas += 1
-                seed_ind = self.data.infeasible_tidy_files_seeds(seed_ind)
+                seed_ind = self.data.infeasible_tidy_files_seeds(seed_ind, evaluation)
 
                 print("infeasible in loop active")
 
@@ -557,10 +557,10 @@ class Explorer:
             time_step, batchflex_opt, evaluation
         )
         cons_tol = 1e-1 if self.prm["grd"]["line_losses_method"] == 'iteration' else 1e-2
-
         assert all(
-            res['totcons'][:, time_step] - res['E_heat'][:, time_step]
-            <= loads["l_flex"] + loads["l_fixed"] + cons_tol
+            (loads["l_flex"] + loads["l_fixed"])
+            - (res['totcons'][:, time_step] - res['E_heat'][:, time_step])
+            >= - cons_tol
         ), f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
            f"available loads {loads['l_flex'] + loads['l_fixed']}"
         _, _, loads_prev = self._fixed_flex_loads(
@@ -1013,9 +1013,16 @@ class Explorer:
         if self.prm["grd"]['manage_voltage']:
             q_car = res["q_car_flex"][:, time_step]
             q_house = res["netq_flex"][:, time_step] - q_car
+        elif self.prm['grd']['simulate_panda_power_only']:
+            p_car_flex = res['charge'][:, time_step] / self.prm['car']['eta_ch'] - res['discharge_other'][:, time_step]
+            q_car = p_car_flex * self.prm['grd']['active_to_reactive_flex']
+            q_house = (
+                res['totcons'][:, time_step] - self.prm['grd']['gen'][:, time_step]
+            ) * self.prm['grd']['active_to_reactive_flex']
         else:
             q_car, q_house = None, None
-        if self.prm["grd"]['compare_pandapower_optimisation']:
+
+        if self.prm["grd"]['compare_pandapower_optimisation'] or self.prm['grd']['simulate_panda_power_only']:
             loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
         else:
             loaded_buses, sgen_buses, = None, None
