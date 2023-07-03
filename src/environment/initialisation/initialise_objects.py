@@ -291,27 +291,6 @@ def _load_data_dictionaries(paths, syst):
     return syst
 
 
-# def _load_bat_factors_parameters(paths, car, syst):
-#     label = f"n_consecutive_days{syst['n_consecutive_days']}_" \
-#             f"brackets_definition_{syst['brackets_definition']}.pickle"
-#     path = paths["factors_path"] / f"p_pos_{label}.pickle"
-#     with open(path, "rb") as file:
-#         car['f_prob_pos'] = pickle.load(file)
-#     path = paths["factors_path"] / f"p_zero2pos_{label}.pickle"
-#     with open(path, "rb") as file:
-#         car['f_prob_zero2pos'] = pickle.load(file)
-#
-#     path = paths["factors_path"] / f"mid_fs_brackets_{label}.pickle"
-#     with open(path, "rb") as file:
-#         car['mid_fs_brackets'] = pickle.load(file)
-#
-#     path = paths["factors_path"] / f"fs_brackets_{label}.pickle"
-#     with open(path, "rb") as file:
-#         car['fs_brackets'] = pickle.load(file)
-#
-#     return car
-
-
 def _update_bat_prm(prm):
     """
     Compute parameters relating to the car battery for the experiments.
@@ -352,8 +331,6 @@ def _update_bat_prm(prm):
                     = np.ones(syst["n_homes" + ext]) * obj[f"own_{der}" + ext] \
                     if isinstance(obj[f"own_{der}" + ext], (int, float)) \
                     else np.array(obj[f"own_{der}" + ext])
-
-    # car = _load_bat_factors_parameters(paths, car, syst)
 
     # battery characteristics
     car["min_charge"] = car["caps"] * max(car["SoCmin"], car["baseld"])
