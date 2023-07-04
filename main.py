@@ -18,7 +18,7 @@ from src.environment.experiment_manager.runner import run
 
 settings = {
     'RL': {
-       'state_space': [['grdC_n2', 'flexibility']] * (4 + 3 + 3 + 1 + 2 + 2 + 2 + 2),
+       'state_space': 'grdC',
        'n_epochs': 20,
        'type_learning': 'q_learning',
         'act_noise': 0.01,
@@ -35,7 +35,7 @@ settings = {
         'q_learning': {
             'gamma': [0.5, 0.7, 0.9, 0.99] + [0.7] * (3 + 3 + 1 + 2 + 2 + 2 + 2),
             'eps': [0.5] * (4 + 3) + [0.2, 0.8, 0.9] + [0.5] * (1 + 2 + 2 + 2 + 2),
-            'hysteretic': [False] * (4 + 3 + 3) + [True] + [False] * (2 + 2 + 2 + 2),
+            'hysteretic': [True] * (4 + 3 + 3) + [False] + [True] * (2 + 2 + 2 + 2),
             'beta_to_alpha': [0.5] * (4 + 3 + 3 + 1) + [0.1, 0.9] + [0.5] * (2 + 2 + 2),
         }
     },
