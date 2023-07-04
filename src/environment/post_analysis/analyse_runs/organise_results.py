@@ -16,22 +16,9 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = [
-    'lr'
-]
+COLUMNS_OF_INTEREST = None
 
-FILTER = {
-    'SoC0': 1,
-    'error_with_opt_to_rl_discharge': False,
-    'n_repeats': 3,
-    'type_learning': 'q_learning',
-    'gan_generation': True,
-    # 'act_noise': 0.01,
-    'clus_dist_share': 0.99,
-    # 'n_homes': 1,
-    'trajectory': False,
-    # 'n_discrete_actions': 3,
-}
+FILTER = {'nn_learned': True}
 
 best_score_type = 'p50'
 # p50 or ave
@@ -68,7 +55,7 @@ def fix_learning_specific_values(log):
         if all(log[col].loc[i] is None for col in ave_opt_cols):
             if not log['syst-force_optimisation'].loc[i]:
                 log.loc[i, 'syst-force_optimisation'] = True
-            if log['syst-error_with_opt_to_rl_discharge'].loc[i]:
+            if 'syst-error_with_opt_to_rl_discharge' in log and log['syst-error_with_opt_to_rl_discharge'].loc[i]:
                 log.loc[i, 'syst-error_with_opt_to_rl_discharge'] = False
 
     # gaussian_params = ['start_steps', 'act_noise']
@@ -167,7 +154,8 @@ def get_list_all_fields(results_path):
                     for subkey, subval in val.items():
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
         else:
-            shutil.rmtree(results_path / f"run{result_no}")
+            if result_no != max(result_nos):  # this may be something currently running
+                shutil.rmtree(results_path / f"run{result_no}")
             remove_nos.append(result_no)
 
     print(f"delete run(s) {remove_nos}")
@@ -286,10 +274,12 @@ def add_default_values(log):
                 if log.loc[row, column] is None and column != 'syst-time_end':
                     log = fill_in_log_value_with_run_data(log, row, column, prm_default)
 
-    share_active_none = log['syst-share_active'].isnull()
-    log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
-        lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
-    )
+    if 'syst-share_active' in log.columns:
+        share_active_none = log['syst-share_active'].isnull()
+        log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
+            lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
+        )
+
     n_homes_test_none = log['syst-n_homes_test'].isnull()
     log.loc[n_homes_test_none, 'syst-n_homes_test'] = log.loc[n_homes_test_none].apply(
         lambda x: x['syst-n_homes'], axis=1
@@ -298,10 +288,11 @@ def add_default_values(log):
     log.loc[n_homes_all_test_none, 'syst-n_homes_all_test'] = log.loc[n_homes_all_test_none].apply(
         lambda x: x['syst-n_homes_test'] + x['syst-n_homesP'], axis=1
     )
-    share_active_test_none = log['syst-share_active_test'].isnull()
-    log.loc[share_active_test_none, 'syst-share_active_test'] = log.loc[share_active_none].apply(
-        lambda x: x['syst-n_homes_test'] / x['syst-n_homes_all_test'], axis=1
-    )
+    if 'syst-share_active_test' in log.columns:
+        share_active_test_none = log['syst-share_active_test'].isnull()
+        log.loc[share_active_test_none, 'syst-share_active_test'] = log.loc[share_active_test_none].apply(
+            lambda x: x['syst-n_homes_test'] / x['syst-n_homes_all_test'], axis=1
+        )
 
     # then replace column by column the missing data with current defaults
     for column in log.columns:
@@ -530,9 +521,10 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
         'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
         'syst-n_homes', 'syst-share_active_test', 'syst-force_optimisation', 'syst-gan_generation'
     ]
+    drop_columns = 'grd-simulate_panda_power_only'
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
-        if column not in do_not_remove and unique_value:
+        if (column not in do_not_remove and unique_value) or column in drop_columns:
             log.drop([column], axis=1, inplace=True)
         else:
             new_columns.append(column)
@@ -708,7 +700,8 @@ def get_indexes_to_ignore_in_setup_comparison(
     if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
         indexes_ignore.append(other_columns.index('n_homes_all'))
         if column_of_interest in ['n_homesP', 'n_homes']:
-            indexes_ignore.append(other_columns.index('share_active'))
+            if 'share_active' in other_columns:
+                indexes_ignore.append(other_columns.index('share_active'))
             i_n_homes_test = other_columns.index('n_homes_test')
             row_n_homes = log[column_of_interest].loc[row]
             initial_setup_row_n_hommes = log[column_of_interest].loc[initial_setup_row]
@@ -970,6 +963,9 @@ def compare_all_runs_for_column_of_interest(
     state_space_vals = [x_labels, best_values, env_values, time_values] \
         if column_of_interest == 'state_space' else None
 
+    if not plotted_something:
+        plt.close('all')
+
     return plotted_something, axs, setups, state_space_vals
 
 
@@ -1202,7 +1198,8 @@ def remove_duplicates(log, columns0):
 
 def filter_current_analysis(log):
     for col, value in FILTER.items():
-        log = log.drop(log[log[col] != value].index)
+        if col in log.columns:
+            log = log.drop(log[log[col] != value].index)
     log = log.reset_index()
 
     return log
@@ -1248,3 +1245,31 @@ if __name__ == "__main__":
     log.to_csv(log_path)
     log = filter_current_analysis(log)
     plot_sensitivity_analyses(new_columns, log)
+
+
+    # plot with and without trajectory
+    # Data
+    runs = {
+        'Individual time steps': 31,
+        'Trajectory': 55,
+    }
+    labels = list(runs.keys())
+    medians = np.array([log.loc[log['run'] == run, 'best_score_all'].item() for run in runs.values()])
+    percentile_25, percentile_75 = [
+        np.array([log.loc[log['run'] == run, f'p{p}_best_score_all'].item() for run in runs.values()])
+        for p in [25, 75]
+    ]
+
+    # Plotting
+    font_size = 12
+    matplotlib.rcParams.update({'font.size': font_size})
+
+    x = range(len(labels))
+    fig = plt.figure(figsize=(5, 5))
+    plt.bar(x, medians, tick_label=labels, alpha=0.7)
+    plt.errorbar(x, medians, yerr=[medians - percentile_25, percentile_75 - medians], fmt='none', color='black', capsize=4)
+    plt.ylabel('Savings [£/home/month]')
+    fig.savefig(
+        "outputs/results_analysis/best_trajectory_sensitivity.pdf",
+        bbox_inches='tight', format='pdf', dpi=1200
+    )
