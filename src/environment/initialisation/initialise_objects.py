@@ -449,13 +449,12 @@ def _exploration_parameters(rl):
 def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
     rl["dim_states"] = 0 if rl["state_space"] is None else len(rl["state_space"])
     rl["dim_states_1"] = rl["dim_states"]
-    if rl['dim_states'] > 0:
-        if rl["aggregate_actions"]:
-            rl["dim_actions"] = 1
-        elif reactive_power_for_voltage_control:
-            rl["dim_actions"] = 4
-        else:
-            rl["dim_actions"] = 3
+    if rl["aggregate_actions"]:
+        rl["dim_actions"] = 1
+    elif reactive_power_for_voltage_control:
+        rl["dim_actions"] = 4
+    else:
+        rl["dim_actions"] = 3
 
     rl["dim_states_1"] = rl["dim_states"]
     rl["dim_actions_1"] = rl["dim_actions"]
