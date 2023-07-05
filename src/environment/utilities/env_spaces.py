@@ -205,7 +205,7 @@ class EnvSpaces:
                                       [state_space, action_space]):
             # looping through state and action spaces
             self.descriptors[space] = descriptors
-            descriptors = ["None"] if descriptors == [None] else descriptors
+            descriptors = ["None"] if descriptors == [None] or descriptors is None else descriptors
             descriptors_idx = [
                 self.space_info["name"] == self.descriptor_for_info_lookup(descriptor)
                 for descriptor in descriptors
