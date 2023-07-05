@@ -55,12 +55,15 @@ def granularity_to_multipliers(granularity):
 def compute_max_car_cons_gen_values(env, state_space):
     """Get the maximum possible values for car consumption, household consumption and generation."""
     max_car_cons, max_normcons, max_normgen, max_car_dem_agg = [-1 for _ in range(4)]
+    if state_space is not None:
+        if any(descriptor[0: len("car_cons_")] == "car_cons_" for descriptor in state_space):
+            max_car_cons = np.max(
+                [np.max(env.hedge.fs_brackets[transition])
+                 for transition in env.prm['syst']['day_trans']]
+            )
+        else:
+            max_car_cons = 1
 
-    if any(descriptor[0: len("car_cons_")] == "car_cons_" for descriptor in state_space):
-        max_car_cons = np.max(
-            [np.max(env.hedge.fs_brackets[transition])
-             for transition in env.prm['syst']['day_trans']]
-        )
     max_normcons, max_normgen, max_car_dem_agg = 1, 1, 1
 
     return max_car_cons, max_normcons, max_normgen, max_car_dem_agg
