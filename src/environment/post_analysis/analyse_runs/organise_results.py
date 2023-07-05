@@ -17,6 +17,7 @@ from tqdm import tqdm
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = None
+FILL_BETWEEN = False
 
 FILTER = {'nn_learned': True}
 
@@ -521,7 +522,7 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
         'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
         'syst-n_homes', 'syst-share_active_test', 'syst-force_optimisation', 'syst-gan_generation'
     ]
-    drop_columns = 'grd-simulate_panda_power_only'
+    drop_columns = ['grd-simulate_panda_power_only', 'RL-gamma']
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
         if (column not in do_not_remove and unique_value) or column in drop_columns:
@@ -919,13 +920,13 @@ def compare_all_runs_for_column_of_interest(
                         best_scores_sorted[k][best_score_type][i_best],
                         'o', markerfacecolor=colour, markeredgecolor=colour
                     )
-
-                    axs[ax_i].fill_between(
-                        values_of_interest_sorted_k[k],
-                        best_scores_sorted[k]['p25'],
-                        best_scores_sorted[k]['p75'],
-                        alpha=0.2
-                    )
+                    if FILL_BETWEEN:
+                        axs[ax_i].fill_between(
+                            values_of_interest_sorted_k[k],
+                            best_scores_sorted[k]['p25'],
+                            best_scores_sorted[k]['p75'],
+                            alpha=0.2
+                        )
                     if column_of_interest == 'n_epochs':
                         axs[ax_i].set_yscale('log')
                 axs[2].plot(
@@ -946,6 +947,17 @@ def compare_all_runs_for_column_of_interest(
                     axs, values_of_interest_sorted, best_scores_sorted['all'][best_score_type],
                     best_scores_sorted['env'][best_score_type], runs_sorted
                 )
+                if isinstance(values_of_interest_sorted[0], (int, float)):
+                    deltas_x_axis = [
+                        next - prev
+                        for next, prev in zip(
+                            values_of_interest_sorted[1:],
+                            values_of_interest_sorted[:-1]
+                        )
+                    ]
+                    if min(deltas_x_axis) <= 10 * max(deltas_x_axis):
+                        for ax in axs:
+                            ax.set_xscale('log')
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
                     best_values.append(best_scores_sorted['all'][best_score_type])

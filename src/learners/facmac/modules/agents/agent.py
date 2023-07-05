@@ -34,7 +34,7 @@ class Agent(nn.Module):
                 )
             self.layers.append(
                 nn.Linear(
-                    (input_shape - rl['cnn_kernel_size'] + 1) * rl['cnn_out_channels'],
+                    (input_shape + (- rl['cnn_kernel_size'] + 1) * rl['n_cnn_layers']) * rl['cnn_out_channels'],
                     self.rl['rnn_hidden_dim']
                 )
             )

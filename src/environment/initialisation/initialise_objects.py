@@ -499,8 +499,12 @@ def _remove_states_incompatible_with_trajectory(rl):
 
 
 def _expand_grdC_states(rl):
+    if rl['state_space'] is None:
+        return rl
+
     n_steps = None
     state_grdC = None
+
     for state in rl['state_space']:
         if state[0: len('grdC_n')] == 'grdC_n':
             n_steps = int(state[len('grdC_n'):])
