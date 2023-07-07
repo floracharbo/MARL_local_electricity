@@ -6,7 +6,6 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class QMixer(nn.Module):
     def __init__(self, rl):
         super(QMixer, self).__init__()
@@ -16,10 +15,8 @@ class QMixer(nn.Module):
         self.state_dim = int(np.prod(rl['state_shape']))
         self.cuda_available = True if th.cuda.is_available() else False
         device = th.device("cuda") if self.cuda_available else th.device("cpu")
-
         self.embed_dim = rl['mixing_embed_dim']
         self.q_embed_dim = rl['q_embed_dim']
-
         self.hyper_w_1 = nn.Linear(
             self.state_dim,
             self.embed_dim * self.n_agents * self.q_embed_dim)
@@ -51,6 +48,8 @@ class QMixer(nn.Module):
 
         # State dependent bias for hidden layer
         self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
+        th.nn.init.uniform_(self.hyper_b_1.bias, a=0.2, b=0.5)  # Adjust the range as needed
+
         # V(s) instead of a bias for the last layers
         self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
                                nn.ReLU(),
@@ -72,17 +71,28 @@ class QMixer(nn.Module):
     def forward(self, agent_qs, states):
         states = states.cuda() if self.cuda_available else states
         agent_qs = agent_qs.cuda() if self.cuda_available else agent_qs
-
+        if agent_qs.min() < - self.rl['offset_mixer_qs']:
+            print(f"agent_qs.min(): {agent_qs.min()} < - self.rl['offset_mixer_qs']: {self.rl['offset_mixer_qs']}")
+            print(f"{(agent_qs < - self.rl['offset_mixer_qs']).sum()/agent_qs.numel() * 100} % of agent_qs < - self.rl['offset_mixer_qs']")
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
         agent_qs = agent_qs.view(-1, 1, self.n_agents * self.q_embed_dim)
+        agent_qs += self.rl['offset_mixer_qs']
+
         # First layer
         w1 = th.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
+        if self.rl['mixer_relu']:
+            b1 = F.relu(b1)
+
         w1 = w1.view(- 1, self.n_agents * self.q_embed_dim, self.embed_dim)
         b1 = b1.view(- 1, 1, self.embed_dim)
 
-        hidden = F.elu(th.bmm(agent_qs, w1) + b1)
+        # hidden = F.elu(th.bmm(agent_qs, w1) + b1)
+        hidden = th.bmm(agent_qs, w1) + b1
+        if self.rl['mixer_relu']:
+            hidden = F.elu(hidden)
+
         # Second layer
         w_final = th.abs(self.hyper_w_final(states))
         w_final = w_final.view(-1, self.embed_dim, 1)
@@ -94,7 +104,6 @@ class QMixer(nn.Module):
             s = agent_qs.sum(dim=2, keepdim=True)
 
         if self.rl['gated']:
-
             y = th.bmm(hidden, w_final) * self.gate + v + s
         else:
             # Compute final output
