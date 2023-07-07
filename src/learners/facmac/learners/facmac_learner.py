@@ -5,7 +5,7 @@ import copy
 
 import numpy as np
 import torch as th
-from torch.optim import Adam, RMSprop
+from torch.optim import Adam, RMSprop, SGD
 
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner
@@ -18,11 +18,11 @@ class FACMACLearner(Learner):
         super().__init__(mac, rl, scheme)
 
         self.critic = FACMACCritic(scheme, rl, N)
-        self.target_critic = copy.deepcopy(self.critic)
+        self.target_critic = FACMACCritic(scheme, rl, N)
         self.critic_params = list(self.critic.parameters())
         if rl['mixer'] is not None and self.n_agents > 1:
             self.critic_params += list(self.mixer.parameters())
-            self.target_mixer = copy.deepcopy(self.mixer)
+            self.target_mixer = self.init_mixer(rl)
 
         if rl["optimizer"] == "rmsprop":
             self.agent_optimiser = RMSprop(
@@ -35,14 +35,16 @@ class FACMACLearner(Learner):
         else:
             raise Exception(f"unknown optimizer {rl['optimizer']}")
 
-        if rl["optimizer"] == "rmsprop":
+        if rl["critic_optimizer"] == "rmsprop":
             self.critic_optimiser = RMSprop(
                 params=self.critic_params, lr=rl['facmac']['critic_lr'],
                 alpha=rl['optim_alpha'], eps=rl['optim_eps'])
-        elif rl["optimizer"] == "adam":
+        elif rl["critic_optimizer"] == "adam":
             self.critic_optimiser = Adam(
                 params=self.critic_params, lr=rl['facmac']['critic_lr'],
                 eps=rl['optimizer_epsilon'])
+        elif rl["critic_optimizer"] == "sgd":
+            self.critic_optimiser = SGD(params=self.critic_params, lr=rl['facmac']['critic_lr'])
         else:
             raise Exception("unknown optimizer {}".format(rl["optimizer"]))
 
@@ -52,12 +54,13 @@ class FACMACLearner(Learner):
         for t in range(batch.max_seq_length):
             inputs = self._build_inputs(batch, t=t)
             critic_out, critic.hidden_states = critic(
-                inputs, actions_[:, t:t + 1].detach(),
+                inputs, actions_[:, t:t + 1],
                 critic.hidden_states
             )
             if self.n_agents > 1 and self.mixer is not None:
                 critic_out = mixer(critic_out.view(
-                    batch.batch_size, -1, 1), batch["state"][:, t: t + 1])
+                    batch.batch_size, -1, 1), batch["state"][:, t: t + 1]
+                )
             list_critic_out.append(critic_out)
         list_critic_out = th.stack(list_critic_out, dim=1)
 
@@ -115,7 +118,9 @@ class FACMACLearner(Learner):
 
         targets = rewards.expand_as(target_vals) \
             + self.rl['facmac']['gamma'] * (1 - terminated.expand_as(target_vals)) * target_vals
-        td_error = (targets.detach() - q_taken)
+        # td_error = (targets.detach() - q_taken)
+        td_error = (targets - q_taken)
+
         td_error = self.add_supervised_loss(td_error, batch)
 
         mask = mask.expand_as(td_error)
@@ -127,9 +132,34 @@ class FACMACLearner(Learner):
         for g in self.critic_optimiser.param_groups:
             g['lr'] = lr
 
+        before = list_critics[0].fc1.state_dict()['weight'].clone()
+        before2 = list_critics[0].fc_out.state_dict()['weight'].clone()
+        before3 = list_critics[0].layers[0].state_dict()['weight'].clone()
+
         self.critic_optimiser.zero_grad()
         loss.backward()
+        for name, param in self.critic.named_parameters():
+            if param.grad is not None and th.all(param.grad[0] == 0):
+                print(f'Parameter: {name} Gradients: all zeros')
+            elif param.grad is None:
+                print(f'Parameter: {name} - Gradients not computed')
         self.critic_optimiser.step()
+        after = list_critics[0].fc1.state_dict()['weight'].clone()
+        after2 = list_critics[0].fc_out.state_dict()['weight'].clone()
+        after3 = list_critics[0].layers[0].state_dict()['weight'].clone()
+
+        if th.all(th.eq(before, after)):
+            print(f"critic fc1 weights updates: no. loss {loss}")
+        # else:
+        #     print(f"critic fc1 weights updates: yes. loss {loss}")
+        if th.all(th.eq(before2, after2)):
+            print(f"critic fc_out weights updates: no. loss {loss}")
+        # else:
+        #     print(f"critic fc_out weights updates: yes. loss {loss}")
+        if th.all(th.eq(before3, after3)):
+            print(f"critic layers 0 weights updates: no. loss {loss}")
+        # else:
+        #     print(f"critic layers 0 weights updates: yes. loss {loss}")
 
     def _train_actor(self, batch):
         # Optimize over the entire joint action space
