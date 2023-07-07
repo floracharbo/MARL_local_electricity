@@ -540,6 +540,8 @@ class LocalElecEnv:
             f"{len(self.prm['syst']['break_down_rewards_entries'])}"
 
         reward += self.delta_reward
+        if reward < 0:
+            print(f"reward {reward - self.delta_reward} < {- self.delta_reward}")
 
         return reward, break_down_rewards
 
