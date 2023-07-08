@@ -48,7 +48,8 @@ class QMixer(nn.Module):
 
         # State dependent bias for hidden layer
         self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
-        th.nn.init.uniform_(self.hyper_b_1.bias, a=0.2, b=0.5)  # Adjust the range as needed
+        if rl['initialise_positive_weights_hyper_b_1_bias']:
+            th.nn.init.uniform_(self.hyper_b_1.bias, a=0.2, b=0.5)  # Adjust the range as needed
 
         # V(s) instead of a bias for the last layers
         self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
@@ -71,13 +72,9 @@ class QMixer(nn.Module):
     def forward(self, agent_qs, states):
         states = states.cuda() if self.cuda_available else states
         agent_qs = agent_qs.cuda() if self.cuda_available else agent_qs
-        if agent_qs.min() < - self.rl['offset_mixer_qs']:
-            print(f"agent_qs.min(): {agent_qs.min()} < - self.rl['offset_mixer_qs']: {self.rl['offset_mixer_qs']}")
-            print(f"{(agent_qs < - self.rl['offset_mixer_qs']).sum()/agent_qs.numel() * 100} % of agent_qs < - self.rl['offset_mixer_qs']")
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
         agent_qs = agent_qs.view(-1, 1, self.n_agents * self.q_embed_dim)
-        agent_qs += self.rl['offset_mixer_qs']
 
         # First layer
         w1 = th.abs(self.hyper_w_1(states))

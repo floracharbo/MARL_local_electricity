@@ -254,6 +254,6 @@ n_epochs_supervised_loss: 0
 homes_exec_per_home_train: ~
 device: cpu
 q_noise_0: 1.e-8  # for initialise_q = bias_towards_0 / random
-offset_mixer_qs: 0
 mixer_relu: True
-
+normalisation_reward: 1
+initialise_positive_weights_hyper_b_1_bias: False
