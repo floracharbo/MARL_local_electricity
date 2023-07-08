@@ -647,8 +647,6 @@ def plot_env_input(repeat, prm, record):
 
             title = f"deterministic repeat {repeat} {e}"
             title_and_save(title, fig, prm)
-        else:
-            print(f"no new deterministic batch for repeat = {repeat}")
 
 
 def plot_imp_exp_violations(
