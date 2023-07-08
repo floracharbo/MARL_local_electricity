@@ -133,12 +133,6 @@ def input_params(prm, settings=None):
     prm = _load_parameters(prm, settings)
     prm["RL"]["RL_to_save"] = list(prm["RL"].keys())
 
-    # demand / generation factor initialisation for RL data generation
-    # https://www.ukpower.co.uk/home_energy/average-household-gas-and-electricity-usage
-    # https://www.choice.com.au/home-improvement/energy-saving/solar/articles/how-much-solar-do-i-need
-    # https://www.statista.com/statistics/513456/annual-mileage-of-motorists-in-the-united-kingdom-uk/
-    prm["syst"]["f0"] = {"loads": 9, "gen": 8, "car": 8}
-
     # demand / generation cluster initialisation
     # for RL data generation
     prm["syst"]["clus0"] = {"loads": 0, "car": 0}
