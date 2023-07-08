@@ -26,6 +26,7 @@ timestamp_changes:
   8: 1681635222.697911
   9: 1683903827.916349
   10: 1686209972.731433
+  11: 1688808928.930367
 
 'RL-n_hidden_layers': [1, 1]
 'RL-aggregate_actions': [1, True]
@@ -50,3 +51,10 @@ RL-lr: [8, 1.e-3]
 RL-facmac-lr: [9, -1]
 syst-gan_generation: [9, False]
 grd-simulate_panda_power_only: [10, False]
+RL-act_noise: [11, 0.1]
+RL-facmac-batch_size: [11, 5]
+syst-clus_dist_share: [11, 1]
+RL-hyper_initialization_nonzeros: [11, 0.1]
+RL-facmac-lr: [11, 1.e-3]
+RL-facmac-critic_lr: [11, 5.e-4]
+RL-n_hidden_layers: [11, 2]

@@ -164,8 +164,8 @@ rnn_hidden_dim: 5.e+2 # for rnn agent (from 64)
 exploration_mode: "gaussian"  # or eps greedy or ornstein_uhlenbeck
 ou_stop_episode: 1000 # for cqmix controller - training noise goes to zero after this episode
 start_steps: 100 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
-act_noise: 0.1 # Stddev for Gaussian exploration noise added to policy at training time.
-hyper_initialization_nonzeros: 0.1
+act_noise: 0 # Stddev for Gaussian exploration noise added to policy at training time.
+hyper_initialization_nonzeros: 1
 lr: 1.e-2 # Q learning learning rate
 buffer_size: 5000
 optimizer: adam # D
@@ -186,6 +186,7 @@ agent_return_logits: False
 ou_theta: 0.15 # D
 ou_sigma: 0.2 # D
 ou_noise_scale: 0.3
+p_dropout: 0
 
 # to vary
 batch_size_run: 1
@@ -196,11 +197,11 @@ evaluation_methods:
 
 facmac:
         # varied
-        critic_lr: 5.e-4
+        critic_lr: 1.e-2
         hysteretic: True
         beta_to_alpha: 0.1
         # to vary
-        batch_size: 5 # Num of tuples to train on.
+        batch_size: 10 # Num of tuples to train on.
         gamma: 0.85
         epsilon: 0.5
         epsilon_decay: False
@@ -212,7 +213,7 @@ facmac:
         lr_end: 1.e-4
         critic_lr0: 5.e-3
         critic_lr_end: 5.e-5
-        lr: 1.e-3
+        lr: 5.e-1
 
 aggregate_actions: False
 
@@ -245,7 +246,7 @@ cnn_kernel_size: 3
 data_parallel: False # if True, use nn.DataParallel
 n_cnn_layers: 1
 n_cnn_layers_critic: 1
-n_hidden_layers: 2
+n_hidden_layers: 1
 n_hidden_layers_critic: 1
 num_layers_rnn: 1
 grdC_n: 0
