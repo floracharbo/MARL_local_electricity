@@ -715,7 +715,8 @@ def _check_consa_to_totcons_netp_grid(
 
 
 def check_and_correct_constraints(
-    res, constl_consa_constraints, constl_loads_constraints, prm, input_hourly_lij=None, evaluation=False
+    res, constl_consa_constraints, constl_loads_constraints, prm,
+    input_hourly_lij=None, evaluation=False
 ):
     N = prm['syst']['N']
     loads = prm['loads']

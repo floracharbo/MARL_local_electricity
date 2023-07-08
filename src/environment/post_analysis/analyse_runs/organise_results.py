@@ -16,22 +16,22 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['rnn_hidden_dim']
+COLUMNS_OF_INTEREST = None
 
 FILL_BETWEEN = False
-BEST_ONLY = True
+BEST_ONLY = False
 n_subplots = 1 if BEST_ONLY else 3
 font_size = 12
 font = {'size': font_size}
 matplotlib.rc('font', **font)
 
 FILTER = {
-    'nn_learned': True,
+    'type_learning': 'q_learning',
     'n_homes': 10,
     # 'act_noise': 0,
     # 'normalisation_reward': 1,
-    'facmac-lr': 5e-1,
-    'n_epochs': 20,
+    # 'facmac-lr': 5e-1,
+    # 'n_epochs': 20,
     # 'facmac-gamma': 0.85,
     # 'facmac-critic_lr': 1e-2,
 }
@@ -43,7 +43,8 @@ X_LABELS = {
     'facmac-batch_size': 'Batch size',
     'facmac-lr': 'Agent learning rate',
     'facmac-critic_lr': 'Critic learning rate',
-    'hyper_initialization_nonzeros': 'Variance of normal distribution\nfor neural network weight initialisation',
+    'hyper_initialization_nonzeros':
+        'Variance of normal distribution\nfor neural network weight initialisation',
     'n_cnn_layers': 'Number of convolutional layers',
     'optimizer': 'Optimiser',
     'rnn_hidden_dim': 'Neural network hidden dimension',
@@ -81,7 +82,10 @@ def fix_learning_specific_values(log):
         if all(log[col].loc[i] is None for col in ave_opt_cols):
             if not log['syst-force_optimisation'].loc[i]:
                 log.loc[i, 'syst-force_optimisation'] = True
-            if 'syst-error_with_opt_to_rl_discharge' in log and log['syst-error_with_opt_to_rl_discharge'].loc[i]:
+            if (
+                'syst-error_with_opt_to_rl_discharge' in log
+                and log['syst-error_with_opt_to_rl_discharge'].loc[i]
+            ):
                 log.loc[i, 'syst-error_with_opt_to_rl_discharge'] = False
 
     # gaussian_params = ['start_steps', 'act_noise']
@@ -307,7 +311,9 @@ def add_default_values(log):
         )
     if 'RL-critic_optimizer' in log.columns:
         critic_optimizer_none = log['RL-critic_optimizer'].isnull()
-        log.loc[critic_optimizer_none, 'RL-critic_optimizer'] = log.loc[critic_optimizer_none].apply(
+        log.loc[
+            critic_optimizer_none, 'RL-critic_optimizer'
+        ] = log.loc[critic_optimizer_none].apply(
             lambda x: x['RL-optimizer'], axis=1
         )
     if 'RL-offset_reward' in log.columns:
@@ -328,7 +334,9 @@ def add_default_values(log):
     )
     if 'syst-share_active_test' in log.columns:
         share_active_test_none = log['syst-share_active_test'].isnull()
-        log.loc[share_active_test_none, 'syst-share_active_test'] = log.loc[share_active_test_none].apply(
+        log.loc[
+            share_active_test_none, 'syst-share_active_test'
+        ] = log.loc[share_active_test_none].apply(
             lambda x: x['syst-n_homes_test'] / x['syst-n_homes_all_test'], axis=1
         )
 
@@ -1003,7 +1011,10 @@ def compare_all_runs_for_column_of_interest(
                             values_of_interest_sorted[:-1]
                         )
                     ]
-                    if min(deltas_x_axis) <= 10 * max(deltas_x_axis) and 0 not in values_of_interest_sorted:
+                    if (
+                        min(deltas_x_axis) <= 10 * max(deltas_x_axis)
+                        and 0 not in values_of_interest_sorted
+                    ):
                         axs_ = [axs] if BEST_ONLY else axs
                         for ax in axs_:
                             ax.set_xscale('log')
@@ -1053,7 +1064,7 @@ def adapt_figure_for_state_space(state_space_vals, axs):
 
     i_sorted = np.argsort(all_x_labels)
     x_labels_sorted = [all_x_labels[i] for i in i_sorted]
-    fig, axs = plt.subplots(n_subplots, 1, figsize=(6.4, 11/3 * n_subplots))
+    fig, axs = plt.subplots(n_subplots, 1, figsize=(6.4, 11 / 3 * n_subplots))
     for i, (best, env, time) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals)):
         best_sorted = [best[i] for i in i_sorted]
         env_sorted = [env[i] for i in i_sorted]
@@ -1172,7 +1183,7 @@ def plot_sensitivity_analyses(new_columns, log):
         columns_of_interest = COLUMNS_OF_INTEREST
 
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        fig, axs = plt.subplots(n_subplots, 1, figsize=(8, 10/3 * n_subplots))
+        fig, axs = plt.subplots(n_subplots, 1, figsize=(8, 10 / 3 * n_subplots))
         other_columns = [
             column for column in new_columns[2:]
             if column not in [
@@ -1220,12 +1231,16 @@ def plot_sensitivity_analyses(new_columns, log):
             if not BEST_ONLY:
                 axs[1].set_ylabel(
                     '\n'.join(
-                        wrap("best score with without optimisation-based exploration [£/home/h]", 30)
+                        wrap(
+                            "best score with without optimisation-based exploration [£/home/h]",
+                            30
+                        )
                     )
                 )
                 axs[2].set_ylabel("time [s]")
             ax_xlabel = axs if BEST_ONLY else axs[2]
-            x_label = X_LABELS[column_of_interest] if column_of_interest in X_LABELS else column_of_interest
+            x_label = X_LABELS[column_of_interest] if column_of_interest in X_LABELS \
+                else column_of_interest
             ax_xlabel.set_xlabel('\n'.join(wrap(x_label, 50)))
 
             if column_of_interest == 'state_space':
@@ -1326,10 +1341,13 @@ if __name__ == "__main__":
     }
     if all(run in log['run'] for run in runs):
         labels = list(runs.keys())
-        medians = np.array([log.loc[log['run'] == run, 'best_score_all'].item() for run in runs.values()])
+        medians = np.array(
+            [log.loc[log['run'] == run, 'best_score_all'].item() for run in runs.values()]
+        )
         percentile_25, percentile_75 = [
-            np.array([log.loc[log['run'] == run, f'p{p}_best_score_all'].item() for run in runs.values()])
-            for p in [25, 75]
+            np.array(
+                [log.loc[log['run'] == run, f'p{p}_best_score_all'].item() for run in runs.values()]
+            ) for p in [25, 75]
         ]
 
         # Plotting
@@ -1338,7 +1356,10 @@ if __name__ == "__main__":
         x = range(len(labels))
         fig = plt.figure(figsize=(5, 5))
         plt.bar(x, medians, tick_label=labels, alpha=0.7)
-        plt.errorbar(x, medians, yerr=[medians - percentile_25, percentile_75 - medians], fmt='none', color='black', capsize=4)
+        plt.errorbar(
+            x, medians, yerr=[medians - percentile_25, percentile_75 - medians],
+            fmt='none', color='black', capsize=4
+        )
         plt.ylabel('Savings [£/home/month]')
         fig.savefig(
             "outputs/results_analysis/best_trajectory_sensitivity.pdf",

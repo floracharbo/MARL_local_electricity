@@ -258,7 +258,6 @@ class DataManager:
 
         return seed_data, new_res, data_feasible, step_vals, feasibility_checked
 
-
     def get_res_name(self, evaluation):
         active_seed = self.seed['_test'] \
             if evaluation and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
@@ -434,7 +433,9 @@ class DataManager:
 
         return batch, data_feasibles
 
-    def _load_res(self, labels: list = ['factors', 'clusters'], evaluation: bool = False) -> List[dict]:
+    def _load_res(
+            self, labels: list = ['factors', 'clusters'], evaluation: bool = False
+    ) -> List[dict]:
         """Load pre-saved day data."""
         files = [
             np.load(
@@ -548,7 +549,10 @@ class DataManager:
         # reactive power for passive homes
         self.prm['loads']['active_power_passive_homes'] = []
         self.prm['loads']['reactive_power_passive_homes'] = []
-        if self.n_homesP > 0 and self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']:
+        if (
+            self.n_homesP > 0
+            and (self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only'])
+        ):
             self.prm['loads']['q_heat_home_car_passive'] = \
                 loads['netp0'] * self.prm['grd']['active_to_reactive_passive']
             if self.prm['grd']['manage_voltage']:

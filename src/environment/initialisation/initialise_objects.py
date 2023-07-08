@@ -18,7 +18,6 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch as th
-import yaml
 from gym import spaces
 
 from src.environment.experiment_manager.record import Record

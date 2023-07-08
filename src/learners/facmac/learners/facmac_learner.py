@@ -1,11 +1,9 @@
 # adapted from
 # https://github.com/oxwhirl/facmac
 
-import copy
-
 import numpy as np
 import torch as th
-from torch.optim import Adam, RMSprop, SGD
+from torch.optim import SGD, Adam, RMSprop
 
 from src.learners.facmac.components.episode_buffer import EpisodeBatch
 from src.learners.facmac.learners.learner import Learner

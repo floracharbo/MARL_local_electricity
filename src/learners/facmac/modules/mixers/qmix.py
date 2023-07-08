@@ -6,6 +6,7 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class QMixer(nn.Module):
     def __init__(self, rl):
         super(QMixer, self).__init__()
