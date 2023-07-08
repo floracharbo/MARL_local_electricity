@@ -138,11 +138,11 @@ class FACMACLearner(Learner):
 
         self.critic_optimiser.zero_grad()
         loss.backward()
-        for name, param in self.critic.named_parameters():
-            if param.grad is not None and th.all(param.grad[0] == 0):
-                print(f'Parameter: {name} Gradients: all zeros')
-            elif param.grad is None:
-                print(f'Parameter: {name} - Gradients not computed')
+        # for name, param in self.critic.named_parameters():
+        #     if param.grad is not None and th.all(param.grad[0] == 0):
+        #         print(f'Parameter: {name} Gradients: all zeros')
+        #     elif param.grad is None:
+        #         print(f'Parameter: {name} - Gradients not computed')
         self.critic_optimiser.step()
         after = list_critics[0].fc1.state_dict()['weight'].clone()
         after2 = list_critics[0].fc_out.state_dict()['weight'].clone()
