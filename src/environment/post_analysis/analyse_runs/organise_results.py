@@ -14,15 +14,40 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = True
+ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = None
-FILL_BETWEEN = False
+COLUMNS_OF_INTEREST = ['rnn_hidden_dim']
 
-FILTER = {'nn_learned': True}
+FILL_BETWEEN = False
+BEST_ONLY = True
+n_subplots = 1 if BEST_ONLY else 3
+font_size = 12
+font = {'size': font_size}
+matplotlib.rc('font', **font)
+
+FILTER = {
+    'nn_learned': True,
+    'n_homes': 10,
+    # 'act_noise': 0,
+    # 'normalisation_reward': 1,
+    'facmac-lr': 5e-1,
+    'n_epochs': 20,
+    # 'facmac-gamma': 0.85,
+    # 'facmac-critic_lr': 1e-2,
+}
 
 best_score_type = 'p50'
 # p50 or ave
+
+X_LABELS = {
+    'facmac-batch_size': 'Batch size',
+    'facmac-lr': 'Agent learning rate',
+    'facmac-critic_lr': 'Critic learning rate',
+    'hyper_initialization_nonzeros': 'Variance of normal distribution\nfor neural network weight initialisation',
+    'n_cnn_layers': 'Number of convolutional layers',
+    'optimizer': 'Optimiser',
+    'rnn_hidden_dim': 'Neural network hidden dimension',
+}
 
 
 def rename_runs(results_path):
@@ -280,7 +305,19 @@ def add_default_values(log):
         log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
             lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
         )
-
+    if 'RL-critic_optimizer' in log.columns:
+        critic_optimizer_none = log['RL-critic_optimizer'].isnull()
+        log.loc[critic_optimizer_none, 'RL-critic_optimizer'] = log.loc[critic_optimizer_none].apply(
+            lambda x: x['RL-optimizer'], axis=1
+        )
+    if 'RL-offset_reward' in log.columns:
+        log['RL-delta_reward'] = log.apply(
+            lambda x: x['RL-delta_reward'] if x['RL-offset_reward'] else 0, axis=1
+        )
+        log['RL-offset_reward'] = True
+    if 'RL-initialise_positive_weights_hyper_b_1_bias' in log.columns:
+        weights_initialised = (log['run'] >= 326) & (log['run'] <= 348)
+        log.loc[weights_initialised, 'RL-initialise_positive_weights_hyper_b_1_bias'] = True
     n_homes_test_none = log['syst-n_homes_test'].isnull()
     log.loc[n_homes_test_none, 'syst-n_homes_test'] = log.loc[n_homes_test_none].apply(
         lambda x: x['syst-n_homes'], axis=1
@@ -444,8 +481,6 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
         if 'type_learning' not in prm['RL']:
             os.remove(path_prm)
             return None
-        if result_no == 802:
-            prm['RL']['nn_learned'] = False
         if 'cap' in prm['car'] and 'caps' not in prm['car']:
             prm['car']['caps'] = prm['car']['cap']
         date_str = datetime.fromtimestamp(os.stat(path_prm).st_birthtime).strftime("%d/%m/%Y")
@@ -522,7 +557,8 @@ def remove_columns_that_never_change_and_tidy(log, columns0, columns_results_met
         'syst-server', "RL-state_space", 'RL-trajectory', 'RL-type_learning',
         'syst-n_homes', 'syst-share_active_test', 'syst-force_optimisation', 'syst-gan_generation'
     ]
-    drop_columns = ['grd-simulate_panda_power_only', 'RL-gamma']
+    drop_columns = ['grd-simulate_panda_power_only', 'RL-gamma', 'RL-offset_mixer_qs']
+
     for column in columns0:
         unique_value = len(log[column][log[column].notnull()].unique()) == 1
         if (column not in do_not_remove and unique_value) or column in drop_columns:
@@ -648,14 +684,17 @@ def annotate_run_nos(
                 values_of_interest_sorted, best_score_sorted,
                 best_env_score_sorted, runs_sorted
         )):
-            axs[0].annotate(
+            ax0 = axs if BEST_ONLY else axs[0]
+            print(f"run = {run}")
+            ax0.annotate(
                 run, (x, best_score), textcoords="offset points", xytext=(0, 10),
                 ha='center'
             )
-            axs[1].annotate(
-                run, (x, best_env_score), textcoords="offset points", xytext=(0, 10),
-                ha='center'
-            )
+            if not BEST_ONLY:
+                axs[1].annotate(
+                    run, (x, best_env_score), textcoords="offset points", xytext=(0, 10),
+                    ha='center'
+                )
 
     return axs
 
@@ -883,11 +922,18 @@ def compare_all_runs_for_column_of_interest(
                     values_of_interest_sorted, best_scores_sorted
                 )
                 for ax_i, k in enumerate(['all', 'env']):
+                    if BEST_ONLY:
+                        if k == 'all':
+                            ax = axs
+                        else:
+                            continue
+                    else:
+                        ax = axs[ax_i]
                     label = \
                         current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
                         else len(setups)
-                    p = axs[ax_i].plot(
+                    p = ax.plot(
                         values_of_interest_sorted_k[k],
                         best_scores_sorted[k][best_score_type],
                         'o', label=label, linestyle=ls,
@@ -906,36 +952,38 @@ def compare_all_runs_for_column_of_interest(
                             best_scores_sorted[k][best_score_type][i] * n_homes_all[i] / n_homes[i]
                             for i in range(len(values_of_interest_sorted_k[k]))
                         ]
-                        axs[ax_i].plot(
+                        ax.plot(
                             values_of_interest_sorted_k[k],
                             score_per_active_home,
                             'o', markerfacecolor='None', linestyle=':',
                             label=None, color=colour
                         )
-                        axs[ax_i].legend()
+                        ax.legend()
 
                     i_best = np.argmax(best_scores_sorted[k][best_score_type])
-                    axs[ax_i].plot(
+                    ax.plot(
                         values_of_interest_sorted_k[k][i_best],
                         best_scores_sorted[k][best_score_type][i_best],
                         'o', markerfacecolor=colour, markeredgecolor=colour
                     )
                     if FILL_BETWEEN:
-                        axs[ax_i].fill_between(
+                        ax.fill_between(
                             values_of_interest_sorted_k[k],
                             best_scores_sorted[k]['p25'],
                             best_scores_sorted[k]['p75'],
                             alpha=0.2
                         )
                     if column_of_interest == 'n_epochs':
-                        axs[ax_i].set_yscale('log')
-                axs[2].plot(
-                    values_of_interest_sorted, time_best_score_sorted, 'o',
-                    label=label,
-                    linestyle=ls,
-                    markerfacecolor='None',
-                    color=colour
-                )
+                        ax.set_yscale('log')
+
+                if not BEST_ONLY:
+                    axs[2].plot(
+                        values_of_interest_sorted, time_best_score_sorted, 'o',
+                        label=label,
+                        linestyle=ls,
+                        markerfacecolor='None',
+                        color=colour
+                    )
                 for i in range(len(values_of_interest_sorted) - 1):
                     if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
                         print(
@@ -955,8 +1003,9 @@ def compare_all_runs_for_column_of_interest(
                             values_of_interest_sorted[:-1]
                         )
                     ]
-                    if min(deltas_x_axis) <= 10 * max(deltas_x_axis):
-                        for ax in axs:
+                    if min(deltas_x_axis) <= 10 * max(deltas_x_axis) and 0 not in values_of_interest_sorted:
+                        axs_ = [axs] if BEST_ONLY else axs
+                        for ax in axs_:
                             ax.set_xscale('log')
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
@@ -967,7 +1016,7 @@ def compare_all_runs_for_column_of_interest(
 
         setup_no += 1
 
-    if len(time_values) > 1:
+    if not BEST_ONLY and len(time_values) > 1:
         end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
         if max(end_time_best_score_sorted) / min(end_time_best_score_sorted) > 30:
             axs[2].set_yscale('log')
@@ -1004,25 +1053,27 @@ def adapt_figure_for_state_space(state_space_vals, axs):
 
     i_sorted = np.argsort(all_x_labels)
     x_labels_sorted = [all_x_labels[i] for i in i_sorted]
-
-    fig, axs = plt.subplots(3, 1, figsize=(6.4, 11))
+    fig, axs = plt.subplots(n_subplots, 1, figsize=(6.4, 11/3 * n_subplots))
     for i, (best, env, time) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals)):
         best_sorted = [best[i] for i in i_sorted]
         env_sorted = [env[i] for i in i_sorted]
         time_sorted = [time[i] for i in i_sorted]
-        p = axs[0].plot(x_labels_sorted, best_sorted, 'o', label=i + 1, markerfacecolor='None')
+        ax0 = axs if BEST_ONLY else axs[0]
+        p = ax0.plot(x_labels_sorted, best_sorted, 'o', label=i + 1, markerfacecolor='None')
         i_best = np.argmax(best_sorted)
-        axs[0].plot(
+        ax0.plot(
             x_labels_sorted[i_best], best_sorted[i_best],
             'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
         )
-        p = axs[1].plot(x_labels_sorted, env_sorted, 'o', label=i + 1, markerfacecolor='None')
+        if not BEST_ONLY:
+            p = axs[1].plot(x_labels_sorted, env_sorted, 'o', label=i + 1, markerfacecolor='None')
         i_best = np.argmax(env_sorted)
-        axs[0].plot(
+        ax0.plot(
             x_labels_sorted[i_best], env_sorted[i_best],
             'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
         )
-        axs[2].plot(x_labels_sorted, time_sorted, 'o', label=i + 1, markerfacecolor='None')
+        if not BEST_ONLY:
+            axs[2].plot(x_labels_sorted, time_sorted, 'o', label=i + 1, markerfacecolor='None')
 
     return fig, axs
 
@@ -1056,7 +1107,8 @@ def add_table_legend(setups, fig, varied_columns, column_of_interest, other_colu
         x_low = 1 - height
         if column_of_interest == 'state_space':
             x_low += 0.2
-        table = axs[0].table(
+        ax0 = axs if BEST_ONLY else axs[0]
+        table = ax0.table(
             cellText=df.values, colLabels=df.columns, bbox=[1.03, x_low, width, height]
         )
         right = 1 / (1 + width) + 0.04
@@ -1079,7 +1131,7 @@ def add_table_legend(setups, fig, varied_columns, column_of_interest, other_colu
 
         table.auto_set_font_size(False)
         table.set_fontsize(7)
-        axs[0].legend()
+        ax0.legend()
         set_width = 6 + len(df.columns) * 0.35
         if column_of_interest == 'state_space':
             set_width += 3
@@ -1106,9 +1158,6 @@ def list_columns_that_vary_between_setups(setups, other_columns):
 
 
 def plot_sensitivity_analyses(new_columns, log):
-    font = {'size': 7}
-
-    matplotlib.rc('font', **font)
     # loop through each column
     # search for runs that are all the same except for that one columnx changing
     # and plot y axis best score vs x axis value (numerical or categorical)
@@ -1123,7 +1172,7 @@ def plot_sensitivity_analyses(new_columns, log):
         columns_of_interest = COLUMNS_OF_INTEREST
 
     for column_of_interest in tqdm(columns_of_interest, position=0, leave=True):
-        fig, axs = plt.subplots(3, 1, figsize=(8, 10))
+        fig, axs = plt.subplots(n_subplots, 1, figsize=(8, 10/3 * n_subplots))
         other_columns = [
             column for column in new_columns[2:]
             if column not in [
@@ -1135,8 +1184,8 @@ def plot_sensitivity_analyses(new_columns, log):
         plotted_something, axs, setups, state_space_vals = compare_all_runs_for_column_of_interest(
             column_of_interest, other_columns, axs, log
         )
-
         if plotted_something:
+            ax0 = axs if BEST_ONLY else axs[0]
             if column_of_interest == 'state_space':
                 fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
 
@@ -1144,13 +1193,15 @@ def plot_sensitivity_analyses(new_columns, log):
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
 
             if column_of_interest in ['state_space', 'type_learning']:
-                axs[0].axes.xaxis.set_ticklabels([])
-                axs[1].axes.xaxis.set_ticklabels([])
+                ax0.axes.xaxis.set_ticklabels([])
+                if not BEST_ONLY:
+                    axs[1].axes.xaxis.set_ticklabels([])
                 plt.xticks(rotation=90)
             elif column_of_interest in ['rnn_hidden_dim', 'lr']:
-                axs[0].set_xscale('log')
-                axs[1].set_xscale('log')
-                axs[2].set_xscale('log')
+                ax0.set_xscale('log')
+                if not BEST_ONLY:
+                    axs[1].set_xscale('log')
+                    axs[2].set_xscale('log')
 
             # remove columns that are irrelevant to the types learning in the current setups
             if column_of_interest != 'type_learning':
@@ -1163,19 +1214,28 @@ def plot_sensitivity_analyses(new_columns, log):
             axs, fig = add_table_legend(
                 setups, fig, varied_columns, column_of_interest, other_columns, axs
             )
-
-            axs[0].set_ylabel("best score [£/home/h]")
-            axs[1].set_ylabel(
-                '\n'.join(
-                    wrap("best score with without optimisation-based exploration [£/home/h]", 30)
+            ax0 = axs if BEST_ONLY else axs[0]
+            ylabel = "Savings [£/home/h]" if BEST_ONLY else "Best score [£/home/h]"
+            ax0.set_ylabel(ylabel)
+            if not BEST_ONLY:
+                axs[1].set_ylabel(
+                    '\n'.join(
+                        wrap("best score with without optimisation-based exploration [£/home/h]", 30)
+                    )
                 )
-            )
-            axs[2].set_ylabel("time [s]")
-            axs[2].set_xlabel('\n'.join(wrap(column_of_interest, 50)))
+                axs[2].set_ylabel("time [s]")
+            ax_xlabel = axs if BEST_ONLY else axs[2]
+            x_label = X_LABELS[column_of_interest] if column_of_interest in X_LABELS else column_of_interest
+            ax_xlabel.set_xlabel('\n'.join(wrap(x_label, 50)))
+
             if column_of_interest == 'state_space':
                 plt.tight_layout(rect=(0, 0.1, 1, 1))
-
-            fig.savefig(f"outputs/results_analysis/{column_of_interest}_sensitivity")
+            else:
+                plt.tight_layout()
+            fig.savefig(
+                f"outputs/results_analysis/{column_of_interest}_sensitivity.pdf",
+                bbox_inches='tight', format='pdf', dpi=1200
+            )
             plt.close('all')
         elif column_of_interest == 'grdC_n':
             print("column_of_interest grdC_n and did not plot anything")
@@ -1258,30 +1318,29 @@ if __name__ == "__main__":
     log = filter_current_analysis(log)
     plot_sensitivity_analyses(new_columns, log)
 
-
     # plot with and without trajectory
     # Data
     runs = {
         'Individual time steps': 31,
-        'Trajectory': 55,
+        'Trajectory': 361,
     }
-    labels = list(runs.keys())
-    medians = np.array([log.loc[log['run'] == run, 'best_score_all'].item() for run in runs.values()])
-    percentile_25, percentile_75 = [
-        np.array([log.loc[log['run'] == run, f'p{p}_best_score_all'].item() for run in runs.values()])
-        for p in [25, 75]
-    ]
+    if all(run in log['run'] for run in runs):
+        labels = list(runs.keys())
+        medians = np.array([log.loc[log['run'] == run, 'best_score_all'].item() for run in runs.values()])
+        percentile_25, percentile_75 = [
+            np.array([log.loc[log['run'] == run, f'p{p}_best_score_all'].item() for run in runs.values()])
+            for p in [25, 75]
+        ]
 
-    # Plotting
-    font_size = 12
-    matplotlib.rcParams.update({'font.size': font_size})
+        # Plotting
+        matplotlib.rcParams.update({'font.size': font_size})
 
-    x = range(len(labels))
-    fig = plt.figure(figsize=(5, 5))
-    plt.bar(x, medians, tick_label=labels, alpha=0.7)
-    plt.errorbar(x, medians, yerr=[medians - percentile_25, percentile_75 - medians], fmt='none', color='black', capsize=4)
-    plt.ylabel('Savings [£/home/month]')
-    fig.savefig(
-        "outputs/results_analysis/best_trajectory_sensitivity.pdf",
-        bbox_inches='tight', format='pdf', dpi=1200
-    )
+        x = range(len(labels))
+        fig = plt.figure(figsize=(5, 5))
+        plt.bar(x, medians, tick_label=labels, alpha=0.7)
+        plt.errorbar(x, medians, yerr=[medians - percentile_25, percentile_75 - medians], fmt='none', color='black', capsize=4)
+        plt.ylabel('Savings [£/home/month]')
+        fig.savefig(
+            "outputs/results_analysis/best_trajectory_sensitivity.pdf",
+            bbox_inches='tight', format='pdf', dpi=1200
+        )
