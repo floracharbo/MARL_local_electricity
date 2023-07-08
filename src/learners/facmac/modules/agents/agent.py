@@ -32,12 +32,16 @@ class Agent(nn.Module):
                         for _ in range(self.rl['n_cnn_layers'] - 1)
                     ]
                 )
+                self.layers.append(nn.Dropout(p=self.rl['p_dropout']))
+
             self.layers.append(
                 nn.Linear(
                     (input_shape + (- rl['cnn_kernel_size'] + 1) * rl['n_cnn_layers']) * rl['cnn_out_channels'],
                     self.rl['rnn_hidden_dim']
                 )
             )
+            self.layers.append(nn.Dropout(p=self.rl['p_dropout']))
+
             if self.rl['n_hidden_layers'] > 1:
                 self.layers.extend(
                     [
@@ -45,6 +49,7 @@ class Agent(nn.Module):
                         for _ in range(self.rl['n_hidden_layers'] - 1)
                     ]
                 )
+                self.layers.append(nn.Dropout(p=self.rl['p_dropout']))
 
         elif self.rl['nn_type'] in ['rnn', 'lstm']:
             if self.rl['nn_type'] == 'lstm':
