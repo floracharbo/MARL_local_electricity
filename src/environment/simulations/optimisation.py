@@ -249,6 +249,9 @@ class Optimiser:
             ]
         )
 
+        # voltage squared positive
+        p.add_constraint(voltage_squared >= 0)
+
         # bus voltage
         p.add_list_of_constraints([
             voltage_squared[0, time_step] == 1.0
@@ -731,11 +734,17 @@ class Optimiser:
                 )
                 p.add_constraint(
                     T_air[home, :]
-                    == (heat['T_LB' + self.ext][home, 0: self.N] + heat['T_UB' + self.ext][home, 0: self.N]) / 2
+                    == (
+                        heat['T_LB' + self.ext][home, 0: self.N]
+                        + heat['T_UB' + self.ext][home, 0: self.N]
+                    ) / 2
                 )
                 p.add_constraint(
                     T[home, :]
-                    == (heat['T_LB' + self.ext][home, 0: self.N] + heat['T_UB' + self.ext][home, 0: self.N]) / 2
+                    == (
+                        heat['T_LB' + self.ext][home, 0: self.N]
+                        + heat['T_UB' + self.ext][home, 0: self.N]
+                    ) / 2
                 )
 
         p.add_constraint(E_heat >= 0)

@@ -72,8 +72,6 @@ class Explorer:
         self.duration_learning = 0
 
     def _initialise_step_vals_entries(self, prm):
-
-
         self.dim_step_vals = {
             "state": prm['RL']['dim_states_1'],
             "next_state": prm['RL']['dim_states_1'],
@@ -507,7 +505,10 @@ class Explorer:
             step_vals[method] = initialise_dict(
                 self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
             )
-            for info in self.prm['syst']['indiv_step_vals_entries'] + self.global_step_vals_entries + self.prm['syst']['break_down_rewards_entries']:
+            entries = self.prm['syst']['indiv_step_vals_entries'] \
+                + self.global_step_vals_entries \
+                + self.prm['syst']['break_down_rewards_entries']
+            for info in entries:
                 shape = self._get_shape_step_vals(info, evaluation)
                 step_vals[method][info] = np.full(shape, np.nan)
 
@@ -677,7 +678,10 @@ class Explorer:
                 step_vals_i[key_] = step_vals_i[key_][:-1]
             if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
                 step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
-            if key_[0: len('indiv')] == 'indiv' or key_ in self.prm['syst']['indiv_step_vals_entries']:
+            if (
+                    key_[0: len('indiv')] == 'indiv'
+                    or key_ in self.prm['syst']['indiv_step_vals_entries']
+            ):
                 step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
             else:
                 step_vals[method][key_][time_step] = step_vals_i[key_]
@@ -690,10 +694,11 @@ class Explorer:
             else:
                 step_vals[method]["ind_next_global_state"][time_step] = np.nan
         if time_step == len(res["grid"]) - 1:
-            step_vals[method]["next_state"][time_step][:n_homes] = self.env.spaces.opt_step_to_state(
-                self.prm, res, time_step + 1, loads_prev,
-                loads_step, batch_avail_car, loads, home_vars
-            )
+            step_vals[method]["next_state"][time_step][:n_homes] = \
+                self.env.spaces.opt_step_to_state(
+                    self.prm, res, time_step + 1, loads_prev,
+                    loads_step, batch_avail_car, loads, home_vars
+                )
             if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
                 ind_next_state = self.env.spaces.get_space_indexes(
                     all_vals=step_vals[method]["next_state"][-1])
@@ -1014,7 +1019,8 @@ class Explorer:
             q_car = res["q_car_flex"][:, time_step]
             q_house = res["netq_flex"][:, time_step] - q_car
         elif self.prm['grd']['simulate_panda_power_only']:
-            p_car_flex = res['charge'][:, time_step] / self.prm['car']['eta_ch'] - res['discharge_other'][:, time_step]
+            p_car_flex = res['charge'][:, time_step] / self.prm['car']['eta_ch'] \
+                - res['discharge_other'][:, time_step]
             q_car = p_car_flex * self.prm['grd']['active_to_reactive_flex']
             q_house = (
                 res['totcons'][:, time_step] - self.prm['grd']['gen'][:, time_step]
@@ -1022,7 +1028,10 @@ class Explorer:
         else:
             q_car, q_house = None, None
 
-        if self.prm["grd"]['compare_pandapower_optimisation'] or self.prm['grd']['simulate_panda_power_only']:
+        if (
+                self.prm["grd"]['compare_pandapower_optimisation']
+                or self.prm['grd']['simulate_panda_power_only']
+        ):
             loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
         else:
             loaded_buses, sgen_buses, = None, None

@@ -117,6 +117,8 @@ def _post_run_update(prm, record, start_time):
             prm["RL"]["seeds"]["P"]):
         np.save(prm["paths"]["seeds_file"], prm["RL"]["seeds"])
 
+    np.save('outputs/opt_res/files_list.npy', prm['paths']['files_list'])
+
     # copy inputs to results folder
     prm["paths"]["save_inputs"] = prm["paths"]["folder_run"] / "inputData"
     if not os.path.exists(prm["paths"]["save_inputs"]):

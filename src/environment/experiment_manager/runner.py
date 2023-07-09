@@ -122,7 +122,7 @@ class Runner:
                 # make a list, one exploration after the other
                 # rather than a list of 'explorations' in 2D
                 list_train_stepvals = self._train_vals_to_list(
-                    train_steps_vals, exploration_methods
+                    train_steps_vals, exploration_methods, i_explore
                 )
                 self.record.end_epoch(
                     epoch, eval_steps, list_train_stepvals,
@@ -325,38 +325,46 @@ class Runner:
                         episode_sample, self.explorer.t_env
                     )
 
-    def _train_vals_to_list(self, train_steps_vals, exploration_methods):
+    def _train_vals_to_list(self, train_steps_vals, exploration_methods, i_explore):
         list_train_stepvals = initialise_dict(self.rl["exploration_methods"], type_obj='empty_dict')
-
+        train_vals = [
+            info for info in train_steps_vals[0][self.rl["exploration_methods"][0]].keys()
+            if info not in ['seeds', 'n_not_feas']
+            and info in train_steps_vals[0][exploration_methods[0]].keys()
+        ]
         for method in self.rl["exploration_methods"]:
-            for info in train_steps_vals[0][self.rl["exploration_methods"][0]].keys():
-                if info not in ['seeds', 'n_not_feas'] \
-                        and info in train_steps_vals[0][exploration_methods[0]].keys():
-                    shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][info])
-                    if info[0: len('indiv')] == 'indiv' or info in self.prm['syst']['indiv_step_vals_entries']:
-                        shape0 = list(shape0)
-                        shape0[1] = self.n_homes
-                        shape0 = tuple(shape0)
-                        train_steps_vals[i_explore][method][info] = train_steps_vals[i_explore][method][info][:, :self.n_homes]
+            for info in train_vals:
+                shape0 = np.shape(train_steps_vals[0][exploration_methods[0]][info])
+                if (
+                    info[0: len('indiv')] == 'indiv'
+                    or info in self.prm['syst']['indiv_step_vals_entries']
+                ):
+                    shape0 = list(shape0)
+                    shape0[1] = self.n_homes
+                    shape0 = tuple(shape0)
+                    train_steps_vals[i_explore][method][info] = \
+                        train_steps_vals[i_explore][method][info][:, :self.n_homes]
 
-                    new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
-                    list_train_stepvals[method][info] = np.full(new_shape, np.nan)
-                    for i_explore in range(self.rl['n_explore']):
-                        if method in exploration_methods:
-                            try:
-                                if info[0: len('indiv')] == 'indiv' or info in self.prm['syst'][
-                                    'indiv_step_vals_entries']:
-                                    list_train_stepvals[method][info][
+                new_shape = (self.rl['n_explore'] * shape0[0], ) + shape0[1:]
+                list_train_stepvals[method][info] = np.full(new_shape, np.nan)
+                for i_explore in range(self.rl['n_explore']):
+                    if method in exploration_methods:
+                        try:
+                            if (
+                                info[0: len('indiv')] == 'indiv'
+                                or info in self.prm['syst']['indiv_step_vals_entries']
+                            ):
+                                list_train_stepvals[method][info][
                                     i_explore * self.N: (i_explore + 1) * self.N
-                                    ] = train_steps_vals[i_explore][method][info][:, 0: self.n_homes]
-                                else:
-                                    list_train_stepvals[method][info][
-                                        i_explore * self.N: (i_explore + 1) * self.N
-                                    ] = train_steps_vals[i_explore][method][info]
-                            except Exception:
-                                # these may be recorded differently for optimisation,
-                                # e.g. no grid_energy_costs, etc.
-                                pass
+                                ] = train_steps_vals[i_explore][method][info][:, 0: self.n_homes]
+                            else:
+                                list_train_stepvals[method][info][
+                                    i_explore * self.N: (i_explore + 1) * self.N
+                                ] = train_steps_vals[i_explore][method][info]
+                        except Exception:
+                            # these may be recorded differently for optimisation,
+                            # e.g. no grid_energy_costs, etc.
+                            pass
 
         return list_train_stepvals
 
@@ -589,18 +597,27 @@ def run(run_mode, settings, no_runs=None):
 
             settings_i = get_settings_i(settings, i)
             if 'type_learning' not in settings_i['RL']:
-                settings_i['RL']['type_learning'] = 'q_learning' if settings_i['syst']['n_homes'] < 10 else 'facmac'
-                settings_i['RL']['trajectory'] = False if settings_i['syst']['n_homes'] < 10 else True
-                settings_i['RL']['evaluation_methods'] = None if settings_i['syst']['n_homes'] < 10 else 'env_r_c'
+                settings_i['RL']['type_learning'] = 'q_learning' \
+                    if settings_i['syst']['n_homes'] < 10 else 'facmac'
+                settings_i['RL']['trajectory'] = False \
+                    if settings_i['syst']['n_homes'] < 10 else True
+                settings_i['RL']['evaluation_methods'] = None \
+                    if settings_i['syst']['n_homes'] < 10 else 'env_r_c'
 
             if 'trajectory' in settings_i['RL']:
                 trajectory = settings_i['RL']['trajectory']
                 if trajectory:
                     settings_i['RL']['evaluation_methods'] = 'env_r_c'
-                settings_i['RL']['obs_agent_id'] = False if trajectory else True
-                settings_i['RL']['nn_type'] = 'cnn' if trajectory else 'linear'
-                settings_i['RL']['rnn_hidden_dim'] = 1e3 if trajectory else 5e2
-                settings_i['RL']['optimizer'] = 'rmsprop' if trajectory else 'adam'
+                values_traj = {
+                    'obs_agent_id': {True: False, False: True},
+                    'nn_type': {True: 'cnn', False: 'linear'},
+                    'rnn_hidden_dim': {True: 1e3, False: 5e2},
+                    'optimizer': {True: 'rmsprop', False: 'adam'},
+                }
+                for info in values_traj.keys():
+                    if info not in settings_i['RL']:
+                        print(f"replace {info}")
+                        settings_i['RL'][info] = values_traj[info][trajectory]
 
             # initialise learning parameters, system parameters and recording
             prm, record = initialise_objects(prm, settings=settings_i)

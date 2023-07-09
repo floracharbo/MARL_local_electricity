@@ -405,6 +405,6 @@ def plot_voltage_statistics(record, prm):
 
     plt.tight_layout()
     # plt.ticklabel_format(axis='both', style='sci', scilimits=(4, 4))
-    title = f"histogram voltage deviations"
+    title = "histogram voltage deviations"
     title_and_save(title, fig, prm, display_title=False)
     plt.close('all')

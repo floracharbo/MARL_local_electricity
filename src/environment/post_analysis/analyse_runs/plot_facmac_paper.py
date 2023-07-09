@@ -16,8 +16,7 @@ matplotlib.rc('font', **font)
 save_label = 'new_july23'
 plot_times = False
 
-compare_times = ['OMQ',
-                 'FD']
+compare_times = ['OMQ', 'FD']
 labels = {
     'IQ': 'Independent Q-learning',
     'OIQ': 'Optimisation-informed independent Q-learning',
@@ -353,11 +352,11 @@ for n_home in [10, 30]:
             reliability_metrics_run = np.load(
                 f"outputs/results/run{run}/figures/metrics.npy", allow_pickle=True
             ).item()
-            for reliability_metric_label in reliability_metric_labels:
-                reliability_metrics[line_label][reliability_metric_label]['ave'] = \
-                    reliability_metrics_run[reliability_metric_label]['ave'][type_learning[line_label]]
-                reliability_metrics[line_label][reliability_metric_label]['std'] = \
-                    reliability_metrics_run[reliability_metric_label]['std'][type_learning[line_label]]
+            for label in reliability_metric_labels:
+                reliability_metrics[line_label][label]['ave'] = \
+                    reliability_metrics_run[label]['ave'][type_learning[line_label]]
+                reliability_metrics[line_label][label]['std'] = \
+                    reliability_metrics_run[label]['std'][type_learning[line_label]]
         else:
             save_fig = False
     if save_fig:
@@ -441,7 +440,9 @@ if plot_times:
                     sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
                     print(f"sum square error {sum_square_error:.2e}")
                     print(f"params {line_label} {label_func}: {params}")
-                    print(f"variability params {line_label}  {label_func} = {np.sqrt(np.diag(pcov))}")
+                    print(
+                        f"variability params {line_label}  {label_func} = {np.sqrt(np.diag(pcov))}"
+                    )
                     plt.plot(list(range(1, x_max + 1)), fitted,
                              label=label_func)
 
