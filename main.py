@@ -18,13 +18,9 @@ from src.environment.experiment_manager.runner import run
 
 settings = {
     'RL': {
-       'n_epochs': 20,
-       # 'type_learning': 'facmac',
-       #  'evaluation_methods': 'env_r_c',
+        'n_epochs': 20,
+        'type_learning': 'facmac',
     },
-    'syst': {
-       'n_homes': 10,
-    }
 }
 
 
