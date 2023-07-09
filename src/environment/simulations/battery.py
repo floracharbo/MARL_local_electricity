@@ -473,7 +473,9 @@ class Battery:
         s_add_0 = np.multiply(self.avail_car, np.maximum(self.min_charge_t - self.start_store, 0))
         if self.time_step == self.N:
             s_add_0 = np.where(s_add_0 > self.c_max + 1e-3, self.c_max, s_add_0)
-        s_add_0 = np.where((self.c_max < s_add_0) & (s_add_0 < self.c_max + 1e-2), self.c_max, s_add_0)
+        s_add_0 = np.where(
+            (self.c_max < s_add_0) & (s_add_0 < self.c_max + 1e-2), self.c_max, s_add_0
+        )
         assert all(s_add_0 <= self.c_max + 1e-2), \
             f"s_add_0: {s_add_0} > self.c_max {self.c_max} " \
             f"self.min_charge_t[i_too_large[0]] {self.min_charge_t} " \

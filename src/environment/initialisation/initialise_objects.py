@@ -18,7 +18,6 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch as th
-import yaml
 from gym import spaces
 
 from src.environment.experiment_manager.record import Record
@@ -271,6 +270,10 @@ def _update_paths(paths, prm, no_run):
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
     paths['test_data'] = paths['open_inputs'] / 'testing_data'
+    if os.path.isfile("outputs/opt_res/files_list.npy"):
+        paths['files_list'] = list(np.load("outputs/opt_res/files_list.npy"))
+    else:
+        paths['files_list'] = []
 
     return paths
 
@@ -447,7 +450,7 @@ def _exploration_parameters(rl):
 
 
 def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
-    rl["dim_states"] = len(rl["state_space"])
+    rl["dim_states"] = 0 if rl["state_space"] is None else len(rl["state_space"])
     rl["dim_states_1"] = rl["dim_states"]
     if rl["aggregate_actions"]:
         rl["dim_actions"] = 1
@@ -499,8 +502,12 @@ def _remove_states_incompatible_with_trajectory(rl):
 
 
 def _expand_grdC_states(rl):
+    if rl['state_space'] is None:
+        return rl
+
     n_steps = None
     state_grdC = None
+
     for state in rl['state_space']:
         if state[0: len('grdC_n')] == 'grdC_n':
             n_steps = int(state[len('grdC_n'):])

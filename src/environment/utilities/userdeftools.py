@@ -124,7 +124,7 @@ def _naming_file_extension_network_parameters(grd):
         if grd[management]:
             file_extension += f"_{management}"
             if default_grd[upper_quantity] != grd[upper_quantity]:
-                file_extension += f"_limit" + str(grd[upper_quantity])
+                file_extension += f"_limit{grd[upper_quantity]}"
             if (
                 default_grd[lower_quantity] != grd[lower_quantity]
                 and grd[upper_quantity] != grd[lower_quantity]
@@ -164,7 +164,7 @@ def get_opt_res_file(prm, test=False):
         cap_str = ''
         for cap, homes in caps.items():
             cap_str += f"{cap}"
-            if all(np.array(homes[1:]) == np.array(homes[:-1] )+1):
+            if all(np.array(homes[1:]) == np.array(homes[:-1]) + 1):
                 cap_str += f"_{homes[0]}_to_{homes[-1]}"
             else:
                 for home in homes:
@@ -216,6 +216,10 @@ def get_opt_res_file(prm, test=False):
             paths["opt_res_file"] += "_eff1"
 
         paths[file] += ".npy"
+
+    if paths['opt_res_file'] not in paths['files_list']:
+        paths['files_list'].append(paths['opt_res_file'])
+    paths['opt_res_file'] = f"{paths['files_list'].index(paths['opt_res_file'])}.npy"
 
     return paths
 
@@ -409,6 +413,7 @@ def compute_voltage_costs(voltage_squared, grd):
 
 
 def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
+    assert np.all(voltage_squared >= 0), f"voltage_squared has negative values {voltage_squared}"
     overvoltage_deviation = \
         (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
     undervoltage_deviation = \

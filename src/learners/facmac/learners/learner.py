@@ -30,7 +30,7 @@ class Learner:
         if self.__name__[0:6] == 'MADDPG':
             self.maddpg_init(mac, scheme, rl)
         elif self.__name__ in ['FACMACLearner', 'CQLearner']:
-            self.init_mixer(rl)
+            self.mixer = self.init_mixer(rl)
 
         for info in ['hysteretic', 'beta_to_alpha']:
             setattr(self, info, rl['facmac'][info])
@@ -39,15 +39,17 @@ class Learner:
         if rl['mixer'] is not None and self.n_agents > 1:
             # if just 1 agent do not mix anything
             if rl['mixer'] == "vdn":
-                self.mixer = VDNMixer()
+                mixer = VDNMixer()
             elif rl['mixer'] == "qmix":
-                self.mixer = QMixer(rl)
+                mixer = QMixer(rl)
             # elif rl['mixer'] == "vdn-s":
             #     self.mixer = VDNState(rl)
             elif rl['mixer'] == "qmix-nonmonotonic":
-                self.mixer = QMixerNonmonotonic(rl)
+                mixer = QMixerNonmonotonic(rl)
             else:
                 raise ValueError(f"Mixer {rl['mixer']} not recognised.")
+
+        return mixer
 
     def maddpg_init(self, mac, scheme, rl):
         self.agent_params = list(mac.parameters())
@@ -149,6 +151,7 @@ class Learner:
 
     def save_models(self, path):
         self.mac.save_models(path)
+        th.save(self.critic.state_dict(), "{}/critic.th".format(path))
         if self.n_agents > 1 and self.mixer is not None:
             th.save(self.mixer.state_dict(), "{}/mixer.th".format(path))
 

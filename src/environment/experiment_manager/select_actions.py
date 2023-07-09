@@ -48,6 +48,38 @@ class ActionSelector:
 
         return tf_prev_state
 
+    def select_action_q_learning(self, ext, ind_current_state, method, eps_greedy):
+        rl = self.rl
+        if ext == '_test':
+            ind_action = np.zeros(self.n_homes_test, dtype=int)
+            for it in range(rl['action_selection_its']):
+                ind_current_state_it = np.zeros((self.n_homes, rl['dim_states']), dtype=int)
+                for i in range(rl['dim_states']):
+                    ind_current_state_it[:, i] = np.matmul(
+                        ind_current_state[:, i], rl['state_exec_to_train'][it]
+                    )
+                ind_action_it = [
+                    self.learner.sample_action(
+                        method, ind_current_state_it[home], home, eps_greedy=eps_greedy
+                    )[0]
+                    for home in range(len(ind_current_state_it))
+                ]
+                for home_train in range(self.n_homes):
+                    home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
+                    assert len(home_execs) <= 1
+                    if len(home_execs) > 0:
+                        ind_action[home_execs[0]] = ind_action_it[home_train]
+
+        else:
+            ind_action = [
+                self.learner.sample_action(
+                    method, ind_current_state[home], home, eps_greedy=eps_greedy
+                )[0]
+                for home in range(self.n_homes)
+            ]
+
+        return ind_action
+
     def select_action(
             self,
             method: str,
@@ -114,34 +146,9 @@ class ActionSelector:
                     )
                 )
                 if rl['type_learning'] == 'q_learning':
-                    if ext == '_test':
-                        ind_action = np.zeros(self.n_homes_test, dtype=int)
-                        for it in range(rl['action_selection_its']):
-                            ind_current_state_it = np.zeros((self.n_homes, rl['dim_states']), dtype=int)
-                            for i in range(rl['dim_states']):
-                                ind_current_state_it[:, i] = np.matmul(
-                                    ind_current_state[:, i], rl['state_exec_to_train'][it]
-                                )
-                            ind_action_it = [
-                                self.learner.sample_action(
-                                    method, ind_current_state_it[home], home, eps_greedy=eps_greedy
-                                )[0]
-                                for home in range(len(ind_current_state_it))
-                            ]
-                            for home_train in range(self.n_homes):
-                                home_execs = np.where(rl['action_train_to_exec'][it][home_train])[0]
-                                assert len(home_execs) <= 1
-                                if len(home_execs) > 0:
-                                    ind_action[home_execs[0]] = ind_action_it[home_train]
-
-                    else:
-                        ind_action = [
-                            self.learner.sample_action(
-                                method, ind_current_state[home], home, eps_greedy=eps_greedy
-                            )[0]
-                            for home in range(self.n_homes)
-                        ]
-
+                    ind_action = self.select_action_q_learning(
+                        ext, ind_current_state, method, eps_greedy
+                    )
                 elif rl['type_learning'] == 'DDQN':
                     ind_action = self._select_action_DDQN(
                         ind_current_state, eps_greedy, method

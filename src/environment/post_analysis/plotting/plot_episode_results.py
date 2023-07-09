@@ -13,6 +13,35 @@ from src.environment.utilities.userdeftools import (data_source,
                                                     reward_type)
 
 
+def annotate_buses(last, method, prm, net):
+    for bus, i in zip(
+            last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
+    ):
+        q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+        q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+        voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+        x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+        pp_plot.plt.annotate(
+            f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
+            f"\n Q_house is {round(q_house, 3)} kVAR"
+            f"\n Q_car is {round(q_car, 3)} kVAR",
+            xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
+
+    for bus, i in zip(
+            last['loaded_buses'][method][prm["syst"]["N"] - 1],
+            range(prm["syst"]["n_homes"])
+    ):
+        q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
+        q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
+        voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
+        x, y = net.bus_geodata.loc[bus, ["x", "y"]]
+        pp_plot.plt.annotate(
+            f"Load bus, \n Voltage is {round(voltage, 3)} p.u."
+            f"\n Q_house is {round(q_house, 3)} kVAR"
+            f"\n Q_car is {round(q_car, 3)} kVAR",
+            xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
+
+
 def _plot_last_epochs_actions(
         list_repeat, means, e, method, prm, all_vals, ax, xs, lw_mean, linestyles
 ):
@@ -642,13 +671,11 @@ def plot_env_input(repeat, prm, record):
             for home in range(n_homes_plot):
                 axs[home].plot(batch[e][home])
                 axs[home].set_title("{home}")
-                for day in range(int(len(batch[e][0])/prm['syst']['H'])):
+                for day in range(int(len(batch[e][0]) / prm['syst']['H'])):
                     axs[home].axvline(day * prm['syst']['H'], ls='--', color='k', alpha=0.1)
 
             title = f"deterministic repeat {repeat} {e}"
             title_and_save(title, fig, prm)
-        else:
-            print(f"no new deterministic batch for repeat = {repeat}")
 
 
 def plot_imp_exp_violations(
@@ -977,7 +1004,9 @@ def map_over_undervoltage(
                 for time_step in range(prm['syst']['N']):
                     # Plot over and under voltages
                     overvoltage_bus_index, undervoltage_bus_index = \
-                        get_index_over_under_voltage_last_time_step(last, method, prm, time_step=time_step)
+                        get_index_over_under_voltage_last_time_step(
+                            last, method, prm, time_step=time_step
+                        )
                     print(
                         f"method {method}, repeat {repeat}, time {time_step} "
                         f"overvoltage bus n={len(overvoltage_bus_index)}, "
@@ -1004,40 +1033,16 @@ def map_over_undervoltage(
                         # Add legend to homes
                         annotate = False
                         if annotate:
-                            for bus, i in zip(
-                                last['sgen_buses'][method][prm["syst"]["N"] - 1], range(prm["syst"]["n_homes"])
-                            ):
-                                q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
-                                q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
-                                voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
-                                x, y = net.bus_geodata.loc[bus, ["x", "y"]]
-                                pp_plot.plt.annotate(
-                                    f"Generation bus, \n Voltage is {round(voltage, 3)} p.u."
-                                    f"\n Q_house is {round(q_house, 3)} kVAR"
-                                    f"\n Q_car is {round(q_car, 3)} kVAR",
-                                    xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
-
-                            for bus, i in zip(
-                                last['loaded_buses'][method][prm["syst"]["N"] - 1],
-                                range(prm["syst"]["n_homes"])
-                            ):
-                                q_house = last['q_house'][method][prm["syst"]["N"] - 1][i]
-                                q_car = last['q_car'][method][prm["syst"]["N"] - 1][i]
-                                voltage = np.sqrt(last['voltage_squared'][method][prm["syst"]["N"] - 1][bus])
-                                x, y = net.bus_geodata.loc[bus, ["x", "y"]]
-                                pp_plot.plt.annotate(
-                                    f"Load bus, \n Voltage is {round(voltage, 3)} p.u."
-                                    f"\n Q_house is {round(q_house, 3)} kVAR"
-                                    f"\n Q_car is {round(q_car, 3)} kVAR",
-                                    xy=(x, y), xytext=(x + 5, y + 5), fontsize=10)
-
+                            annotate_buses(last, method, prm, net)
                         # Save
                         title = f'map_over_under_voltage{repeat}_{method}_t{time_step}'
                         title_and_save(title, ax.figure, prm)
 
     fig, axs = plt.subplots(2)
 
-    for axis_i, n_deviations, title in zip(range(2), [n_over_voltages, n_under_voltages], ['over', 'under']):
+    for axis_i, (n_deviations, title) in enumerate(
+        zip([n_over_voltages, n_under_voltages], ['over', 'under'])
+    ):
         for method in methods_to_plot:
             axs[axis_i].plot(
                 np.mean(n_deviations[method], axis=0),

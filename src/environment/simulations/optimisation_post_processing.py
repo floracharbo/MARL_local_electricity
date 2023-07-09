@@ -715,7 +715,8 @@ def _check_consa_to_totcons_netp_grid(
 
 
 def check_and_correct_constraints(
-    res, constl_consa_constraints, constl_loads_constraints, prm, input_hourly_lij=None, evaluation=False
+    res, constl_consa_constraints, constl_loads_constraints, prm,
+    input_hourly_lij=None, evaluation=False
 ):
     N = prm['syst']['N']
     loads = prm['loads']
@@ -792,7 +793,6 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['max_voltage_deviation'] = []
         res['n_voltage_deviation_bus'] = []
         res['n_voltage_deviation_hour'] = []
-
         res['voltage'] = np.sqrt(res['voltage_squared'])
         res['hourly_voltage_costs'] = np.sum(
             res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
@@ -835,7 +835,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             res['n_voltage_deviation_hour'].append(n_hour)
 
     else:
-        res['voltage_squared'] = np.empty((1, N))
+        res['voltage_squared'] = np.zeros((1, N))
         res['voltage_costs'] = 0
         res['hourly_voltage_costs'] = np.zeros(N)
         res['hourly_line_losses'] = np.zeros(N)

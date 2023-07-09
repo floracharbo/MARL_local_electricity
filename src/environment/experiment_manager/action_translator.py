@@ -243,6 +243,23 @@ class Action_translator:
         self.max_charge = np.where(max_val_ds > 0, max_val_ds, 0)
         self.min_discharge = np.where(max_val_ds < 0, max_val_ds, 0)
 
+    def test_adjust_disaggregated_actions(self, charge, discharge, res, flexible_q_car_action):
+        assert not np.isnan(charge), f"{charge}"
+        assert not np.isnan(discharge), f"{discharge}"
+        assert not np.isnan(res['charge_losses']), f"{res['charge_losses']}"
+        if self.reactive_power_for_voltage_control:
+            apparent_power_car = abs(charge - discharge + res['charge_losses'])
+            assert not np.isnan(flexible_q_car_action), f"{flexible_q_car_action}"
+            delta = apparent_power_car - self.max_apparent_power_car
+            assert delta <= 1e-3, \
+                f"(charge - discharge + res['charge_losses']) {apparent_power_car} " \
+                f"self.max_apparent_power_car {self.max_apparent_power_car}"
+            if 0 < delta < 1e-3:
+                if charge > 0:
+                    charge -= delta
+                elif discharge > 0:
+                    discharge -= delta
+
     def actions_to_env_vars(self, loads, home_vars, action, date, time_step):
         """Update variables after non flexible consumption is met."""
         # other variables
@@ -299,6 +316,7 @@ class Action_translator:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action = action[home]
                     flexible_q_car[home] = None
+                    flexible_q_car_action = None
                 else:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action, flexible_q_car_action = action[home]
@@ -327,25 +345,14 @@ class Action_translator:
                     + flex_heat[home] \
                     + charge - discharge + res['charge_losses'] \
                     - home_vars['gen'][home]
-
+                self.test_adjust_disaggregated_actions(
+                    charge, discharge, res, flexible_q_car_action
+                )
                 if self.reactive_power_for_voltage_control:
                     # based on flexible store actions, calculate flexible q_car action
                     # reactive power battery between -1 and 1 where
                     # -1 max export
                     # 1 max import
-                    assert not np.isnan(charge), f"{charge}"
-                    assert not np.isnan(discharge), f"{discharge}"
-                    assert not np.isnan(res['charge_losses']), f"{res['charge_losses']}"
-                    assert not np.isnan(flexible_q_car_action), f"{flexible_q_car_action}"
-                    assert abs(charge - discharge + res['charge_losses']) <= self.max_apparent_power_car + 1e-3, \
-                        f"(charge - discharge + res['charge_losses']) {(charge - discharge + res['charge_losses'])} " \
-                        f"self.max_apparent_power_car {self.max_apparent_power_car}"
-                    if 0 < abs(charge - discharge + res['charge_losses']) - self.max_apparent_power_car < 1e-3:
-                        delta = abs(charge - discharge + res['charge_losses']) - self.max_apparent_power_car
-                        if charge > 0:
-                            charge -= delta
-                        elif discharge > 0:
-                            discharge -= delta
                     res['q'] = flexible_q_car_action * np.sqrt(
                         (self.max_apparent_power_car + 1e-6) ** 2
                         - (charge - discharge + res['charge_losses']) ** 2
