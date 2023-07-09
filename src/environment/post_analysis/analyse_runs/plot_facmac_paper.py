@@ -13,27 +13,30 @@ from src.environment.post_analysis.plotting.plot_rl_performance_metrics import \
 # plot timing vs performance for n layers / dim layers; runs 742-656
 font = {'size': 14}
 matplotlib.rc('font', **font)
-save_label = 'vary_passive'
+save_label = 'new_july23'
 plot_times = False
 
 compare_times = ['OMQ',
                  'FD']
 labels = {
-    # 'IQ': 'Independent Q-learning',
-    # 'OIQ': 'Optimisation-informed independent Q-learning',
-    # 'AQ': 'Advantage-based Q-learning',
-    # 'OAQ': 'Optimisation-informed, Advantage-based Q-learning',
-    # 'MQ': 'Marginal reward Q-learning',
-    # 'OMQ': 'Optimisation-informed, marginal reward Q-learning',
+    'IQ': 'Independent Q-learning',
+    'OIQ': 'Optimisation-informed independent Q-learning',
+    'AQ': 'Advantage-based Q-learning',
+    'OAQ': 'Optimisation-informed, Advantage-based Q-learning',
+    'MQ': 'Marginal reward Q-learning',
+    'OMQ': 'Optimisation-informed, marginal reward Q-learning',
     # 'OCQ': 'Optimisation-informed, count-based Q-learning',
 
     'opt': 'Optimal',
-    # 'OCQ': 'Optimisation-informed, count-based Q-learning',
-    'FD': 'Centralised but factored critic',
+    # 'FD': 'Centralised but factored critic',
     # 'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
     # 'FH': 'FACMAC',  # (hourly)
     # 'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
+compare_times = [
+    compare_time for compare_time in compare_times
+    if compare_time in labels.keys()
+]
 type_learning = {
     'IQ': 'env_r_d',
     'OIQ': 'opt_r_d',
@@ -70,7 +73,8 @@ opt_informed = {
 
 # THESIS:
 # runQ = [1917, 1919] + list(range(1956, 1965))
-runQ = [2024] + list(range(2026, 2035))
+# runQ = [2024] + list(range(2026, 2035))
+runQ = [418, 419, 420, 489]
 
 # for impacts varying n testing homes
 # runQ = [2196, 2210]
@@ -220,9 +224,9 @@ for line_label in labels.keys():
         runs[line_label] = runs[line_label][0]
     for i, run in enumerate(runs[line_label]):
         if run is not None:
-            n_homes_i = log.loc[
-                log['run'] == run, 'n_homes'
-            ].values[0]
+                n_homes_i = log.loc[
+                    log['run'] == run, 'n_homes'
+                ].values[0]
             if n_homes_i in n_homes:
                 n_home_to_run[line_label][n_homes_i] = run
                 values_i = n_homes.index(n_homes_i)
