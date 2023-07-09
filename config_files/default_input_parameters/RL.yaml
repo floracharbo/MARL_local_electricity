@@ -20,7 +20,7 @@ save_model_interval: 2
 # state space
 n_other_states: 3  # when using discrete methods (q-learning), how many state intervals
 n_grdC_level: 3  # when using discrete methods (q-learning), how many state intervals for the grid prices
-n_discrete_actions: 10  # when using discrete methods (q-learning), how many intervals for the actions
+n_discrete_actions: 5  # when using discrete methods (q-learning), how many intervals for the actions
 state_space: ['grdC']  # default observation available to each agent
 # grdC_level, time_step_day, car_tau, store0, grdC
 # avail_car_step, loads_clus_step, loads_fact_step
