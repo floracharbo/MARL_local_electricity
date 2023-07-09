@@ -270,6 +270,10 @@ def _update_paths(paths, prm, no_run):
     paths["factors_path"] = paths["hedge_inputs"] / paths["factors_folder"]
     paths['clus_path'] = paths['hedge_inputs'] / paths['clus_folder']
     paths['test_data'] = paths['open_inputs'] / 'testing_data'
+    if os.path.isfile("outputs/opt_res/files_list.npy"):
+        paths['files_list'] = list(np.load("outputs/opt_res/files_list.npy"))
+    else:
+        paths['files_list'] = []
 
     return paths
 

@@ -234,7 +234,7 @@ class LocalElecEnv:
             self.car.date0 = self.date0
             self.car.date_end = self.date_end
 
-    def fix_data_a(self, homes, file_id, its=0, passive=False):
+    def fix_data_a(self, homes, file_id, its=0):
         """Recompute data for home a that is infeasible."""
         self._seed(self.envseed[0] + its)
         self.dloaded = 0

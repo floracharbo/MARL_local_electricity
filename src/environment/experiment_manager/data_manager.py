@@ -265,7 +265,7 @@ class DataManager:
 
         res_name = \
             f"res_P{int(self.seed['P'])}_" \
-            f"{int(active_seed)}{get_opt_res_file(self.prm, evaluation)['opt_res_file']}"
+            f"{int(active_seed)}{get_opt_res_file(self.prm, evaluation)['opt_res_file']}c"
 
         return res_name
 
