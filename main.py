@@ -19,7 +19,12 @@ from src.environment.experiment_manager.runner import run
 settings = {
     'RL': {
         'n_epochs': 20,
-        'type_learning': 'facmac',
+        'type_learning': ['facmac'] * (5 + 5) + ['q_learning'] * 5,
+        'supervised_loss': [True] * 5 + [False] * (5 + 5),
+    },
+    'syst': {
+        'n_homes': [2, 5, 10, 20, 30] * 3,
+        'force_optimisation': True,
     },
 }
 
