@@ -596,28 +596,31 @@ def run(run_mode, settings, no_runs=None):
             # obtain run-specific settings
 
             settings_i = get_settings_i(settings, i)
+            fewer_than_10_homes = settings_i['syst']['n_homes'] < 10
             if 'type_learning' not in settings_i['RL']:
-                settings_i['RL']['type_learning'] = 'q_learning' \
-                    if settings_i['syst']['n_homes'] < 10 else 'facmac'
-                settings_i['RL']['trajectory'] = False \
-                    if settings_i['syst']['n_homes'] < 10 else True
-                settings_i['RL']['evaluation_methods'] = None \
-                    if settings_i['syst']['n_homes'] < 10 else 'env_r_c'
+                settings_i['RL']['type_learning'] = 'q_learning' if fewer_than_10_homes \
+                    else 'facmac'
+                settings_i['RL']['trajectory'] = False if fewer_than_10_homes \
+                    else True
+                settings_i['RL']['evaluation_methods'] = None if fewer_than_10_homes \
+                    else 'env_r_c'
+            else:
+                if 'trajectory' not in settings_i['RL']:
+                    settings_i['RL']['trajectory'] = True if settings_i['RL']['type_learning'] == 'facmac' else False
+                if 'evaluation_methods' not in settings['RL']:
+                    settings_i['RL']['evaluation_methods'] = 'env_r_c' if settings_i['RL']['type_learning'] == 'facmac' else None
 
-            if 'trajectory' in settings_i['RL']:
-                trajectory = settings_i['RL']['trajectory']
-                if trajectory:
-                    settings_i['RL']['evaluation_methods'] = 'env_r_c'
-                values_traj = {
-                    'obs_agent_id': {True: False, False: True},
-                    'nn_type': {True: 'cnn', False: 'linear'},
-                    'rnn_hidden_dim': {True: 1e3, False: 5e2},
-                    'optimizer': {True: 'rmsprop', False: 'adam'},
-                }
-                for info in values_traj.keys():
-                    if info not in settings_i['RL']:
-                        print(f"replace {info}")
-                        settings_i['RL'][info] = values_traj[info][trajectory]
+            trajectory = settings_i['RL']['trajectory']
+            values_traj = {
+                'obs_agent_id': {True: False, False: True},
+                'nn_type': {True: 'cnn', False: 'linear'},
+                'rnn_hidden_dim': {True: 1e3, False: 5e2},
+                'optimizer': {True: 'rmsprop', False: 'adam'},
+            }
+            for info in values_traj.keys():
+                if info not in settings_i['RL']:
+                    print(f"replace {info}")
+                    settings_i['RL'][info] = values_traj[info][trajectory]
 
             # initialise learning parameters, system parameters and recording
             prm, record = initialise_objects(prm, settings=settings_i)
