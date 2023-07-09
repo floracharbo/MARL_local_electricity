@@ -16,21 +16,18 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = [
-    'lr'
-]
+
+COLUMNS_OF_INTEREST = ['n_homes']
+
+FILL_BETWEEN = False
+BEST_ONLY = False
+n_subplots = 1 if BEST_ONLY else 3
+font_size = 12
+font = {'size': font_size}
+matplotlib.rc('font', **font)
 
 FILTER = {
-    'SoC0': 1,
-    'error_with_opt_to_rl_discharge': False,
-    'n_repeats': 3,
-    'type_learning': 'q_learning',
-    'gan_generation': True,
-    # 'act_noise': 0.01,
-    'clus_dist_share': 0.99,
-    # 'n_homes': 1,
-    'trajectory': False,
-    # 'n_discrete_actions': 3,
+    'type_learning': 'facmac',
 }
 
 best_score_type = 'p50'
