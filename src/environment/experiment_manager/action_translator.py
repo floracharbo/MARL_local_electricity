@@ -316,6 +316,7 @@ class Action_translator:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action = action[home]
                     flexible_q_car[home] = None
+                    flexible_q_car_action = None
                 else:
                     flexible_cons_action, flexible_heat_action, \
                         flexible_store_action, flexible_q_car_action = action[home]
