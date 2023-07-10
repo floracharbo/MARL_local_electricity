@@ -1049,6 +1049,7 @@ class LocalElecEnv:
         for e in ['batch', 'i0_costs']:
             file_id = f"{e}{self._file_id()}"
             np.save(self.res_path / file_id, getattr(self, e))
+        np.save('outputs/opt_res/files_list.npy', self.prm['paths']['files_list'])
 
         self._initialise_batch_entries()
 
