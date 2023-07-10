@@ -129,7 +129,7 @@ def check_model_changes_facmac(prm):
                 if len(agent_size) == 1:
                     plt.plot([agents[i][weight][0].cpu() for i in range(len(agents))], alpha=0.5)
                 elif len(agent_size) == 2:
-                    plt.plot([agents[i][weight][0, 0] for i in range(len(agents))], alpha=0.5)
+                    plt.plot([agents[i][weight][0, 0].cpu() for i in range(len(agents))], alpha=0.5)
                 fig.savefig(prm['paths']['fig_folder'] / "agent_weights.png")
 
             fig = plt.figure()
