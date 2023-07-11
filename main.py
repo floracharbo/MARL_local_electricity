@@ -21,7 +21,7 @@ settings = {
         'type_learning': 'q_learning',
     },
     'syst': {
-        'n_homes': [1, 2, 3, 5, 10, 20, 30]
+        'n_homes': [1, 2, 3, 5, 10, 20, 30],
         'force_optimisation': True,
     },
 }
