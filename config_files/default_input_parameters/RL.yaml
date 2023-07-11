@@ -2,7 +2,7 @@
 type_learning: 'q_learning' # DDPG, q_learning, DQN
 trajectory: False # decide on N actions based on N states instead of one at a time
 n_repeats: 10  # number of 'learning trajectories' completely repeated from scratch with new data
-n_epochs: 50 # 5e1 number of epochs - note we do n_explore explorations at each learning cycle/epoch
+n_epochs: 20 # 5e1 number of epochs - note we do n_explore explorations at each learning cycle/epoch
 n_explore: 2 # number of exploration epochs before updating q
 type_env: 'discrete' # action and state space - discrete or continuous
 ncpu: 10  # if ran on a server, ncup will be mp.cpu_count()
@@ -20,7 +20,7 @@ save_model_interval: 2
 # state space
 n_other_states: 3  # when using discrete methods (q-learning), how many state intervals
 n_grdC_level: 3  # when using discrete methods (q-learning), how many state intervals for the grid prices
-n_discrete_actions: 5  # when using discrete methods (q-learning), how many intervals for the actions
+n_discrete_actions: 10  # when using discrete methods (q-learning), how many intervals for the actions
 state_space: ['grdC']  # default observation available to each agent
 # grdC_level, time_step_day, car_tau, store0, grdC
 # avail_car_step, loads_clus_step, loads_fact_step
@@ -73,7 +73,7 @@ q_learning:
         best_eps_end: {
                 0: { 'advantage': 1.e-2, 'dgreedy': 1.e-1, 'greedy': 1.e-1 },
                 1: { 'advantage': 1.e-3, 'dgreedy': 5.e-2, 'greedy': 1.e-2 } } #{'opt_1_A': 1e-3, 'greedy_1_reward': 1e-3, 'opt_n': 1e-3, 'opt_reward':1e-2},
-        eps: 0.5
+        eps: 0.1
         hysteretic: True # if True, Use the default learn_rate as the larger learning rate, and beta as the smaller learning rate. lr = self.learn_rate if td_error > 0 else self.beta
         beta_to_alpha: 0.5
         gamma: 0.7
@@ -166,7 +166,7 @@ ou_stop_episode: 1000 # for cqmix controller - training noise goes to zero after
 start_steps: 100 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
 act_noise: 0 # Stddev for Gaussian exploration noise added to policy at training time.
 hyper_initialization_nonzeros: 1
-lr: 1.e-2 # Q learning learning rate
+lr: 1.e-4 # Q learning learning rate
 buffer_size: 5000
 optimizer: adam # D
 critic_optimizer: adam
