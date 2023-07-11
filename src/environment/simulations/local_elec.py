@@ -714,7 +714,7 @@ class LocalElecEnv:
         return transition_type_
 
     def _file_id(self):
-        opt_res_file = get_opt_res_file(self.prm, self.evaluation)['opt_res_file']
+        opt_res_file = self.prm['paths']['opt_res_file_no']
         return f"{self.no_name_file}{self.ext}{opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:
