@@ -265,7 +265,7 @@ class DataManager:
 
         res_name = \
             f"res_P{int(self.seed['P'])}_" \
-            f"{int(active_seed)}{get_opt_res_file(self.prm, evaluation)['opt_res_file']}c"
+            f"{int(active_seed)}{self.prm['paths']['opt_res_file_no']}"
 
         return res_name
 
@@ -394,7 +394,7 @@ class DataManager:
     def file_id(self, evaluation):
         """Generate string to identify the run in saved files."""
         return f"{int(self.seed[self.ext])}{self.ext}" \
-               f"{get_opt_res_file(self.prm, evaluation)['opt_res_file']}"
+               f"{self.prm['paths']['opt_res_file_no']}"
 
     def _loop_replace_data(
             self,
