@@ -27,8 +27,12 @@ matplotlib.rc('font', **font)
 
 FILTER = {
     'type_learning': 'q_learning',
-    'n_homes': 10,
-
+    'n_discrete_actions': 10,
+    # 'q_learning-eps': 0.5,
+    # 'lr': 1e-2,
+    # 'n_homes': 10,
+    # 'server': False
+    # 'n_epochs': 20,
 }
 
 best_score_type = 'p50'
@@ -43,6 +47,11 @@ X_LABELS = {
     'n_cnn_layers': 'Number of convolutional layers',
     'optimizer': 'Optimiser',
     'rnn_hidden_dim': 'Neural network hidden dimension',
+    'aggregate_actions': 'Aggregated action space',
+    'lr': 'Learning rate',
+    'q_learning-eps': 'Random exploration rate $\epsilon$',
+    'n_discrete_actions': 'Number of discrete actions intervals',
+    'n_grdC_level': 'Number of discrete state intervals',
 }
 
 
@@ -75,7 +84,7 @@ def fix_learning_specific_values(log):
     ]
     for i in range(len(log)):
         if all(log[col].loc[i] is None for col in ave_opt_cols):
-            if not log['syst-force_optimisation'].loc[i]:
+            if 'syst-force_optimisation' in log and not log['syst-force_optimisation'].loc[i]:
                 log.loc[i, 'syst-force_optimisation'] = True
             if (
                 'syst-error_with_opt_to_rl_discharge' in log
@@ -233,7 +242,7 @@ def fill_in_log_value_with_run_data(log, row, column, prm_default):
     del previous_defaults['timestamp_changes']
 
     if column in previous_defaults:
-        timestamp_change_idx = previous_defaults[column][0]
+        timestamp_change_idx = previous_defaults[column].split('-')[-1]
         timestamp_change = timestamp_changes[timestamp_change_idx]
         timestamp_run = log.loc[row, 'syst-timestamp']
         if timestamp_run < timestamp_change:
@@ -963,7 +972,11 @@ def compare_all_runs_for_column_of_interest(
                         )
                         ax.legend()
 
-                    i_best = np.argmax(best_scores_sorted[k][best_score_type])
+                    # i_best = np.argmax(best_scores_sorted[k][best_score_type])
+                    i_where_best = np.where(
+                        best_scores_sorted[k][best_score_type] == np.max(best_scores_sorted[k][best_score_type])
+                    )[0]
+                    i_best = np.max(i_where_best)
                     ax.plot(
                         values_of_interest_sorted_k[k][i_best],
                         best_scores_sorted[k][best_score_type][i_best],
