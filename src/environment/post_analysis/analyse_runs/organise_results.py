@@ -234,19 +234,19 @@ def replace_single_default_value(value, default_data, subkey, subsubkey):
     return value
 
 
-def fill_in_log_value_with_run_data(log, row, column, prm_default):
-    with open("config_files/default_input_parameters/previous_defaults.yaml", "rb") as file:
-        previous_defaults = yaml.safe_load(file)
+def fill_in_log_value_with_run_data(
+    log, row, column, prm_default,
+    params_prev_default, values_prev_default, timestamp_changes
+):
+    timestamp_run = log.loc[row, 'syst-timestamp']
 
-    timestamp_changes = previous_defaults['timestamp_changes']
-    del previous_defaults['timestamp_changes']
-
-    if column in previous_defaults:
-        timestamp_change_idx = previous_defaults[column].split('-')[-1]
-        timestamp_change = timestamp_changes[timestamp_change_idx]
-        timestamp_run = log.loc[row, 'syst-timestamp']
-        if timestamp_run < timestamp_change:
-            log.loc[row, column] = previous_defaults[column][1]
+    if column in params_prev_default:
+        idx_changes = np.where(
+            (np.array(params_prev_default) == column) & (timestamp_changes < timestamp_run)
+        )[0]
+        if len(idx_changes) > 0:
+            idx_change = idx_changes[np.argmax([timestamp_changes[idx] for idx in idx_changes])]
+            log.loc[row, column] = values_prev_default[idx_change]
     else:
         key, subkey, subsubkey = get_key_subkeys_column(column)
         if key in prm_default:
@@ -295,7 +295,31 @@ def row_to_assets_str(row, columns0):
     return assets
 
 
+def str_prev_default_to_param(str_prev_default):
+    param = ''
+    for i in range(len(str_prev_default.split('-')) - 1):
+        param += str_prev_default.split('-')[i] + '-'
+    param = param[:-1]
+
+    return param
+
+
 def add_default_values(log):
+    with open("config_files/default_input_parameters/previous_defaults.yaml", "rb") as file:
+        previous_defaults = yaml.safe_load(file)
+    timestamp_changes_all = previous_defaults['timestamp_changes']
+    del previous_defaults['timestamp_changes']
+    params_prev_default = [
+        str_prev_default_to_param(str_prev_default)
+        for str_prev_default in previous_defaults.keys()
+    ]
+    timestamp_changes = [
+        timestamp_changes_all[int(column.split('-')[-1])]
+        for column in previous_defaults.keys()
+    ]
+    values_prev_default = [
+        previous_defaults[column] for column in previous_defaults.keys()
+    ]
     file_name = ''
     # add any default value previously saved row by row
     for row in range(len(log)):
@@ -306,7 +330,10 @@ def add_default_values(log):
                 prm_default = pickle.load(file)
             for column in log.columns:
                 if log.loc[row, column] is None and column != 'syst-time_end':
-                    log = fill_in_log_value_with_run_data(log, row, column, prm_default)
+                    log = fill_in_log_value_with_run_data(
+                        log, row, column, prm_default,
+                        params_prev_default, values_prev_default, timestamp_changes
+                    )
 
     if 'syst-share_active' in log.columns:
         share_active_none = log['syst-share_active'].isnull()
