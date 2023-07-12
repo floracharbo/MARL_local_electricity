@@ -18,12 +18,11 @@ from src.environment.experiment_manager.runner import run
 
 settings = {
     'RL': {
-        'type_learning': 'facmac',
+        'type_learning': 'q_learning',
         # 'evaluation_methods': 'env_r_c',
-        # 'q_learning': {'alpha': [1e-3, 1e-1]}
     },
     'syst': {
-        'n_homes': 1000,
+        'n_homes': [1, 2, 5, 10, 20, 30],
         # 'force_optimisation': True,
     },
 }
