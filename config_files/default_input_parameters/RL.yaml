@@ -60,7 +60,7 @@ opt_bool: True
 lambda: 0.5
 
 q_learning:
-        alpha: 0.01 # learning rate e.g. {'opt_all_A' : 0.1, 'greedy_1_reward': 0.01} for q learning
+        alpha: 0.1 # learning rate e.g. {'opt_all_A' : 0.1, 'greedy_1_reward': 0.01} for q learning
         policy: 'eps-greedy' # 'for DQN and Q learning boltzmann', 'mixed' 'eps-greedy'
         epsilon_decay: 0 # 0 : fixed eps value, 1 - exponential decay, 2 - incremental decay if above baseline + above average
         T_decay: False

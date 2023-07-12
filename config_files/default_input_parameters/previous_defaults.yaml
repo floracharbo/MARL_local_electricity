@@ -29,6 +29,7 @@ timestamp_changes:
   11: 1688808928.930367
   12: 1688903866.288452
   13: 1689111636.689072
+  14: 1689159178.064695
 
 'RL-n_hidden_layers-1': 1
 'RL-aggregate_actions-1': True
@@ -65,3 +66,4 @@ timestamp_changes:
 'RL-n_discrete_actions-13': 5
 'RL-lr-13': 0.0001
 'RL-n_epochs-13': 50
+'RL-q_learning-alpha-14': 0.01
