@@ -16,8 +16,8 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['n_homes']
-
+COLUMNS_OF_INTEREST = ['q_learning-alpha']
+IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = False
 BEST_ONLY = False
 n_subplots = 1 if BEST_ONLY else 3
@@ -27,10 +27,10 @@ matplotlib.rc('font', **font)
 
 FILTER = {
     'type_learning': 'q_learning',
-    'n_discrete_actions': 10,
+    # 'n_discrete_actions': 10,
     # 'q_learning-eps': 0.5,
     # 'lr': 1e-2,
-    # 'n_homes': 10,
+    'n_homes': 10,
     # 'server': False
     # 'n_epochs': 20,
 }
@@ -172,8 +172,10 @@ def get_list_all_fields(results_path):
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
-        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action'
+        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action', 'RL-lr'
     ]
+    if IGNORE_FORCE_OPTIMISATION:
+        ignore.append('syst-force_optimisation')
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
