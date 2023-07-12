@@ -166,7 +166,7 @@ ou_stop_episode: 1000 # for cqmix controller - training noise goes to zero after
 start_steps: 100 # Number of steps for uniform-random action selection, before running real policy. Helps exploration.
 act_noise: 0 # Stddev for Gaussian exploration noise added to policy at training time.
 hyper_initialization_nonzeros: 1
-lr: 1.e-4 # Q learning learning rate
+#lr: 1.e-4 # Q learning learning rate
 buffer_size: 5000
 optimizer: adam # D
 critic_optimizer: adam
