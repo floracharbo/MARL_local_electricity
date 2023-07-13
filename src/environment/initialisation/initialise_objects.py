@@ -564,6 +564,9 @@ def rl_apply_n_homes_test(syst, rl):
         for info in ['action_train_to_exec', 'state_exec_to_train']:
             rl[info] = th.Tensor(rl[info])
 
+    if 'n_homes_testP' not in syst:
+        syst['n_homes_testP'] = syst['n_homesP']
+
     return rl
 
 

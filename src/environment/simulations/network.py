@@ -58,7 +58,10 @@ class Network:
         prm:
             input parameters
         """
-        for info in ['n_homes', 'n_homesP', 'n_homes_test', 'n_int_per_hr', 'M', 'N']:
+        for info in [
+            'n_homes', 'n_homesP', 'n_homes_test', 'n_homes_testP',
+            'n_int_per_hr', 'M', 'N'
+        ]:
             setattr(self, info, prm['syst'][info])
         self.homes = range(self.n_homes)
         self.homesP = range(self.n_homesP)
@@ -115,7 +118,7 @@ class Network:
 
     def _matrix_flexible_buses(self, test=False):
         """ Creates a matrix indicating at which bus there is a flexible agents """
-        n_homes = self.n_homes_test if test else self.n_homes
+        n_homes = self.n_homes_test + self.n_homes_testP if test else self.n_homes + self.n_homesP
         flex_buses = np.zeros((len(self.net.bus), n_homes))
         free_buses = [i for i in range(len(self.net.bus)) if i not in self.existing_homes_network]
         free_buses.remove(0)
@@ -193,10 +196,14 @@ class Network:
                     p_mw=0, q_mvar=0, name=f'flex{home}')
             if self.n_homesP > 0:
                 for homeP in self.homesP:
-                    pp.create_load(self.net, bus=self.home_to_bus[self.n_homes + homeP],
-                                   p_mw=0, q_mvar=0, name=f'passive{homeP}')
-                    pp.create_sgen(self.net, bus=self.home_to_bus[self.n_homes + homeP],
-                                   p_mw=0, q_mvar=0, name=f'passive{homeP}')
+                    pp.create_load(
+                        self.net, bus=self.home_to_bus[self.n_homes + homeP],
+                        p_mw=0, q_mvar=0, name=f'passive{homeP}'
+                    )
+                    pp.create_sgen(
+                        self.net, bus=self.home_to_bus[self.n_homes + homeP],
+                        p_mw=0, q_mvar=0, name=f'passive{homeP}'
+                    )
 
             # Remove zero sequence line resistance and reactance
             self.net.line['r0_ohm_per_km'] = None
