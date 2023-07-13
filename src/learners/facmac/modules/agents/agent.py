@@ -93,11 +93,11 @@ class Agent(nn.Module):
 
             # Apply pruning to the specified module
             for layer in ['fc1', 'fc_out']:
-                prune_method = pruning_method(module_to_prune, name=layer, amount=self.rl['pruning_rate'])
-                prune_method.apply(module_to_prune, "weight")
+                prune_method = pruning_method(amount=self.rl['pruning_rate'])
+                prune_method.apply(module_to_prune, name=layer, amount=self.rl['pruning_rate'])
             for i in range(len(self.layers)):
-                prune_method = pruning_method(module_to_prune, name="layer_" + str(i), amount=self.rl['pruning_rate'])
-                prune_method.apply(module_to_prune, "weight")
+                prune_method = pruning_method(amount=self.rl['pruning_rate'])
+                prune_method.apply(module_to_prune, name="layer_" + str(i), amount=self.rl['pruning_rate'])
 
     def _layers_to_device(self):
         self.fc1.to(self.device)
