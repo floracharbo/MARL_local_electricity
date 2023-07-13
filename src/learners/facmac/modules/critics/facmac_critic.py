@@ -5,14 +5,16 @@
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.utils.prune as prune
 
 
 class FACMACCritic(nn.Module):
     def __init__(self, scheme, rl, N):
         super(FACMACCritic, self).__init__()
         self.rl = rl
-        self.n_actions = rl['dim_actions']
-        self.n_homes = rl['n_homes']
+        for info in ['dim_actions', 'n_homes', 'pruning_rate']:
+            setattr(self, info, rl[info])
+
         self.output_type = "q"
         self.N = N
         self.input_shape = scheme["obs"]["vshape"] + self.n_actions
@@ -99,3 +101,21 @@ class FACMACCritic(nn.Module):
         self.fc_out.to(device)
         for i in range(len(self.layers)):
             self.layers[i].to(device)
+
+        self._prune()
+
+    def _prune(self):
+        if self.pruning_rate > 0:
+            # Define the pruning parameters
+            pruning_method = prune.L1Unstructured  # Pruning method (e.g., L1Unstructured, RandomUnstructured, etc.)
+
+            # Specify the layer(s) to prune
+            module_to_prune = self.module_name  # Replace 'module_name' with the actual name of the module to prune
+
+            # Apply pruning to the specified module
+            for layer in ['fc1', 'fc_out']:
+                prune_method = pruning_method(module_to_prune, name=layer, amount=self.pruning_rate)
+                prune_method.apply(module_to_prune, "weight")
+            for i in range(len(self.layers)):
+                prune_method = pruning_method(module_to_prune, name="layer_" + str(i), amount=self.pruning_rate)
+                prune_method.apply(module_to_prune, "weight")
