@@ -258,4 +258,4 @@ q_noise_0: 1.e-8  # for initialise_q = bias_towards_0 / random
 mixer_relu: True
 normalisation_reward: 1
 initialise_positive_weights_hyper_b_1_bias: False
-pruning_rate: 0.5  # Percentage of weights to prune
+pruning_rate: 0  # Percentage of weights to prune
