@@ -89,7 +89,7 @@ class Agent(nn.Module):
             pruning_method = prune.L1Unstructured  # Pruning method (e.g., L1Unstructured, RandomUnstructured, etc.)
 
             # Specify the layer(s) to prune
-            module_to_prune = self.module_name  # Replace 'module_name' with the actual name of the module to prune
+            module_to_prune = self  # Replace 'module_name' with the actual name of the module to prune
 
             # Apply pruning to the specified module
             for layer in ['fc1', 'fc_out']:
