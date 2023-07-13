@@ -131,9 +131,10 @@ class FACMACLearner(Learner):
         for g in self.critic_optimiser.param_groups:
             g['lr'] = lr
 
-        before = list_critics[0].fc1.state_dict()['weight'].clone()
-        before2 = list_critics[0].fc_out.state_dict()['weight'].clone()
-        before3 = list_critics[0].layers[0].state_dict()['weight'].clone()
+        if self.rl['pruning_rate'] == 0:
+            before = list_critics[0].fc1.state_dict()['weight'].clone()
+            before2 = list_critics[0].fc_out.state_dict()['weight'].clone()
+            before3 = list_critics[0].layers[0].state_dict()['weight'].clone()
 
         self.critic_optimiser.zero_grad()
         loss.backward()
@@ -143,22 +144,23 @@ class FACMACLearner(Learner):
         #     elif param.grad is None:
         #         print(f'Parameter: {name} - Gradients not computed')
         self.critic_optimiser.step()
-        after = list_critics[0].fc1.state_dict()['weight'].clone()
-        after2 = list_critics[0].fc_out.state_dict()['weight'].clone()
-        after3 = list_critics[0].layers[0].state_dict()['weight'].clone()
+        if self.rl['pruning_rate'] == 0:
+            after = list_critics[0].fc1.state_dict()['weight'].clone()
+            after2 = list_critics[0].fc_out.state_dict()['weight'].clone()
+            after3 = list_critics[0].layers[0].state_dict()['weight'].clone()
 
-        if th.all(th.eq(before, after)):
-            print(f"critic fc1 weights updates: no. loss {loss}")
-        # else:
-        #     print(f"critic fc1 weights updates: yes. loss {loss}")
-        if th.all(th.eq(before2, after2)):
-            print(f"critic fc_out weights updates: no. loss {loss}")
-        # else:
-        #     print(f"critic fc_out weights updates: yes. loss {loss}")
-        if th.all(th.eq(before3, after3)):
-            print(f"critic layers 0 weights updates: no. loss {loss}")
-        # else:
-        #     print(f"critic layers 0 weights updates: yes. loss {loss}")
+            if th.all(th.eq(before, after)):
+                print(f"critic fc1 weights updates: no. loss {loss}")
+            # else:
+            #     print(f"critic fc1 weights updates: yes. loss {loss}")
+            if th.all(th.eq(before2, after2)):
+                print(f"critic fc_out weights updates: no. loss {loss}")
+            # else:
+            #     print(f"critic fc_out weights updates: yes. loss {loss}")
+            if th.all(th.eq(before3, after3)):
+                print(f"critic layers 0 weights updates: no. loss {loss}")
+            # else:
+            #     print(f"critic layers 0 weights updates: yes. loss {loss}")
 
     def _train_actor(self, batch):
         # Optimize over the entire joint action space
