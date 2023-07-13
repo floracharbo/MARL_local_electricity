@@ -715,7 +715,7 @@ class LocalElecEnv:
 
     def _file_id(self):
         opt_res_file = self.prm['paths']['opt_res_file_no']
-        return f"{self.no_name_file}{self.ext}{opt_res_file}"
+        return f"_{self.no_name_file}{self.ext}_{opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:
         """Given probability of each choice and a random number, select."""
