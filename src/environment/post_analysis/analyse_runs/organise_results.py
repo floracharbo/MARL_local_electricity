@@ -16,7 +16,7 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['q_learning-alpha']
+COLUMNS_OF_INTEREST = ['n_homes']
 IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = False
 BEST_ONLY = False
@@ -28,11 +28,11 @@ matplotlib.rc('font', **font)
 FILTER = {
     'type_learning': 'q_learning',
     # 'n_discrete_actions': 10,
-    # 'q_learning-eps': 0.5,
+    'q_learning-alpha': 0.1,
     # 'lr': 1e-2,
-    'n_homes': 10,
+    # 'n_homes': 10,
     # 'server': False
-    # 'n_epochs': 20,
+    'n_epochs': 20,
 }
 
 best_score_type = 'p50'
@@ -52,6 +52,8 @@ X_LABELS = {
     'q_learning-eps': 'Random exploration rate $\epsilon$',
     'n_discrete_actions': 'Number of discrete actions intervals',
     'n_grdC_level': 'Number of discrete state intervals',
+    'q_learning-alpha': 'Learning rate',
+    'n_epochs': 'Number of epochs',
 }
 
 
@@ -1018,8 +1020,8 @@ def compare_all_runs_for_column_of_interest(
                             best_scores_sorted[k]['p75'],
                             alpha=0.2
                         )
-                    if column_of_interest == 'n_epochs':
-                        ax.set_yscale('log')
+                    # if column_of_interest == 'n_epochs':
+                    #     ax.set_yscale('log')
 
                 if not BEST_ONLY:
                     axs[2].plot(
@@ -1258,10 +1260,10 @@ def plot_sensitivity_analyses(new_columns, log):
                     column for column in varied_columns
                     if len(column.split('-')) == 1 or column.split('-')[0] in types_learning
                 ]
-
-            axs, fig = add_table_legend(
-                setups, fig, varied_columns, column_of_interest, other_columns, axs
-            )
+            if len(varied_columns) > 0:
+                axs, fig = add_table_legend(
+                    setups, fig, varied_columns, column_of_interest, other_columns, axs
+                )
             ax0 = axs if BEST_ONLY else axs[0]
             ylabel = "Savings [£/home/h]" if BEST_ONLY else "Best score [£/home/h]"
             ax0.set_ylabel(ylabel)
@@ -1269,7 +1271,7 @@ def plot_sensitivity_analyses(new_columns, log):
                 axs[1].set_ylabel(
                     '\n'.join(
                         wrap(
-                            "best score with without optimisation-based exploration [£/home/h]",
+                            "Best score without optimisation-based exploration [£/home/h]",
                             30
                         )
                     )
