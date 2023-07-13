@@ -18,13 +18,18 @@ from src.environment.experiment_manager.runner import run
 
 settings = {
     'RL': {
-        'type_learning': 'q_learning',
-        # 'evaluation_methods': 'env_r_c',
+        'type_learning': ['q_learning'] * 7 + ['facmac'] * (4 * 2),
+        'supervised_loss': [False] * 7 + [True] * 4 + [False] * 4,
+        # 'n_epochs': 20,
+        # 'n_repeats': 10,
     },
     'syst': {
-        'n_homes': [1, 2, 5, 10, 20, 30],
-        # 'force_optimisation': True,
+        'n_homes': [2, 3, 4, 15, 20, 25, 30] + [3, 4, 15, 25] * 2,
+        # 'n_homesP': 45,
     },
+    # 'grd': {
+    #     'simulate_panda_power_only': True,
+    # }
 }
 # n = 16
 # settings['RL']['n_grdC_level'] = [3 for _ in range(n)]
@@ -42,6 +47,6 @@ settings = {
 
 # 1 to run simulation, 2 to plot runs in no_runs
 RUN_MODE = 1
-no_runs = [1216]  # if plotting
+no_runs = [1240]  # if plotting
 
 run(RUN_MODE, settings, no_runs)
