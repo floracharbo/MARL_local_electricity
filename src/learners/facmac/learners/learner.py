@@ -11,14 +11,14 @@ from src.learners.facmac.modules.mixers.vdn import VDNMixer
 
 
 class Learner:
-    def __init__(self, mac, rl, scheme):
+    def __init__(self, mac, rl, scheme, target_mac):
         self.mixer = None
         self.critic = None
         self.rl = rl
         self.n_agents = rl['n_homes']
         self.n_actions = rl['dim_actions']
         self.mac = mac
-        self.target_mac = copy.deepcopy(self.mac)
+        self.target_mac = target_mac
         self.agent_params = list(mac.parameters())
         self.named_params = dict(mac.named_parameters())
         self.cuda_available = True if th.cuda.is_available() else False
