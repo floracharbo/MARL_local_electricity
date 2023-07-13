@@ -105,10 +105,13 @@ class FACMACCritic(nn.Module):
 
     def _prune(self):
         if self.pruning_rate > 0:
-            for layer in ['fc1', 'fc_out']:
-                prune.random_unstructured(self.__dict__[layer], name="weight", amount=self.rl['pruning_rate'])
+            prune.random_unstructured(self.fc1, name="weight", amount=self.rl['pruning_rate'])
+            prune.random_unstructured(self.fc_out, name="weight", amount=self.rl['pruning_rate'])
+
+            # for layer in ['fc1', 'fc_out']:
+            #     prune.random_unstructured(self.__dict__[layer], name="weight", amount=self.rl['pruning_rate'])
             for i in range(len(self.layers)):
-                prune.random_unstructured(self.__dict__[f"layer{i}"], name="weight", amount=self.rl['pruning_rate'])
+                prune.random_unstructured(self.layers[i], name="weight", amount=self.rl['pruning_rate'])
 
             # Define the pruning parameters
             # pruning_method = prune.L1Unstructured  # Pruning method (e.g., L1Unstructured, RandomUnstructured, etc.)
