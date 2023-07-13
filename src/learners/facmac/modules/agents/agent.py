@@ -101,7 +101,8 @@ class Agent(nn.Module):
             prune.random_unstructured(self.fc_out, name="weight", amount=self.rl['pruning_rate'])
 
             for i in range(len(self.layers)):
-                prune.random_unstructured(self.layers[i], name="weight", amount=self.rl['pruning_rate'])
+                if not isinstance(self.layers[i], nn.Dropout):
+                    prune.random_unstructured(self.layers[i], name="weight", amount=self.rl['pruning_rate'])
 
             # # Apply pruning to the specified module
             # for layer in ['fc1', 'fc_out']:
