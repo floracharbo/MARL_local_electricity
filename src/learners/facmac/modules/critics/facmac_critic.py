@@ -14,10 +14,9 @@ class FACMACCritic(nn.Module):
         self.rl = rl
         for info in ['dim_actions', 'n_homes', 'pruning_rate']:
             setattr(self, info, rl[info])
-
         self.output_type = "q"
         self.N = N
-        self.input_shape = scheme["obs"]["vshape"] + self.n_actions
+        self.input_shape = scheme["obs"]["vshape"] + self.dim_actions
         self.hidden_states = None
 
         # Set up network layers
@@ -32,8 +31,8 @@ class FACMACCritic(nn.Module):
             inputs = inputs.cuda() if self.cuda_available else inputs
             actions = actions.cuda() if self.cuda_available else actions
             inputs = th.cat(
-                [inputs.view(-1, self.input_shape - self.n_actions),
-                 actions.contiguous().view(-1, self.n_actions)],
+                [inputs.view(-1, self.input_shape - self.dim_actions),
+                 actions.contiguous().view(-1, self.dim_actions)],
                 dim=-1
             )
         if self.rl['nn_type_critic'] == 'cnn':
