@@ -87,15 +87,15 @@ class Agent(nn.Module):
         if self.rl['pruning_rate'] > 0:
             # Define the pruning parameters
             # pruning_method = prune.L1Unstructured  # Pruning method (e.g., L1Unstructured, RandomUnstructured, etc.)
-            pruning_method = prune.ln_structured  # Pruning method (e.g., L1Unstructured, RandomUnstructured, etc.)
+            # pruning_method = prune.ln_structured  # Pruning method (e.g., L1Unstructured, RandomUnstructured, etc.)
             # Specify the layer(s) to prune
-            module_to_prune = self.fc1  # Replace 'module_name' with the actual name of the module to prune
-            prune_method = pruning_method(
-                amount=self.rl['pruning_rate'],
-                n=2, dim=0, module=self, name='weight'
-            )
-            prune_method.apply(module_to_prune, name='weight', amount=self.rl['pruning_rate'])
-
+            # module_to_prune = self.fc1  # Replace 'module_name' with the actual name of the module to prune
+            # prune_method = pruning_method(
+            #     amount=self.rl['pruning_rate'],
+            #     n=2, dim=0, module=self, name='weight'
+            # )
+            # prune_method.apply(module_to_prune, name='weight', amount=self.rl['pruning_rate'])
+            prune.random_unstructured(self.fc1, name="weight", amount=self.rl['pruning_rate'])
 
             # # Apply pruning to the specified module
             # for layer in ['fc1', 'fc_out']:
