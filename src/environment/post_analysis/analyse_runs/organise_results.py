@@ -14,21 +14,25 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['n_homes']
+COLUMNS_OF_INTEREST = ['p_dropout', 'pruning_rate']
 IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = False
-BEST_ONLY = False
+BEST_ONLY = True
 n_subplots = 1 if BEST_ONLY else 3
 font_size = 12
 font = {'size': font_size}
 matplotlib.rc('font', **font)
 
 FILTER = {
-    'type_learning': 'q_learning',
+    'type_learning': 'facmac',
+    'facmac-lr': 5.e-1,
+    'n_hidden_layers': 1,
+    'hyper_initialization_nonzeros': 1,
+    'supervised_loss': False,
     # 'n_discrete_actions': 10,
-    'q_learning-alpha': 0.1,
+    # 'q_learning-alpha': 0.1,
     # 'lr': 1e-2,
     # 'n_homes': 10,
     # 'server': False
@@ -174,10 +178,10 @@ def get_list_all_fields(results_path):
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
-        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action', 'RL-lr'
+        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action', 'RL-lr',
     ]
     if IGNORE_FORCE_OPTIMISATION:
-        ignore.append('syst-force_optimisation')
+        ignore += ['syst-force_optimisation', 'device', 'ncpu', 'server']
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
@@ -671,12 +675,14 @@ def compute_best_score_per_run(keys_methods, log):
 
 def check_that_only_grdCn_changes_in_state_space(
         other_columns, current_setup, row_setup, initial_setup_row,
-        row, indexes_columns_ignore_q_learning
+        row, indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac
 ):
     index_state_space = other_columns.index('state_space')
     indexes_ignore = [index_state_space]
     if current_setup[other_columns.index('type_learning')] == 'q_learning':
         indexes_ignore += indexes_columns_ignore_q_learning
+    if current_setup[other_columns.index('type_learning')] == 'facmac':
+        indexes_ignore += indexes_columns_ignore_facmac
     only_col_of_interest_changes_without_state_space = all(
         current_col == row_col or (
             not isinstance(current_col, str) and np.isnan(current_col)
@@ -763,7 +769,8 @@ def get_relevant_columns_for_type_learning(other_columns, log, i_row):
 
 def get_indexes_to_ignore_in_setup_comparison(
     column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
-    indexes_columns_ignore_q_learning, row
+    indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac, row,
+    columns_irrelevant_to_q_learning, columns_irrelevant_to_facmac,
 ):
     ignore_cols = {
         'supervised_loss_weight': ['supervised_loss'],
@@ -804,7 +811,19 @@ def get_indexes_to_ignore_in_setup_comparison(
                 'type_learning' in other_columns
                 and current_setup[other_columns.index('type_learning')] == 'q_learning'
         ):
-            indexes_ignore.append(indexes_columns_ignore_q_learning)
+            indexes_ignore += indexes_columns_ignore_q_learning
+        elif column_of_interest in columns_irrelevant_to_facmac:
+            # this is about q_learning
+            indexes_ignore += indexes_columns_ignore_q_learning
+        if (
+                'type_learning' in other_columns
+                and current_setup[other_columns.index('type_learning')] == 'facmac'
+        ):
+            indexes_ignore += indexes_columns_ignore_facmac
+        elif column_of_interest in columns_irrelevant_to_q_learning:
+            # this is about facmac
+            indexes_ignore += indexes_columns_ignore_facmac
+
 
     return indexes_ignore
 
@@ -819,9 +838,17 @@ def compare_all_runs_for_column_of_interest(
         'mixer', 'n_hidden_layers', 'n_hidden_layers_critic', 'nn_type',
         'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode',
         'instant_feedback'
-    ]
+    ] + [col for col in other_columns if col[0: len('facmac')] == 'facmac']
+    columns_irrelevant_to_facmac = [
+        'n_discrete_actions'
+    ] + [col for col in other_columns if col[0: len('q_learning')] == 'q_learning']
     indexes_columns_ignore_q_learning = [
-        other_columns.index(col) for col in columns_irrelevant_to_q_learning if col in other_columns
+        other_columns.index(col) for col in other_columns
+        if col in columns_irrelevant_to_q_learning
+    ]
+    indexes_columns_ignore_facmac = [
+        other_columns.index(col) for col in other_columns
+        if col in columns_irrelevant_to_facmac
     ]
     rows_considered = []
     setup_no = 0
@@ -864,12 +891,13 @@ def compare_all_runs_for_column_of_interest(
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
                     other_columns, current_setup, row_setup, initial_setup_row,
-                    row, indexes_columns_ignore_q_learning
+                    row, indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac
                 )
             else:
                 indexes_ignore = get_indexes_to_ignore_in_setup_comparison(
                     column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
-                    indexes_columns_ignore_q_learning, row
+                    indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac, row,
+                    columns_irrelevant_to_q_learning, columns_irrelevant_to_facmac,
                 )
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
@@ -960,7 +988,7 @@ def compare_all_runs_for_column_of_interest(
                         ]
                 time_best_score_sorted = [time_best_score[i] for i in i_sorted]
                 runs_sorted = [runs[i] for i in i_sorted]
-                ls = '--' if log.loc[rows_considered[-1], 'server'] else '-'
+                ls = '--' if 'server' in log and log.loc[rows_considered[-1], 'server'] else '-'
                 values_of_interest_sorted_k, best_scores_sorted = remove_nans_best_scores_sorted(
                     values_of_interest_sorted, best_scores_sorted
                 )
