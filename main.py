@@ -22,8 +22,13 @@ settings = {
     },
     'syst': {
         'n_homes': 20,
+        'n_homesP': 35,
     },
-
+    'grd':
+        {
+            'simulate_panda_power_only': True,
+            'manage_voltage': True,
+        },
 }
 
 

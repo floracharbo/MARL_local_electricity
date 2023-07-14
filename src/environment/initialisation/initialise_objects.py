@@ -360,7 +360,6 @@ def _format_rl_parameters(rl):
         "n_epochs", "n_repeats", "instant_feedback", "rnn_hidden_dim", "buffer_size"
     ]:
         rl[key] = int(rl[key])
-    # rl["lr"] = float(rl["lr"])
     if isinstance(rl["state_space"], str):
         rl["state_space"] = [rl["state_space"]]
     for key in ["batch_size", "buffer_capacity"]:
