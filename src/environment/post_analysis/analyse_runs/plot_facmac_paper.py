@@ -13,10 +13,10 @@ from src.environment.post_analysis.plotting.plot_rl_performance_metrics import \
 # plot timing vs performance for n layers / dim layers; runs 742-656
 font = {'size': 14}
 matplotlib.rc('font', **font)
-save_label = 'new_july23'
-plot_times = False
+save_label = 'new_july23_2'
+plot_times = True
 
-compare_times = ['OMQ', 'FD']
+compare_times = ['OMQ']
 labels = {
     'IQ': 'Independent Q-learning',
     'OIQ': 'Optimisation-informed independent Q-learning',
@@ -27,8 +27,8 @@ labels = {
     # 'OCQ': 'Optimisation-informed, count-based Q-learning',
 
     'opt': 'Optimal',
-    # 'FD': 'Centralised but factored critic',
-    # 'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
+    'FD': 'Centralised but factored critic',
+    'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
     # 'FH': 'FACMAC',  # (hourly)
     # 'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
@@ -50,6 +50,10 @@ type_learning = {
     'OAQ': 'opt_A_c',
     'opt': 'opt',
 }
+
+# times_q_learning = [1214, 1215, 616, 617, 618]
+# n_homes = 2, 5, 10, 20, 30,
+
 opt_informed = {
     'IQ': False,
     'OIQ': True,
@@ -73,7 +77,8 @@ opt_informed = {
 # THESIS:
 # runQ = [1917, 1919] + list(range(1956, 1965))
 # runQ = [2024] + list(range(2026, 2035))
-runQ = [418, 419, 420, 489]
+# runQ = [418, 419, 420, 489]
+runQ = list(range(1216, 1222))
 
 # for impacts varying n testing homes
 # runQ = [2196, 2210]
@@ -92,7 +97,9 @@ runs = {
 # THESIS runs['FD'] = list(range(2035, 2045))
 
 # impacts varying passive homes
-runs['FD'] = list(range(2216, 2219)) + [2227, 2228]
+# runs['FD'] = list(range(2216, 2219)) + [2227, 2228]
+runs['FD'] = list(range(609, 612)) + [1212, 1213]
+
 # 'FDO': list(range(257, 261)) + list(range(263, 265)),
 # 'FDO': list(range(528, 534)),
 # 'FDO': list(range(582, 587)) + [697],
@@ -100,7 +107,8 @@ runs['FD'] = list(range(2216, 2219)) + [2227, 2228]
 # FACMAC PAPER: 'FDO': list(range(1152, 1158)) + [1174, 1175],
 # missing 30
 # runs['FDO'] = list(range(1987, 1997))
-runs['FDO'] = list(range(2045, 2054)) + [2055]
+# runs['FDO'] = list(range(2045, 2054)) + [2055]
+runs['FDO'] = list(range(604, 608))
 
 # 'FH': [126, 127, 128, 129, 130, 131],
 # 'FH': list(range(245, 251)),
@@ -223,9 +231,12 @@ for line_label in labels.keys():
         runs[line_label] = runs[line_label][0]
     for i, run in enumerate(runs[line_label]):
         if run is not None:
+            try:
                 n_homes_i = log.loc[
                     log['run'] == run, 'n_homes'
                 ].values[0]
+            except Exception as ex:
+                print(ex)
             if n_homes_i in n_homes:
                 n_home_to_run[line_label][n_homes_i] = run
                 values_i = n_homes.index(n_homes_i)
@@ -284,9 +295,9 @@ for line_label in labels.keys():
             # if line_label == 'OMQ':
             if True:
                 label = r'$y = $'\
-                    + f'{coeffs[0]:.1f}' + r'$x^2 $'\
-                    + f' + {coeffs[1]:.1f}' + r'$x $'\
-                    + f' + {coeffs[2]:.1f}'
+                    + f'{coeffs[0]:.0f}' + r'$x^2 $'\
+                    + f' + {coeffs[1]:.0f}' + r'$x $'\
+                    + f' + {coeffs[2]:.0f}'
             # else:
             #     label = r'$y = $' \
             #             + f'{coeffs[0]:.1f}' + r'$x$' \
@@ -300,7 +311,7 @@ for line_label in labels.keys():
             print(f"{label} a, b first errors = {np.sqrt(np.diag(pcov))}")
 
 ax0.set_xlim(0, max_n_homes * 1.05)
-# ax0.set_ylim(- 30, 135)
+ax0.set_ylim(- 120, 125)
 ax0.set_ylabel("Savings [£/home/month]")
 ax0.legend(fancybox=True, loc='lower right')
 

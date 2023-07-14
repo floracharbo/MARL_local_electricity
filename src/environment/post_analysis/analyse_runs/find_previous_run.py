@@ -19,14 +19,20 @@ settings = {
     'RL': {
         'type_learning': 'q_learning',
         'n_epochs': 20,
-        'n_repeats': 3,
+        'n_repeats': 10,
+        # 'trajectory': True,
+        # 'supervised_loss': False,
         # 'trajectory': False,
+        'lr': 1e-4,
+        'q_learning-eps': 0.1,
+        'n_discrete_actions': 10,
         # 'act_noise': 0.01
         # 'state_space': 'grdC',
     },
     'syst': {
-        'n_homes': 1,
+        # 'n_homes': 10,
         'gan_generation': True,
+        # 'force_optimisation': True,
     },
     'bat': {
         'SoC0': 1,
@@ -85,7 +91,7 @@ def find_previous_run_with_same_settings(settings, log_path):
 
     if candidates_left:
         print(f"run(s) {log['run'].tolist()}")
-        print(log[['run', 'best_score_all']])
+        print(log[['run', 'best_score_all', 'n_homes', 'force_optimisation']])
 
     return log
 

@@ -74,8 +74,8 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
         linestyle='dotted'
     )
     plt.legend()
-    # plt.ylim([lower_bound, upper_bound])
-    plt.ylim(- 30, 135)
+    plt.ylim([-120, 125])
+    # plt.ylim(- 30, 135)
 
     plt.tight_layout()
     if moving_average:

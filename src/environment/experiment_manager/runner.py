@@ -592,7 +592,7 @@ def run(run_mode, settings, no_runs=None):
         # obtain the number of runs from the longest settings entry
         n_runs = get_number_runs(settings)
         # loop through runs
-        for i in range(3, n_runs):
+        for i in range(n_runs):
             remove_old_prms = [info for info in prm if info != 'paths']
             for info in remove_old_prms:
                 del prm[info]
