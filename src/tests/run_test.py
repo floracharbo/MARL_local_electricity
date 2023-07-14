@@ -72,7 +72,7 @@ def patch_update_date(self, i0_costs, date0=None):
 
 
 def patch_file_id(self):
-    file_extension = f"_test{self.prm['paths']['opt_res_file']}"
+    file_extension = f"_test0"
 
     return file_extension
 
