@@ -682,18 +682,20 @@ def plot_imp_exp_violations(
         prm, all_methods_to_plot, folder_run):
     """ Plots grid [kWh] and import/export penalties for last day """
     plt.rcParams['font.size'] = '16'
-    for repeat in range(prm['RL']['n_repeats']):
-        last, _, methods_to_plot = _get_repeat_data(
-            repeat, all_methods_to_plot, folder_run
-        )
-        for method in methods_to_plot:
-            print(method)
-            fig, ax1 = plt.subplots(figsize=(8, 6))
-            ax2 = ax1.twinx()
+    fig, axs = plt.subplots(3, 1, figsize=(8, 6))
+    ax1 = axs[0]
+    ax2 = axs[1]
+    for method in all_methods_to_plot:
+        colour = prm['save']['colourse'][method]
+        grids = []
+        for repeat in range(prm['RL']['n_repeats']):
+            last, _, methods_to_plot = _get_repeat_data(
+                repeat, all_methods_to_plot, folder_run
+            )
             netp = last['netp'][method]  # [step][a]
             netp0 = last['netp0'][method]  # [step][a]
-            grid_flex = np.sum(netp, axis=1)
-            grid_passive = np.sum(netp0, axis=1)
+            grid = np.sum(netp, axis=1) + np.sum(netp0, axis=1)
+            grids.append(grid)
             break_down_rewards = last['break_down_rewards'][method]
             i_import_export_costs = prm['syst']['break_down_rewards_entries'].index(
                 'import_export_costs'
@@ -702,30 +704,44 @@ def plot_imp_exp_violations(
                 break_down_rewards[step][i_import_export_costs]
                 for step in range(prm['syst']['N'])
             ]
-            ax1.plot(grid_flex, label='Flex Import/Export', color='coral')
-            ax1.plot(grid_passive, label='Passive Import/Export', color='coral', linestyle='dashed')
             ax2.bar(
                 range(prm['syst']['N']),
                 import_export_costs,
                 label='Penalty import export',
-                color='olive'
+                color=colour
             )
-            ax1.axhline(y=prm['grd']['max_grid_import'], color='k', linestyle='dotted')
-            ax1.axhline(y=-prm['grd']['max_grid_export'], color='k', linestyle='dotted')
-            ax1.set_ylabel('Grid import/export [kWh]')
-            ax2.set_ylabel('System penalty [£]')
-            ax2.set_ylim([0, 1.1 * max(import_export_costs)])
-            ax1.spines['right'].set_color('coral')
-            ax1.spines['left'].set_color('coral')
-            ax1.spines['right'].set_color('olive')
-            ax1.spines['left'].set_color('olive')
-            ax1.yaxis.label.set_color('coral')
-            ax2.yaxis.label.set_color('olive')
-            ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
-            ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
-            plt.tight_layout()
-            title = f'Import and export and corresponding penalties, repeat{repeat}, {method}'
-            title_and_save(title, fig, prm)
+            i_voltage_costs = prm['syst']['break_down_rewards_entries'].index('voltage_costs')
+            voltage_costs = [
+                break_down_rewards[step][i_voltage_costs]
+                for step in range(prm['syst']['N'])
+            ]
+            if prm['grd']['manage_voltage']:
+                axs[2].bar(
+                    range(prm['syst']['N']),
+                    voltage_costs,
+                    label='Penalty voltage',
+                    color=prm['save']['colourse'][method],
+                    alpha=0.1,
+                )
+        mean_grids = np.mean(grids, axis=0)
+        p10, p90 = np.percentile(grids, [10, 90], axis=0)
+        ax1.plot(mean_grids, label='Import/Export', color=colour)
+        ax1.fill_between(
+            range(prm['syst']['N']), p10, p90, alpha=0.2, color=colour
+        )
+        ax1.axhline(y=prm['grd']['max_grid_import'], color=colour, linestyle='dotted')
+        ax1.axhline(y=-prm['grd']['max_grid_export'], color=colour, linestyle='dotted')
+        ax1.set_ylabel('Grid import/export [kWh]')
+        ax2.set_ylabel('System penalty [£]')
+        ax2.set_ylim([0, 1.1 * max(import_export_costs)])
+        ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
+        ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+        axs[2].set_ylabel('System penalty [£]')
+        axs[2].set_ylim([0, 1.1 * max(voltage_costs)])
+        axs[2].legend(loc='center', bbox_to_anchor=(0.3, 0.83))
+        plt.tight_layout()
+        title = f'Import and export and corresponding penalties {method}'
+        title_and_save(title, fig, prm)
 
 
 def plot_reactive_power(
@@ -814,67 +830,6 @@ def plot_indiv_reactive_power(
             title_and_save(title, fig, prm)
 
 
-def plot_voltage_violations(prm, all_methods_to_plot, folder_run):
-    """ Plots grid [kWh] and voltage penalties for last day """
-    plt.rcParams['font.size'] = '16'
-
-    for method in all_methods_to_plot:
-        fig, ax1 = plt.subplots(figsize=(8, 6))
-        ax2 = ax1.twinx()
-        grid_flexs = []
-
-        for repeat in range(prm['RL']['n_repeats']):
-            last, _, methods_to_plot = _get_repeat_data(
-                repeat, all_methods_to_plot, folder_run
-            )
-            netp = last['netp'][method]  # [step][a]
-            netp0 = last['netp0'][method]  # [step][a]
-            grid_flex = [sum(netp[step]) for step in range(prm['syst']['N'])]
-            grid_flexs.append(grid_flex)
-            grid_passive = [sum(netp0[step]) for step in range(prm['syst']['N'])]
-            break_down_rewards = last['break_down_rewards'][method]
-            i_voltage_costs = prm['syst']['break_down_rewards_entries'].index('voltage_costs')
-            voltage_costs = [
-                break_down_rewards[step][i_voltage_costs]
-                for step in range(prm['syst']['N'])
-            ]
-            ax1.plot(grid_flex, label=None, color='coral', alpha=0.1)
-            ax1.plot(grid_passive, label=None, color='coral', linestyle='dashed', alpha=0.1)
-            if prm['grd']['manage_voltage']:
-                ax2.bar(
-                    range(prm['syst']['N']),
-                    voltage_costs,
-                    label='Penalty voltage',
-                    color='cadetblue',
-                    alpha=0.1,
-                )
-
-        mean_grid_flexs = np.mean(grid_flexs, axis=0)
-        p90_grid_flexs = np.percentile(grid_flexs, 90, axis=0)
-        p10_grid_flexs = np.percentile(grid_flexs, 10, axis=0)
-        ax1.plot(mean_grid_flexs, label='Import/Export', color='coral')
-        ax1.fill_between(
-            range(prm['syst']['N']),
-            p10_grid_flexs,
-            p90_grid_flexs,
-            color='coral',
-            alpha=0.2,
-            label='10-90% quantile'
-        )
-        ax1.set_ylabel('Grid import/export [kWh]')
-        ax2.set_ylabel('System penalty [£]')
-        ax2.set_ylim([0, 1.1 * max(voltage_costs)])
-        ax1.spines['right'].set_color('coral')
-        ax1.spines['left'].set_color('coral')
-        ax1.spines['right'].set_color('cadetblue')
-        ax1.spines['left'].set_color('cadetblue')
-        ax1.yaxis.label.set_color('coral')
-        ax2.yaxis.label.set_color('cadetblue')
-        ax1.legend(loc='center', bbox_to_anchor=(0.3, 0.91))
-        ax2.legend(loc='center', bbox_to_anchor=(0.3, 0.83))
-        plt.tight_layout()
-        title = f'Import and export and voltage penalties, {method}'
-        title_and_save(title, fig, prm)
 
 
 def plot_imp_exp_check(
@@ -1026,11 +981,6 @@ def map_over_undervoltage(
                         get_index_over_under_voltage_last_time_step(
                             last, method, prm, time_step=time_step
                         )
-                    print(
-                        f"method {method}, repeat {repeat}, time {time_step} "
-                        f"overvoltage bus n={len(overvoltage_bus_index)}, "
-                        f"undervoltage_bus n={len(undervoltage_bus_index)}"
-                    )
                     n_over_voltages[method][repeat, time_step] = len(overvoltage_bus_index)
                     n_under_voltages[method][repeat, time_step] = len(undervoltage_bus_index)
                     if time_step in range(9, 23):
