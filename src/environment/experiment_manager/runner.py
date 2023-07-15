@@ -169,6 +169,10 @@ class Runner:
             self.buffer[method].scheme, rl['groups'],
             rl, self.N
         )
+        target_mac = mac_REGISTRY[rl['mac']](
+            self.buffer[method].scheme, rl['groups'],
+            rl, self.N
+        )
         self.new_episode_batch = \
             partial(EpisodeBatch, rl['scheme'],
                     rl['groups'],
@@ -180,7 +184,8 @@ class Runner:
             self.mac[method],
             self.buffer[method].scheme,
             rl,
-            self.N
+            self.N,
+            target_mac,
         )
         if rl['use_cuda']:
             self.learner[method].cuda()

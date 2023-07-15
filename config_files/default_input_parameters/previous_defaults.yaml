@@ -28,35 +28,42 @@ timestamp_changes:
   10: 1686209972.731433
   11: 1688808928.930367
   12: 1688903866.288452
+  13: 1689111636.689072
+  14: 1689159178.064695
 
-'RL-n_hidden_layers': [1, 1]
-'RL-aggregate_actions': [1, True]
-'RL-supervised_loss': [1, True]
-'RL-normalise_states': [2, False]
-'RL-lr': [2, 1e-5]
-'RL-facmac-critic_lr': [2, 1e-5]
-'RL-ou_stop_episode': [2, 100]
-'RL-start_steps': [2, 0]
-'RL-hyper_initialization_nonzeros': [2, 0]
-'RL-rnn_hidden_dim': [2, 1.e+2]
-'RL-DDPG-rdn_eps_greedy_indiv': [2, False]
-'car-cap': [3, 75]
-'car-c_max': [3, 22]
-'car-d_max': [3, 100]
-'car-SoC0': [3, 0.5]
-'RL-facmac-hysteretic': [4, False]
-'RL-facmac-beta_to_alpha': [5, 0.5]
-syst-error_with_opt_to_rl_discharge: [6, True]
-grd-tol_rel_voltage_diff: [7, 1.e-2]
-RL-lr: [8, 1.e-3]
-RL-facmac-lr: [9, -1]
-syst-gan_generation: [9, False]
-grd-simulate_panda_power_only: [10, False]
-RL-act_noise: [11, 0.1]
-RL-facmac-batch_size: [11, 5]
-syst-clus_dist_share: [11, 1]
-RL-hyper_initialization_nonzeros: [11, 0.1]
-RL-facmac-lr: [11, 1.e-3]
-RL-facmac-critic_lr: [11, 5.e-4]
-RL-n_hidden_layers: [11, 2]
-RL-n_discrete_actions: [12, 10]
+'RL-n_hidden_layers-1': 1
+'RL-aggregate_actions-1': True
+'RL-supervised_loss-1': True
+'RL-normalise_states-2': False
+'RL-lr-2': 1e-05
+'RL-facmac-critic_lr-2': 1e-05
+'RL-ou_stop_episode-2': 100
+'RL-start_steps-2': 0
+'RL-hyper_initialization_nonzeros-2': 0
+'RL-rnn_hidden_dim-2': 100.0
+'RL-DDPG-rdn_eps_greedy_indiv-2': False
+'car-cap-3': 75
+'car-c_max-3': 22
+'car-d_max-3': 100
+'car-SoC0-3': 0.5
+'RL-facmac-hysteretic-4': False
+'RL-facmac-beta_to_alpha-5': 0.5
+'syst-error_with_opt_to_rl_discharge-6': True
+'grd-tol_rel_voltage_diff-7': 0.01
+'RL-lr-8': 0.001
+'RL-facmac-lr-9': -1
+'syst-gan_generation-9': False
+'grd-simulate_panda_power_only-10': False
+'RL-act_noise-11': 0.1
+'RL-facmac-batch_size-11': 5
+'syst-clus_dist_share-11': 1
+'RL-hyper_initialization_nonzeros-11': 0.1
+'RL-facmac-lr-11': 0.001
+'RL-facmac-critic_lr-11': 0.0005
+'RL-n_hidden_layers-11': 2
+'RL-n_discrete_actions-12': 10
+'RL-q_learning-eps-13': 0.5
+'RL-n_discrete_actions-13': 5
+'RL-lr-13': 0.0001
+'RL-n_epochs-13': 50
+'RL-q_learning-alpha-14': 0.01

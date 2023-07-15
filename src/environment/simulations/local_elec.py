@@ -714,8 +714,8 @@ class LocalElecEnv:
         return transition_type_
 
     def _file_id(self):
-        opt_res_file = get_opt_res_file(self.prm, self.evaluation)['opt_res_file']
-        return f"{self.no_name_file}{self.ext}{opt_res_file}"
+        opt_res_file = self.prm['paths']['opt_res_file_no']
+        return f"_{self.no_name_file}{self.ext}_{opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:
         """Given probability of each choice and a random number, select."""
@@ -1049,6 +1049,7 @@ class LocalElecEnv:
         for e in ['batch', 'i0_costs']:
             file_id = f"{e}{self._file_id()}"
             np.save(self.res_path / file_id, getattr(self, e))
+        np.save('outputs/opt_res/files_list.npy', self.prm['paths']['files_list'])
 
         self._initialise_batch_entries()
 

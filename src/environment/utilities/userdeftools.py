@@ -219,7 +219,7 @@ def get_opt_res_file(prm, test=False):
 
     if paths['opt_res_file'] not in paths['files_list']:
         paths['files_list'].append(paths['opt_res_file'])
-    paths['opt_res_file'] = f"{paths['files_list'].index(paths['opt_res_file'])}.npy"
+    paths['opt_res_file_no'] = f"{paths['files_list'].index(paths['opt_res_file'])}.npy"
 
     return paths
 

@@ -127,9 +127,9 @@ def check_model_changes_facmac(prm):
                     prm["RL"]["nn_learned"] = False
                 agent_size = agents[0][weight].size()
                 if len(agent_size) == 1:
-                    plt.plot([agents[i][weight][0] for i in range(len(agents))], alpha=0.5)
+                    plt.plot([agents[i][weight][0].cpu() for i in range(len(agents))], alpha=0.5)
                 elif len(agent_size) == 2:
-                    plt.plot([agents[i][weight][0, 0] for i in range(len(agents))], alpha=0.5)
+                    plt.plot([agents[i][weight][0, 0].cpu() for i in range(len(agents))], alpha=0.5)
                 fig.savefig(prm['paths']['fig_folder'] / "agent_weights.png")
 
             fig = plt.figure()
@@ -140,9 +140,9 @@ def check_model_changes_facmac(prm):
                     print(f"critics_learned {critics_learned} {weight}")
                 critic_size = critics[0][weight].size()
                 if len(critic_size) == 1:
-                    plt.plot([critics[i][weight][0] for i in range(len(critics))], alpha=0.5)
+                    plt.plot([critics[i][weight][0].cpu() for i in range(len(critics))], alpha=0.5)
                 elif len(critic_size) == 2:
-                    plt.plot([critics[i][weight][0, 0] for i in range(len(critics))], alpha=0.5)
+                    plt.plot([critics[i][weight][0, 0].cpu() for i in range(len(critics))], alpha=0.5)
                 fig.savefig(prm['paths']['fig_folder'] / "critic_weights.png")
 
             check_mixer = prm['syst']['n_homes'] > 1 and prm["RL"]["mixer"] == "qmix"

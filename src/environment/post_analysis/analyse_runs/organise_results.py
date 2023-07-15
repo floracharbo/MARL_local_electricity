@@ -14,21 +14,29 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['n_homes']
-
+COLUMNS_OF_INTEREST = ['p_dropout', 'pruning_rate']
+IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = False
-BEST_ONLY = False
+BEST_ONLY = True
 n_subplots = 1 if BEST_ONLY else 3
 font_size = 12
 font = {'size': font_size}
 matplotlib.rc('font', **font)
 
 FILTER = {
-    'type_learning': 'q_learning',
-    'n_homes': 10,
-
+    'type_learning': 'facmac',
+    'facmac-lr': 5.e-1,
+    'n_hidden_layers': 1,
+    'hyper_initialization_nonzeros': 1,
+    'supervised_loss': False,
+    # 'n_discrete_actions': 10,
+    # 'q_learning-alpha': 0.1,
+    # 'lr': 1e-2,
+    # 'n_homes': 10,
+    # 'server': False
+    'n_epochs': 20,
 }
 
 best_score_type = 'p50'
@@ -43,6 +51,13 @@ X_LABELS = {
     'n_cnn_layers': 'Number of convolutional layers',
     'optimizer': 'Optimiser',
     'rnn_hidden_dim': 'Neural network hidden dimension',
+    'aggregate_actions': 'Aggregated action space',
+    'lr': 'Learning rate',
+    'q_learning-eps': 'Random exploration rate $\epsilon$',
+    'n_discrete_actions': 'Number of discrete actions intervals',
+    'n_grdC_level': 'Number of discrete state intervals',
+    'q_learning-alpha': 'Learning rate',
+    'n_epochs': 'Number of epochs',
 }
 
 
@@ -75,7 +90,7 @@ def fix_learning_specific_values(log):
     ]
     for i in range(len(log)):
         if all(log[col].loc[i] is None for col in ave_opt_cols):
-            if not log['syst-force_optimisation'].loc[i]:
+            if 'syst-force_optimisation' in log and not log['syst-force_optimisation'].loc[i]:
                 log.loc[i, 'syst-force_optimisation'] = True
             if (
                 'syst-error_with_opt_to_rl_discharge' in log
@@ -163,8 +178,10 @@ def get_list_all_fields(results_path):
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
-        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action'
+        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action', 'RL-lr',
     ]
+    if IGNORE_FORCE_OPTIMISATION:
+        ignore += ['syst-force_optimisation', 'device', 'ncpu', 'server']
     result_files = os.listdir(results_path)
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
@@ -225,19 +242,19 @@ def replace_single_default_value(value, default_data, subkey, subsubkey):
     return value
 
 
-def fill_in_log_value_with_run_data(log, row, column, prm_default):
-    with open("config_files/default_input_parameters/previous_defaults.yaml", "rb") as file:
-        previous_defaults = yaml.safe_load(file)
+def fill_in_log_value_with_run_data(
+    log, row, column, prm_default,
+    params_prev_default, values_prev_default, timestamp_changes
+):
+    timestamp_run = log.loc[row, 'syst-timestamp']
 
-    timestamp_changes = previous_defaults['timestamp_changes']
-    del previous_defaults['timestamp_changes']
-
-    if column in previous_defaults:
-        timestamp_change_idx = previous_defaults[column][0]
-        timestamp_change = timestamp_changes[timestamp_change_idx]
-        timestamp_run = log.loc[row, 'syst-timestamp']
-        if timestamp_run < timestamp_change:
-            log.loc[row, column] = previous_defaults[column][1]
+    if column in params_prev_default:
+        idx_changes = np.where(
+            (np.array(params_prev_default) == column) & (timestamp_changes < timestamp_run)
+        )[0]
+        if len(idx_changes) > 0:
+            idx_change = idx_changes[np.argmax([timestamp_changes[idx] for idx in idx_changes])]
+            log.loc[row, column] = values_prev_default[idx_change]
     else:
         key, subkey, subsubkey = get_key_subkeys_column(column)
         if key in prm_default:
@@ -286,7 +303,31 @@ def row_to_assets_str(row, columns0):
     return assets
 
 
+def str_prev_default_to_param(str_prev_default):
+    param = ''
+    for i in range(len(str_prev_default.split('-')) - 1):
+        param += str_prev_default.split('-')[i] + '-'
+    param = param[:-1]
+
+    return param
+
+
 def add_default_values(log):
+    with open("config_files/default_input_parameters/previous_defaults.yaml", "rb") as file:
+        previous_defaults = yaml.safe_load(file)
+    timestamp_changes_all = previous_defaults['timestamp_changes']
+    del previous_defaults['timestamp_changes']
+    params_prev_default = [
+        str_prev_default_to_param(str_prev_default)
+        for str_prev_default in previous_defaults.keys()
+    ]
+    timestamp_changes = [
+        timestamp_changes_all[int(column.split('-')[-1])]
+        for column in previous_defaults.keys()
+    ]
+    values_prev_default = [
+        previous_defaults[column] for column in previous_defaults.keys()
+    ]
     file_name = ''
     # add any default value previously saved row by row
     for row in range(len(log)):
@@ -297,7 +338,10 @@ def add_default_values(log):
                 prm_default = pickle.load(file)
             for column in log.columns:
                 if log.loc[row, column] is None and column != 'syst-time_end':
-                    log = fill_in_log_value_with_run_data(log, row, column, prm_default)
+                    log = fill_in_log_value_with_run_data(
+                        log, row, column, prm_default,
+                        params_prev_default, values_prev_default, timestamp_changes
+                    )
 
     if 'syst-share_active' in log.columns:
         share_active_none = log['syst-share_active'].isnull()
@@ -631,12 +675,14 @@ def compute_best_score_per_run(keys_methods, log):
 
 def check_that_only_grdCn_changes_in_state_space(
         other_columns, current_setup, row_setup, initial_setup_row,
-        row, indexes_columns_ignore_q_learning
+        row, indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac
 ):
     index_state_space = other_columns.index('state_space')
     indexes_ignore = [index_state_space]
     if current_setup[other_columns.index('type_learning')] == 'q_learning':
         indexes_ignore += indexes_columns_ignore_q_learning
+    if current_setup[other_columns.index('type_learning')] == 'facmac':
+        indexes_ignore += indexes_columns_ignore_facmac
     only_col_of_interest_changes_without_state_space = all(
         current_col == row_col or (
             not isinstance(current_col, str) and np.isnan(current_col)
@@ -723,7 +769,8 @@ def get_relevant_columns_for_type_learning(other_columns, log, i_row):
 
 def get_indexes_to_ignore_in_setup_comparison(
     column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
-    indexes_columns_ignore_q_learning, row
+    indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac, row,
+    columns_irrelevant_to_q_learning, columns_irrelevant_to_facmac,
 ):
     ignore_cols = {
         'supervised_loss_weight': ['supervised_loss'],
@@ -764,7 +811,19 @@ def get_indexes_to_ignore_in_setup_comparison(
                 'type_learning' in other_columns
                 and current_setup[other_columns.index('type_learning')] == 'q_learning'
         ):
-            indexes_ignore.append(indexes_columns_ignore_q_learning)
+            indexes_ignore += indexes_columns_ignore_q_learning
+        elif column_of_interest in columns_irrelevant_to_facmac:
+            # this is about q_learning
+            indexes_ignore += indexes_columns_ignore_q_learning
+        if (
+                'type_learning' in other_columns
+                and current_setup[other_columns.index('type_learning')] == 'facmac'
+        ):
+            indexes_ignore += indexes_columns_ignore_facmac
+        elif column_of_interest in columns_irrelevant_to_q_learning:
+            # this is about facmac
+            indexes_ignore += indexes_columns_ignore_facmac
+
 
     return indexes_ignore
 
@@ -779,9 +838,17 @@ def compare_all_runs_for_column_of_interest(
         'mixer', 'n_hidden_layers', 'n_hidden_layers_critic', 'nn_type',
         'nn_type_critic', 'ou_stop_episode', 'rnn_hidden_dim', 'target_update_mode',
         'instant_feedback'
-    ]
+    ] + [col for col in other_columns if col[0: len('facmac')] == 'facmac']
+    columns_irrelevant_to_facmac = [
+        'n_discrete_actions'
+    ] + [col for col in other_columns if col[0: len('q_learning')] == 'q_learning']
     indexes_columns_ignore_q_learning = [
-        other_columns.index(col) for col in columns_irrelevant_to_q_learning if col in other_columns
+        other_columns.index(col) for col in other_columns
+        if col in columns_irrelevant_to_q_learning
+    ]
+    indexes_columns_ignore_facmac = [
+        other_columns.index(col) for col in other_columns
+        if col in columns_irrelevant_to_facmac
     ]
     rows_considered = []
     setup_no = 0
@@ -824,12 +891,13 @@ def compare_all_runs_for_column_of_interest(
             if column_of_interest == 'grdC_n':
                 only_col_of_interest_changes = check_that_only_grdCn_changes_in_state_space(
                     other_columns, current_setup, row_setup, initial_setup_row,
-                    row, indexes_columns_ignore_q_learning
+                    row, indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac
                 )
             else:
                 indexes_ignore = get_indexes_to_ignore_in_setup_comparison(
                     column_of_interest, other_columns, current_setup, row_setup, initial_setup_row,
-                    indexes_columns_ignore_q_learning, row
+                    indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac, row,
+                    columns_irrelevant_to_q_learning, columns_irrelevant_to_facmac,
                 )
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
@@ -920,7 +988,7 @@ def compare_all_runs_for_column_of_interest(
                         ]
                 time_best_score_sorted = [time_best_score[i] for i in i_sorted]
                 runs_sorted = [runs[i] for i in i_sorted]
-                ls = '--' if log.loc[rows_considered[-1], 'server'] else '-'
+                ls = '--' if 'server' in log and log.loc[rows_considered[-1], 'server'] else '-'
                 values_of_interest_sorted_k, best_scores_sorted = remove_nans_best_scores_sorted(
                     values_of_interest_sorted, best_scores_sorted
                 )
@@ -963,7 +1031,11 @@ def compare_all_runs_for_column_of_interest(
                         )
                         ax.legend()
 
-                    i_best = np.argmax(best_scores_sorted[k][best_score_type])
+                    # i_best = np.argmax(best_scores_sorted[k][best_score_type])
+                    i_where_best = np.where(
+                        best_scores_sorted[k][best_score_type] == np.max(best_scores_sorted[k][best_score_type])
+                    )[0]
+                    i_best = np.max(i_where_best)
                     ax.plot(
                         values_of_interest_sorted_k[k][i_best],
                         best_scores_sorted[k][best_score_type][i_best],
@@ -976,8 +1048,8 @@ def compare_all_runs_for_column_of_interest(
                             best_scores_sorted[k]['p75'],
                             alpha=0.2
                         )
-                    if column_of_interest == 'n_epochs':
-                        ax.set_yscale('log')
+                    # if column_of_interest == 'n_epochs':
+                    #     ax.set_yscale('log')
 
                 if not BEST_ONLY:
                     axs[2].plot(
@@ -1216,10 +1288,10 @@ def plot_sensitivity_analyses(new_columns, log):
                     column for column in varied_columns
                     if len(column.split('-')) == 1 or column.split('-')[0] in types_learning
                 ]
-
-            axs, fig = add_table_legend(
-                setups, fig, varied_columns, column_of_interest, other_columns, axs
-            )
+            if len(varied_columns) > 0:
+                axs, fig = add_table_legend(
+                    setups, fig, varied_columns, column_of_interest, other_columns, axs
+                )
             ax0 = axs if BEST_ONLY else axs[0]
             ylabel = "Savings [£/home/h]" if BEST_ONLY else "Best score [£/home/h]"
             ax0.set_ylabel(ylabel)
@@ -1227,7 +1299,7 @@ def plot_sensitivity_analyses(new_columns, log):
                 axs[1].set_ylabel(
                     '\n'.join(
                         wrap(
-                            "best score with without optimisation-based exploration [£/home/h]",
+                            "Best score without optimisation-based exploration [£/home/h]",
                             30
                         )
                     )

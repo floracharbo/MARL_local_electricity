@@ -1,6 +1,7 @@
 
 import torch as th
 import torch.nn as nn
+import torch.nn.utils.prune as prune
 
 
 class Agent(nn.Module):
@@ -79,7 +80,17 @@ class Agent(nn.Module):
 
         self._gpu_parallelisation()
         self._layers_to_device()
+        self._prune()
         self.agent_return_logits = self.rl["agent_return_logits"]
+
+    def _prune(self):
+        if self.rl['pruning_rate'] > 0:
+            prune.random_unstructured(self.fc1, name="weight", amount=self.rl['pruning_rate'])
+            prune.random_unstructured(self.fc_out, name="weight", amount=self.rl['pruning_rate'])
+
+            for i in range(len(self.layers)):
+                if not isinstance(self.layers[i], nn.Dropout):
+                    prune.random_unstructured(self.layers[i], name="weight", amount=self.rl['pruning_rate'])
 
     def _layers_to_device(self):
         self.fc1.to(self.device)

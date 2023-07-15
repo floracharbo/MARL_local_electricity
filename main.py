@@ -18,14 +18,22 @@ from src.environment.experiment_manager.runner import run
 
 settings = {
     'RL': {
-        'n_epochs': 20,
         'type_learning': 'facmac',
     },
+    'syst': {
+        'n_homes': 20,
+        'n_homesP': 35,
+    },
+    'grd':
+        {
+            'simulate_panda_power_only': True,
+            'manage_voltage': True,
+        },
 }
 
 
-# 1 to run simulation, 2 to plot runs in no_runs, 3 plots results vs n_ag
+# 1 to run simulation, 2 to plot runs in no_runs
 RUN_MODE = 1
-no_runs = [823]  # if plotting
+no_runs = [1350]  # if plotting
 
 run(RUN_MODE, settings, no_runs)

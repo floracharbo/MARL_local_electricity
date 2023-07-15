@@ -5,17 +5,18 @@
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.utils.prune as prune
 
 
 class FACMACCritic(nn.Module):
     def __init__(self, scheme, rl, N):
         super(FACMACCritic, self).__init__()
         self.rl = rl
-        self.n_actions = rl['dim_actions']
-        self.n_homes = rl['n_homes']
+        for info in ['dim_actions', 'n_homes', 'pruning_rate']:
+            setattr(self, info, rl[info])
         self.output_type = "q"
         self.N = N
-        self.input_shape = scheme["obs"]["vshape"] + self.n_actions
+        self.input_shape = scheme["obs"]["vshape"] + self.dim_actions
         self.hidden_states = None
 
         # Set up network layers
@@ -30,8 +31,8 @@ class FACMACCritic(nn.Module):
             inputs = inputs.cuda() if self.cuda_available else inputs
             actions = actions.cuda() if self.cuda_available else actions
             inputs = th.cat(
-                [inputs.view(-1, self.input_shape - self.n_actions),
-                 actions.contiguous().view(-1, self.n_actions)],
+                [inputs.view(-1, self.input_shape - self.dim_actions),
+                 actions.contiguous().view(-1, self.dim_actions)],
                 dim=-1
             )
         if self.rl['nn_type_critic'] == 'cnn':
@@ -99,3 +100,16 @@ class FACMACCritic(nn.Module):
         self.fc_out.to(device)
         for i in range(len(self.layers)):
             self.layers[i].to(device)
+
+        self._prune()
+
+    def _prune(self):
+        if self.pruning_rate > 0:
+            prune.random_unstructured(self.fc1, name="weight", amount=self.rl['pruning_rate'])
+            prune.random_unstructured(self.fc_out, name="weight", amount=self.rl['pruning_rate'])
+
+            # for layer in ['fc1', 'fc_out']:
+            #     prune.random_unstructured(self.__dict__[layer], name="weight", amount=self.rl['pruning_rate'])
+            for i in range(len(self.layers)):
+                if not isinstance(self.layers[i], nn.Dropout):
+                    prune.random_unstructured(self.layers[i], name="weight", amount=self.rl['pruning_rate'])

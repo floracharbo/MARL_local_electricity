@@ -360,7 +360,6 @@ def _format_rl_parameters(rl):
         "n_epochs", "n_repeats", "instant_feedback", "rnn_hidden_dim", "buffer_size"
     ]:
         rl[key] = int(rl[key])
-    rl["lr"] = float(rl["lr"])
     if isinstance(rl["state_space"], str):
         rl["state_space"] = [rl["state_space"]]
     for key in ["batch_size", "buffer_capacity"]:
@@ -563,6 +562,9 @@ def rl_apply_n_homes_test(syst, rl):
     if rl['type_learning'] == 'facmac':
         for info in ['action_train_to_exec', 'state_exec_to_train']:
             rl[info] = th.Tensor(rl[info])
+
+    if 'n_homes_testP' not in syst:
+        syst['n_homes_testP'] = syst['n_homesP']
 
     return rl
 

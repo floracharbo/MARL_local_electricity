@@ -20,7 +20,7 @@ from src.environment.post_analysis.plotting.plot_break_down_savings import (
 from src.environment.post_analysis.plotting.plot_episode_results import (
     map_over_undervoltage, plot_env_input, plot_imp_exp_check,
     plot_imp_exp_violations, plot_indiv_reactive_power, plot_reactive_power,
-    plot_res, plot_voltage_violations, voltage_penalty_per_bus)
+    plot_res, voltage_penalty_per_bus)
 from src.environment.post_analysis.plotting.plot_moving_average_rewards import (
     plot_mova_eval_per_repeat, plot_results_all_repeats)
 from src.environment.post_analysis.plotting.plot_q_learning_explorations_values import (
@@ -168,15 +168,14 @@ def plotting(record, spaces, prm, f):
             barplot_breakdown_savings(record, prm, plot_type='costs')
     # 21 - (Sanity Check) plot grid = grid_in - grid_out
     if prm['save']['plot_imp_exp_check']:
-        plot_imp_exp_check(
-            prm, all_methods_to_plot, folder_run)
+        plot_imp_exp_check(prm, all_methods_to_plot, folder_run)
 
     # 21 - over- and undervoltage
     if prm['grd']['manage_voltage'] or prm['grd']['simulate_panda_power_only']:
         map_over_undervoltage(
             prm, all_methods_to_plot, folder_run, net=prm["grd"]["net"]
         )
-        plot_voltage_violations(prm, all_methods_to_plot, folder_run)
+        # plot_voltage_violations(prm, all_methods_to_plot, folder_run)
         barplot_breakdown_savings(record, prm, plot_type='costs')
         barplot_grid_energy_costs(record, prm, plot_type='costs')
         plot_voltage_statistics(record, prm)
