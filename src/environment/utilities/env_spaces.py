@@ -430,7 +430,7 @@ class EnvSpaces:
                          / n_bins * i
                          for i in range(n_bins + 1)])
                 else:
-                    if isinstance(self.maxval[typev][s], list):
+                    if isinstance(self.maxval[typev][s], (list, np.ndarray)):
                         brackets[typev].append(
                             [[self.minval[typev][s]
                               + (self.maxval[typev][s][home]
