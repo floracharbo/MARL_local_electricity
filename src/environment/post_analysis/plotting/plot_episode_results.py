@@ -1014,14 +1014,14 @@ def map_over_undervoltage(
     ):
         for method in methods_to_plot:
             axs[axis_i].plot(
-                np.mean(n_deviations[method], axis=0),
+                np.mean(n_deviations[method][:-1], axis=0),
                 label=method,
                 color=prm['save']['colourse'][method]
             )
             axs[axis_i].fill_between(
                 range(prm['syst']['N']),
-                np.percentile(n_deviations[method], 75, axis=0),
-                np.percentile(n_deviations[method], 25, axis=0),
+                np.percentile(n_deviations[method][:-1], 75, axis=0),
+                np.percentile(n_deviations[method][:-1], 25, axis=0),
                 alpha=0.2,
                 color=prm['save']['colourse'][method]
             )
