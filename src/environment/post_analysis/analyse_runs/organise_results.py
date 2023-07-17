@@ -14,9 +14,9 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = True
+ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['p_dropout', 'pruning_rate']
+COLUMNS_OF_INTEREST = ['cnn_out_channels', 'cnn_kernel_size']
 IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = False
 BEST_ONLY = True
@@ -27,16 +27,19 @@ matplotlib.rc('font', **font)
 
 FILTER = {
     'type_learning': 'facmac',
-    'facmac-lr': 5.e-1,
-    'n_hidden_layers': 1,
-    'hyper_initialization_nonzeros': 1,
-    'supervised_loss': False,
+    # 'facmac-lr': 5.e-1,
+    'trajectory': True,
+
+    # 'hyper_initialization_nonzeros': 1,
+    # 'supervised_loss': True,
     # 'n_discrete_actions': 10,
     # 'q_learning-alpha': 0.1,
     # 'lr': 1e-2,
+    # 'act_noise': 0,
     # 'n_homes': 10,
+    # 'facmac-critic_lr': 1.e-2,
     # 'server': False
-    'n_epochs': 20,
+    # 'n_epochs': 20,
 }
 
 best_score_type = 'p50'
@@ -58,6 +61,10 @@ X_LABELS = {
     'n_grdC_level': 'Number of discrete state intervals',
     'q_learning-alpha': 'Learning rate',
     'n_epochs': 'Number of epochs',
+    'buffer_size': 'Buffer size',
+    'nn_type': 'Neural network architecture',
+    'cnn_out_channels': 'Number of output channels',
+    'cnn_kernel_size': 'Kernel size',
 }
 
 
@@ -186,6 +193,7 @@ def get_list_all_fields(results_path):
     result_nos = sorted([int(file.split('n')[1]) for file in result_files if file[0: 3] == "run"])
     columns0 = []
     remove_nos = []
+    current_run_invalid = None
     for result_no in result_nos:
         path_prm = results_path / f"run{result_no}" / 'inputData' / 'prm.npy'
         there_are_figures = len(os.listdir(results_path / f"run{result_no}" / 'figures')) > 0
@@ -196,9 +204,13 @@ def get_list_all_fields(results_path):
                     for subkey, subval in val.items():
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
         else:
-            if result_no != max(result_nos):  # this may be something currently running
+            current_run_no = np.load("outputs/results_analysis/current_run_no.npy")
+            if result_no not in [max(result_nos), current_run_no]:  # this may be something currently running
                 shutil.rmtree(results_path / f"run{result_no}")
-            remove_nos.append(result_no)
+                remove_nos.append(result_no)
+            else:
+                current_run_invalid = current_run_no
+                print(f"run{result_no} is invalid")
 
     print(f"delete run(s) {remove_nos}")
     for result_no in remove_nos:
@@ -208,23 +220,24 @@ def get_list_all_fields(results_path):
     if 'RL-batch_size' in columns0:
         columns0.pop(columns0.index('RL-batch_size'))
 
-    return columns0, result_nos
+    return columns0, result_nos, current_run_invalid
 
 
-def get_names_evaluation_methods(results_path, result_nos):
+def get_names_evaluation_methods(results_path, result_nos, current_run_invalid):
     evaluation_methods_found = False
     it = 0
     keys_methods = []
     while not evaluation_methods_found and it < len(result_nos):
         it += 1
-        path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
-        metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-        keys_methods_run = list(metrics0['end_test_bl'][best_score_type].keys())
-        for method in keys_methods_run:
-            if method not in keys_methods:
-                keys_methods.append(method)
-        if len(keys_methods) == 16:
-            evaluation_methods_found = True
+        if result_nos[-it] != current_run_invalid:
+            path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
+            metrics0 = np.load(path_metrics0, allow_pickle=True).item()
+            keys_methods_run = list(metrics0['end_test_bl'][best_score_type].keys())
+            for method in keys_methods_run:
+                if method not in keys_methods:
+                    keys_methods.append(method)
+            if len(keys_methods) == 16:
+                evaluation_methods_found = True
 
     keys_methods.remove("baseline")
 
@@ -734,7 +747,7 @@ def annotate_run_nos(
                 best_env_score_sorted, runs_sorted
         )):
             ax0 = axs if BEST_ONLY else axs[0]
-            print(f"run = {run}")
+            print(f"run = {run} x {x} best_score {best_score}")
             ax0.annotate(
                 run, (x, best_score), textcoords="offset points", xytext=(0, 10),
                 ha='center'
@@ -1366,10 +1379,11 @@ if __name__ == "__main__":
     if not results_analysis_path.exists():
         os.mkdir(results_analysis_path)
 
-    columns0, result_nos = get_list_all_fields(results_path)
+    columns0, result_nos, current_run_invalid = get_list_all_fields(results_path)
     columns0.append('syst-assets')
+
     # get the names of all the evaluations methods
-    keys_methods = get_names_evaluation_methods(results_path, result_nos)
+    keys_methods = get_names_evaluation_methods(results_path, result_nos, current_run_invalid)
     columns_results_methods = []
     for method in keys_methods:
         for value in [best_score_type, 'p25', 'p75']:

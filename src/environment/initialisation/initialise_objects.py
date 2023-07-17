@@ -259,8 +259,8 @@ def _update_paths(paths, prm, no_run):
     for data in ["wholesale", "carbon_intensity", "temp"]:
         paths[f"{data}_file"] \
             = f"{paths[data]}_n{prm['syst']['H']}_{prm['syst']['year']}.npy"
-
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
+    np.save("outputs/results_analysis/current_run_no.npy", no_run)
     paths["record_folder"] = paths["folder_run"] / "record"
     prm["paths"]["fig_folder"] = paths["folder_run"] / "figures"
     paths["input_folder"] = Path(paths["input_folder"])
