@@ -48,6 +48,8 @@ class Learner:
                 mixer = QMixerNonmonotonic(rl)
             else:
                 raise ValueError(f"Mixer {rl['mixer']} not recognised.")
+        else:
+            mixer = None
 
         return mixer
 

@@ -94,6 +94,9 @@ class ActionSelector:
             ext: str = ""
     ) -> Tuple[list, list]:
         """Select exploration action."""
+        if self.n_homes == 0:
+            return [], []
+
         rl = self.rl
         if rl['type_learning'] in ['facmac', 'DDPG']:
             tf_prev_state = self._format_tf_prev_state(current_state)
@@ -178,6 +181,8 @@ class ActionSelector:
         """Select actions for all episode time steps."""
         env, rl = self.env, self.rl
         n_homes = self.n_homes if ext is None else getattr(self, 'n_homes' + ext)
+        if n_homes == 0:
+            return [], [], []
         states = np.zeros(
             (self.N + 1, n_homes, len(self.rl['state_space']))
         )

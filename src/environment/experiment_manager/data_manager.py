@@ -315,6 +315,7 @@ class DataManager:
             else:
                 new_res = False
                 seed_data = [None, None]
+                data_feasible = True
 
             if not data_feasible:
                 seed_ind = self.infeasible_tidy_files_seeds(seed_ind, evaluation)
