@@ -204,7 +204,7 @@ def get_list_all_fields(results_path):
                     for subkey, subval in val.items():
                         columns0 = add_subkey_to_list_columns(key, subkey, ignore, subval, columns0)
         else:
-            current_run_no = np.load("outputs/results_analysis/current_run_no.npy")
+            current_run_no = np.load("outputs/current_run_no.npy")
             if result_no not in [max(result_nos), current_run_no]:  # this may be something currently running
                 shutil.rmtree(results_path / f"run{result_no}")
                 remove_nos.append(result_no)
