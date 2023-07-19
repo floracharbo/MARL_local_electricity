@@ -14,29 +14,34 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['cnn_out_channels', 'cnn_kernel_size']
+COLUMNS_OF_INTEREST = ['share_active']
 IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = False
-BEST_ONLY = True
-n_subplots = 1 if BEST_ONLY else 3
+PLOT_ENV_ONLY = False
+PLOT_TIME = False
+PLOT_VOLTAGE_DEVIATIONS = True
+n_subplots = 1 + PLOT_ENV_ONLY + PLOT_TIME + PLOT_VOLTAGE_DEVIATIONS
+i_subplot_time = 1 if not PLOT_ENV_ONLY else 2
 font_size = 12
 font = {'size': font_size}
 matplotlib.rc('font', **font)
 
 FILTER = {
-    'type_learning': 'facmac',
+    # 'type_learning': 'q_learning',
     # 'facmac-lr': 5.e-1,
-    'trajectory': True,
+    # 'trajectory': True,
 
     # 'hyper_initialization_nonzeros': 1,
     # 'supervised_loss': True,
-    # 'n_discrete_actions': 10,
+    # 'n_discrete_actions': 2,
+    # 'q_learning-eps': 0.1,
     # 'q_learning-alpha': 0.1,
+    # 'server': False,
     # 'lr': 1e-2,
     # 'act_noise': 0,
-    # 'n_homes': 10,
+    # 'n_homes': 1,
     # 'facmac-critic_lr': 1.e-2,
     # 'server': False
     # 'n_epochs': 20,
@@ -65,6 +70,7 @@ X_LABELS = {
     'nn_type': 'Neural network architecture',
     'cnn_out_channels': 'Number of output channels',
     'cnn_kernel_size': 'Kernel size',
+    'state_space': 'State space',
 }
 
 
@@ -185,7 +191,8 @@ def get_list_all_fields(results_path):
         'env_info', 'clust_dist_share', 'f_std_share', 'phi0', 'run_mode',
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
-        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action', 'RL-lr',
+        'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action',
+        'RL-lr', 'c_max0'
     ]
     if IGNORE_FORCE_OPTIMISATION:
         ignore += ['syst-force_optimisation', 'device', 'ncpu', 'server']
@@ -325,7 +332,7 @@ def str_prev_default_to_param(str_prev_default):
     return param
 
 
-def add_default_values(log):
+def add_default_values(log, new_columns):
     with open("config_files/default_input_parameters/previous_defaults.yaml", "rb") as file:
         previous_defaults = yaml.safe_load(file)
     timestamp_changes_all = previous_defaults['timestamp_changes']
@@ -356,11 +363,16 @@ def add_default_values(log):
                         params_prev_default, values_prev_default, timestamp_changes
                     )
 
+
+    share_active = log.apply(
+        lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
+    )
     if 'syst-share_active' in log.columns:
-        share_active_none = log['syst-share_active'].isnull()
-        log.loc[share_active_none, 'syst-share_active'] = log.loc[share_active_none].apply(
-            lambda x: x['syst-n_homes'] / x['syst-n_homes_all'], axis=1
-        )
+        log['syst-share_active'] = share_active
+    else:
+        log.insert(len(new_columns), 'syst-share_active', share_active)
+        new_columns.insert(len(new_columns), 'syst-share_active')
+
     if 'RL-critic_optimizer' in log.columns:
         critic_optimizer_none = log['RL-critic_optimizer'].isnull()
         log.loc[
@@ -412,7 +424,7 @@ def add_default_values(log):
 
     save_default_values_to_run_data(log)
 
-    return log
+    return log, new_columns
 
 
 def get_key_subkeys_column(column):
@@ -586,10 +598,16 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
 
 
 def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, row):
-    path_metrics = results_path / f"run{result_no}" / 'figures' / 'metrics.npy'
+    path_figures = results_path / f"run{result_no}" / 'figures'
+    path_metrics = path_figures / 'metrics.npy'
+    path_voltage_metrics = path_figures / 'voltage_deviation_metrics.npy'
     if row is not None and path_metrics.is_file():
         # now add results
         metrics = np.load(path_metrics, allow_pickle=True).item()
+        if path_voltage_metrics.is_file():
+            voltage_metrics = np.load(path_voltage_metrics, allow_pickle=True).item()
+        else:
+            voltage_metrics = None
         for method in keys_methods:
             method_ = method
             if method not in metrics['end_test_bl'][best_score_type]:
@@ -605,8 +623,25 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
                     if method_ in metrics['end_test_bl'][value]
                     else None
                 )
+        row = add_voltage_metrics_to_row(row, voltage_metrics, keys_methods)
+
     else:
         row = None
+
+    return row
+
+def add_voltage_metrics_to_row(row, voltage_metrics, keys_methods):
+    if voltage_metrics is not None:
+        for method in keys_methods:
+            for label in voltage_metrics['env_r_c'].keys():
+                if method in voltage_metrics:
+                    row.append(
+                        voltage_metrics[method][label]
+                    )
+                else:
+                    row.append(None)
+    else:
+        row += [None] * len(keys_methods) * 4
 
     return row
 
@@ -670,6 +705,11 @@ def compute_best_score_per_run(keys_methods, log):
 
         log[f"p75_{score}"] = log.apply(
             lambda row: row[f"p75_{row[f'method_{score}'][0][4:]}"]
+            if len(row[f'method_{score}']) > 0 else None,
+            axis=1
+        )
+        log['n_deviation_best_all'] = log.apply(
+            lambda row: row[f"n_deviation_{row[f'method_{score}'][0][4:]}"]
             if len(row[f'method_{score}']) > 0 else None,
             axis=1
         )
@@ -746,17 +786,19 @@ def annotate_run_nos(
                 values_of_interest_sorted, best_score_sorted,
                 best_env_score_sorted, runs_sorted
         )):
-            ax0 = axs if BEST_ONLY else axs[0]
+            ax0 = axs if n_subplots == 1 else axs[0]
             print(f"run = {run} x {x} best_score {best_score}")
             ax0.annotate(
                 run, (x, best_score), textcoords="offset points", xytext=(0, 10),
                 ha='center'
             )
-            if not BEST_ONLY:
+            if PLOT_ENV_ONLY:
                 axs[1].annotate(
                     run, (x, best_env_score), textcoords="offset points", xytext=(0, 10),
                     ha='center'
                 )
+        for j in np.argsort(best_score_sorted):
+            print(f"run {runs_sorted[j]} {values_of_interest_sorted[j]}: {best_score_sorted[j]}")
 
     return axs
 
@@ -788,7 +830,7 @@ def get_indexes_to_ignore_in_setup_comparison(
     ignore_cols = {
         'supervised_loss_weight': ['supervised_loss'],
         'state_space': ['grdC_n'],
-        'share_active': ['n_homes', 'n_homes_test', 'n_homesP', 'share_active_test'],
+        'share_active': ['n_homes', 'n_homes_test', 'n_homesP', 'n_homes_testP', 'share_active_test'],
         'assets': ['own_car', 'own_heat', 'own_loads', 'own_flex'],
         'type_learning': [
             'act_noise', 'agent_facmac', 'buffer_size', 'cnn_kernel_size',
@@ -872,6 +914,7 @@ def compare_all_runs_for_column_of_interest(
         best_values = []
         env_values = []
     time_values = []
+    n_deviation_values = []
     while len(rows_considered) < len(log):
         initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
         rows_considered.append(initial_setup_row)
@@ -883,6 +926,7 @@ def compare_all_runs_for_column_of_interest(
             for p in [25, 75]:
                 best_scores[k][f'p{p}'] = [log[f'p{p}_best_score_{k}'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
+        n_deviation = [log['n_deviation_best_all'].loc[initial_setup_row]]
         for row in range(len(log)):
             row_setup = [log[col].loc[row] for col in other_columns]
             new_row = row not in rows_considered
@@ -921,7 +965,6 @@ def compare_all_runs_for_column_of_interest(
                     if i_col not in indexes_ignore
                 )
 
-            n_homes_on_laptop_only = True
             if FILTER_N_HOMES:
                 n_homes_facmac_traj_only = not (
                     column_of_interest == 'n_homes'
@@ -950,6 +993,7 @@ def compare_all_runs_for_column_of_interest(
                         best_scores[k][f'p{p}'].append(log[f'p{p}_best_score_{k}'].loc[row])
 
                 time_best_score.append(log['time_end'].loc[row])
+                n_deviation.append(log['n_deviation_best_all'].loc[row])
 
         if len(values_of_interest) > 1:
             all_setups_same_as_0 = all(
@@ -1000,17 +1044,15 @@ def compare_all_runs_for_column_of_interest(
                             best_scores[k][f'p{p}'][i] for i in i_sorted
                         ]
                 time_best_score_sorted = [time_best_score[i] for i in i_sorted]
+                n_deviation_sorted = [n_deviation[i] for i in i_sorted]
                 runs_sorted = [runs[i] for i in i_sorted]
                 ls = '--' if 'server' in log and log.loc[rows_considered[-1], 'server'] else '-'
                 values_of_interest_sorted_k, best_scores_sorted = remove_nans_best_scores_sorted(
                     values_of_interest_sorted, best_scores_sorted
                 )
                 for ax_i, k in enumerate(['all', 'env']):
-                    if BEST_ONLY:
-                        if k == 'all':
-                            ax = axs
-                        else:
-                            continue
+                    if k == 'env' and not PLOT_ENV_ONLY:
+                        continue
                     else:
                         ax = axs[ax_i]
                     label = \
@@ -1064,14 +1106,23 @@ def compare_all_runs_for_column_of_interest(
                     # if column_of_interest == 'n_epochs':
                     #     ax.set_yscale('log')
 
-                if not BEST_ONLY:
-                    axs[2].plot(
+                if PLOT_TIME:
+                    axs[i_subplot_time].plot(
                         values_of_interest_sorted, time_best_score_sorted, 'o',
                         label=label,
                         linestyle=ls,
                         markerfacecolor='None',
                         color=colour
                     )
+                if PLOT_VOLTAGE_DEVIATIONS:
+                    axs[-1].plot(
+                        values_of_interest_sorted, n_deviation_sorted, 'o',
+                        label=label,
+                        linestyle=ls,
+                        markerfacecolor='None',
+                        color=colour
+                    )
+
                 for i in range(len(values_of_interest_sorted) - 1):
                     if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
                         print(
@@ -1095,7 +1146,7 @@ def compare_all_runs_for_column_of_interest(
                         min(deltas_x_axis) <= 10 * max(deltas_x_axis)
                         and 0 not in values_of_interest_sorted
                     ):
-                        axs_ = [axs] if BEST_ONLY else axs
+                        axs_ = [axs] if n_subplots == 1 else axs
                         for ax in axs_:
                             ax.set_xscale('log')
                 if column_of_interest == 'state_space':
@@ -1103,16 +1154,17 @@ def compare_all_runs_for_column_of_interest(
                     best_values.append(best_scores_sorted['all'][best_score_type])
                     env_values.append(best_scores_sorted['env'][best_score_type])
                 time_values.append(time_best_score_sorted)
+                n_deviation_values.append(n_deviation_sorted)
                 plotted_something = True
 
         setup_no += 1
 
-    if not BEST_ONLY and len(time_values) > 1:
+    if len(time_values) > 1 and PLOT_TIME:
         end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
         if max(end_time_best_score_sorted) / min(end_time_best_score_sorted) > 30:
-            axs[2].set_yscale('log')
+            axs[i_subplot_time].set_yscale('log')
 
-    state_space_vals = [x_labels, best_values, env_values, time_values] \
+    state_space_vals = [x_labels, best_values, env_values, time_values, n_deviation_values] \
         if column_of_interest == 'state_space' else None
 
     if not plotted_something:
@@ -1122,49 +1174,54 @@ def compare_all_runs_for_column_of_interest(
 
 
 def adapt_figure_for_state_space(state_space_vals, axs):
-    x_labels, best_values, env_values, time_values = state_space_vals
+    x_labels, best_values, env_values, time_values, n_deviation_values = state_space_vals
     all_x_labels = []
     x_labels_flattened = list(chain.from_iterable(x_labels))
     for label in x_labels_flattened:
         if label not in all_x_labels:
             all_x_labels.append(label)
 
-    all_best_vals = np.empty((len(x_labels), len(all_x_labels)))
-    all_env_vals = np.empty((len(x_labels), len(all_x_labels)))
-    all_time_vals = np.empty((len(x_labels), len(all_x_labels)))
-
+    all_best_vals, all_env_vals, all_time_vals, all_n_deviation_vals = [
+        np.empty((len(x_labels), len(all_x_labels))) for _ in range(4)
+    ]
     for i in range(len(x_labels)):
         for j in range(len(x_labels[i])):
             idx_value = all_x_labels.index(x_labels[i][j])
             all_best_vals[i, idx_value] = best_values[i][j]
             all_env_vals[i, idx_value] = env_values[i][j]
             all_time_vals[i, idx_value] = time_values[i][j]
+            all_n_deviation_vals[i, idx_value] = n_deviation_values[i][j]
 
     plt.close()
 
     i_sorted = np.argsort(all_x_labels)
     x_labels_sorted = [all_x_labels[i] for i in i_sorted]
     fig, axs = plt.subplots(n_subplots, 1, figsize=(6.4, 11 / 3 * n_subplots))
-    for i, (best, env, time) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals)):
+
+    for i, (best, env, time, n_deviation) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals, all_n_deviation_vals)):
         best_sorted = [best[i] for i in i_sorted]
         env_sorted = [env[i] for i in i_sorted]
         time_sorted = [time[i] for i in i_sorted]
-        ax0 = axs if BEST_ONLY else axs[0]
-        p = ax0.plot(x_labels_sorted, best_sorted, 'o', label=i + 1, markerfacecolor='None')
+        n_deviation_sorted = [n_deviation[i] for i in i_sorted]
+        ax0 = axs if n_subplots == 1 else axs[0]
+        p = ax0.plot(x_labels_sorted, best_sorted, '-o', label=i + 1, markerfacecolor='None')
+
         i_best = np.argmax(best_sorted)
         ax0.plot(
             x_labels_sorted[i_best], best_sorted[i_best],
             'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
         )
-        if not BEST_ONLY:
-            p = axs[1].plot(x_labels_sorted, env_sorted, 'o', label=i + 1, markerfacecolor='None')
-        i_best = np.argmax(env_sorted)
-        ax0.plot(
-            x_labels_sorted[i_best], env_sorted[i_best],
-            'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
-        )
-        if not BEST_ONLY:
-            axs[2].plot(x_labels_sorted, time_sorted, 'o', label=i + 1, markerfacecolor='None')
+        if PLOT_ENV_ONLY:
+            p = axs[1].plot(x_labels_sorted, env_sorted, '-o', label=i + 1, markerfacecolor='None')
+            i_best = np.argmax(env_sorted)
+            axs[1].plot(
+                x_labels_sorted[i_best], env_sorted[i_best],
+                'o', markerfacecolor=p[0].get_color(), markeredgecolor=p[0].get_color()
+            )
+        if PLOT_TIME:
+            axs[i_subplot_time].plot(x_labels_sorted, time_sorted, '-o', label=i + 1, markerfacecolor='None')
+        if PLOT_VOLTAGE_DEVIATIONS:
+            axs[-1].plot(x_labels_sorted, n_deviation_sorted, '-o', label=i + 1, markerfacecolor='None')
 
     return fig, axs
 
@@ -1198,7 +1255,7 @@ def add_table_legend(setups, fig, varied_columns, column_of_interest, other_colu
         x_low = 1 - height
         if column_of_interest == 'state_space':
             x_low += 0.2
-        ax0 = axs if BEST_ONLY else axs[0]
+        ax0 = axs if n_subplots == 1 else axs[0]
         table = ax0.table(
             cellText=df.values, colLabels=df.columns, bbox=[1.03, x_low, width, height]
         )
@@ -1276,7 +1333,7 @@ def plot_sensitivity_analyses(new_columns, log):
             column_of_interest, other_columns, axs, log
         )
         if plotted_something:
-            ax0 = axs if BEST_ONLY else axs[0]
+            ax0 = axs if n_subplots == 1 else axs[0]
             if column_of_interest == 'state_space':
                 fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
 
@@ -1284,15 +1341,13 @@ def plot_sensitivity_analyses(new_columns, log):
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
 
             if column_of_interest in ['state_space', 'type_learning']:
-                ax0.axes.xaxis.set_ticklabels([])
-                if not BEST_ONLY:
-                    axs[1].axes.xaxis.set_ticklabels([])
+                for i in range(n_subplots - 1):
+                    axs[i].axes.xaxis.set_ticklabels([])
                 plt.xticks(rotation=90)
             elif column_of_interest in ['rnn_hidden_dim', 'lr']:
                 ax0.set_xscale('log')
-                if not BEST_ONLY:
-                    axs[1].set_xscale('log')
-                    axs[2].set_xscale('log')
+                for i in range(n_subplots):
+                    axs[i].set_xscale('log')
 
             # remove columns that are irrelevant to the types learning in the current setups
             if column_of_interest != 'type_learning':
@@ -1305,10 +1360,10 @@ def plot_sensitivity_analyses(new_columns, log):
                 axs, fig = add_table_legend(
                     setups, fig, varied_columns, column_of_interest, other_columns, axs
                 )
-            ax0 = axs if BEST_ONLY else axs[0]
-            ylabel = "Savings [£/home/h]" if BEST_ONLY else "Best score [£/home/h]"
+            ax0 = axs if n_subplots == 1 else axs[0]
+            ylabel = "Savings [£/home/h]" if n_subplots == 1 else "Best score [£/home/h]"
             ax0.set_ylabel(ylabel)
-            if not BEST_ONLY:
+            if PLOT_ENV_ONLY:
                 axs[1].set_ylabel(
                     '\n'.join(
                         wrap(
@@ -1317,8 +1372,11 @@ def plot_sensitivity_analyses(new_columns, log):
                         )
                     )
                 )
-                axs[2].set_ylabel("time [s]")
-            ax_xlabel = axs if BEST_ONLY else axs[2]
+            if PLOT_TIME:
+                axs[i_subplot_time].set_ylabel("Time [s]")
+            if PLOT_VOLTAGE_DEVIATIONS:
+                axs[-1].set_ylabel("Number of voltage deviations over the day")
+            ax_xlabel = axs if n_subplots == 1 else axs[-1]
             x_label = X_LABELS[column_of_interest] if column_of_interest in X_LABELS \
                 else column_of_interest
             ax_xlabel.set_xlabel('\n'.join(wrap(x_label, 50)))
@@ -1388,6 +1446,9 @@ if __name__ == "__main__":
     for method in keys_methods:
         for value in [best_score_type, 'p25', 'p75']:
             columns_results_methods.append(f"{value}_{method}")
+    for method in keys_methods:
+        for label in ['mean_deviation', 'max_deviation', 'n_deviation', 'n_hour_deviation']:
+            columns_results_methods.append(f"{label}_{method}")
 
     log_path = results_analysis_path / "log_runs.csv"
     log = pd.DataFrame(columns=columns0 + columns_results_methods)
@@ -1405,7 +1466,7 @@ if __name__ == "__main__":
     new_columns, log = remove_columns_that_never_change_and_tidy(
         log, columns0, columns_results_methods
     )
-    log = add_default_values(log)
+    log, new_columns = add_default_values(log, new_columns)
     log = fix_learning_specific_values(log)
     new_columns = remove_key_from_columns_names(new_columns)
     log.columns = new_columns + columns_results_methods
@@ -1415,12 +1476,11 @@ if __name__ == "__main__":
     plot_sensitivity_analyses(new_columns, log)
 
     # plot with and without trajectory
-    # Data
     runs = {
-        'Individual time steps': 31,
-        'Trajectory': 361,
+        'Individual time steps': 398,
+        'Trajectory': 525,
     }
-    if all(run in log['run'] for run in runs):
+    if all(run in list(log['run']) for run in runs.values()):
         labels = list(runs.keys())
         medians = np.array(
             [log.loc[log['run'] == run, 'best_score_all'].item() for run in runs.values()]
