@@ -310,12 +310,18 @@ def _update_bat_prm(prm):
 
     car["C"] = car["dep"]  # GBP/kWh storage costs
     car['c_max0'] = car['c_max']
-    if prm['grd']['reactive_power_for_voltage_control'] or not prm['grd']['manage_voltage']:
-        c_max_reactive_power = car['max_apparent_power_car'] * car['eta_ch']
-    else:
-        c_max_reactive_power = np.sqrt(
+    # if prm['grd']['reactive_power_for_voltage_control'] or not prm['grd']['manage_voltage']:
+    #     c_max_reactive_power = car['max_apparent_power_car'] * car['eta_ch']
+    # else:
+    #     c_max_reactive_power = np.sqrt(
+    #         car['max_apparent_power_car'] ** 2 / (1 + car['pf_passive_homes'] ** 2)
+    #     ) * car['eta_ch']
+    c_max_reactive_power = np.minimum(
+        np.sqrt(
             car['max_apparent_power_car'] ** 2 / (1 + car['pf_passive_homes'] ** 2)
-        ) * car['eta_ch']
+        ) * car['eta_ch'],
+        car['max_apparent_power_car'] * car['eta_ch']
+    )
     if c_max_reactive_power < car['c_max']:
         print(
             f"updated c_max {car['c_max']} to be consistent with max_apparent_power_car "
