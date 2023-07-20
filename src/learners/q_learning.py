@@ -468,9 +468,9 @@ class TabularQLearner:
                 )
                 q0 = self.q_tables[q + '0'][home][ind_indiv_s[home]][
                     ind_indiv_ac[home]]
+                i_q = self.rl['dim_actions'] - 1 if self.rl['n_discrete_actions'] > 1 else 0
                 q0_baseline_a = self.q_tables[q + '0'][home][
-                    ind_indiv_s[home]][
-                    self.rl['dim_actions'] - 1]
+                    ind_indiv_s[home]][i_q]
                 reward_a = q0 - q0_baseline_a
                 error = reward_a \
                     - self.q_tables[q][home][ind_indiv_s[home]][ind_indiv_ac[home]]
