@@ -376,7 +376,10 @@ def plot_voltage_statistics(record, prm):
                     for repeat in range(prm['RL']['n_repeats'])
                 ]
             )
-
+    np.save(
+        prm['paths']['fig_folder'] / "voltage_deviation_metrics",
+        hist_values
+    )
     y_axis_labels = [
         'Mean \nvoltage deviation \n[p.u.]', 'Max \nvoltage deviation \n[p.u.]',
         'Number of buses \nwith voltage deviations',
