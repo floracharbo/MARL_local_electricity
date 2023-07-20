@@ -969,11 +969,13 @@ def map_over_undervoltage(
                 # Plot all the loads and generations
                 ldA = pp_plot.create_bus_collection(
                     net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
-                    patch_type="poly3", size=1.4, color="coral", alpha=0.5, zorder=11
+                    patch_type="poly3", size=1.4, color="coral", alpha=0.5, zorder=11,
+                    label='Loads'
                 )
                 ldB = pp_plot.create_bus_collection(
                     net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
-                    patch_type="poly3", size=1.4, color="g", alpha=0.5, zorder=11
+                    patch_type="poly3", size=1.4, color="g", alpha=0.5, zorder=11,
+                    label='Generators'
                 )
                 for time_step in range(prm['syst']['N']):
                     # Plot over and under voltages
@@ -987,12 +989,14 @@ def map_over_undervoltage(
                         over = pp_plot.create_bus_collection(
                             net,
                             overvoltage_bus_index,
-                            size=0.6, color="red", zorder=10
+                            size=0.6, color="red", zorder=10,
+                            label='Overvoltage'
                         )
                         under = pp_plot.create_bus_collection(
                             net,
                             undervoltage_bus_index,
-                            size=0.6, color="dodgerblue", zorder=10
+                            size=0.6, color="dodgerblue", zorder=10,
+                            label='Undervoltage'
                         )
                         # Draw all the collected plots
                         ax = pp_plot.draw_collections(
@@ -1004,28 +1008,37 @@ def map_over_undervoltage(
                         if annotate:
                             annotate_buses(last, method, prm, net)
                         # Save
+                        plt.legend()
                         title = f'map_over_under_voltage{repeat}_{method}_t{time_step}'
-                        title_and_save(title, ax.figure, prm)
+                        title_and_save(title, ax.figure, prm, display_title=False)
 
-    fig, axs = plt.subplots(2)
-
-    for axis_i, (n_deviations, title) in enumerate(
-        zip([n_over_voltages, n_under_voltages], ['over', 'under'])
+    n_subplots = sum(
+        sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0
+        for n_deviations in [n_over_voltages, n_under_voltages]
+    )
+    fig, axs = plt.subplots(n_subplots)
+    i_subplot = 0
+    for n_deviations, title in zip(
+        [n_over_voltages, n_under_voltages], ['over', 'under']
     ):
-        for method in methods_to_plot:
-            axs[axis_i].plot(
-                np.mean(n_deviations[method][:-1], axis=0),
-                label=method,
-                color=prm['save']['colourse'][method]
-            )
-            axs[axis_i].fill_between(
-                range(prm['syst']['N']),
-                np.percentile(n_deviations[method][:-1], 75, axis=0),
-                np.percentile(n_deviations[method][:-1], 25, axis=0),
-                alpha=0.2,
-                color=prm['save']['colourse'][method]
-            )
-        axs[axis_i].set_title(f"Number of {title}-voltages")
-        axs[axis_i].set_xlabel("Time step")
-        axs[axis_i].set_ylabel("Number of deviations")
-    title_and_save('n_voltage_deviations_vs_time', fig, prm)
+        if sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0:
+            ax = axs if n_subplots == 1 else axs[i_subplot]
+            for method in methods_to_plot:
+                ax.plot(
+                    np.mean(n_deviations[method][:-1], axis=0),
+                    label=method,
+                    color=prm['save']['colourse'][method]
+                )
+                ax.fill_between(
+                    range(prm['syst']['N']),
+                    np.percentile(n_deviations[method][:-1], 75, axis=0),
+                    np.percentile(n_deviations[method][:-1], 25, axis=0),
+                    alpha=0.2,
+                    color=prm['save']['colourse'][method]
+                )
+            # ax.set_title(f"Number of {title}-voltages")
+            ax.set_xlabel("Time step")
+            ax.set_ylabel(f"Number of {title}-voltages")
+        i_subplot += 1
+
+    title_and_save('n_voltage_deviations_vs_time', fig, prm, display_title=False)
