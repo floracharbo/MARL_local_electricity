@@ -54,17 +54,17 @@ def granularity_to_multipliers(granularity):
 
 def compute_max_car_cons_gen_values(env, state_space):
     """Get the maximum possible values for car consumption, household consumption and generation."""
-    max_car_cons, max_normcons, max_normgen, max_car_dem_agg = [-1 for _ in range(4)]
-    if state_space is not None:
-        if any(descriptor[0: len("car_cons_")] == "car_cons_" for descriptor in state_space):
-            max_car_cons = np.max(
-                [np.max(env.hedge.fs_brackets[transition])
-                 for transition in env.prm['syst']['day_trans']]
-            )
-        else:
-            max_car_cons = 1
+    # max_car_cons, max_normcons, max_normgen, max_car_dem_agg = [-1 for _ in range(4)]
+    # if state_space is not None:
+    #     if any(descriptor[0: len("car_cons_")] == "car_cons_" for descriptor in state_space):
+    #         max_car_cons = np.max(
+    #             [np.max(env.hedge.fs_brackets[transition])
+    #              for transition in env.prm['syst']['day_trans']]
+    #         )
+    #     else:
+    #         max_car_cons = 1
 
-    max_normcons, max_normgen, max_car_dem_agg = 1, 1, 1
+    max_normcons, max_normgen, max_car_dem_agg, max_car_cons = 1, 1, 1, 1
 
     return max_car_cons, max_normcons, max_normgen, max_car_dem_agg
 
@@ -117,7 +117,7 @@ class EnvSpaces:
         """Initialise information on action and state spaces."""
         prm = env.prm
         # info on state and action spaces
-        max_car_cons, max_normcons, max_normgen, max_bat_dem_agg \
+        _, max_normcons, max_normgen, max_bat_dem_agg \
             = compute_max_car_cons_gen_values(env, prm["RL"]["state_space"])
         if self.i0_costs == 12 * 24:
             np.save("max_bat_dem_agg", max_bat_dem_agg)
@@ -126,6 +126,7 @@ class EnvSpaces:
         i_month = env.date.month - 1 if 'date' in env.__dict__ else 0
         n_other_states = rl["n_other_states"]
         f_min, f_max = env.hedge.f_min, env.hedge.f_max
+        max_car_cons = f_max['car']
         max_flexibility = \
             prm['car']['c_max'] / prm['car']['eta_ch'] \
             + prm['car']['d_max'] \
@@ -401,9 +402,9 @@ class EnvSpaces:
                 brackets[typev] = None
                 continue
             perc_dict = {
-                'loads_cons_step': 'loads',
-                'gen_prod_step': 'gen',
-                'car_cons_step': 'car',
+                # 'loads_cons_step': 'loads',
+                # 'gen_prod_step': 'gen',
+                # 'car_cons_step': 'car',
                 'grdC': 'grd'
             }
             brackets[typev] = []
@@ -413,13 +414,13 @@ class EnvSpaces:
 
                 if self.discrete[typev][s] == 1:
                     brackets[typev].append([0])
-                elif ind_str in perc_dict:
+                elif ind_str == ['grdC']:
                     i_perc = [
                         int(1 / n_bins * 100 * i)
                         for i in range(n_bins + 1)
                     ]
                     brackets[typev].append(
-                        [self.perc[perc_dict[ind_str]][i] for i in i_perc]
+                        [self.perc['grd'][i] for i in i_perc]
                     )
                 elif ind_str == "car_tau":
                     brackets[typev].append([-75, 0, 10, self.c_max])
@@ -679,7 +680,7 @@ class EnvSpaces:
             normalised_val = (val - min_val) / (max_val - min_val)
             if abs(normalised_val) < 1e-5:
                 normalised_val = 0
-            if not (0 <= normalised_val <= 1):
+            if not (0 <= normalised_val <= 1 + 1e-2):
                 print(
                     f"val {val} normalised_val {normalised_val} "
                     f"max_home {max_val} descriptor {descriptor}"
@@ -688,6 +689,8 @@ class EnvSpaces:
                     normalised_val = 0
                 else:
                     normalised_val = 1
+            if 1 < normalised_val <= 1 + 1e-2:
+                normalised_val = 1
             assert 0 <= normalised_val <= 1, \
                 f"val {normalised_val} max_home {max_val} descriptor {descriptor}"
         else:
