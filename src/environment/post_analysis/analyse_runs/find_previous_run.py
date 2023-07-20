@@ -17,21 +17,21 @@ if not results_analysis_path.exists():
 candidates_left = True
 settings = {
     'RL': {
-        'type_learning': 'q_learning',
+        'type_learning': 'facmac',
         'n_epochs': 20,
         'n_repeats': 10,
-        # 'trajectory': True,
-        # 'supervised_loss': False,
-        # 'trajectory': False,
-        'lr': 1e-4,
-        'q_learning-eps': 0.1,
-        'n_discrete_actions': 10,
+        'trajectory': True,
+        'supervised_loss': False,
+        # 'lr': 1e-4,
+        # 'q_learning-eps': 0.1,
+        # 'n_discrete_actions': 10,
         # 'act_noise': 0.01
         # 'state_space': 'grdC',
     },
     'syst': {
-        # 'n_homes': 10,
+        'n_homes': 55,
         'gan_generation': True,
+        'manage_voltage': True,
         # 'force_optimisation': True,
     },
     'bat': {
@@ -93,13 +93,15 @@ def find_previous_run_with_same_settings(settings, log_path):
         print(f"run(s) {log['run'].tolist()}")
         print(log[['run', 'best_score_all']])
 
-    return log
+    return log, candidates_left
 
 
-log = find_previous_run_with_same_settings(settings, log_path)
-print(f"runs: {log['run'].tolist()}")
-if len(log) > 1:
-    best_run = log['run'].loc[log['best_score_all'] == max(log['best_score_all'])].tolist()
-    print(f"best run: {best_run}")
-    print(f"best run with env-based exploration: "
-          f"{log['run'].loc[log['best_score_env'] == max(log['best_score_env'])].tolist()}")
+log, candidates_left = find_previous_run_with_same_settings(settings, log_path)
+
+if candidates_left:
+    print(f"runs: {log['run'].tolist()}")
+    if len(log) > 1:
+        best_run = log['run'].loc[log['best_score_all'] == max(log['best_score_all'])].tolist()
+        print(f"best run: {best_run}")
+        print(f"best run with env-based exploration: "
+              f"{log['run'].loc[log['best_score_env'] == max(log['best_score_env'])].tolist()}")
