@@ -17,6 +17,7 @@ save_label = 'new_july23_2'
 plot_times = True
 
 compare_times = ['OMQ']
+# , 'FD']
 labels = {
     'IQ': 'Independent Q-learning',
     'OIQ': 'Optimisation-informed independent Q-learning',
@@ -27,8 +28,8 @@ labels = {
     # 'OCQ': 'Optimisation-informed, count-based Q-learning',
 
     'opt': 'Optimal',
-    'FD': 'Centralised but factored critic',
-    'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
+    # 'FD': 'Centralised but factored critic',
+    # 'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
     # 'FH': 'FACMAC',  # (hourly)
     # 'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
@@ -78,7 +79,9 @@ opt_informed = {
 # runQ = [1917, 1919] + list(range(1956, 1965))
 # runQ = [2024] + list(range(2026, 2035))
 # runQ = [418, 419, 420, 489]
-runQ = list(range(1216, 1222))
+# runQ = list(range(1216, 1222)) + list(range(1467, 1471))
+# runQ = list(range(1516, 1526))
+runQ = list(range(1517, 1526)) + [1570]
 
 # for impacts varying n testing homes
 # runQ = [2196, 2210]
@@ -86,6 +89,7 @@ runs = {
     entry: runQ for entry in
     [t for t in type_learning if t[-1] == 'Q'] + ['opt']
 }
+
 
 # 'FD': [160, 105, 106, 123, 124, 125],
 # 'FD': list(range(265, 271)),
@@ -98,7 +102,8 @@ runs = {
 
 # impacts varying passive homes
 # runs['FD'] = list(range(2216, 2219)) + [2227, 2228]
-runs['FD'] = list(range(609, 612)) + [1212, 1213]
+runs['FD'] = list(range(609, 612)) + [1212, 1213] + list(range(1404, 1408)) + [1466]
+
 
 # 'FDO': list(range(257, 261)) + list(range(263, 265)),
 # 'FDO': list(range(528, 534)),
@@ -108,7 +113,7 @@ runs['FD'] = list(range(609, 612)) + [1212, 1213]
 # missing 30
 # runs['FDO'] = list(range(1987, 1997))
 # runs['FDO'] = list(range(2045, 2054)) + [2055]
-runs['FDO'] = list(range(604, 608))
+runs['FDO'] = list(range(604, 609)) + list(range(1400, 1404))
 
 # 'FH': [126, 127, 128, 129, 130, 131],
 # 'FH': list(range(245, 251)),
@@ -158,7 +163,9 @@ colours = {
 
 # n_homes = [1, 3, 5, 10, 20, 50]
 # n_homes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30]
-n_homes = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30]
+n_homes = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 100]
+# n_homes_fit_time = [1, 5, 10, 20]
+n_homes_fit_time = n_homes
 
 results_analysis_path = Path("outputs/results_analysis")
 log_path = results_analysis_path / "log_runs.csv"
@@ -270,6 +277,7 @@ for line_label in labels.keys():
         label=label, linestyle=ls,
         color=colour
     )
+    print(f"{label} n_homes {np.array(n_homes)[mask]}")
     ax0.fill_between(
         np.array(n_homes)[mask],
         values['p25'][mask],
@@ -277,7 +285,8 @@ for line_label in labels.keys():
         alpha=0.1,
         color=colour
     )
-    ax0.title.set_text('a')
+    if plot_times:
+        ax0.title.set_text('a')
 
     if plot_times and line_label in compare_times:
         axs[1].plot(
@@ -288,9 +297,12 @@ for line_label in labels.keys():
         function = polynomial2
         # if line_label == 'OMQ' else first_order
         if sum(~np.isnan(time_end)) > 2:
-            popt, pcov = optimize.curve_fit(function, np.array(n_homes)[mask], time_end[mask])
+            i_n_homes_fit = [i for i, home in enumerate(list(np.array(n_homes)[mask])) if home in n_homes_fit_time]
+            homes_fit, time_end_fit = np.array(n_homes)[mask][i_n_homes_fit], time_end[mask][i_n_homes_fit]
+            popt, pcov = optimize.curve_fit(function, homes_fit, time_end_fit)
             coeffs = popt
-            xs = list(range(1, x_max + 1))
+            max_n_homes = n_homes[np.where(mask)[0][-1]]
+            xs = list(range(1, max_n_homes + 1))
             f_fitted = [function(x, *coeffs) for x in xs]
             # if line_label == 'OMQ':
             if True:
@@ -479,42 +491,44 @@ if plot_times:
 #         1200]
 # thesis
 # runs = [2015, 2016, 2017]
-runs = list(range(2059, 2062))
-all_data = np.zeros((10, 3))
-for i, run in enumerate(runs):
-    # data = np.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
-    data = np.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
+ablations=False
+if ablations:
+    runs = list(range(2059, 2062))
+    all_data = np.zeros((10, 3))
+    for i, run in enumerate(runs):
+        # data = np.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
+        data = np.load(f"outputs/results_analysis/end_test_above_bl_env_r_c_run{run}.npy")
 
-    all_data[:, i] = data
-    # print(f"run {run} ave {aves[i]:.2f} p25 {p25s[i]:.2f} p75 {p75s[i]:.2f}")
-    # print(
-    #     f"from data ave {np.mean(data)}, "
-    #     f"p25 {np.percentile(data, 25)}, "
-    #     f"p75 {np.percentile(data, 75)}"
-    # )
+        all_data[:, i] = data
+        # print(f"run {run} ave {aves[i]:.2f} p25 {p25s[i]:.2f} p75 {p75s[i]:.2f}")
+        # print(
+        #     f"from data ave {np.mean(data)}, "
+        #     f"p25 {np.percentile(data, 25)}, "
+        #     f"p75 {np.percentile(data, 75)}"
+        # )
 
-labels = [
-    'linear neural network, no hysteretic learning',
-    'linear neural network, hysteretic learning',
-    # 'convolutional neural network, no hysteretic learning',
-    'convolutional neural network, hysteretic learning',
-]
-title = 'Ablations'
+    labels = [
+        'linear neural network, no hysteretic learning',
+        'linear neural network, hysteretic learning',
+        # 'convolutional neural network, no hysteretic learning',
+        'convolutional neural network, hysteretic learning',
+    ]
+    title = 'Ablations'
 
-positions = np.arange(3) + 1
+    positions = np.arange(3) + 1
 
-fig = plt.figure(figsize=(3, 4))
+    fig = plt.figure(figsize=(3, 4))
 
-# matplotlib > 1.4
-bp = plt.boxplot(
-    all_data, positions=positions, showmeans=True, showfliers=False, whis=1e-5,
-)
+    # matplotlib > 1.4
+    bp = plt.boxplot(
+        all_data, positions=positions, showmeans=True, showfliers=False, whis=1e-5,
+    )
 
-plt.ylabel('Savings [£/home/month]')
-# plt.gca().set_xticklabels(labels, rotation=45, ha='right')
-plt.tight_layout()
+    plt.ylabel('Savings [£/home/month]')
+    # plt.gca().set_xticklabels(labels, rotation=45, ha='right')
+    plt.tight_layout()
 
-fig.savefig(
-    f"outputs/results_analysis/ablations_{save_label}_results_thesis.pdf",
-    bbox_inches='tight', format='pdf', dpi=1200
-)
+    fig.savefig(
+        f"outputs/results_analysis/ablations_{save_label}_results_thesis.pdf",
+        bbox_inches='tight', format='pdf', dpi=1200
+    )
