@@ -17,3 +17,5 @@ input_data/open_data/European_LV_CSV/*
 config_files/input_parameters/previous_defaults.yaml
 local_files/*
 input_data/old_hedge_inputs*
+input_data/open_data/upper_bound0.npy
+input_data/open_data/lower_bound0.npy
