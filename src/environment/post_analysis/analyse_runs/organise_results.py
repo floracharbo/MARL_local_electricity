@@ -16,7 +16,7 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['share_active']
+COLUMNS_OF_INTEREST = ['penalise_individual_exports']
 IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = False
 PLOT_ENV_ONLY = False
@@ -192,7 +192,7 @@ def get_list_all_fields(results_path):
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
         'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action',
-        'RL-lr', 'c_max0'
+        'RL-lr', 'c_max0', 'net-version'
     ]
     if IGNORE_FORCE_OPTIMISATION:
         ignore += ['syst-force_optimisation', 'device', 'ncpu', 'server']
@@ -373,6 +373,12 @@ def add_default_values(log, new_columns):
         log.insert(len(new_columns), 'syst-share_active', share_active)
         new_columns.insert(len(new_columns), 'syst-share_active')
 
+    log['grd-penalty_overvoltage'] = log.apply(
+        lambda x: x['grd-penalty_overvoltage'] if x['grd-manage_voltage'] else 0, axis=1
+    )
+    log['grd-penalty_undervoltage'] = log.apply(
+        lambda x: x['grd-penalty_undervoltage'] if x['grd-manage_voltage'] else 0, axis=1
+    )
     if all(
         f"{prm}-own_{der}" in log.columns for prm, der in zip(
             ['car', 'heat', 'loads'], ['car', 'heat', 'flex']
@@ -384,6 +390,13 @@ def add_default_values(log, new_columns):
         )
         log.insert(len(new_columns), 'own_der', own_der)
         new_columns.insert(len(new_columns), 'own_der')
+    voltage_penalty = log.apply(
+        lambda x: x['grd-penalty_overvoltage']
+        if x['grd-penalty_overvoltage'] == x['grd-penalty_undervoltage'] else np.nan,
+        axis=1
+    )
+    log.insert(len(new_columns), 'voltage_penalty', voltage_penalty)
+    new_columns.insert(len(new_columns), 'voltage_penalty')
 
     if 'RL-critic_optimizer' in log.columns:
         critic_optimizer_none = log['RL-critic_optimizer'].isnull()
