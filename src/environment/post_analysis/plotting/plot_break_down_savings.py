@@ -381,9 +381,9 @@ def plot_voltage_statistics(record, prm):
         hist_values
     )
     y_axis_labels = [
-        'Mean \nvoltage deviation \n[p.u.]', 'Max \nvoltage deviation \n[p.u.]',
-        'Number of buses \nwith voltage deviations',
-        'Number of hours \nwith voltage deviations'
+        'Mean \nvoltage constraint violation \n[p.u.]', 'Max \nvoltage constraint violation \n[p.u.]',
+        'number of bus-hours \nwith voltage constraint violation',
+        'Number of hours \nwith voltage constraint violation'
     ]
     methods_labels = {method: method for method in prm['RL']['evaluation_methods']}
     methods_labels['baseline'] = 'Baseline'

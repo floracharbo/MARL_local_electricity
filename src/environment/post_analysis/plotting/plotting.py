@@ -158,7 +158,7 @@ def plotting(record, spaces, prm, f):
     if prm['save']['plot_type'] > 0:
         plot_eval_action(record, prm)
 
-    # 19 - grid import and export and corresponding limit violations
+    # 19 - grid import and export and corresponding constraint violations
     all_methods_to_plot = prm['RL']['evaluation_methods']
     folder_run = prm["paths"]["folder_run"]
     # 20 - plot the aggregated hourly import and export and the limits
