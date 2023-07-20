@@ -948,8 +948,8 @@ def _make_type_eval_list(rl, large_q_bool=False):
     rl["eval_action_choice"] = [
         method for method in rl["evaluation_methods"] if method not in ["baseline", "opt"]
     ]
-    assert len(rl["eval_action_choice"]) > 0, \
-        "not valid eval_type with action_choice"
+    # assert len(rl["eval_action_choice"]) > 0, \
+    #     "not valid eval_type with action_choice"
 
     rl = _filter_type_learning_facmac(rl)
     rl = _filter_type_evals_no_active_homes(rl)

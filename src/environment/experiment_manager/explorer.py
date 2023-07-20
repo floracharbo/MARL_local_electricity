@@ -934,7 +934,6 @@ class Explorer:
                 passive_vars=self.env.get_passive_vars(time_step),
                 hourly_line_losses=res['hourly_line_losses'][time_step],
                 voltage_squared=res['voltage_squared'][:, time_step],
-                q_ext_grid=res['q_ext_grid'][time_step]
             )
             step_vals_i["indiv_grid_battery_costs"] = - np.array(
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
@@ -1147,7 +1146,6 @@ class Explorer:
                 passive_vars=passive_vars,
                 hourly_line_losses=hourly_line_losses,
                 voltage_squared=voltage_squared,
-                q_ext_grid=q_ext_grid
             )
 
             if not constraint_ok:
