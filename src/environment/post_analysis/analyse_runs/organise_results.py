@@ -29,7 +29,7 @@ font = {'size': font_size}
 matplotlib.rc('font', **font)
 
 FILTER = {
-    # 'type_learning': 'q_learning',
+    'type_learning': 'facmac',
     # 'facmac-lr': 5.e-1,
     # 'trajectory': True,
 
@@ -38,13 +38,13 @@ FILTER = {
     # 'n_discrete_actions': 2,
     # 'q_learning-eps': 0.1,
     # 'q_learning-alpha': 0.1,
-    # 'server': False,
+    # 'server': True,
     # 'lr': 1e-2,
     # 'act_noise': 0,
     # 'n_homes': 1,
     # 'facmac-critic_lr': 1.e-2,
     # 'server': False
-    # 'n_epochs': 20,
+    'n_epochs': 20,
 }
 
 best_score_type = 'p50'
@@ -373,6 +373,18 @@ def add_default_values(log, new_columns):
         log.insert(len(new_columns), 'syst-share_active', share_active)
         new_columns.insert(len(new_columns), 'syst-share_active')
 
+    if all(
+        f"{prm}-own_{der}" in log.columns for prm, der in zip(
+            ['car', 'heat', 'loads'], ['car', 'heat', 'flex']
+        )
+    ):
+        own_der = log.apply(
+            lambda x: x['car-own_car'] if x['car-own_car'] == x['heat-own_heat'] and x['car-own_car'] == x['loads-own_flex'] else np.nan,
+            axis=1
+        )
+        log.insert(len(new_columns), 'own_der', own_der)
+        new_columns.insert(len(new_columns), 'own_der')
+
     if 'RL-critic_optimizer' in log.columns:
         critic_optimizer_none = log['RL-critic_optimizer'].isnull()
         log.loc[
@@ -633,7 +645,7 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 def add_voltage_metrics_to_row(row, voltage_metrics, keys_methods):
     if voltage_metrics is not None:
         for method in keys_methods:
-            for label in voltage_metrics['env_r_c'].keys():
+            for label in voltage_metrics['baseline'].keys():
                 if method in voltage_metrics:
                     row.append(
                         voltage_metrics[method][label]
@@ -839,7 +851,8 @@ def get_indexes_to_ignore_in_setup_comparison(
             'n_hidden_layers_critic', 'nn_type', 'nn_type_critic', 'obs_agent_id',
             'ou_stop_episode', 'rnn_hidden_dim', 'start_steps', 'q_learning-alpha',
             'gamma', 'timestamp', 'instant_feedback'
-        ]
+        ],
+        'own_der': ['own_car', 'own_heat', 'own_flex'],
     }
     indexes_ignore = []
     if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
