@@ -771,7 +771,8 @@ def _syst_info(prm):
 def _homes_info(loads, syst, gen, heat):
     for ext in syst['n_homes_extensions_all']:
         gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \
-            if gen["own_PV" + ext] == 1 else gen["own_PV" + ext]
+            if isinstance(gen["own_PV" + ext], (int, float)) and gen["own_PV" + ext] == 1 \
+            else gen["own_PV" + ext]
         heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) * heat["own_heat" + ext] \
             if isinstance(heat["own_heat" + ext], int) \
             else np.array(heat["own_heat" + ext])
