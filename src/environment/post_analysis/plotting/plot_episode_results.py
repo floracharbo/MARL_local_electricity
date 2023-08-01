@@ -441,7 +441,7 @@ def _plot_indiv_agent_res(
             figsize = (13, 13)
             row_method_legend = n_rows - 1
 
-        for home in range(prm["syst"]["n_homes"]):
+        for home in range(min(prm["syst"]["n_homes"], 10)):
             xs = range(len(loads_car[home]))
             bands_car_availability = _get_bands_car_availability(
                 availabilities_car, home, prm['syst']['N']
@@ -1016,29 +1016,47 @@ def map_over_undervoltage(
         sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0
         for n_deviations in [n_over_voltages, n_under_voltages]
     )
-    fig, axs = plt.subplots(n_subplots)
-    i_subplot = 0
-    for n_deviations, title in zip(
-        [n_over_voltages, n_under_voltages], ['over', 'under']
-    ):
-        if sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0:
-            ax = axs if n_subplots == 1 else axs[i_subplot]
-            for method in methods_to_plot:
-                ax.plot(
-                    np.mean(n_deviations[method][:-1], axis=0),
-                    label=method,
-                    color=prm['save']['colourse'][method]
-                )
-                ax.fill_between(
-                    range(prm['syst']['N']),
-                    np.percentile(n_deviations[method][:-1], 75, axis=0),
-                    np.percentile(n_deviations[method][:-1], 25, axis=0),
-                    alpha=0.2,
-                    color=prm['save']['colourse'][method]
-                )
-            # ax.set_title(f"Number of {title}-voltages")
-            ax.set_xlabel("Time step")
-            ax.set_ylabel(f"Number of {title}-voltages")
-        i_subplot += 1
+    if n_subplots > 0:
+        fig, axs = plt.subplots(n_subplots)
+        i_subplot = 0
+        for n_deviations, title in zip(
+            [n_over_voltages, n_under_voltages], ['over', 'under']
+        ):
+            if sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0:
+                ax = axs if n_subplots == 1 else axs[i_subplot]
+                for method in methods_to_plot:
+                    ax.plot(
+                        np.mean(n_deviations[method][:-1], axis=0),
+                        label=method,
+                        color=prm['save']['colourse'][method]
+                    )
+                    ax.fill_between(
+                        range(prm['syst']['N']),
+                        np.percentile(n_deviations[method][:-1], 75, axis=0),
+                        np.percentile(n_deviations[method][:-1], 25, axis=0),
+                        alpha=0.2,
+                        color=prm['save']['colourse'][method]
+                    )
+                # ax.set_title(f"Number of {title}-voltages")
+                ax.set_xlabel("Time step")
+                ax.set_ylabel(f"Number of {title}-voltages")
+            i_subplot += 1
 
-    title_and_save('n_voltage_deviations_vs_time', fig, prm, display_title=False)
+        title_and_save('n_voltage_deviations_vs_time', fig, prm, display_title=False)
+
+    list_voltage_values = {method: [] for method in all_methods_to_plot}
+    for repeat in range(prm['RL']['n_repeats']):
+        last, _, methods_to_plot = _get_repeat_data(
+            repeat, all_methods_to_plot, folder_run
+        )
+        for method in methods_to_plot:
+            list_voltage_values[method] += list(last['voltage_squared'][method])
+    fig = plt.figure()
+    for method in methods_to_plot:
+        plt.hist(last['voltage_squared'][method], bins=10, label=method)
+    ylim = plt.gca().get_ylim()
+    plt.vlines(0.96, 0, 1.5e3, color='red', label='Min voltage')
+    plt.vlines(1.1, 0, 1.5e3, color='red', label='Max voltage')
+    plt.ylim(ylim[0], ylim[1])
+    plt.legend()
+    title_and_save('hist_voltage_values', fig, prm, display_title=False)
