@@ -29,3 +29,4 @@ reactive_power_for_voltage_control: False  # if True, the power factor is not fi
 line_losses_method : 'subset_of_lines' # choice between subset_of_lines and iteration
 tol_voltage_iteration: 0.001 # tolerance on voltages when iteratively solving the optimization
 simulate_panda_power_only: False
+n_buses: 907
