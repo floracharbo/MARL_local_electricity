@@ -372,7 +372,7 @@ def plot_voltage_statistics(record, prm):
         for label in labels:
             hist_values[method][label] = np.mean(
                 [
-                    np.mean(getattr(record, label)[repeat][method][: - prm['RL']['n_end_test']])
+                    np.mean(getattr(record, label)[repeat][method][- prm['RL']['n_end_test']:])
                     for repeat in range(prm['RL']['n_repeats'])
                 ]
             )
@@ -382,7 +382,7 @@ def plot_voltage_statistics(record, prm):
     )
     y_axis_labels = [
         'Mean \nvoltage constraint violation \n[p.u.]', 'Max \nvoltage constraint violation \n[p.u.]',
-        'number of bus-hours \nwith voltage constraint violation',
+        'Number of bus-hours \nwith voltage constraint violation',
         'Number of hours \nwith voltage constraint violation'
     ]
     methods_labels = {method: method for method in prm['RL']['evaluation_methods']}
