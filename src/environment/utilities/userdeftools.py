@@ -148,8 +148,8 @@ def _naming_file_extension_network_parameters(grd):
 
 
 def get_opt_res_file(prm, test=False):
-    syst, heat, car, loads, paths, rl, grd = [
-        prm[info] for info in ['syst', 'heat', 'car', 'loads', 'paths', 'RL', 'grd']
+    syst, heat, car, loads, paths, rl, grd, gen = [
+        prm[info] for info in ['syst', 'heat', 'car', 'loads', 'paths', 'RL', 'grd', 'gen']
     ]
 
     ext = '_test' if test else ''
@@ -185,7 +185,7 @@ def get_opt_res_file(prm, test=False):
     if "file" in heat and heat["file"] != "heat.yaml":
         paths['opt_res_file'] += f"_{heat['file']}"
 
-    for obj, label in zip([car, heat, loads], ['car', 'heat', 'loads']):
+    for obj, label in zip([car, heat, loads, loads, gen], ['car', 'heat', 'loads', 'flex', 'PV']):
         ownership = np.array(obj[f'own_{label}'])
         if sum(ownership) != len(ownership):
             paths['opt_res_file'] += f"_no_{label}"
@@ -198,28 +198,23 @@ def get_opt_res_file(prm, test=False):
                 for home in np.where(ownership == 0)[0]:
                     paths['opt_res_file'] += f"_{home}"
 
-    paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
     if rl["deterministic"] == 2:
-        for file in ["opt_res_file", "seeds_file"]:
-            paths[file] += "_noisy"
+        paths['opt_res_file'] += "_noisy"
+    paths['opt_res_file'] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
+        "_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
+    if prm["syst"]["change_start"]:
+        paths["opt_res_file"] += "_changestart"
+    paths['opt_res_file'] += _naming_file_extension_network_parameters(grd)
+    # eff does not matter for seeds, but only for res
+    if prm["car"]["efftype"] == 1:
+        paths["opt_res_file"] += "_eff1"
 
-    for file in ["opt_res_file", "seeds_file"]:
-        if rl["deterministic"] == 2:
-            paths[file] += "_noisy"
-        paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
-                       f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
-        if file == "opt_res_file" and prm["syst"]["change_start"]:
-            paths["opt_res_file"] += "_changestart"
-        paths[file] += _naming_file_extension_network_parameters(grd)
-        # eff does not matter for seeds, but only for res
-        if file == "opt_res_file" and prm["car"]["efftype"] == 1:
-            paths["opt_res_file"] += "_eff1"
-
-        paths[file] += ".npy"
+    paths['opt_res_file'] += ".npy"
 
     if paths['opt_res_file'] not in paths['files_list']:
         paths['files_list'].append(paths['opt_res_file'])
     paths['opt_res_file_no'] = f"{paths['files_list'].index(paths['opt_res_file'])}.npy"
+    paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file_no']}"
 
     return paths
 
@@ -303,7 +298,7 @@ def methods_learning_from_exploration(t_explo, epoch, rl):
 
 def add_prm_save_list(val, dict_, key):
     """Save all int/float/bool items."""
-    if isinstance(val, list):
+    if isinstance(val, list) or (isinstance(val, np.ndarray) and len(np.shape(val)) == 1):
         dict_[key] = []
         for item in val:
             if isinstance(item, (str, int, float, bool)):
@@ -335,7 +330,6 @@ def get_prm_save_RL(prm_save, prm):
 
 def get_prm_save(prm):
     """Save run parameters for record-keeping."""
-    prm_save = {}  # save selected system parameters
     with open(prm["paths"]["open_inputs"] / "prm_to_save.yaml", "rb") as file:
         prm_save = yaml.safe_load(file)
 
