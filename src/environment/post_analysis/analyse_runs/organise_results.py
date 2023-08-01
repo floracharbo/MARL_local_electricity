@@ -16,9 +16,19 @@ from tqdm import tqdm
 # plot timing vs performance for n layers / dim layers; runs 742-656
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
-COLUMNS_OF_INTEREST = ['penalise_individual_exports']
+COLUMNS_OF_INTEREST = [
+    # 'grd-manage_voltage',
+    # 'grd-penalise_individual_exports',
+    # 'grd-voltage_penalty',
+    # 'grd-reactive_power_for_voltage_control', 'RL-trajectory',
+    # 'gen-own_PV',
+    'loads-own_flex', 'car-own_car',
+    'loads-own_loads', 'heat-own_heat',
+    'syst-own_der',
+    # 'syst-share_active'
+]
 IGNORE_FORCE_OPTIMISATION = True
-FILL_BETWEEN = False
+FILL_BETWEEN = True
 PLOT_ENV_ONLY = False
 PLOT_TIME = False
 PLOT_VOLTAGE_DEVIATIONS = True
@@ -34,17 +44,24 @@ FILTER = {
     # 'trajectory': True,
 
     # 'hyper_initialization_nonzeros': 1,
-    # 'supervised_loss': True,
+    # 'supervised_loss': False,
+    # 'manage_voltage': False,
+    # 'reactive_power_for_voltage_control': False,
+    # 'penalise_individual_exports': False,
+    # 'trajectory': False,
     # 'n_discrete_actions': 2,
     # 'q_learning-eps': 0.1,
     # 'q_learning-alpha': 0.1,
+    # 'grdC_n': 1,
     # 'server': True,
     # 'lr': 1e-2,
     # 'act_noise': 0,
-    # 'n_homes': 1,
+    # 'n_homes': 10,
     # 'facmac-critic_lr': 1.e-2,
-    # 'server': False
-    'n_epochs': 20,
+    # 'server': True,
+    # 'force_optimisation': True,
+    # 'n_epochs': 20,
+    # 'share_active': 1,
 }
 
 best_score_type = 'p50'
@@ -71,6 +88,7 @@ X_LABELS = {
     'cnn_out_channels': 'Number of output channels',
     'cnn_kernel_size': 'Kernel size',
     'state_space': 'State space',
+    'n_homes': 'Number of homes',
 }
 
 
@@ -388,15 +406,18 @@ def add_default_values(log, new_columns):
             lambda x: x['car-own_car'] if x['car-own_car'] == x['heat-own_heat'] and x['car-own_car'] == x['loads-own_flex'] else np.nan,
             axis=1
         )
-        log.insert(len(new_columns), 'own_der', own_der)
-        new_columns.insert(len(new_columns), 'own_der')
+        log.insert(len(new_columns), 'syst-own_der', own_der)
+        new_columns.insert(len(new_columns), 'syst-own_der')
     voltage_penalty = log.apply(
         lambda x: x['grd-penalty_overvoltage']
         if x['grd-penalty_overvoltage'] == x['grd-penalty_undervoltage'] else np.nan,
         axis=1
     )
-    log.insert(len(new_columns), 'voltage_penalty', voltage_penalty)
-    new_columns.insert(len(new_columns), 'voltage_penalty')
+    if 'grd-voltage_penalty' in log.columns:
+        log['grd-voltage_penalty'] = voltage_penalty
+    else:
+        log.insert(len(new_columns), 'voltage_penalty', voltage_penalty)
+        new_columns.insert(len(new_columns), 'voltage_penalty')
 
     if 'RL-critic_optimizer' in log.columns:
         critic_optimizer_none = log['RL-critic_optimizer'].isnull()
@@ -497,6 +518,9 @@ def get_n_epochs_supervised_loss(prm, key, subkey):
 
 
 def get_own_items_from_prm(prm, key, subkey):
+    if key not in prm:
+        return prm
+
     potential_exts = ['P', '_test']
     ext = ''
     for potential_ext in potential_exts:
@@ -528,7 +552,7 @@ def data_specific_modifications(prm, key, subkey, subsubkey):
     if subkey == 'gamma':
         subsubkey = 'gamma'
         subkey = prm['RL']['type_learning']
-    if subkey not in prm[key] and 'ntw' in prm:
+    if key in prm and subkey not in prm[key] and 'ntw' in prm:
         if subkey in prm['ntw']:
             key = 'ntw'
             subkey = subkey
@@ -587,7 +611,7 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
             prm, key, subkey, subsubkey = data_specific_modifications(prm, key, subkey, subsubkey)
             if column == 'syst-assets':
                 row.append(row_to_assets_str(row, columns0))
-            elif key is None:
+            elif key is None or key not in prm:
                 row.append(None)
                 if column != 'RL-n_homes':
                     print(f"column {column} does not correspond to a prm key")
@@ -804,15 +828,15 @@ def check_that_only_grdCn_changes_in_state_space(
 
 def annotate_run_nos(
         axs, values_of_interest_sorted, best_score_sorted,
-        best_env_score_sorted, runs_sorted
+        best_env_score_sorted, runs_sorted, n_deviations_sorted
 ):
     if ANNOTATE_RUN_NOS:
-        for i, (x, best_score, best_env_score, run) in enumerate(zip(
+        for i, (x, best_score, best_env_score, run, n_deviations) in enumerate(zip(
                 values_of_interest_sorted, best_score_sorted,
-                best_env_score_sorted, runs_sorted
+                best_env_score_sorted, runs_sorted, n_deviations_sorted
         )):
             ax0 = axs if n_subplots == 1 else axs[0]
-            print(f"run = {run} x {x} best_score {best_score}")
+            print(f"run = {run} x {x} best_score {best_score} n_deviations {n_deviations}")
             ax0.annotate(
                 run, (x, best_score), textcoords="offset points", xytext=(0, 10),
                 ha='center'
@@ -820,6 +844,11 @@ def annotate_run_nos(
             if PLOT_ENV_ONLY:
                 axs[1].annotate(
                     run, (x, best_env_score), textcoords="offset points", xytext=(0, 10),
+                    ha='center'
+                )
+            if PLOT_VOLTAGE_DEVIATIONS:
+                axs[-1].annotate(
+                    run, (x, n_deviations), textcoords="offset points", xytext=(0, 10),
                     ha='center'
                 )
         for j in np.argsort(best_score_sorted):
@@ -866,6 +895,7 @@ def get_indexes_to_ignore_in_setup_comparison(
             'gamma', 'timestamp', 'instant_feedback'
         ],
         'own_der': ['own_car', 'own_heat', 'own_flex'],
+        'voltage_penalty': ['penalty_overvoltage', 'penalty_undervoltage'],
     }
     indexes_ignore = []
     if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
@@ -941,6 +971,8 @@ def compare_all_runs_for_column_of_interest(
         env_values = []
     time_values = []
     n_deviation_values = []
+    any_zero_values = False
+    order_of_magnitudes_gap = False
     while len(rows_considered) < len(log):
         initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
         rows_considered.append(initial_setup_row)
@@ -1080,7 +1112,7 @@ def compare_all_runs_for_column_of_interest(
                     if k == 'env' and not PLOT_ENV_ONLY:
                         continue
                     else:
-                        ax = axs[ax_i]
+                        ax = axs[ax_i] if len(axs) > 1 else axs
                     label = \
                         current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
@@ -1158,7 +1190,7 @@ def compare_all_runs_for_column_of_interest(
                         )
                 axs = annotate_run_nos(
                     axs, values_of_interest_sorted, best_scores_sorted['all'][best_score_type],
-                    best_scores_sorted['env'][best_score_type], runs_sorted
+                    best_scores_sorted['env'][best_score_type], runs_sorted, n_deviation_sorted
                 )
                 if isinstance(values_of_interest_sorted[0], (int, float)):
                     deltas_x_axis = [
@@ -1170,11 +1202,10 @@ def compare_all_runs_for_column_of_interest(
                     ]
                     if (
                         min(deltas_x_axis) <= 10 * max(deltas_x_axis)
-                        and 0 not in values_of_interest_sorted
                     ):
-                        axs_ = [axs] if n_subplots == 1 else axs
-                        for ax in axs_:
-                            ax.set_xscale('log')
+                        order_of_magnitudes_gap = True
+                    if 0 in values_of_interest:
+                        any_zero_values = True
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
                     best_values.append(best_scores_sorted['all'][best_score_type])
@@ -1184,6 +1215,11 @@ def compare_all_runs_for_column_of_interest(
                 plotted_something = True
 
         setup_no += 1
+
+    if order_of_magnitudes_gap and not any_zero_values:
+        axs_ = [axs] if n_subplots == 1 else axs
+        for ax in axs_:
+            ax.set_xscale('log')
 
     if len(time_values) > 1 and PLOT_TIME:
         end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
@@ -1401,7 +1437,7 @@ def plot_sensitivity_analyses(new_columns, log):
             if PLOT_TIME:
                 axs[i_subplot_time].set_ylabel("Time [s]")
             if PLOT_VOLTAGE_DEVIATIONS:
-                axs[-1].set_ylabel("Number of voltage deviations over the day")
+                axs[-1].set_ylabel("Number of voltage deviations\nover the day")
             ax_xlabel = axs if n_subplots == 1 else axs[-1]
             x_label = X_LABELS[column_of_interest] if column_of_interest in X_LABELS \
                 else column_of_interest
@@ -1465,6 +1501,7 @@ if __name__ == "__main__":
 
     columns0, result_nos, current_run_invalid = get_list_all_fields(results_path)
     columns0.append('syst-assets')
+    columns0 += [col for col in COLUMNS_OF_INTEREST if col not in columns0]
 
     # get the names of all the evaluations methods
     keys_methods = get_names_evaluation_methods(results_path, result_nos, current_run_invalid)
@@ -1495,6 +1532,7 @@ if __name__ == "__main__":
     log, new_columns = add_default_values(log, new_columns)
     log = fix_learning_specific_values(log)
     new_columns = remove_key_from_columns_names(new_columns)
+    COLUMNS_OF_INTEREST = remove_key_from_columns_names(COLUMNS_OF_INTEREST)
     log.columns = new_columns + columns_results_methods
     log = compute_best_score_per_run(keys_methods, log)
     log.to_csv(log_path)
