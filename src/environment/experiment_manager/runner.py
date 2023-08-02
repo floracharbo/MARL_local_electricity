@@ -577,7 +577,10 @@ def print_description_run(prm, settings):
     for key, setting in settings.items():
         for subkey, subsetting in setting.items():
             if subkey not in base_RL_settings:
-                description_run += f"settings[{key}][{subkey}] {subsetting}"
+                if subkey[0:3] == 'own':
+                    description_run += f"prm[{key}][{subkey}] {sum(subsetting) / len(subsetting)}"
+                else:
+                    description_run += f"settings[{key}][{subkey}] {subsetting}"
 
     print(description_run)
     prm['save']['description_run'] = description_run
@@ -652,10 +655,14 @@ def run(run_mode, settings, no_runs=None):
 
     # post learning analysis / plotting
     elif run_mode == 2:
+        list_runs = [int(file_name[3:]) for file_name in os.listdir('outputs/results') if file_name[0] != '.']
         if isinstance(no_runs, int):
             no_runs = [no_runs]  # the runs need to be in an array
 
         for no_run in no_runs:
+            if no_run not in list_runs:
+                print(f"run {no_run} not found")
+                continue
             rl, prm = load_existing_prm(prm, no_run)
 
             prm, record = initialise_objects(prm, no_run=no_run, run_mode=run_mode)
