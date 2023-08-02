@@ -22,11 +22,15 @@ COLUMNS_OF_INTEREST = [
     # 'grd-voltage_penalty',
     # 'grd-reactive_power_for_voltage_control', 'RL-trajectory',
     # 'gen-own_PV',
-    'loads-own_flex', 'car-own_car',
-    'loads-own_loads', 'heat-own_heat',
+
     'syst-own_der',
     # 'syst-share_active'
 ]
+for col in ['loads-own_flex', 'car-own_car',
+    'loads-own_loads', 'heat-own_heat',]:
+    COLUMNS_OF_INTEREST.append(col)
+    COLUMNS_OF_INTEREST.append(f"{col}_no")
+
 IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = True
 PLOT_ENV_ONLY = False
@@ -40,6 +44,7 @@ matplotlib.rc('font', **font)
 
 FILTER = {
     'type_learning': 'facmac',
+    # 'n_homes': 55,
     # 'facmac-lr': 5.e-1,
     # 'trajectory': True,
 
@@ -390,7 +395,13 @@ def add_default_values(log, new_columns):
     else:
         log.insert(len(new_columns), 'syst-share_active', share_active)
         new_columns.insert(len(new_columns), 'syst-share_active')
-
+    for col in ['car-own_car', 'loads-own_loads', 'heat-own_heat', 'loads-own_flex']:
+        new_col_name = f"{col}_no"
+        own_no_homes = log.apply(
+            lambda x: x[col] * x['syst-n_homes'], axis=1
+        )
+        log.insert(len(new_columns), new_col_name, own_no_homes)
+        new_columns.insert(len(new_columns), new_col_name)
     log['grd-penalty_overvoltage'] = log.apply(
         lambda x: x['grd-penalty_overvoltage'] if x['grd-manage_voltage'] else 0, axis=1
     )
@@ -897,6 +908,10 @@ def get_indexes_to_ignore_in_setup_comparison(
         'own_der': ['own_car', 'own_heat', 'own_flex'],
         'voltage_penalty': ['penalty_overvoltage', 'penalty_undervoltage'],
     }
+    for col in ['own_car', 'own_loads', 'own_heat', 'own_flex']:
+        ignore_cols[col] = [f"{col}_no"]
+        ignore_cols[f"{col}_no"] = [col]
+
     indexes_ignore = []
     if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
         indexes_ignore.append(other_columns.index('n_homes_all'))
@@ -1509,6 +1524,7 @@ if __name__ == "__main__":
     for method in keys_methods:
         for value in [best_score_type, 'p25', 'p75']:
             columns_results_methods.append(f"{value}_{method}")
+
     for method in keys_methods:
         for label in ['mean_deviation', 'max_deviation', 'n_deviation', 'n_hour_deviation']:
             columns_results_methods.append(f"{label}_{method}")
