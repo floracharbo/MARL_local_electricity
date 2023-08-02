@@ -242,9 +242,11 @@ class Network:
         if self.n_homesP > 0:
             for homeP in self.homesP:
                 self._assign_power_to_load_or_sgen(
-                    netp0[homeP], self.n_homes + homeP, type='p_mw')
+                    netp0[homeP], self.n_homes + homeP, type='p_mw'
+                )
                 self._assign_power_to_load_or_sgen(
-                    netq_passive[homeP], self.n_homes + homeP, type='q_mvar')
+                    netq_passive[homeP], self.n_homes + homeP, type='q_mvar'
+                )
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw > 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])

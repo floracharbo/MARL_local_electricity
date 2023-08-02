@@ -112,9 +112,10 @@ def _post_run_update(prm, record, start_time):
 
     # update seeds, if they have been appended compared to the initilally
     # loaded seeds
-    if prm["RL"]["init_len_seeds"][""] < len(
-            prm["RL"]["seeds"][""]) or prm["RL"]["init_len_seeds"]["P"] < len(
-            prm["RL"]["seeds"]["P"]):
+    if (
+            prm["RL"]["init_len_seeds"][""] < len(prm["RL"]["seeds"][""])
+            or prm["RL"]["init_len_seeds"]["P"] < len(prm["RL"]["seeds"]["P"])
+    ):
         np.save(prm["paths"]["seeds_file"], prm["RL"]["seeds"])
 
     np.save('outputs/opt_res/files_list.npy', prm['paths']['files_list'])
