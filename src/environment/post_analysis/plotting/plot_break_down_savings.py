@@ -130,19 +130,22 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                 [bars[i][-1] / tots[method] if tots[method] > 0 else None
                     for i in range(len(labels))]
             )
+    print(f"shares_reduc['env_r_c'] {shares_reduc['env_r_c']}")
+
     new_labels = [
         'Grid costs', 'Storage costs', 'Distribution Costs', 'Import/Export Penalty',
         'Voltage Penalty', 'Total Costs'
     ]
-
     bars.append(list(tots.values()))
     barWidth = 1 / (len(new_labels) + 1)
     rs = []
     rs.append(np.arange(len(prm['RL']['evaluation_methods']) - 1))
+    print(f"prm['RL']['evaluation_methods'] {prm['RL']['evaluation_methods']}")
     for ir in range(len(new_labels)):
         rs.append([x + barWidth for x in rs[ir]])
     plt.figure(figsize=(16, 8))
     for ir in range(len(new_labels)):
+        print(f"{new_labels[ir]}: {bars[ir]}")
         plt.bar(rs[ir], bars[ir], width=barWidth, label=new_labels[ir])
     plt.xlabel('Evaluation Method')
     plt.ylabel('Costs [£/month/home]')
@@ -385,15 +388,24 @@ def plot_voltage_statistics(record, prm):
         'Number of bus-hours \nwith voltage constraint violation',
         'Number of hours \nwith voltage constraint violation'
     ]
-    methods_labels = {method: method for method in prm['RL']['evaluation_methods']}
+    methods_hist = [
+        method for method in prm['RL']['evaluation_methods']
+        if method in ['opt_d_d', 'env_r_c', 'baseline']
+    ]
+    methods_labels = {
+        method: method for method in methods_hist
+    }
     methods_labels['baseline'] = 'Baseline'
     methods_labels['env_r_c'] = 'MARL'
     fig, axs = plt.subplots(2, 2, figsize=(16, 8))
     rows = [0, 0, 1, 1]
     cols = [0, 1, 0, 1]
+    min_val, max_val = 1e10, -1e10
     for i, (label, row, col) in enumerate(zip(labels, rows, cols)):
-        Y = [hist_values[method][label] for method in prm['RL']['evaluation_methods']]
-        methods_labels_i = [methods_labels[method] for method in prm['RL']['evaluation_methods']]
+        Y = [hist_values[method][label] for method in methods_hist]
+        min_val = min(min_val, min(Y))
+        max_val = max(max_val, max(Y))
+        methods_labels_i = [methods_labels[method] for method in methods_hist]
         axs[row, col].bar(methods_labels_i, Y, color='gray')
         print(f"{label} {methods_labels_i} {Y}")
         # axs[row, col].set_xlabel("Learning method")

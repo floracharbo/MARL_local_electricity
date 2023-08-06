@@ -859,7 +859,7 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run)
         for method in [method for method in methods_to_plot if method not in ['opt']]:
-            overvoltage_bus_index, undervoltage_bus_index = \
+            overvoltage_bus_index, undervoltage_bus_index, _, _ = \
                 get_index_over_under_voltage_last_time_step(last, method, prm)
             overvoltage_value = \
                 last['voltage_squared'][method][prm['syst']['N'] - 1][overvoltage_bus_index]
@@ -918,14 +918,20 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
 
 
 def get_index_over_under_voltage_last_time_step(last, method, prm, time_step=23):
+    max_deviation = -100
+    min_deviation = 100
     overvoltage_bus_index = np.where(
         last['voltage_squared'][method][time_step] > prm['grd']['max_voltage'] ** 2
     )[0]
     undervoltage_bus_index = np.where(
         last['voltage_squared'][method][time_step] < prm['grd']['min_voltage'] ** 2
     )[0]
+    if len(overvoltage_bus_index) > 0:
+        max_deviation = np.max(np.array(last['voltage_squared'][method][time_step])[overvoltage_bus_index] - prm['grd']['max_voltage'] ** 2)
+    if len(undervoltage_bus_index) > 0:
+        min_deviation = np.min(prm['grd']['min_voltage'] ** 2 - np.array(last['voltage_squared'][method][time_step])[undervoltage_bus_index])
 
-    return overvoltage_bus_index, undervoltage_bus_index
+    return overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation
 
 
 def map_over_undervoltage(
@@ -940,7 +946,8 @@ def map_over_undervoltage(
         method: np.zeros((prm['RL']['n_repeats'], prm['syst']['N']))
         for method in all_methods_to_plot
     }
-
+    max_deviation_all = {method: -100 for method in all_methods_to_plot}
+    min_deviation_all = {method: 100 for method in all_methods_to_plot}
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
             repeat, all_methods_to_plot, folder_run
@@ -977,12 +984,15 @@ def map_over_undervoltage(
                     patch_type="poly3", size=1.4, color="g", alpha=0.5, zorder=11,
                     label='Generators'
                 )
+
                 for time_step in range(prm['syst']['N']):
                     # Plot over and under voltages
-                    overvoltage_bus_index, undervoltage_bus_index = \
+                    overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation = \
                         get_index_over_under_voltage_last_time_step(
                             last, method, prm, time_step=time_step
                         )
+                    max_deviation_all[method] = np.max([max_deviation_all[method], max_deviation])
+                    min_deviation_all[method] = np.min([min_deviation_all[method], min_deviation])
                     n_over_voltages[method][repeat, time_step] = len(overvoltage_bus_index)
                     n_under_voltages[method][repeat, time_step] = len(undervoltage_bus_index)
                     if time_step in range(9, 23):
@@ -1016,6 +1026,25 @@ def map_over_undervoltage(
         sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0
         for n_deviations in [n_over_voltages, n_under_voltages]
     )
+    np.save(
+        prm['paths']['fig_folder'] / "n_over_voltages",
+        n_over_voltages
+    )
+    np.save(
+        prm['paths']['fig_folder'] / "n_under_voltages",
+        n_under_voltages
+    )
+    np.save(
+        prm['paths']['fig_folder'] / "min_deviation_all",
+        min_deviation_all
+    )
+    np.save(
+        prm['paths']['fig_folder'] / "max_deviation_all",
+        max_deviation_all
+    )
+    print(f"min_deviation_all: {min_deviation_all}")
+    print(f"max_deviation_all: {max_deviation_all}")
+
     if n_subplots > 0:
         fig, axs = plt.subplots(n_subplots)
         i_subplot = 0
@@ -1024,7 +1053,9 @@ def map_over_undervoltage(
         ):
             if sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0:
                 ax = axs if n_subplots == 1 else axs[i_subplot]
-                for method in methods_to_plot:
+                for method in ['opt_d_d', 'baseline', 'env_r_c']:
+                    if method not in n_deviations:
+                        continue
                     ax.plot(
                         np.mean(n_deviations[method][:-1], axis=0),
                         label=method,
@@ -1040,6 +1071,8 @@ def map_over_undervoltage(
                 # ax.set_title(f"Number of {title}-voltages")
                 ax.set_xlabel("Time step")
                 ax.set_ylabel(f"Number of {title}-voltages")
+                ax.legend(loc='best', fancybox=True)
+
             i_subplot += 1
 
         title_and_save('n_voltage_deviations_vs_time', fig, prm, display_title=False)
