@@ -104,6 +104,7 @@ def check_model_changes_facmac(prm):
             nos.sort()
             agents, critics, mixers = [], [], []
             for no in nos:
+                mixer = None
                 path = prm["paths"]["record_folder"] / f"models_{method}_{no}"
                 try:
                     agent = th.load(path / "agent.th")
@@ -113,7 +114,7 @@ def check_model_changes_facmac(prm):
                 except Exception:
                     agent = th.load(path / "agent.th", map_location=th.device('cpu'))
                     critic = th.load(path / "critic.th", map_location=th.device('cpu'))
-                    if prm['syst']['n_homes'] > 1 and prm['RL']['mixer'] is not None:
+                    if (path / "mixer.th").is_file() and prm['syst']['n_homes'] > 1 and prm['RL']['mixer'] is not None:
                         mixer = th.load(path / "mixer.th", map_location=th.device('cpu'))
                 agents.append(agent)
                 critics.append(critic)
@@ -147,11 +148,12 @@ def check_model_changes_facmac(prm):
 
             check_mixer = prm['syst']['n_homes'] > 1 and prm["RL"]["mixer"] == "qmix"
             if check_mixer:
-                for weight in mixers[0].keys():
-                    mixer_learned[method] = not th.all(mixers[0][weight] == mixers[-1][weight])
-                    if not mixer_learned[method]:
-                        prm["RL"]["nn_learned"] = False
-                        print(f"mixer_learned {mixer_learned} {weight}")
+                if mixers[0] is not None:
+                    for weight in mixers[0].keys():
+                        mixer_learned[method] = not th.all(mixers[0][weight] == mixers[-1][weight])
+                        if not mixer_learned[method]:
+                            prm["RL"]["nn_learned"] = False
+                            print(f"mixer_learned {mixer_learned} {weight}")
 
     prm_save = get_prm_save(prm)
     np.save(prm['paths']["folder_run"] / "inputData" / "prm", prm_save)
