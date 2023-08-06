@@ -17,19 +17,15 @@ from tqdm import tqdm
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
-    # 'grd-manage_voltage',
-    # 'grd-penalise_individual_exports',
-    # 'grd-voltage_penalty',
-    # 'grd-reactive_power_for_voltage_control', 'RL-trajectory',
-    # 'gen-own_PV',
-
-    'syst-own_der',
+    # 'RL-state_space'
+    'loads-own_flexible_loads_no',
+    # 'syst-own_der',
     # 'syst-share_active'
 ]
-for col in ['loads-own_flex', 'car-own_car',
-    'loads-own_loads', 'heat-own_heat',]:
-    COLUMNS_OF_INTEREST.append(col)
-    COLUMNS_OF_INTEREST.append(f"{col}_no")
+# for col in ['loads-own_flex', 'car-own_car',
+#     'loads-own_loads', 'heat-own_heat', 'loads-own_flexible_loads']:
+#     COLUMNS_OF_INTEREST.append(col)
+#     COLUMNS_OF_INTEREST.append(f"{col}_no")
 
 IGNORE_FORCE_OPTIMISATION = True
 FILL_BETWEEN = True
@@ -46,14 +42,12 @@ FILTER = {
     'type_learning': 'facmac',
     # 'n_homes': 55,
     # 'facmac-lr': 5.e-1,
-    # 'trajectory': True,
-
+    # 'trajectory': False,
     # 'hyper_initialization_nonzeros': 1,
     # 'supervised_loss': False,
-    # 'manage_voltage': False,
+    # 'manage_voltage': True,
     # 'reactive_power_for_voltage_control': False,
     # 'penalise_individual_exports': False,
-    # 'trajectory': False,
     # 'n_discrete_actions': 2,
     # 'q_learning-eps': 0.1,
     # 'q_learning-alpha': 0.1,
@@ -65,7 +59,7 @@ FILTER = {
     # 'facmac-critic_lr': 1.e-2,
     # 'server': True,
     # 'force_optimisation': True,
-    # 'n_epochs': 20,
+    'n_epochs': 20,
     # 'share_active': 1,
 }
 
@@ -261,13 +255,14 @@ def get_names_evaluation_methods(results_path, result_nos, current_run_invalid):
         it += 1
         if result_nos[-it] != current_run_invalid:
             path_metrics0 = results_path / f"run{result_nos[-it]}" / 'figures' / 'metrics.npy'
-            metrics0 = np.load(path_metrics0, allow_pickle=True).item()
-            keys_methods_run = list(metrics0['end_test_bl'][best_score_type].keys())
-            for method in keys_methods_run:
-                if method not in keys_methods:
-                    keys_methods.append(method)
-            if len(keys_methods) == 16:
-                evaluation_methods_found = True
+            if os.path.exists(path_metrics0):
+                metrics0 = np.load(path_metrics0, allow_pickle=True).item()
+                keys_methods_run = list(metrics0['end_test_bl'][best_score_type].keys())
+                for method in keys_methods_run:
+                    if method not in keys_methods:
+                        keys_methods.append(method)
+                if len(keys_methods) == 16:
+                    evaluation_methods_found = True
 
     keys_methods.remove("baseline")
 
@@ -395,7 +390,18 @@ def add_default_values(log, new_columns):
     else:
         log.insert(len(new_columns), 'syst-share_active', share_active)
         new_columns.insert(len(new_columns), 'syst-share_active')
-    for col in ['car-own_car', 'loads-own_loads', 'heat-own_heat', 'loads-own_flex']:
+    if all(
+        f"{prm}-own_{der}" in log.columns for prm, der in zip(
+            ['loads', 'loads'], ['loads', 'flex']
+        )
+    ):
+        own_flexible_loads = log.apply(
+            lambda x: x['loads-own_loads'] if x['loads-own_loads'] == x['loads-own_flex'] else np.nan,
+            axis=1
+        )
+        log.insert(len(new_columns), 'loads-own_flexible_loads', own_flexible_loads)
+        new_columns.insert(len(new_columns), 'loads-own_flexible_loads')
+    for col in ['car-own_car', 'loads-own_loads', 'heat-own_heat', 'loads-own_flex', 'loads-own_flexible_loads']:
         new_col_name = f"{col}_no"
         own_no_homes = log.apply(
             lambda x: x[col] * x['syst-n_homes'], axis=1
@@ -419,6 +425,7 @@ def add_default_values(log, new_columns):
         )
         log.insert(len(new_columns), 'syst-own_der', own_der)
         new_columns.insert(len(new_columns), 'syst-own_der')
+
     voltage_penalty = log.apply(
         lambda x: x['grd-penalty_overvoltage']
         if x['grd-penalty_overvoltage'] == x['grd-penalty_undervoltage'] else np.nan,
@@ -790,8 +797,10 @@ def check_that_only_grdCn_changes_in_state_space(
         other_columns, current_setup, row_setup, initial_setup_row,
         row, indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac
 ):
-    index_state_space = other_columns.index('state_space')
-    indexes_ignore = [index_state_space]
+    indexes_ignore = [
+        other_columns.index(col)
+        for col in ['state_space', 'nn_learned']
+    ]
     if current_setup[other_columns.index('type_learning')] == 'q_learning':
         indexes_ignore += indexes_columns_ignore_q_learning
     if current_setup[other_columns.index('type_learning')] == 'facmac':
@@ -895,7 +904,10 @@ def get_indexes_to_ignore_in_setup_comparison(
     ignore_cols = {
         'supervised_loss_weight': ['supervised_loss'],
         'state_space': ['grdC_n'],
-        'share_active': ['n_homes', 'n_homes_test', 'n_homesP', 'n_homes_testP', 'share_active_test'],
+        'share_active': [
+            'n_homes', 'n_homes_test', 'n_homesP', 'n_homes_testP',
+            'share_active_test', 'own_car_no', 'own_loads_no', 'own_flex_no', 'own_heat_no'
+        ],
         'assets': ['own_car', 'own_heat', 'own_loads', 'own_flex'],
         'type_learning': [
             'act_noise', 'agent_facmac', 'buffer_size', 'cnn_kernel_size',
@@ -909,8 +921,10 @@ def get_indexes_to_ignore_in_setup_comparison(
         'voltage_penalty': ['penalty_overvoltage', 'penalty_undervoltage'],
     }
     for col in ['own_car', 'own_loads', 'own_heat', 'own_flex']:
-        ignore_cols[col] = [f"{col}_no"]
-        ignore_cols[f"{col}_no"] = [col]
+        ignore_cols[col] = [f"{col}_no", 'own_der']
+        ignore_cols[f"{col}_no"] = [col, 'own_der']
+    ignore_cols['own_flexible_loads'] = ['own_flex', 'own_loads', 'own_flex_no', 'own_loads_no', 'own_der']
+    ignore_cols['own_flexible_loads_no'] = ['own_flex', 'own_loads', 'own_flex_no', 'own_loads_no', 'own_der']
 
     indexes_ignore = []
     if column_of_interest in ['n_homesP', 'n_homes', 'n_homes_test']:
@@ -988,8 +1002,14 @@ def compare_all_runs_for_column_of_interest(
     n_deviation_values = []
     any_zero_values = False
     order_of_magnitudes_gap = False
-    while len(rows_considered) < len(log):
-        initial_setup_row = [i for i in range(len(log)) if i not in rows_considered][0]
+    while len(rows_considered) < len(log) * 2:
+        initial_setup_rows = [i for i in range(len(log)) if i not in rows_considered]
+        if len(initial_setup_rows) == 0:
+            break
+        else:
+            initial_setup_row = initial_setup_rows[0]
+        if np.isnan(log[column_of_interest].loc[initial_setup_row]):
+            break
         rows_considered.append(initial_setup_row)
         current_setup = log[other_columns].loc[initial_setup_row].values
         values_of_interest = [log[column_of_interest].loc[initial_setup_row]]
@@ -1003,6 +1023,7 @@ def compare_all_runs_for_column_of_interest(
         for row in range(len(log)):
             row_setup = [log[col].loc[row] for col in other_columns]
             new_row = row not in rows_considered
+            # new_row = True
             relevant_cnn = not (
                 column_of_interest[0: 3] == 'cnn'
                 and log['nn_type'].loc[row] != 'cnn'
@@ -1127,7 +1148,7 @@ def compare_all_runs_for_column_of_interest(
                     if k == 'env' and not PLOT_ENV_ONLY:
                         continue
                     else:
-                        ax = axs[ax_i] if len(axs) > 1 else axs
+                        ax = axs[ax_i] if n_subplots > 1 else axs
                     label = \
                         current_setup[other_columns.index('type_learning')] + f"({len(setups)})" \
                         if column_of_interest == 'n_homes' \
@@ -1195,6 +1216,7 @@ def compare_all_runs_for_column_of_interest(
                         markerfacecolor='None',
                         color=colour
                     )
+                    print(f"{column_of_interest} {values_of_interest_sorted} {n_deviation_sorted}")
 
                 for i in range(len(values_of_interest_sorted) - 1):
                     if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
