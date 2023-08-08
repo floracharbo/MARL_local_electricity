@@ -181,6 +181,7 @@ def barplot_grid_energy_costs(record, prm, plot_type='savings'):
         'cost_distribution_network_losses',
         'costs_wholesale',
         'costs_upstream_losses',
+        'voltage_costs'
     ]
     bars = [[] for _ in range(len(labels))]
     shares_reduc = {}
@@ -222,7 +223,7 @@ def barplot_grid_energy_costs(record, prm, plot_type='savings'):
 
     barWidth = 1 / (len(labels) + 1)
     new_labels = ['Grid costs', 'Costs of distribution network losses',
-                  'Wholesale costs', 'Costs of upstream losses']
+                  'Wholesale costs', 'Costs of upstream losses', 'Voltage costs']
     rs = []
     rs.append(np.arange(len(prm['RL']['evaluation_methods'])))
     for ir in range(len(new_labels) - 1):
