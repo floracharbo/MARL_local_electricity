@@ -34,7 +34,8 @@ def _print_stats_voltage_losses_errors(prm, network):
                 f"The maximum difference was {network.max_losses_error} kWh\n."
                 f"To increase accuracy, the user could increase the "
                 f"subset_line_losses_modelled "
-                f"(currently: {network.subset_line_losses_modelled} lines)"
+                f"(currently: {prm['grd']['line_losses_method']} "
+                f"with {prm['grd']['subset_line_losses_modelled']} lines)"
             )
 
         if network.n_voltage_error > 1:
