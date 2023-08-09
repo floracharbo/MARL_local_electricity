@@ -76,7 +76,7 @@ class EnvSpaces:
         """Initialise EnvSpaces class, add properties."""
         for property in ['n_homes', 'N', 'i0_costs']:
             setattr(self, property, getattr(env, property))
-
+        self.n_homes_test = env.prm['syst']['n_homes_test']
         for property in [
             "dim_actions", "aggregate_actions", "type_env", "normalise_states",
             "n_discrete_actions", "evaluation_methods", "flexibility_states",
