@@ -437,14 +437,16 @@ class EnvSpaces:
                               + (self.maxval[typev][s][home]
                                  - self.minval[typev][s]) / n_bins * i
                               for i in range(n_bins + 1)]
-                             for home in range(self.n_homes)])
+                             for home in range(max(self.n_homes_test, self.n_homes))]
+                        )
                     else:
                         brackets[typev].append(
                             [[self.minval[typev][s]
                               + (self.maxval[typev][s]
                                  - self.minval[typev][s]) / n_bins * i
                               for i in range(n_bins + 1)]
-                             for _ in range(self.n_homes)])
+                             for home in range(max(self.n_homes_test, self.n_homes))]
+                        )
 
         return brackets
 
