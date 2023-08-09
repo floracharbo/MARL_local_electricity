@@ -178,8 +178,8 @@ def get_opt_res_file(prm, test=False):
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
     if syst['n_homesP'] > 0:
         paths['opt_res_file'] += f"_nP{syst['n_homesP' + ext]}"
-    # if syst['n_homes_test'] != syst['n_homes']:
-    #     opt_res_file += f"_ntest{syst['n_homes_test']}"
+    if syst['n_homes_test'] != syst['n_homes']:
+        paths['opt_res_file'] += f"_ntest{syst['n_homes_test']}"
     if syst['clus_dist_share'] < 1:
         paths['opt_res_file'] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
     if "file" in heat and heat["file"] != "heat.yaml":
@@ -201,7 +201,7 @@ def get_opt_res_file(prm, test=False):
     if rl["deterministic"] == 2:
         paths['opt_res_file'] += "_noisy"
     paths['opt_res_file'] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
-        "_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
+        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
     if prm["syst"]["change_start"]:
         paths["opt_res_file"] += "_changestart"
     paths['opt_res_file'] += _naming_file_extension_network_parameters(grd)
