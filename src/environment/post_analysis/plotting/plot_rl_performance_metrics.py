@@ -38,7 +38,7 @@ def _barplot(
         bars, evaluation_methods, prm, baseline=None, opt=None, text_labels=True,
         colours=None, error=None, title=None, display_title=True,
         lower_bound=None, upper_bound=None, display_ticks=True,
-        ax0=None, display_legend=False, ylabel=None, xlabel=None
+        ax0=None, display_legend=False, ylabel=None, xlabel=None, annotate=False
 ):
 
     n_evaluation_methods = len(evaluation_methods)
@@ -65,7 +65,10 @@ def _barplot(
         else:
             ax.bar(
                 rsir, barplot, yerr=err, capsize=10, width=barWidth,
-                edgecolor='white', label=evaluation_methods[ind_e], color=colours[ind_e]
+                edgecolor='white',
+                label=evaluation_methods[ind_e],
+                color=colours[ind_e],
+                hatch='//' if evaluation_methods[ind_e][0:3] == 'opt' else None
             )
 
     if prm is not None:
@@ -75,8 +78,8 @@ def _barplot(
             and lower_bound is not None \
             and upper_bound is not None:
         plt.ylim([lower_bound, upper_bound])
-
-    ax = _barplot_text_labels(ax, text_labels)
+    if annotate:
+        ax = _barplot_text_labels(ax, text_labels)
 
     if not display_ticks:
         ax.set_yticks([])
@@ -163,6 +166,13 @@ def barplot_metrics(prm, lower_bound, upper_bound):
                     'SRT': [1, 1],
                     'DT': [1, 2]
                     }
+    ylims = {'end_test_bl': [-80, 80],
+                    'LRT': [0, 300],
+                    'DR': [0, 45],
+                    'RR': [-320, 0],
+                    'SRT': [-200, 0],
+                    'DT': [0, 160]
+                    }
     for plot_type in ['indivs', 'subplots']:
         if plot_type == 'subplots':
             fig, axs = plt.subplots(2, 3)
@@ -171,15 +181,22 @@ def barplot_metrics(prm, lower_bound, upper_bound):
             + [m + '_p50' for m in prm["RL"]["metrics_entries"][0:4]]
         for m in all_metrics_entries:
             eval_entries_bars_ = eval_entries_bars
+            eval_entries_bars_ = [
+                # entry for entry in ['env_r_c', 'opt_d_d']
+                # if entry in eval_entries_bars_
+                entry for entry in eval_entries_bars_
+                if entry[-1] == 'c' and entry.split('_')[1] != 'n'
+            ]
             ave = 'ave'
             m_ = m
             if m[-3:] == 'p50':
                 ave = 'p50'
                 m_ = m[0:-4]
 
-            colours_barplot_ = generate_colours(
-                prm["save"], prm, colours_only=True, entries=eval_entries_bars_
-            )
+            # colours_barplot_ = generate_colours(
+            #     prm["save"], prm, colours_only=True, entries=eval_entries_bars_
+            # )
+            colours_barplot_ = ['k' for e in eval_entries_bars_]
 
             bars, err = [
                 [metrics[m_][s][e] for e in eval_entries_bars_]
@@ -201,7 +218,9 @@ def barplot_metrics(prm, lower_bound, upper_bound):
             if plot_type == 'indivs':
                 fig = _barplot(
                     bars, eval_entries_bars_, prm, baseline=baseline,
-                    opt=opt, colours=colours_barplot_, error=err,
+                    opt=opt,
+                    colours=colours_barplot_,
+                    error=err,
                     title=titles[m_], display_legend=display_legend,
                     display_title=display_title, lower_bound=lb,
                     upper_bound=ub, display_ticks=display_ticks)
@@ -215,14 +234,20 @@ def barplot_metrics(prm, lower_bound, upper_bound):
             elif plot_type == 'subplots':
                 if m in subplots_i_j:
                     i, j = subplots_i_j[m]
+                    # if i > 0 or j > 0:
+                    display_legend = False
+                    annotate = False
+                    title = 'Savings' if m == 'end_test_bl' else m
                     axs[i, j] = _barplot(
                         bars, eval_entries_bars_, prm,
                         baseline=baseline, opt=opt,
                         colours=colours_barplot_, error=err,
-                        title=m, display_legend=display_legend,
+                        title=title, display_legend=display_legend,
                         display_title=display_title, lower_bound=lb,
                         upper_bound=ub, display_ticks=display_ticks,
-                        ax0=axs[i, j])
+                        ax0=axs[i, j], annotate=annotate
+                    )
+                    axs[i, j].set_ylim(ylims[m])
                     if j == 0:
                         axs[i, j].set_ylabel('£/home/h')
 
