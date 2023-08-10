@@ -42,7 +42,7 @@ class Network:
         Create matrices describing the lines and buses of the network
     _assign_power_to_load_or_sgen:
         Distribute the correct active and reative loads to the buses
-    _power_flow_res_with_pandapower:
+    fpower_flow_res_with_pandapower:
         Pre and post processing of pf_simulation
     _check_voltage_differences and _check_losses_differences:
         Perform a comparison between pandapower load flow and optimization
@@ -269,7 +269,7 @@ class Network:
         else:
             self.net.sgen[type].iloc[house_index] = abs(power) / 1000
 
-    def _power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex, passive=False):
+    def power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex, passive=False, implement=True):
         """Using active power, calculates reactive power and solves power flow
         with pandapower """
 
@@ -290,6 +290,8 @@ class Network:
         q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
             + sum(q_heat_home_flex) + reactive_power_losses
         voltage_squared = np.square(voltage)
+        if implement:
+            self.voltage = voltage
 
         return voltage_squared, hourly_line_losses, q_ext_grid, netq_flex
 

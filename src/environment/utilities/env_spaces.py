@@ -98,6 +98,7 @@ class EnvSpaces:
             "store0": self._get_store,
             "grdC_level": self._get_grdC_level,
             "dT_next": self._get_dT_next,
+            "min_voltage": self._get_min_voltage,
             "car_tau": self._get_car_tau,
             "car_dem_agg": self._get_car_dem_agg,
             "bool_flex": self.get_bool_flex,
@@ -153,6 +154,7 @@ class EnvSpaces:
             ["flexibility", 0, max_flexibility, n_other_states, 0],
             ["bool_flex", 0, 1, 2, 1],
             ["avail_car_step", 0, 1, 2, 1],
+            ["min_voltage", 0.7, 1.1, n_other_states, 0],
             ["avail_car_prev", 0, 1, 2, 1],
             ["car_tau", 0, prm["car"]["c_max"], n_other_states, 0],
             # clusters - for whole day
@@ -582,6 +584,13 @@ class EnvSpaces:
                f"len descriptors['state'] {len(self.descriptors['state'])}"
 
         return vals
+
+    def _get_min_voltage(self, inputs):
+        """Get minimum nodal voltage over the whole network"""
+        time_step, res, _, _, prm = inputs
+
+        return np.min(res['voltage_squared'][time_step])
+
 
     def _get_dT_next(self, inputs):
         """Get temperature requirements parameter at current time step."""

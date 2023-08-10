@@ -366,6 +366,7 @@ def _format_rl_parameters(rl):
         "n_epochs", "n_repeats", "instant_feedback", "rnn_hidden_dim", "buffer_size"
     ]:
         rl[key] = int(rl[key])
+
     if isinstance(rl["state_space"], str):
         rl["state_space"] = [rl["state_space"]]
     for key in ["batch_size", "buffer_capacity"]:
@@ -597,6 +598,9 @@ def _update_rl_prm(prm, initialise_all):
     rl = _format_rl_parameters(rl)
     rl = _expand_grdC_states(rl)
     rl = _remove_states_incompatible_with_trajectory(rl)
+    if 'min_voltage' in rl['state_space']:
+        prm['grd']['simulate_panda_power_only'] = True
+
     reactive_power_for_voltage_control = prm["grd"]["reactive_power_for_voltage_control"]
 
     _dims_states_actions(rl, syst, reactive_power_for_voltage_control)

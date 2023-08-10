@@ -312,7 +312,6 @@ class LocalElecEnv:
         action: list,
         implement: bool = True,
         record: bool = False,
-        evaluation: bool = False,
         netp_storeout: bool = False,
         E_req_only: bool = False,
     ) -> list:
@@ -337,7 +336,7 @@ class LocalElecEnv:
         [
             home_vars, loads, hourly_line_losses, voltage_squared,
             q_ext_grid, constraint_ok, q_car, q_house
-        ] = self.policy_to_rewardvar(action, E_req_only=E_req_only)
+        ] = self.policy_to_rewardvar(action, E_req_only=E_req_only, implement=implement)
 
         netp0 = self.prm['loads']['netp0'][:, h]
         if not constraint_ok:
@@ -575,6 +574,7 @@ class LocalElecEnv:
             action: list,
             other_input: list = None,
             E_req_only: bool = False,
+            implement: bool = True,
     ):
         """Given selected action, obtain results of the step."""
         if other_input is None:
@@ -634,8 +634,8 @@ class LocalElecEnv:
                 q_car_flex = flexible_q_car
             # run pandapower simulation
             voltage_squared, hourly_line_losses, q_ext_grid, netq_flex = \
-                self.network._power_flow_res_with_pandapower(
-                    home_vars, netp0, q_car_flex, passive=self.ext == 'P'
+                self.network.power_flow_res_with_pandapower(
+                    home_vars, netp0, q_car_flex, passive=self.ext == 'P', implement=implement
                 )
             q_house = netq_flex - q_car_flex
         else:
@@ -874,6 +874,12 @@ class LocalElecEnv:
 
         return bool_penalty
 
+    def _compute_min_voltage(self, time_step):
+        if time_step == 0:
+            return 1
+        else:
+            return np.min(self.network.voltage)
+
     def _compute_dT_next(self, home, time_step):
         T_req = self.prm['heat']['T_req' + self.ext][home]
         t_change_T_req = [
@@ -929,6 +935,8 @@ class LocalElecEnv:
             val = self.normalised_grdC[time_step]
         elif descriptor == 'dT_next':
             val = self._compute_dT_next(home, time_step)
+        elif descriptor == 'min_voltage':
+            val = self._compute_min_voltage(time_step)
         elif descriptor == 'car_tau':
             val = self.car.car_tau(time_step, date, home, store[home])
         elif (

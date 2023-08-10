@@ -145,7 +145,7 @@ class Explorer:
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
                     action, record=record,
-                    evaluation=evaluation, netp_storeout=True
+                    netp_storeout=True
             )
             if not done:
                 for info, val in zip(
@@ -321,7 +321,7 @@ class Explorer:
             [
                 state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
             ] = env.step(
-                action_, record=record, evaluation=evaluation,
+                action_, record=record,
                 E_req_only=method == "baseline"
             )
             if record:
