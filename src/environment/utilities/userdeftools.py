@@ -175,6 +175,8 @@ def get_opt_res_file(prm, test=False):
     opt_res_file0 = f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
 
     for ext in ['_test', '']:
+        if ext not in syst["n_homes_extensions_all"]:
+            continue
         paths['opt_res_file' + ext] = opt_res_file0
         paths['opt_res_file' + ext] += f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
@@ -210,6 +212,8 @@ def get_opt_res_file(prm, test=False):
         # eff does not matter for seeds, but only for res
         if prm["car"]["efftype"] == 1:
             paths["opt_res_file" + ext] += "_eff1"
+        if grd['quadratic_penalty_voltage_deviation']:
+            paths["opt_res_file" + ext] += f"_quadratic_voltage"
 
         paths['opt_res_file' + ext] += ".npy"
 
@@ -217,6 +221,10 @@ def get_opt_res_file(prm, test=False):
             paths['files_list'].append(paths['opt_res_file' + ext])
         paths['opt_res_file_no' + ext] = f"{paths['files_list'].index(paths['opt_res_file' + ext])}.npy"
         paths["seeds_file" + ext] = f"outputs/seeds/seeds{paths['opt_res_file_no' + ext]}"
+
+    if '_test' not in syst['n_homes_extensions_all']:
+        paths['opt_res_file_no_test'] = paths['opt_res_file_no']
+        paths['seeds_file_test'] = paths['seeds_file']
 
     return paths
 

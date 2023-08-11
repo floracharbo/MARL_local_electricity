@@ -772,7 +772,7 @@ def _syst_info(prm):
         prm["syst"][f"{info}_dtm"] = datetime.datetime(*prm["syst"][info])
 
 
-def _homes_info(loads, syst, gen, heat):
+def _homes_info(loads, syst, gen, heat, car):
     for ext in syst['n_homes_extensions_all']:
         gen["own_PV" + ext] = np.ones(syst["n_homes" + ext]) \
             if isinstance(gen["own_PV" + ext], (int, float)) and gen["own_PV" + ext] == 1 \
@@ -780,6 +780,9 @@ def _homes_info(loads, syst, gen, heat):
         heat["own_heat" + ext] = np.ones(syst["n_homes" + ext]) * heat["own_heat" + ext] \
             if isinstance(heat["own_heat" + ext], int) \
             else np.array(heat["own_heat" + ext])
+        car["own_car" + ext] = np.ones(syst["n_homes" + ext]) * car["own_car" + ext] \
+            if isinstance(car["own_car" + ext], int) \
+            else np.array(car["own_car" + ext])
         for ownership in ["own_loads" + ext, "own_flex" + ext]:
             if ownership in loads:
                 loads[ownership] = np.ones(syst["n_homes" + ext]) * loads[ownership] \
@@ -806,15 +809,15 @@ def initialise_prm(prm, no_run, initialise_all=True):
     outputs:
     prm:
     """
-    [paths, syst, loads, gen, save, heat] = [
+    [paths, syst, loads, gen, save, heat, car] = [
         prm[key] if key in prm else None
-        for key in ["paths", "syst", "loads", "gen", "save", "heat"]
+        for key in ["paths", "syst", "loads", "gen", "save", "heat", "car"]
     ]
 
     if paths is not None:
         paths = _update_paths(paths, prm, no_run)
     _syst_info(prm)
-    _homes_info(loads, syst, gen, heat)
+    _homes_info(loads, syst, gen, heat, car)
 
     # update paths and parameters from inputs
     if paths is not None and initialise_all:
