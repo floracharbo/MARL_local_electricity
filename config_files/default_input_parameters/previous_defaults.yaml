@@ -70,4 +70,4 @@ timestamp_changes:
 'RL-n_epochs-13': 50
 'RL-q_learning-alpha-14': 0.01
 'car-c_max-15': 6.6
-'grd-min_voltage16': 0.96
+'grd-min_voltage-16': 0.96
