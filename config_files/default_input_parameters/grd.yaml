@@ -15,7 +15,7 @@ manage_voltage: False # Add constraints and penalty to limit voltage violations 
 penalise_individual_exports: True # Penalises the export to the external grid
 compare_pandapower_optimisation: False # Compares the power flows and losses results from relaxed opti and pandapower
 max_voltage: 1.1 # Upper limit for voltage on buses in per unit
-min_voltage: 0.96 # Lower limit for voltage on buses in per unit
+min_voltage: 0.94 # Lower limit for voltage on buses in per unit
 penalty_overvoltage: 1.e-5 # Coefficient multiplied with overvoltage values to determine penalty
 penalty_undervoltage: 1.e-5 # Coefficient multiplied with undervoltage values to determine penalty
 weight_network_costs: 1 # Reward weight of network costs voltage_costs and import_export_costs
