@@ -473,7 +473,7 @@ class LocalElecEnv:
                 voltage_squared, self.prm['grd']
             )
             if time_step < self.N - 1:
-                mean_voltage_deviation, max_voltage_deviation, \
+                mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, \
                     n_voltage_deviation_bus, n_voltage_deviation_hour =  \
                     mean_max_hourly_voltage_deviations(
                         voltage_squared,
@@ -482,13 +482,15 @@ class LocalElecEnv:
                     )
             else:
                 mean_voltage_deviation = 0
-                max_voltage_deviation = 0
+                mean_voltage_violation = 0
+                max_voltage_violation = 0
                 n_voltage_deviation_bus = 0
                 n_voltage_deviation_hour = 0
         else:
             voltage_costs = 0
             mean_voltage_deviation = 0
-            max_voltage_deviation = 0
+            mean_voltage_violation = 0
+            max_voltage_violation = 0
             n_voltage_deviation_bus = 0
             n_voltage_deviation_hour = 0
 
@@ -536,7 +538,7 @@ class LocalElecEnv:
             cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
             emissions_from_grid, emissions_from_loss, total_costs,
             indiv_grid_energy_costs, indiv_battery_degradation_costs, indiv_grid_battery_costs,
-            mean_voltage_deviation, max_voltage_deviation, n_voltage_deviation_bus,
+            mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_voltage_deviation_bus,
             n_voltage_deviation_hour
         ]
 
@@ -714,7 +716,7 @@ class LocalElecEnv:
         return transition_type_
 
     def _file_id(self):
-        opt_res_file = self.prm['paths']['opt_res_file_no']
+        opt_res_file = self.prm['paths']['opt_res_file_no' + self.ext]
         return f"_{self.no_name_file}{self.ext}_{opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:

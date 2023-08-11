@@ -604,7 +604,7 @@ class Record:
             elif info in ['n_voltage_deviation_bus', 'n_voltage_deviation_hour']:
                 self.__dict__[info][self.repeat][method][epoch] = \
                     np.sum(eval_step_t_e[:-1]) if eval_step_t_e is not None else None
-            elif info == 'mean_voltage_deviation':
+            elif info in ['mean_voltage_violation', 'mean_voltage_deviation']:
                 self.__dict__[info][self.repeat][method][epoch] = \
                     np.mean(eval_step_t_e[:-1], axis=0) if eval_step_t_e is not None else None
             else:

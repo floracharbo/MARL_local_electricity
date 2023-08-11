@@ -857,14 +857,15 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
     """ Plots voltages of first 150 buses that exceed the limits """
     for repeat in range(prm['RL']['n_repeats']):
         last, _, methods_to_plot = _get_repeat_data(
-            repeat, all_methods_to_plot, folder_run)
+            repeat, all_methods_to_plot, folder_run
+        )
         for method in [method for method in methods_to_plot if method not in ['opt']]:
-            overvoltage_bus_index, undervoltage_bus_index, _, _ = \
+            overvoltage_bus_index, undervoltage_bus_index, _, _, voltage = \
                 get_index_over_under_voltage_last_time_step(last, method, prm)
             overvoltage_value = \
-                last['voltage_squared'][method][prm['syst']['N'] - 1][overvoltage_bus_index]
+                np.square(last['voltage_squared'][method][prm['syst']['N'] - 1][overvoltage_bus_index])
             undervoltage_value = \
-                last['voltage_squared'][method][prm['syst']['N'] - 1][undervoltage_bus_index]
+                np.square(last['voltage_squared'][method][prm['syst']['N'] - 1][undervoltage_bus_index])
             n_voltage_violations = len(overvoltage_bus_index) + len(undervoltage_bus_index)
             if n_voltage_violations > 150:
                 fig_length = 22
@@ -920,18 +921,19 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
 def get_index_over_under_voltage_last_time_step(last, method, prm, time_step=23):
     max_deviation = -100
     min_deviation = 100
+    voltage = np.square(last['voltage_squared'][method][time_step])
     overvoltage_bus_index = np.where(
-        last['voltage_squared'][method][time_step] > prm['grd']['max_voltage'] ** 2
+        voltage > prm['grd']['max_voltage']
     )[0]
     undervoltage_bus_index = np.where(
-        last['voltage_squared'][method][time_step] < prm['grd']['min_voltage'] ** 2
+        voltage < prm['grd']['min_voltage']
     )[0]
     if len(overvoltage_bus_index) > 0:
-        max_deviation = np.max(np.array(last['voltage_squared'][method][time_step])[overvoltage_bus_index] - prm['grd']['max_voltage'] ** 2)
+        max_deviation = np.max(np.array(voltage)[overvoltage_bus_index] - prm['grd']['max_voltage'] ** 2)
     if len(undervoltage_bus_index) > 0:
-        min_deviation = np.min(prm['grd']['min_voltage'] ** 2 - np.array(last['voltage_squared'][method][time_step])[undervoltage_bus_index])
+        min_deviation = np.min(prm['grd']['min_voltage'] ** 2 - np.array(voltage)[undervoltage_bus_index])
 
-    return overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation
+    return overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation, voltage
 
 
 def map_over_undervoltage(

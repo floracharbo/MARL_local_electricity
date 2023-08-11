@@ -172,49 +172,51 @@ def get_opt_res_file(prm, test=False):
     for der, f0 in zip(['car', 'gen', 'loads'], [8, 8, 9]):
         if prm['syst']['f0'][der] != f0:
             cap_str += f"_f0_{der}_{prm['syst']['f0'][der]}"
-    paths['opt_res_file'] = \
-        f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
+    opt_res_file0 = f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
+
+    for ext in ['_test', '']:
+        paths['opt_res_file' + ext] = opt_res_file0
+        paths['opt_res_file' + ext] += f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
-    if syst['n_homesP'] > 0:
-        paths['opt_res_file'] += f"_nP{syst['n_homesP' + ext]}"
-    if syst['n_homes_test'] != syst['n_homes']:
-        paths['opt_res_file'] += f"_ntest{syst['n_homes_test']}"
-    if syst['clus_dist_share'] < 1:
-        paths['opt_res_file'] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
-    if "file" in heat and heat["file"] != "heat.yaml":
-        paths['opt_res_file'] += f"_{heat['file']}"
+        if syst['n_homesP'] > 0:
+            paths['opt_res_file' + ext] += f"_nP{syst['n_homesP' + ext]}"
+        # if syst['n_homes_test'] != syst['n_homes']:
+        #     paths['opt_res_file'] += f"_ntest{syst['n_homes_test']}"
+        if syst['clus_dist_share'] < 1:
+            paths['opt_res_file' + ext] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
+        if "file" in heat and heat["file"] != "heat.yaml":
+            paths['opt_res_file' + ext] += f"_{heat['file']}"
 
-    for obj, label in zip([car, heat, loads, loads, gen], ['car', 'heat', 'loads', 'flex', 'PV']):
-        ownership = np.array(obj[f'own_{label}'])
-        if sum(ownership) != len(ownership):
-            paths['opt_res_file'] += f"_no_{label}"
-            homes = np.where(ownership == 0)[0]
-            if len(homes) == 1:
-                paths['opt_res_file'] += f"_{homes[0]}"
-            elif all(homes[1:] == homes[:-1] + 1):
-                paths['opt_res_file'] += f"_{homes[0]}_to_{homes[-1]}"
-            else:
-                for home in np.where(ownership == 0)[0]:
-                    paths['opt_res_file'] += f"_{home}"
+        for obj, label in zip([car, heat, loads, loads, gen], ['car', 'heat', 'loads', 'flex', 'PV']):
+            ownership = np.array(obj[f'own_{label}' + ext])
+            if sum(ownership) != len(ownership):
+                paths['opt_res_file' + ext] += f"_no_{label}"
+                homes = np.where(ownership == 0)[0]
+                if len(homes) == 1:
+                    paths['opt_res_file' + ext] += f"_{homes[0]}"
+                elif all(homes[1:] == homes[:-1] + 1):
+                    paths['opt_res_file' + ext] += f"_{homes[0]}_to_{homes[-1]}"
+                else:
+                    for home in np.where(ownership == 0)[0]:
+                        paths['opt_res_file' + ext] += f"_{home}"
 
-    if rl["deterministic"] == 2:
-        paths['opt_res_file'] += "_noisy"
-    paths['opt_res_file'] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
-        f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
-    if prm["syst"]["change_start"]:
-        paths["opt_res_file"] += "_changestart"
-    paths['opt_res_file'] += _naming_file_extension_network_parameters(grd)
-    # eff does not matter for seeds, but only for res
-    if prm["car"]["efftype"] == 1:
-        paths["opt_res_file"] += "_eff1"
+        if rl["deterministic"] == 2:
+            paths['opt_res_file' + ext] += "_noisy"
+        paths['opt_res_file' + ext] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
+            f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
+        if prm["syst"]["change_start"]:
+            paths["opt_res_file" + ext] += "_changestart"
+        paths['opt_res_file' + ext] += _naming_file_extension_network_parameters(grd)
+        # eff does not matter for seeds, but only for res
+        if prm["car"]["efftype"] == 1:
+            paths["opt_res_file" + ext] += "_eff1"
 
-    paths['opt_res_file'] += ".npy"
+        paths['opt_res_file' + ext] += ".npy"
 
-    if paths['opt_res_file'] not in paths['files_list']:
-        paths['files_list'].append(paths['opt_res_file'])
-    paths['opt_res_file_no'] = f"{paths['files_list'].index(paths['opt_res_file'])}.npy"
-    paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file_no']}"
+        if paths['opt_res_file' + ext] not in paths['files_list']:
+            paths['files_list'].append(paths['opt_res_file' + ext])
+        paths['opt_res_file_no' + ext] = f"{paths['files_list'].index(paths['opt_res_file' + ext])}.npy"
+        paths["seeds_file" + ext] = f"outputs/seeds/seeds{paths['opt_res_file_no' + ext]}"
 
     return paths
 
@@ -408,20 +410,20 @@ def compute_voltage_costs(voltage_squared, grd):
 
 def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
     assert np.all(voltage_squared >= 0), f"voltage_squared has negative values {voltage_squared}"
-    overvoltage_deviation = \
-        (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
-    undervoltage_deviation = \
-        (min_voltage - np.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
-    voltage_deviation = np.concatenate([overvoltage_deviation, undervoltage_deviation])
-    if len(voltage_deviation) > 0:
-        mean = np.mean(voltage_deviation)
-        max = np.max(voltage_deviation)
-        n_deviations_bus = len(voltage_deviation)
+    voltage = np.sqrt(voltage_squared)
+    overvoltage_violation = (voltage - max_voltage)[voltage_squared > max_voltage ** 2]
+    undervoltage_violation = (min_voltage - voltage)[voltage_squared < min_voltage ** 2]
+    voltage_violation = np.concatenate([overvoltage_violation, undervoltage_violation])
+    if len(voltage_violation) > 0:
+        mean_voltage_violation = np.mean(voltage_violation)
+        max_voltage_violation = np.max(voltage_violation)
+        n_deviations_bus = len(voltage_violation)
         n_deviations_hour = 1
     else:
-        mean, max, n_deviations_bus, n_deviations_hour = 0, 0, 0, 0
+        mean_voltage_violation, max_voltage_violation, n_deviations_bus, n_deviations_hour = 0, 0, 0, 0
+    mean_voltage_deviation = np.mean(np.abs(1 - voltage))
 
-    return mean, max, n_deviations_bus, n_deviations_hour
+    return mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_deviations_bus, n_deviations_hour
 
 
 def f_to_interval(f, fs_brackets):

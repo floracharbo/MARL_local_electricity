@@ -264,9 +264,9 @@ def barplot_indiv_savings(record, prm):
             method for method in prm['RL']['evaluation_methods']
             if method != 'baseline'
         ]
-        savings_a, share_sc, std_savings = [
+        savings_a, share_sc, std_savings, p10_savings, p90_savings, p1_savings, p99_savings = [
             [[] for _ in range(prm['syst']['n_homes_test'])]
-            for _ in range(3)
+            for _ in range(7)
         ]
         for home in range(prm['syst']['n_homes_test']):
             for method in eval_not_baseline:
@@ -288,12 +288,16 @@ def barplot_indiv_savings(record, prm):
                         (
                             indiv_grid_battery_costs[repeat]['baseline'][epoch][home]
                             - indiv_grid_battery_costs[repeat][method][epoch]
-                        )
+                        ) * prm['syst']['interval_to_month']
                         for epoch in range(prm['RL']['start_end_eval'], prm['RL']['n_epochs'])
                     ]
                     for repeat in range(prm['RL']['n_repeats'])
                 ]
                 savings_a[home].append(np.mean(savings_a_all))
+                p1_savings[home].append(np.percentile(savings_a_all, 1))
+                p99_savings[home].append(np.percentile(savings_a_all, 99))
+                p10_savings[home].append(np.percentile(savings_a_all, 10))
+                p90_savings[home].append(np.percentile(savings_a_all, 90))
                 std_savings[home].append(np.std(savings_a_all))
         for it in range(len(eval_not_baseline)):
             if eval_not_baseline[it] == 'opt_d_d':
@@ -317,13 +321,17 @@ def barplot_indiv_savings(record, prm):
         fig = plt.figure()
         for home, label in enumerate(labels):
             plt.bar(rs[home], savings_a[home], width=barWidth,
-                    label=label, yerr=std_savings[home])
-        plt.xlabel('savings per agent')
-        plt.xticks([r + barWidth
-                    for r in range(len(eval_not_baseline))],
-                   eval_not_baseline, rotation='vertical')
-        plt.legend()
-        title = "savings per agent relative to " \
+                    label=label, color='gray')
+            plt.vlines(rs[home], p10_savings[home], p90_savings[home], color='k')
+            # plt.scatter(rs[home], p1_savings[home][0], 'x', color='k')
+            # plt.scatter(rs[home], p99_savings[home], 'x', color='k')
+
+        plt.xlabel('Savings per agent')
+        # plt.xticks([r + barWidth
+        #             for r in range(len(eval_not_baseline))],
+        #            eval_not_baseline, rotation='vertical')
+        # plt.legend()
+        title = "Savings per agent relative to " \
                 "individual baseline costs"
         title_and_save(title, fig, prm)
         plt.close('all')
@@ -348,12 +356,18 @@ def plot_voltage_statistics(record, prm):
     labels = [
         record.break_down_rewards_entries[prm['syst']['break_down_rewards_entries'].index(label)]
         for label in [
-            'mean_voltage_deviation', 'max_voltage_deviation',
+            'mean_voltage_deviation',
+            'mean_voltage_violation', 'max_voltage_deviation',
             'n_voltage_deviation_bus', 'n_voltage_deviation_hour'
         ]
     ]
+    if 'mean_voltage_violation' not in record.__dict__.keys():
+        record.mean_voltage_violation = record.mean_voltage_deviation
+        record.mean_voltage_deviation = None
+
     for label in labels:
-        record_obj = getattr(record, label)
+        if label in record.__dict__.keys():
+            record_obj = getattr(record, label)
         fig, ax = plt.subplots(figsize=(16, 8))
         for method in prm['RL']['evaluation_methods']:
             n = len(record_obj[0][method])
@@ -385,9 +399,11 @@ def plot_voltage_statistics(record, prm):
         hist_values
     )
     y_axis_labels = [
-        'Mean \nvoltage constraint violation \n[p.u.]', 'Max \nvoltage constraint violation \n[p.u.]',
+        'Mean \nvoltage deviation \n[p.u.]',
+        'Mean \nvoltage constraint violation \n[p.u.]',
+        'Max \nvoltage constraint violation \n[p.u.]',
         'Number of bus-hours \nwith voltage constraint violation',
-        'Number of hours \nwith voltage constraint violation'
+        'Number of hours \nwith voltage constraint violation',
     ]
     methods_hist = [
         method for method in prm['RL']['evaluation_methods']
