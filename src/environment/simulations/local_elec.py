@@ -474,7 +474,7 @@ class LocalElecEnv:
             )
             if time_step < self.N - 1:
                 mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, \
-                    n_voltage_deviation_bus, n_voltage_deviation_hour =  \
+                    n_voltage_violation_bus, n_voltage_violation_hour =  \
                     mean_max_hourly_voltage_deviations(
                         voltage_squared,
                         self.prm['grd']['max_voltage'],
@@ -484,15 +484,15 @@ class LocalElecEnv:
                 mean_voltage_deviation = 0
                 mean_voltage_violation = 0
                 max_voltage_violation = 0
-                n_voltage_deviation_bus = 0
-                n_voltage_deviation_hour = 0
+                n_voltage_violation_bus = 0
+                n_voltage_violation_hour = 0
         else:
             voltage_costs = 0
             mean_voltage_deviation = 0
             mean_voltage_violation = 0
             max_voltage_violation = 0
-            n_voltage_deviation_bus = 0
-            n_voltage_deviation_hour = 0
+            n_voltage_violation_bus = 0
+            n_voltage_violation_hour = 0
 
         if self.prm['grd']['charge_type'] == 0:
             sum_netp_export = sum(self.netp_to_exports(netp))
@@ -538,8 +538,8 @@ class LocalElecEnv:
             cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
             emissions_from_grid, emissions_from_loss, total_costs,
             indiv_grid_energy_costs, indiv_battery_degradation_costs, indiv_grid_battery_costs,
-            mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_voltage_deviation_bus,
-            n_voltage_deviation_hour
+            mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_voltage_violation_bus,
+            n_voltage_violation_hour
         ]
 
         assert len(break_down_rewards) == len(self.prm['syst']['break_down_rewards_entries']), \

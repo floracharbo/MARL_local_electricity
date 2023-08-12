@@ -358,8 +358,9 @@ def plot_voltage_statistics(record, prm):
         for label in [
             'mean_voltage_deviation',
             'mean_voltage_violation', 'max_voltage_deviation',
-            'n_voltage_deviation_bus', 'n_voltage_deviation_hour'
+            'n_voltage_violation_bus', 'n_voltage_violation_hour'
         ]
+        if label in record.break_down_rewards_entries
     ]
     if 'mean_voltage_violation' not in record.__dict__.keys():
         record.mean_voltage_violation = record.mean_voltage_deviation
@@ -414,9 +415,9 @@ def plot_voltage_statistics(record, prm):
     }
     methods_labels['baseline'] = 'Baseline'
     methods_labels['env_r_c'] = 'MARL'
-    fig, axs = plt.subplots(2, 2, figsize=(16, 8))
-    rows = [0, 0, 1, 1]
-    cols = [0, 1, 0, 1]
+    fig, axs = plt.subplots(3, 2, figsize=(16, 8))
+    rows = [0, 0, 1, 1, 2]
+    cols = [0, 1, 0, 1, 0]
     min_val, max_val = 1e10, -1e10
     for i, (label, row, col) in enumerate(zip(labels, rows, cols)):
         Y = [hist_values[method][label] for method in methods_hist]

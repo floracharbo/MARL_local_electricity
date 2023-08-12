@@ -792,8 +792,8 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['mean_voltage_deviation'] = []
         res['mean_voltage_violation'] = []
         res['max_voltage_violation'] = []
-        res['n_voltage_deviation_bus'] = []
-        res['n_voltage_deviation_hour'] = []
+        res['n_voltage_violation_bus'] = []
+        res['n_voltage_violation_hour'] = []
         res['voltage'] = np.sqrt(res['voltage_squared'])
         res['hourly_voltage_costs'] = np.sum(
             res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
@@ -833,8 +833,8 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             res['mean_voltage_deviation'].append(mean_voltage_deviation)
             res['mean_voltage_violation'].append(mean_voltage_violation)
             res['max_voltage_violation'].append(max_voltage_violation)
-            res['n_voltage_deviation_bus'].append(n_bus)
-            res['n_voltage_deviation_hour'].append(n_hour)
+            res['n_voltage_violation_bus'].append(n_bus)
+            res['n_voltage_violation_hour'].append(n_hour)
 
     else:
         res['voltage_squared'] = np.zeros((1, N))

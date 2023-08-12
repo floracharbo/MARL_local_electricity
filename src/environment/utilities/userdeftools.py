@@ -425,13 +425,13 @@ def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage
     if len(voltage_violation) > 0:
         mean_voltage_violation = np.mean(voltage_violation)
         max_voltage_violation = np.max(voltage_violation)
-        n_deviations_bus = len(voltage_violation)
-        n_deviations_hour = 1
+        n_violation_bus = len(voltage_violation)
+        n_violation_hour = 1
     else:
-        mean_voltage_violation, max_voltage_violation, n_deviations_bus, n_deviations_hour = 0, 0, 0, 0
+        mean_voltage_violation, max_voltage_violation, n_violation_bus, n_violation_hour = 0, 0, 0, 0
     mean_voltage_deviation = np.mean(np.abs(1 - voltage))
 
-    return mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_deviations_bus, n_deviations_hour
+    return mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_violation_bus, n_violation_hour
 
 
 def f_to_interval(f, fs_brackets):
