@@ -860,7 +860,7 @@ def voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run):
             repeat, all_methods_to_plot, folder_run
         )
         for method in [method for method in methods_to_plot if method not in ['opt']]:
-            overvoltage_bus_index, undervoltage_bus_index, _, _, voltage = \
+            overvoltage_bus_index, undervoltage_bus_index, _, _ = \
                 get_index_over_under_voltage_last_time_step(last, method, prm)
             overvoltage_value = \
                 np.square(last['voltage_squared'][method][prm['syst']['N'] - 1][overvoltage_bus_index])
@@ -933,7 +933,7 @@ def get_index_over_under_voltage_last_time_step(last, method, prm, time_step=23)
     if len(undervoltage_bus_index) > 0:
         min_deviation = np.min(prm['grd']['min_voltage'] ** 2 - np.array(voltage)[undervoltage_bus_index])
 
-    return overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation, voltage
+    return overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation
 
 
 def map_over_undervoltage(
