@@ -5,6 +5,7 @@ from datetime import datetime
 from itertools import chain
 from pathlib import Path
 from textwrap import wrap
+import traceback
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -14,26 +15,40 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
     # 'grd-line_losses_method',
+    # 'RL-facmac-hysteretic'
     'grd-voltage_penalty',
+    # 'syst-n_homesP',
+    # 'syst-n_homes_test',
     # 'RL-state_space',
     # 'syst-own_der',
     # 'syst-share_active'
+    # 'syst-assets'
 ]
 for col in [
     # 'loads-own_flex',
-    'car-own_car',
+    # 'car-own_car',
     # 'loads-own_loads',
-    'heat-own_heat',
-    'syst-own_der',
-    'loads-own_flexible_loads'
+    # 'heat-own_heat',
+    # 'syst-own_der',
+    # 'loads-own_flexible_loads'
 ]:
     # COLUMNS_OF_INTEREST.append(col)
     COLUMNS_OF_INTEREST.append(f"{col}_no")
     pass
+
+
+FILTER = {
+    'type_learning': 'facmac',
+    'trajectory': False,
+    'n_repeats': 10,
+    'manage_voltage': True,
+    'n_homes': 55,
+    'reactive_power_for_voltage_control': True,
+}
 
 if len(COLUMNS_OF_INTEREST) != len(set(COLUMNS_OF_INTEREST)):
     raise ValueError("COLUMNS_OF_INTEREST has duplicates.")
@@ -48,14 +63,6 @@ i_subplot_time = 1 if not PLOT_ENV_ONLY else 2
 font_size = 12
 font = {'size': font_size}
 matplotlib.rc('font', **font)
-
-FILTER = {
-    'type_learning': 'facmac',
-    # 'n_homes': 900,
-    # 'reactive_power_for_voltage_control': True,
-    # 'trajectory': False,
-    # 'n_epochs': 20,
-}
 
 best_score_type = 'p50'
 # p50 or ave
@@ -82,6 +89,7 @@ X_LABELS = {
     'cnn_kernel_size': 'Kernel size',
     'state_space': 'State space',
     'n_homes': 'Number of homes',
+    'voltage_penalty': 'Voltage constraint violation penalty [£/p.u.]'
 }
 
 
@@ -465,6 +473,12 @@ def add_default_values(log, new_columns):
         ] = log.loc[critic_optimizer_none].apply(
             lambda x: x['RL-optimizer'], axis=1
         )
+    for ext in ['', 'P']:
+        if 'syst-n_homes_test' + ext in log.columns:
+            log['syst-n_homes_test' + ext] = log.apply(
+                lambda x: np.nan if x['syst-n_homes' + ext] == x['syst-n_homes_test' + ext] else x['syst-n_homes_test' + ext], axis=1
+        )
+
     if 'RL-offset_reward' in log.columns:
         log['RL-delta_reward'] = log.apply(
             lambda x: x['RL-delta_reward'] if x['RL-offset_reward'] else 0, axis=1
@@ -720,16 +734,27 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def add_voltage_metrics_to_row(row, voltage_metrics, keys_methods):
     if voltage_metrics is not None:
+        if 'mean_voltage_violation' not in voltage_metrics:
+            labels = [
+                'mean_voltage_deviation', None, 'max_voltage_deviation',
+                'n_voltage_deviation_bus', 'n_voltage_deviation_hour'
+            ]
+        else:
+            labels = [
+                'mean_voltage_violation', 'mean_voltage_deviation', 'max_voltage_deviation',
+                'n_voltage_violation_bus', 'n_voltage_violation_hour'
+            ]
+
         for method in keys_methods + ['baseline']:
-            for label in voltage_metrics['baseline'].keys():
-                if method in voltage_metrics:
+            for label in labels:
+                if method in voltage_metrics and label is not None:
                     row.append(
                         voltage_metrics[method][label]
                     )
                 else:
                     row.append(None)
     else:
-        row += [None] * len(keys_methods + ['baseline']) * 4
+        row += [None] * len(keys_methods + ['baseline']) * 5
 
     return row
 
@@ -787,20 +812,21 @@ def compute_best_score_per_run(keys_methods, log):
         )
         log[f"p25_{score}"] = log.apply(
             lambda row: row[f"p25_{row[f'method_{score}'][0][4:]}"]
-            if len(row[f'method_{score}']) > 0 else None,
+            if len(row[f'method_{score}']) > 0 else np.nan,
             axis=1
         )
 
         log[f"p75_{score}"] = log.apply(
             lambda row: row[f"p75_{row[f'method_{score}'][0][4:]}"]
-            if len(row[f'method_{score}']) > 0 else None,
+            if len(row[f'method_{score}']) > 0 else np.nan,
             axis=1
         )
-        log['n_deviation_best_all'] = log.apply(
-            lambda row: row[f"n_deviation_{row[f'method_{score}'][0][4:]}"]
-            if len(row[f'method_{score}']) > 0 else None,
+        log['mean_deviation_best_all'] = log.apply(
+            lambda row: row[f"mean_deviation_{row[f'method_{score}'][0][4:]}"]
+            if len(row[f'method_{score}']) > 0 else np.nan,
             axis=1
         )
+        log['mean_deviation_best_all'] = log['mean_deviation_best_all'].apply(lambda x: np.nan if x is None else x)
         log = log.drop(columns=[f'method_{score}'])
     # methods_best_score = log.columns[log[ave_cols_non_opt].argmax(axis=1)]
     # col_best_score_env = log[ave_cols_methods_env].argmax(axis=1)
@@ -868,15 +894,15 @@ def check_that_only_grdCn_changes_in_state_space(
 
 def annotate_run_nos(
         axs, values_of_interest_sorted, best_score_sorted,
-        best_env_score_sorted, runs_sorted, n_deviations_sorted
+        best_env_score_sorted, runs_sorted, mean_deviations_sorted
 ):
     if ANNOTATE_RUN_NOS:
-        for i, (x, best_score, best_env_score, run, n_deviations) in enumerate(zip(
+        for i, (x, best_score, best_env_score, run, mean_deviations) in enumerate(zip(
                 values_of_interest_sorted, best_score_sorted,
-                best_env_score_sorted, runs_sorted, n_deviations_sorted
+                best_env_score_sorted, runs_sorted, mean_deviations_sorted
         )):
             ax0 = axs if n_subplots == 1 else axs[0]
-            print(f"run = {run} x {x} best_score {best_score} n_deviations {n_deviations}")
+            print(f"run = {run} x {x} best_score {best_score} mean_deviations {mean_deviations}")
             ax0.annotate(
                 run, (x, best_score), textcoords="offset points", xytext=(0, 10),
                 ha='center'
@@ -888,7 +914,7 @@ def annotate_run_nos(
                 )
             if PLOT_VOLTAGE_DEVIATIONS:
                 axs[-1].annotate(
-                    run, (x, n_deviations), textcoords="offset points", xytext=(0, 10),
+                    run, (x, mean_deviations), textcoords="offset points", xytext=(0, 10),
                     ha='center'
                 )
         for j in np.argsort(best_score_sorted):
@@ -929,7 +955,6 @@ def get_indexes_to_ignore_in_setup_comparison(
             'share_active_test', 'own_car_no', 'own_loads_no', 'own_flex_no', 'own_heat_no',
             'own_flexible_loads_no', 'own_der_no'
         ],
-        'assets': ['own_car', 'own_heat', 'own_loads', 'own_flex'],
         'type_learning': [
             'act_noise', 'agent_facmac', 'buffer_size', 'cnn_kernel_size',
             'cnn_out_channels', 'facmac-batch_size', 'facmac-critic_lr',
@@ -945,9 +970,11 @@ def get_indexes_to_ignore_in_setup_comparison(
         ignore_cols[f"{col}_no"] = [col, 'own_der', 'assets']
     ignore_cols['own_der'] = ['own_der_no', 'assets']
     ignore_cols['own_der_no'] = ['own_der', 'assets']
+    ignore_cols['assets'] = ['own_der', 'own_der_no']
     for col in ['own_car', 'own_heat', 'own_flex']:
         ignore_cols['own_der'] += [col, f"{col}_no"]
         ignore_cols['own_der_no'] += [col, f"{col}_no"]
+        ignore_cols['assets'] += [col, f"{col}_no"]
 
     ignore_cols['own_flexible_loads'] = ['own_flex', 'own_loads', 'own_flex_no', 'own_loads_no', 'own_der', 'own_flexible_loads_no', 'assets']
     ignore_cols['own_flexible_loads_no'] = ['own_flex', 'own_loads', 'own_flex_no', 'own_loads_no', 'own_der', 'own_flexible_loads', 'assets']
@@ -964,10 +991,13 @@ def get_indexes_to_ignore_in_setup_comparison(
             # if n_homes_test = n_homes set as np.nan so as to ignore it changing with n_homes
             if current_setup[i_n_homes_test] == initial_setup_row_n_hommes:
                 current_setup[i_n_homes_test] = np.nan
-            if row_setup[i_n_homes_test] == row_n_homes:
-                row_setup[i_n_homes_test] = np.nan
+            # if row_setup[i_n_homes_test] == row_n_homes:
+            #     row_setup[i_n_homes_test] = np.nan
         if column_of_interest in ['n_homesP', 'n_homes_test']:
             indexes_ignore.append(other_columns.index('share_active_test'))
+        if column_of_interest == 'n_homesP':
+            indexes_ignore.append(other_columns.index('n_homes_testP'))
+
     else:
         if column_of_interest in ignore_cols:
             for ignore_col in ignore_cols[column_of_interest]:
@@ -989,6 +1019,7 @@ def get_indexes_to_ignore_in_setup_comparison(
         elif column_of_interest in columns_irrelevant_to_q_learning:
             # this is about facmac
             indexes_ignore += indexes_columns_ignore_facmac
+
 
 
     return indexes_ignore
@@ -1025,8 +1056,8 @@ def compare_all_runs_for_column_of_interest(
         best_values = []
         env_values = []
     time_values = []
-    n_deviation_values = []
-    n_deviation_baseline_values = []
+    mean_deviation_values = []
+    mean_deviation_baseline_values = []
     any_zero_values_x = False
     any_zero_values_voltage = False
     order_of_magnitudes_gap_x = False
@@ -1061,8 +1092,8 @@ def compare_all_runs_for_column_of_interest(
             for p in [25, 75]:
                 best_scores[k][f'p{p}'] = [log[f'p{p}_best_score_{k}'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
-        n_deviation = [log['n_deviation_best_all'].loc[initial_setup_row]]
-        n_deviation_baseline = [log['n_deviation_baseline'].loc[initial_setup_row]]
+        mean_deviation = [log['mean_deviation_best_all'].loc[initial_setup_row]]
+        mean_deviation_baseline = [log['mean_deviation_baseline'].loc[initial_setup_row]]
         for row in range(len(log)):
             row_setup = [log[col].loc[row] for col in other_columns]
             new_row = row not in rows_considered
@@ -1101,6 +1132,12 @@ def compare_all_runs_for_column_of_interest(
                     for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
                     if i_col not in indexes_ignore
                 )
+                if (
+                        column_of_interest == 'n_homesP'
+                        and not (np.isnan(log.loc[initial_setup_row, 'n_homes_testP']) and np.isnan(log.loc[row, 'n_homes_testP']))
+                        and log.loc[initial_setup_row, 'n_homes_testP'] != log.loc[row, 'n_homes_testP']
+                ):
+                    only_col_of_interest_changes = False
 
             if FILTER_N_HOMES:
                 n_homes_facmac_traj_only = not (
@@ -1121,7 +1158,8 @@ def compare_all_runs_for_column_of_interest(
                 and n_homes_on_laptop_only \
                 and n_homes_facmac_traj_only \
                 and relevant_eps
-            if new_row and only_col_of_interest_changes and relevant_data:
+            if new_row and only_col_of_interest_changes and relevant_data and not np.isnan(log[column_of_interest].loc[row]):
+                print(f"new_row {new_row} row {row}")
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])
                 for k in ['all', 'env']:
@@ -1130,8 +1168,8 @@ def compare_all_runs_for_column_of_interest(
                         best_scores[k][f'p{p}'].append(log[f'p{p}_best_score_{k}'].loc[row])
 
                 time_best_score.append(log['time_end'].loc[row])
-                n_deviation.append(log['n_deviation_best_all'].loc[row])
-                n_deviation_baseline.append(log['n_deviation_baseline'].loc[row])
+                mean_deviation.append(log['mean_deviation_best_all'].loc[row])
+                mean_deviation_baseline.append(log['mean_deviation_baseline'].loc[row])
 
         if len(values_of_interest) > 1:
             all_setups_same_as_0 = all(
@@ -1166,9 +1204,10 @@ def compare_all_runs_for_column_of_interest(
                     for asset in ordered_assets:
                         if asset in values_of_interest:
                             i_sorted.append(values_of_interest.index(asset))
-
-                    assert len(i_sorted) == len(values_of_interest)
-                    assert all(i in i_sorted for i in range(len(values_of_interest)))
+                    # if not (len(i_sorted) == len(values_of_interest)):
+                    #     print()
+                    # assert len(i_sorted) == len(values_of_interest)
+                    # assert all(i in i_sorted for i in range(len(values_of_interest)))
                 else:
                     i_sorted = np.argsort(values_of_interest)
                 values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
@@ -1182,8 +1221,8 @@ def compare_all_runs_for_column_of_interest(
                             best_scores[k][f'p{p}'][i] for i in i_sorted
                         ]
                 time_best_score_sorted = [time_best_score[i] for i in i_sorted]
-                n_deviation_sorted = [n_deviation[i] for i in i_sorted]
-                n_deviation_baseline_sorted = [n_deviation_baseline[i] for i in i_sorted]
+                mean_deviation_sorted = [mean_deviation[i] for i in i_sorted]
+                mean_deviation_baseline_sorted = [mean_deviation_baseline[i] for i in i_sorted]
                 runs_sorted = [runs[i] for i in i_sorted]
                 ls = '--' if 'server' in log and log.loc[rows_considered[-1], 'server'] else '-'
                 values_of_interest_sorted_k, best_scores_sorted = remove_nans_best_scores_sorted(
@@ -1255,21 +1294,20 @@ def compare_all_runs_for_column_of_interest(
                     )
                 if PLOT_VOLTAGE_DEVIATIONS:
                     axs[-1].plot(
-                        values_of_interest_sorted, n_deviation_sorted, 'o',
+                        values_of_interest_sorted, mean_deviation_sorted, 'o',
                         label=label,
                         linestyle=ls,
                         markerfacecolor='None',
                         color=colour
                     )
                     axs[-1].plot(
-                        values_of_interest_sorted, n_deviation_baseline_sorted, 'x--',
+                        values_of_interest_sorted, mean_deviation_baseline_sorted, 'x--',
                         label=f"{label} baseline",
                         linestyle=ls,
                         markerfacecolor='None',
                         color=colour
                     )
-                    print(f"{column_of_interest} {values_of_interest_sorted} {n_deviation_sorted}")
-
+                    print(f"{column_of_interest} {values_of_interest_sorted} {mean_deviation_sorted}")
                 for i in range(len(values_of_interest_sorted) - 1):
                     if values_of_interest_sorted[i + 1] == values_of_interest_sorted[i]:
                         print(
@@ -1279,42 +1317,37 @@ def compare_all_runs_for_column_of_interest(
                         )
                 axs = annotate_run_nos(
                     axs, values_of_interest_sorted, best_scores_sorted['all'][best_score_type],
-                    best_scores_sorted['env'][best_score_type], runs_sorted, n_deviation_sorted
+                    best_scores_sorted['env'][best_score_type], runs_sorted, mean_deviation_sorted
                 )
                 order_of_magnitudes_gap_x = check_if_orders_of_magnitude_gap(values_of_interest_sorted, order_of_magnitudes_gap_x)
                 if PLOT_VOLTAGE_DEVIATIONS:
-                    order_of_magnitudes_gap_voltage = check_if_orders_of_magnitude_gap(n_deviation_sorted, order_of_magnitudes_gap_voltage)
-
+                    order_of_magnitudes_gap_voltage = check_if_orders_of_magnitude_gap(mean_deviation_sorted, order_of_magnitudes_gap_voltage)
                 if 0 in values_of_interest:
                     any_zero_values_x = True
-                if 0 in n_deviation_sorted:
+                if 0 in mean_deviation_sorted:
                     any_zero_values_voltage = True
                 if column_of_interest == 'state_space':
                     x_labels.append(values_of_interest_sorted)
                     best_values.append(best_scores_sorted['all'][best_score_type])
                     env_values.append(best_scores_sorted['env'][best_score_type])
                 time_values.append(time_best_score_sorted)
-                n_deviation_values.append(n_deviation_sorted)
-                n_deviation_baseline_values.append(n_deviation_baseline_sorted)
+                mean_deviation_values.append(mean_deviation_sorted)
+                mean_deviation_baseline_values.append(mean_deviation_baseline_sorted)
                 plotted_something = True
 
         setup_no += 1
-
     if order_of_magnitudes_gap_x and not any_zero_values_x and column_of_interest[-2:] != 'no':
         axs_ = [axs] if n_subplots == 1 else axs
         for ax in axs_:
             ax.set_xscale('log')
     if PLOT_VOLTAGE_DEVIATIONS and order_of_magnitudes_gap_voltage and not any_zero_values_voltage:
         axs[-1].set_yscale('log')
-
     if len(time_values) > 1 and PLOT_TIME:
         end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
         if max(end_time_best_score_sorted) / min(end_time_best_score_sorted) > 30:
             axs[i_subplot_time].set_yscale('log')
-
-    state_space_vals = [x_labels, best_values, env_values, time_values, n_deviation_values, n_deviation_baseline_values] \
+    state_space_vals = [x_labels, best_values, env_values, time_values, mean_deviation_values, mean_deviation_baseline_values] \
         if column_of_interest == 'state_space' else None
-
     if not plotted_something:
         plt.close('all')
 
@@ -1322,15 +1355,15 @@ def compare_all_runs_for_column_of_interest(
 
 
 def adapt_figure_for_state_space(state_space_vals, axs):
-    x_labels, best_values, env_values, time_values, n_deviation_values, n_deviation_baseline_values = state_space_vals
+    x_labels, best_values, env_values, time_values, mean_deviation_values, mean_deviation_baseline_values = state_space_vals
     all_x_labels = []
     x_labels_flattened = list(chain.from_iterable(x_labels))
     for label in x_labels_flattened:
         if label not in all_x_labels:
             all_x_labels.append(label)
 
-    all_best_vals, all_env_vals, all_time_vals, all_n_deviation_vals = [
-        np.empty((len(x_labels), len(all_x_labels))) for _ in range(4)
+    all_best_vals, all_env_vals, all_time_vals, all_mean_deviation_vals, all_mean_deviation_baseline_vals = [
+        np.empty((len(x_labels), len(all_x_labels))) for _ in range(5)
     ]
     for i in range(len(x_labels)):
         for j in range(len(x_labels[i])):
@@ -1338,8 +1371,8 @@ def adapt_figure_for_state_space(state_space_vals, axs):
             all_best_vals[i, idx_value] = best_values[i][j]
             all_env_vals[i, idx_value] = env_values[i][j]
             all_time_vals[i, idx_value] = time_values[i][j]
-            all_n_deviation_vals[i, idx_value] = n_deviation_values[i][j]
-            all_n_deviation_baseline_vals[i, idx_value] = n_deviation_baseline_values[i][j]
+            all_mean_deviation_vals[i, idx_value] = mean_deviation_values[i][j]
+            all_mean_deviation_baseline_vals[i, idx_value] = mean_deviation_baseline_values[i][j]
 
     plt.close()
 
@@ -1347,12 +1380,12 @@ def adapt_figure_for_state_space(state_space_vals, axs):
     x_labels_sorted = [all_x_labels[i] for i in i_sorted]
     fig, axs = plt.subplots(n_subplots, 1, figsize=(6.4, 11 / 3 * n_subplots))
 
-    for i, (best, env, time, n_deviation, n_deviation_baseline) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals, all_n_deviation_vals, all_n_deviation_baseline_vals)):
+    for i, (best, env, time, mean_deviation, mean_deviation_baseline) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals, all_mean_deviation_vals, all_mean_deviation_baseline_vals)):
         best_sorted = [best[i] for i in i_sorted]
         env_sorted = [env[i] for i in i_sorted]
         time_sorted = [time[i] for i in i_sorted]
-        n_deviation_sorted = [n_deviation[i] for i in i_sorted]
-        n_deviation_baseline_sorted = [n_deviation_baseline[i] for i in i_sorted]
+        mean_deviation_sorted = [mean_deviation[i] for i in i_sorted]
+        mean_deviation_baseline_sorted = [mean_deviation_baseline[i] for i in i_sorted]
         ax0 = axs if n_subplots == 1 else axs[0]
         p = ax0.plot(x_labels_sorted, best_sorted, '-o', label=i + 1, markerfacecolor='None')
 
@@ -1371,8 +1404,8 @@ def adapt_figure_for_state_space(state_space_vals, axs):
         if PLOT_TIME:
             axs[i_subplot_time].plot(x_labels_sorted, time_sorted, '-o', label=i + 1, markerfacecolor='None')
         if PLOT_VOLTAGE_DEVIATIONS:
-            axs[-1].plot(x_labels_sorted, n_deviation_sorted, '-o', label=i + 1, markerfacecolor='None')
-            axs[-1].plot(x_labels_sorted, n_deviation_baseline_sorted, 'x--', label=f"{i + 1}_baseline", markerfacecolor='None')
+            axs[-1].plot(x_labels_sorted, mean_deviation_sorted, '-o', label=i + 1, markerfacecolor='None')
+            axs[-1].plot(x_labels_sorted, mean_deviation_baseline_sorted, 'x--', label=f"{i + 1}_baseline", markerfacecolor='None')
 
     return fig, axs
 
@@ -1487,10 +1520,8 @@ def plot_sensitivity_analyses(new_columns, log):
             ax0 = axs if n_subplots == 1 else axs[0]
             if column_of_interest == 'state_space':
                 fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
-
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
-
             if column_of_interest in ['state_space', 'type_learning']:
                 for i in range(n_subplots - 1):
                     axs[i].axes.xaxis.set_ticklabels([])
@@ -1499,7 +1530,6 @@ def plot_sensitivity_analyses(new_columns, log):
                 ax0.set_xscale('log')
                 for i in range(n_subplots):
                     axs[i].set_xscale('log')
-
             # remove columns that are irrelevant to the types learning in the current setups
             if column_of_interest != 'type_learning':
                 types_learning = [setup[other_columns.index('type_learning')] for setup in setups]
@@ -1600,7 +1630,7 @@ if __name__ == "__main__":
             columns_results_methods.append(f"{value}_{method}")
 
     for method in keys_methods + ['baseline']:
-        for label in ['mean_deviation', 'max_deviation', 'n_deviation', 'n_hour_deviation']:
+        for label in ['mean_violation', 'mean_deviation', 'max_deviation', 'n_violation', 'n_hour_violation']:
             columns_results_methods.append(f"{label}_{method}")
 
     log_path = results_analysis_path / "log_runs.csv"
