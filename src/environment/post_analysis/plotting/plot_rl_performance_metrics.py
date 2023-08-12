@@ -181,12 +181,14 @@ def barplot_metrics(prm, lower_bound, upper_bound):
             + [m + '_p50' for m in prm["RL"]["metrics_entries"][0:4]]
         for m in all_metrics_entries:
             eval_entries_bars_ = eval_entries_bars
-            eval_entries_bars_ = [
-                # entry for entry in ['env_r_c', 'opt_d_d']
-                # if entry in eval_entries_bars_
-                entry for entry in eval_entries_bars_
-                if entry[-1] == 'c' and entry.split('_')[1] != 'n'
-            ]
+            ext = 'd' if prm['RL']['type_learning'] == 'q_learning' else 'c'
+            if len(eval_entries_bars_) > 3:
+                eval_entries_bars_ = [
+                    # entry for entry in ['env_r_c', 'opt_d_d']
+                    # if entry in eval_entries_bars_
+                    entry for entry in eval_entries_bars_
+                    if entry[-1] == ext and entry.split('_')[1] != 'n'
+                ]
             ave = 'ave'
             m_ = m
             if m[-3:] == 'p50':
@@ -196,7 +198,7 @@ def barplot_metrics(prm, lower_bound, upper_bound):
             # colours_barplot_ = generate_colours(
             #     prm["save"], prm, colours_only=True, entries=eval_entries_bars_
             # )
-            colours_barplot_ = ['k' for e in eval_entries_bars_]
+            colours_barplot_ = [prm['save']['colourse'][e] for e in eval_entries_bars_]
 
             bars, err = [
                 [metrics[m_][s][e] for e in eval_entries_bars_]
