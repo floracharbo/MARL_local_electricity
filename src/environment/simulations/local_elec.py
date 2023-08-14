@@ -522,10 +522,13 @@ class LocalElecEnv:
         network_costs = self.prm['grd']['weight_network_costs'] * (
             import_export_costs + voltage_costs
         )
-        reward = - (
-            battery_degradation_costs + distribution_network_export_costs + grid_energy_costs
-            + network_costs
-        )
+        if self.prm['RL']['competitive']:
+            reward = - np.array(indiv_grid_battery_costs)
+        else:
+            reward = - (
+                battery_degradation_costs + distribution_network_export_costs + grid_energy_costs
+                + network_costs
+            )
         costs_wholesale = wholesalet * (sum(netp) + sum(netp0))
         costs_upstream_losses = wholesalet * self.prm['grd']['loss'] * grid ** 2
         total_costs = - reward
@@ -716,7 +719,9 @@ class LocalElecEnv:
         return transition_type_
 
     def _file_id(self):
-        opt_res_file = self.prm['paths']['opt_res_file_no' + self.ext]
+        ext_opt_res_file = '_test' if self.ext[0:len('_test')] == '_test' else ''
+        opt_res_file = self.prm['paths']['opt_res_file_no' + ext_opt_res_file]
+
         return f"_{self.no_name_file}{self.ext}_{opt_res_file}"
 
     def _ps_rand_to_choice(self, ps: list, rand: float) -> int:
