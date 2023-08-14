@@ -261,6 +261,8 @@ def test_all(mocker):
                 settings['RL']['trajectory'] = trajectory
                 print(f"test {type_learning} aggregate_actions {aggregate_actions} trajectory {trajectory}")
                 print(f"paths_results {paths_results}")
+                if not Path('outputs').exists():
+                    os.mkdir('outputs')
                 if not Path(paths_results).exists():
                     os.mkdir(paths_results)
                 no_run = current_no_run(paths_results)
