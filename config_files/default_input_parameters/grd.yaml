@@ -30,4 +30,4 @@ line_losses_method : 'subset_of_lines' # choice between subset_of_lines and iter
 tol_voltage_iteration: 0.001 # tolerance on voltages when iteratively solving the optimization
 simulate_panda_power_only: False
 n_buses: 907
-quadratic_penalty_voltage_deviation: False
+quadratic_voltage_penalty: False
