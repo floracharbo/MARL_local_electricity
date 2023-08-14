@@ -5,7 +5,6 @@ from datetime import datetime
 from itertools import chain
 from pathlib import Path
 from textwrap import wrap
-import traceback
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -15,12 +14,12 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = True
+ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
     # 'grd-line_losses_method',
     # 'RL-facmac-hysteretic'
-    'grd-voltage_penalty',
+    'grd-quadratic_voltage_penalty',
     # 'syst-n_homesP',
     # 'syst-n_homes_test',
     # 'RL-state_space',
@@ -40,14 +39,22 @@ for col in [
     COLUMNS_OF_INTEREST.append(f"{col}_no")
     pass
 
+# METRIC_VOLTAGE = 'mean_deviation'
+METRIC_VOLTAGE = 'n_violation'
+
+y_label_voltage = {
+    'mean_deviation': 'Mean voltage deviation [p.u.]',
+    'n_violation': 'Number of voltage deviations\nover the day',
+}
 
 FILTER = {
     'type_learning': 'facmac',
     'trajectory': False,
-    'n_repeats': 10,
+    # 'n_repeats': 10,
     'manage_voltage': True,
     'n_homes': 55,
     'reactive_power_for_voltage_control': True,
+
 }
 
 if len(COLUMNS_OF_INTEREST) != len(set(COLUMNS_OF_INTEREST)):
@@ -734,7 +741,7 @@ def append_metrics_data_for_a_result_no(results_path, result_no, keys_methods, r
 
 def add_voltage_metrics_to_row(row, voltage_metrics, keys_methods):
     if voltage_metrics is not None:
-        if 'mean_voltage_violation' not in voltage_metrics:
+        if 'mean_voltage_violation' not in voltage_metrics['baseline']:
             labels = [
                 'mean_voltage_deviation', None, 'max_voltage_deviation',
                 'n_voltage_deviation_bus', 'n_voltage_deviation_hour'
@@ -821,12 +828,13 @@ def compute_best_score_per_run(keys_methods, log):
             if len(row[f'method_{score}']) > 0 else np.nan,
             axis=1
         )
-        log['mean_deviation_best_all'] = log.apply(
-            lambda row: row[f"mean_deviation_{row[f'method_{score}'][0][4:]}"]
+        log[f'{METRIC_VOLTAGE}_best_all'] = log.apply(
+            lambda row:
+            row[f"{METRIC_VOLTAGE}_{row[f'method_{score}'][0][4:]}"]
             if len(row[f'method_{score}']) > 0 else np.nan,
             axis=1
         )
-        log['mean_deviation_best_all'] = log['mean_deviation_best_all'].apply(lambda x: np.nan if x is None else x)
+        log[f'{METRIC_VOLTAGE}_best_all'] = log[f'{METRIC_VOLTAGE}_best_all'].apply(lambda x: np.nan if x is None else x)
         log = log.drop(columns=[f'method_{score}'])
     # methods_best_score = log.columns[log[ave_cols_non_opt].argmax(axis=1)]
     # col_best_score_env = log[ave_cols_methods_env].argmax(axis=1)
@@ -902,7 +910,7 @@ def annotate_run_nos(
                 best_env_score_sorted, runs_sorted, mean_deviations_sorted
         )):
             ax0 = axs if n_subplots == 1 else axs[0]
-            print(f"run = {run} x {x} best_score {best_score} mean_deviations {mean_deviations}")
+            print(f"run = {run} x {x} best_score {best_score} {METRIC_VOLTAGE}s {mean_deviations}")
             ax0.annotate(
                 run, (x, best_score), textcoords="offset points", xytext=(0, 10),
                 ha='center'
@@ -1020,8 +1028,6 @@ def get_indexes_to_ignore_in_setup_comparison(
             # this is about facmac
             indexes_ignore += indexes_columns_ignore_facmac
 
-
-
     return indexes_ignore
 
 
@@ -1092,8 +1098,8 @@ def compare_all_runs_for_column_of_interest(
             for p in [25, 75]:
                 best_scores[k][f'p{p}'] = [log[f'p{p}_best_score_{k}'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
-        mean_deviation = [log['mean_deviation_best_all'].loc[initial_setup_row]]
-        mean_deviation_baseline = [log['mean_deviation_baseline'].loc[initial_setup_row]]
+        mean_deviation = [log[f'{METRIC_VOLTAGE}_best_all'].loc[initial_setup_row]]
+        mean_deviation_baseline = [log[f'{METRIC_VOLTAGE}_baseline'].loc[initial_setup_row]]
         for row in range(len(log)):
             row_setup = [log[col].loc[row] for col in other_columns]
             new_row = row not in rows_considered
@@ -1159,7 +1165,6 @@ def compare_all_runs_for_column_of_interest(
                 and n_homes_facmac_traj_only \
                 and relevant_eps
             if new_row and only_col_of_interest_changes and relevant_data and not np.isnan(log[column_of_interest].loc[row]):
-                print(f"new_row {new_row} row {row}")
                 rows_considered.append(row)
                 values_of_interest.append(log[column_of_interest].loc[row])
                 for k in ['all', 'env']:
@@ -1168,8 +1173,8 @@ def compare_all_runs_for_column_of_interest(
                         best_scores[k][f'p{p}'].append(log[f'p{p}_best_score_{k}'].loc[row])
 
                 time_best_score.append(log['time_end'].loc[row])
-                mean_deviation.append(log['mean_deviation_best_all'].loc[row])
-                mean_deviation_baseline.append(log['mean_deviation_baseline'].loc[row])
+                mean_deviation.append(log[f'{METRIC_VOLTAGE}_best_all'].loc[row])
+                mean_deviation_baseline.append(log[f'{METRIC_VOLTAGE}_baseline'].loc[row])
 
         if len(values_of_interest) > 1:
             all_setups_same_as_0 = all(
@@ -1556,7 +1561,7 @@ def plot_sensitivity_analyses(new_columns, log):
             if PLOT_TIME:
                 axs[i_subplot_time].set_ylabel("Time [s]")
             if PLOT_VOLTAGE_DEVIATIONS:
-                axs[-1].set_ylabel("Number of voltage deviations\nover the day")
+                axs[-1].set_ylabel(y_label_voltage[METRIC_VOLTAGE])
             ax_xlabel = axs if n_subplots == 1 else axs[-1]
             x_label = X_LABELS[column_of_interest] if column_of_interest in X_LABELS \
                 else column_of_interest
