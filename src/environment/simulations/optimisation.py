@@ -159,6 +159,10 @@ class Optimiser:
         voltage_squared = p.add_variable(
             'voltage_squared', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
+        if self.grd['quadratic_voltage_penalty']:
+            voltage_cost_per_bus = p.add_variable(
+                'voltage_cost_per_bus', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
+            )
         q_ext_grid = p.add_variable('q_ext_grid', self.N, vtype='continuous')
         line_losses_pu = p.add_variable(
             'line_losses_pu', (self.grd['n_lines'], self.N), vtype='continuous'
@@ -418,21 +422,39 @@ class Optimiser:
 
         # Voltage limitation penalty
         # for each bus
-        p.add_constraint(overvoltage_costs >= 0)
-        p.add_constraint(
-            overvoltage_costs
-            >= self.grd['penalty_overvoltage'] * (voltage_squared - self.grd['max_voltage'] ** 2)
-        )
-        p.add_constraint(undervoltage_costs >= 0)
-        p.add_constraint(
-            undervoltage_costs
-            >= self.grd['penalty_undervoltage'] * (self.grd['min_voltage'] ** 2 - voltage_squared)
-        )
 
-        # sum over all buses
-        p.add_constraint(
-            voltage_costs == pic.sum(overvoltage_costs + undervoltage_costs)
-        )
+        if self.grd['quadratic_voltage_penalty']:
+            # p.add_constraint(
+            #     voltage_costs == pic.sum(
+            #         self.grd['penalty_undervoltage'] * (1 - voltage_squared ** (1 / 2)) ** 2
+            #     )
+            # )
+            for time_step in range(self.N):
+                p.add_list_of_constraints(
+                    [voltage_cost_per_bus[bus, time_step] >= 1 - 2 * voltage_squared[bus, time_step] ** (1 / 2) + voltage_squared[bus, time_step] for bus in range(self.grd['n_buses'] - 1)
+                ]
+                )
+            p.add_constraint(
+                voltage_costs == pic.sum(
+                    self.grd['penalty_undervoltage'] * voltage_cost_per_bus
+                )
+            )
+
+        else:
+            p.add_constraint(overvoltage_costs >= 0)
+            p.add_constraint(
+                overvoltage_costs
+                >= self.grd['penalty_overvoltage'] * (voltage_squared - self.grd['max_voltage'] ** 2)
+            )
+            p.add_constraint(undervoltage_costs >= 0)
+            p.add_constraint(
+                undervoltage_costs
+                >= self.grd['penalty_undervoltage'] * (self.grd['min_voltage'] ** 2 - voltage_squared)
+            )
+            # sum over all buses
+            p.add_constraint(
+                voltage_costs == pic.sum(overvoltage_costs + undervoltage_costs)
+            )
 
         return p, voltage_costs, q_ext_grid
 

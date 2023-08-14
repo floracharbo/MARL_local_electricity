@@ -212,7 +212,7 @@ def get_opt_res_file(prm, test=False):
         # eff does not matter for seeds, but only for res
         if prm["car"]["efftype"] == 1:
             paths["opt_res_file" + ext] += "_eff1"
-        if grd['quadratic_penalty_voltage_deviation']:
+        if grd['quadratic_voltage_penalty']:
             paths["opt_res_file" + ext] += f"_quadratic_voltage"
 
         paths['opt_res_file' + ext] += ".npy"
@@ -402,18 +402,24 @@ def compute_import_export_costs(grid, grd, n_int_per_hr):
 
 
 def compute_voltage_costs(voltage_squared, grd):
-    over_voltage_costs = grd['penalty_overvoltage'] * np.where(
-        voltage_squared > grd['max_voltage'] ** 2,
-        voltage_squared - grd['max_voltage'] ** 2,
-        0
-    )
-    under_voltage_costs = grd['penalty_undervoltage'] * np.where(
-        voltage_squared < grd['min_voltage'] ** 2,
-        grd['min_voltage'] ** 2 - voltage_squared,
-        0
-    )
+    if grd['quadratic_voltage_penalty']:
+         voltage_costs = np.sum(
+            grd['penalty_undervoltage'] * (1 - voltage_squared ** (1 / 2)) ** 2
+        )
+    else:
+        over_voltage_costs = grd['penalty_overvoltage'] * np.where(
+            voltage_squared > grd['max_voltage'] ** 2,
+            voltage_squared - grd['max_voltage'] ** 2,
+            0
+        )
+        under_voltage_costs = grd['penalty_undervoltage'] * np.where(
+            voltage_squared < grd['min_voltage'] ** 2,
+            grd['min_voltage'] ** 2 - voltage_squared,
+            0
+        )
+        voltage_costs = np.sum(over_voltage_costs + under_voltage_costs)
 
-    return np.sum(over_voltage_costs + under_voltage_costs)
+    return voltage_costs
 
 
 def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
