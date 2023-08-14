@@ -595,7 +595,7 @@ def run(run_mode, settings, no_runs=None):
         # obtain the number of runs from the longest settings entry
         n_runs = get_number_runs(settings)
         # loop through runs
-        for i in range(n_runs):
+        for i in range(8, n_runs):
             remove_old_prms = [info for info in prm if info != 'paths']
             for info in remove_old_prms:
                 del prm[info]
@@ -608,10 +608,13 @@ def run(run_mode, settings, no_runs=None):
             if 'type_learning' not in settings_i['RL']:
                 settings_i['RL']['type_learning'] = 'q_learning' if fewer_than_10_homes \
                     else 'facmac'
-                settings_i['RL']['trajectory'] = False if fewer_than_10_homes \
-                    else True
                 settings_i['RL']['evaluation_methods'] = None if fewer_than_10_homes \
                     else 'env_r_c'
+
+                if 'trajectory' not in settings_i['RL']:
+                    settings_i['RL']['trajectory'] = False if fewer_than_10_homes \
+                        else True
+
             else:
                 if 'trajectory' not in settings_i['RL']:
                     settings_i['RL']['trajectory'] = True if settings_i['RL']['type_learning'] == 'facmac' else False
