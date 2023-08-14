@@ -282,6 +282,7 @@ def distr_learning(q):
 
 
 def current_no_run(results_path):
+    print(f"Path(results_path).exists() {Path(results_path).exists()}")
     if not Path(results_path).exists():
         no_run = 1
     else:

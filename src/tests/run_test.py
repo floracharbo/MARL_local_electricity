@@ -259,6 +259,7 @@ def test_all(mocker):
                     break
                 settings['RL']['trajectory'] = trajectory
                 print(f"test {type_learning} aggregate_actions {aggregate_actions} trajectory {trajectory}")
+                print(f"paths_results {paths_results}")
                 no_run = current_no_run(paths_results)
 
                 if prev_no_run is not None:
