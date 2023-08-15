@@ -343,6 +343,8 @@ class Runner:
                 if (
                     info[0: len('indiv')] == 'indiv'
                     or info in self.prm['syst']['indiv_step_vals_entries']
+                    or (info == 'reward' and self.prm['RL']['competitive'])
+
                 ):
                     shape0 = list(shape0)
                     shape0[1] = self.n_homes
@@ -358,6 +360,7 @@ class Runner:
                             if (
                                 info[0: len('indiv')] == 'indiv'
                                 or info in self.prm['syst']['indiv_step_vals_entries']
+                                or (info == 'reward' and self.prm['RL']['competitive'])
                             ):
                                 list_train_stepvals[method][info][
                                     i_explore * self.N: (i_explore + 1) * self.N
@@ -595,7 +598,7 @@ def run(run_mode, settings, no_runs=None):
         # obtain the number of runs from the longest settings entry
         n_runs = get_number_runs(settings)
         # loop through runs
-        for i in range(8, n_runs):
+        for i in range(n_runs):
             remove_old_prms = [info for info in prm if info != 'paths']
             for info in remove_old_prms:
                 del prm[info]
