@@ -254,11 +254,11 @@ class Explorer:
                 and not evaluation:
 
             if self.rl["competitive"]:
-                indiv_grid_battery_costs = - self._get_break_down_reward(
+                indiv_grid_battery_costs = - np.array(self._get_break_down_reward(
                     break_down_rewards, 'indiv_grid_battery_costs'
-                )
+                ))
                 diff_rewards = [
-                    indiv_grid_battery_costs[home] - rewards_baseline[home][home]
+                    indiv_grid_battery_costs[home] - rewards_baseline[home]
                     for home in self.homes
                 ]
             else:
@@ -312,7 +312,7 @@ class Explorer:
 
             # interact with environment to get rewards
             # record last epoch for analysis of results
-            record = epoch == self.rl["n_epochs"] - 1
+            record = epoch == self.rl["n_epochs"]
 
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
@@ -476,10 +476,12 @@ class Explorer:
     def _get_shape_step_vals(self, info, evaluation):
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         if info in self.prm['syst']['break_down_rewards_entries']:
-            if info[0: len('indiv')] == 'indiv':
+            if info[0: len('indiv')] == 'indiv' or (info in ['reward', 'total_costs'] and self.prm['RL']['competitive']):
                 shape = (self.N, n_homes)
             else:
                 shape = (self.N, 1)
+        elif info in ['reward', 'total_costs'] and self.prm['RL']['competitive']:
+            shape = (self.N, n_homes)
         elif info in self.prm['syst']['indiv_step_vals_entries']:
             shape = (self.N, n_homes, self.dim_step_vals[info])
         elif info in self.global_step_vals_entries:
@@ -609,7 +611,7 @@ class Explorer:
                 feasible = False
             if self.prm["RL"]["competitive"]:
                 diff_rewards = [
-                    indiv_grid_battery_costs[home] - rewards_baseline[home][home]
+                    indiv_grid_battery_costs[home] - rewards_baseline[home]
                     for home in self.homes
                 ]
             else:
@@ -642,11 +644,14 @@ class Explorer:
         time_step = self.env.time_step - 1
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
-            n = n_homes if info[0: len('indiv')] == 'indiv' else 1
-            step_vals[method][info][time_step][:n] = var
+            n = n_homes if info[0: len('indiv')] == 'indiv' or (info == 'reward' and self.prm['RL']['competitive']) else 1
+            try:
+                step_vals[method][info][time_step][:n] = var
+            except Exception as ex:
+                print(ex)
         for info, var in zip(self.prm['syst']['indiv_step_vals_entries'], indiv_step_vals):
             if var is not None:
-                if info == 'diff_rewards' and len(var) == self.n_homes + 1:
+                if (info == 'diff_rewards' or info == 'reward' and self.prm['RL']['competitive']) and len(var) == self.n_homes + 1:
                     var = var[:-1]
                 var_ = np.array(var.cpu()) if th.is_tensor(var) else var
                 step_vals[method][info][time_step, 0: n_homes, :] = np.reshape(
@@ -677,14 +682,24 @@ class Explorer:
             if key_ == 'diff_rewards' and len(step_vals_i[key_]) == n_homes + 1:
                 step_vals_i[key_] = step_vals_i[key_][:-1]
             if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
-                step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
+                try:
+                    step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
+                except Exception as ex:
+                    print(ex)
             if (
                     key_[0: len('indiv')] == 'indiv'
                     or key_ in self.prm['syst']['indiv_step_vals_entries']
+                    or (key_ == 'reward' and self.prm['RL']['competitive'])
             ):
-                step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
+                try:
+                    step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
+                except Exception as ex:
+                    print(ex)
             else:
-                step_vals[method][key_][time_step] = step_vals_i[key_]
+                try:
+                    step_vals[method][key_][time_step] = step_vals_i[key_]
+                except Exception as ex:
+                    print(ex)
 
         if time_step > 0:
             step_vals[method]["next_state"][time_step][:n_homes] = step_vals_i["state"]
@@ -1130,7 +1145,7 @@ class Explorer:
         combs_actions = self._get_combs_actions(actions)
         feasible = True
 
-        for comb_actions in combs_actions:
+        for home, comb_actions in enumerate(combs_actions):
             bat_store = self.env.car.store.copy()
             input_take_action = date, comb_actions, gens, loads
             home_vars, loads, hourly_line_losses, voltage_squared, \
@@ -1147,7 +1162,8 @@ class Explorer:
                 hourly_line_losses=hourly_line_losses,
                 voltage_squared=voltage_squared,
             )
-
+            if self.prm['RL']['competitive'] and home < self.n_homes:
+                reward_baseline_a = reward_baseline_a[home]
             if not constraint_ok:
                 feasible = False
                 print(f"self.data.seed = {self.data.seed} "
