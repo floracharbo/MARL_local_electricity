@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 path0 = '/Users/floracharbonnier/GitHub/MARL_local_electricity/outputs/results'
+
+path_save = ''
 path_record = path0+f"/run2026/record"
 last = np.load(path_record + "/last_repeat0.npy", allow_pickle=True).item()
 colours = ['darkviolet', 'deepskyblue', 'forestgreen']
@@ -12,7 +14,7 @@ tot_ev_cons = np.mean(
         last['batch']['loads_car'], axis=0
     )
 )/2
-tot_flex_cons = np.mean(np.sum(last['tot_cons']['baseline'], axis=0))
+tot_flex_cons = np.mean(np.sum(last['totcons']['baseline'], axis=0))
 
 max_heat_cons = np.mean(np.max(last['tot_E_heat']['env_r_c'],axis=0))
 max_ev_cons = np.mean(np.max(np.array(last['store']['env_r_c'][1:]) - np.array(last['store']['env_r_c'][:-1]),axis=0))
@@ -59,7 +61,7 @@ axs[1].set_xlabel('Maximum consumption per day [kWh]')
 # axs[1].text(max_ev_cons, n_homes_ev + 10, 'EV')
 # axs[1].text(max_flex_cons, n_homes_loads - 10, 'Flexible household loads')
 
-fig.savefig("/Users/floracharbonnier/Downloads/Thesis/figures/n_homes_violation_vs_loads_der.pdf", bbox_inches='tight', format='pdf', dpi=1200)
+fig.savefig("/Users/floracharbonnier/n_homes_violation_vs_loads_der.pdf", bbox_inches='tight', format='pdf', dpi=1200)
 plt.close('all')
 
 
@@ -102,5 +104,5 @@ plt.ylabel("Number of homes causing voltage constraint violations\nnormalised by
 plt.legend()
 fig.gca().set_yscale('log')
 plt.show()
-fig.savefig("/Users/floracharbonnier/Downloads/Thesis/figures/n_homes_violation_normalised.pdf", bbox_inches='tight', format='pdf', dpi=1200)
+fig.savefig("/Users/floracharbonnier/n_homes_violation_normalised.pdf", bbox_inches='tight', format='pdf', dpi=1200)
 plt.close('all')
