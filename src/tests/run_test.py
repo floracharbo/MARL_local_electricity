@@ -102,6 +102,7 @@ def patch_set_date(
 
 def patch_load_data_dictionaries(paths, syst):
     syst['n_clus'] = {'loads': 4, 'car': 4}
+
     return syst
 
 

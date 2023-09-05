@@ -178,8 +178,8 @@ def plotting(record, spaces, prm, f):
         # plot_voltage_violations(prm, all_methods_to_plot, folder_run)
         barplot_breakdown_savings(record, prm, plot_type='costs')
         barplot_grid_energy_costs(record, prm, plot_type='costs')
-        plot_voltage_statistics(record, prm)
         voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run)
+        plot_voltage_statistics(record, prm)
         plot_reactive_power(prm, all_methods_to_plot, folder_run)
         plot_indiv_reactive_power(prm, all_methods_to_plot, folder_run)
 

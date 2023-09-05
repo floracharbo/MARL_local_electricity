@@ -300,7 +300,8 @@ class Explorer:
         # or one step if infeasible
         eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv \
             = self.action_selector.set_eps_greedy_vars(self.rl, epoch, evaluation)
-
+        # record last epoch for analysis of results
+        record = epoch == self.rl["n_epochs"]
         while not done and sequence_feasible:
             current_state = state
 
@@ -311,8 +312,7 @@ class Explorer:
             )
 
             # interact with environment to get rewards
-            # record last epoch for analysis of results
-            record = epoch == self.rl["n_epochs"]
+
 
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
@@ -645,10 +645,7 @@ class Explorer:
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
             n = n_homes if info[0: len('indiv')] == 'indiv' or (info == 'reward' and self.prm['RL']['competitive']) else 1
-            try:
-                step_vals[method][info][time_step][:n] = var
-            except Exception as ex:
-                print(ex)
+            step_vals[method][info][time_step][:n] = var
         for info, var in zip(self.prm['syst']['indiv_step_vals_entries'], indiv_step_vals):
             if var is not None:
                 if (info == 'diff_rewards' or info == 'reward' and self.prm['RL']['competitive']) and len(var) == self.n_homes + 1:
