@@ -393,8 +393,9 @@ class DataManager:
 
     def file_id(self, evaluation):
         """Generate string to identify the run in saved files."""
+        ext_opt_res_file = '_test' if evaluation else ''
         return f"_{int(self.seed[self.ext])}{self.ext}" \
-               f"_{self.prm['paths']['opt_res_file_no' + self.ext]}"
+               f"_{self.prm['paths']['opt_res_file_no' + ext_opt_res_file]}"
 
     def _loop_replace_data(
             self,
