@@ -73,7 +73,7 @@ class Network:
             'active_to_reactive_flex', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs',
             'tol_abs_line_losses', 'penalty_overvoltage', 'penalty_undervoltage',
             'max_voltage', 'min_voltage', 'manage_agg_power', 'penalty_import',
-            'penalty_export', 'max_grid_import', 'max_grid_export'
+            'penalty_export', 'max_grid_import', 'max_grid_export', 'quadratic_voltage_penalty',
         ]:
             self.grd[info] = prm['grd'][info]
 
