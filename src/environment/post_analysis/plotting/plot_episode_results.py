@@ -987,7 +987,7 @@ def map_over_undervoltage(
                     label='Generators'
                 )
 
-                for time_step in range(prm['syst']['N']):
+                for time_step in range(9, 23):
                     # Plot over and under voltages
                     overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation = \
                         get_index_over_under_voltage_last_time_step(
@@ -997,32 +997,31 @@ def map_over_undervoltage(
                     min_deviation_all[method] = np.min([min_deviation_all[method], min_deviation])
                     n_over_voltages[method][repeat, time_step] = len(overvoltage_bus_index)
                     n_under_voltages[method][repeat, time_step] = len(undervoltage_bus_index)
-                    if time_step in range(9, 23):
-                        over = pp_plot.create_bus_collection(
-                            net,
-                            overvoltage_bus_index,
-                            size=0.6, color="red", zorder=10,
-                            label='Overvoltage'
-                        )
-                        under = pp_plot.create_bus_collection(
-                            net,
-                            undervoltage_bus_index,
-                            size=0.6, color="dodgerblue", zorder=10,
-                            label='Undervoltage'
-                        )
-                        # Draw all the collected plots
-                        ax = pp_plot.draw_collections(
-                            [lcd, bc, tlc, tpc, sc, ldA, ldB, over, under],
-                            figsize=(20, 20)
-                        )
-                        # Add legend to homes
-                        annotate = False
-                        if annotate:
-                            annotate_buses(last, method, prm, net)
-                        # Save
-                        plt.legend()
-                        title = f'map_over_under_voltage{repeat}_{method}_t{time_step}'
-                        title_and_save(title, ax.figure, prm, display_title=False)
+                    over = pp_plot.create_bus_collection(
+                        net,
+                        overvoltage_bus_index,
+                        size=0.6, color="red", zorder=10,
+                        label='Overvoltage'
+                    )
+                    under = pp_plot.create_bus_collection(
+                        net,
+                        undervoltage_bus_index,
+                        size=0.6, color="dodgerblue", zorder=10,
+                        label='Undervoltage'
+                    )
+                    # Draw all the collected plots
+                    ax = pp_plot.draw_collections(
+                        [lcd, bc, tlc, tpc, sc, ldA, ldB, over, under],
+                        figsize=(20, 20)
+                    )
+                    # Add legend to homes
+                    annotate = False
+                    if annotate:
+                        annotate_buses(last, method, prm, net)
+                    # Save
+                    plt.legend()
+                    title = f'map_over_under_voltage{repeat}_{method}_t{time_step}'
+                    title_and_save(title, ax.figure, prm, display_title=False)
 
     n_subplots = sum(
         sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0
