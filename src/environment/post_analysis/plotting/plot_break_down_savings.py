@@ -264,9 +264,12 @@ def barplot_indiv_savings(record, prm):
             method for method in prm['RL']['evaluation_methods']
             if method != 'baseline'
         ]
-        savings_a, share_sc, std_savings, p10_savings, p90_savings, p1_savings, p99_savings = [
+        [
+            savings_a, share_sc, std_savings, p10_savings,
+            p90_savings, p1_savings, p99_savings, min_savings, max_savings
+        ] = [
             [[] for _ in range(prm['syst']['n_homes_test'])]
-            for _ in range(7)
+            for _ in range(9)
         ]
         for home in range(prm['syst']['n_homes_test']):
             for method in eval_not_baseline:
@@ -287,18 +290,21 @@ def barplot_indiv_savings(record, prm):
                     [
                         (
                             indiv_grid_battery_costs[repeat]['baseline'][epoch][home]
-                            - indiv_grid_battery_costs[repeat][method][epoch]
+                            - indiv_grid_battery_costs[repeat][method][epoch][home]
                         ) * prm['syst']['interval_to_month']
-                        for epoch in range(prm['RL']['start_end_eval'], prm['RL']['n_epochs'])
+                        for epoch in range(prm['RL']['n_epochs'], prm['RL']['n_all_epochs'])
                     ]
                     for repeat in range(prm['RL']['n_repeats'])
                 ]
-                savings_a[home].append(np.mean(savings_a_all))
-                p1_savings[home].append(np.percentile(savings_a_all, 1))
-                p99_savings[home].append(np.percentile(savings_a_all, 99))
-                p10_savings[home].append(np.percentile(savings_a_all, 10))
-                p90_savings[home].append(np.percentile(savings_a_all, 90))
-                std_savings[home].append(np.std(savings_a_all))
+                saving_per_month_repeat = np.mean(savings_a_all, axis=1)
+                savings_a[home].append(np.mean(saving_per_month_repeat))
+                min_savings[home].append(np.min(saving_per_month_repeat))
+                max_savings[home].append(np.max(saving_per_month_repeat))
+                p1_savings[home].append(np.percentile(saving_per_month_repeat, 1))
+                p99_savings[home].append(np.percentile(saving_per_month_repeat, 99))
+                p10_savings[home].append(np.percentile(saving_per_month_repeat, 10))
+                p90_savings[home].append(np.percentile(saving_per_month_repeat, 90))
+                std_savings[home].append(np.std(saving_per_month_repeat))
         for it in range(len(eval_not_baseline)):
             if eval_not_baseline[it] == 'opt_d_d':
                 savings_opt_d_d = [
@@ -320,19 +326,29 @@ def barplot_indiv_savings(record, prm):
 
         fig = plt.figure()
         for home, label in enumerate(labels):
-            plt.bar(rs[home], savings_a[home], width=barWidth,
-                    label=label, color='gray')
-            plt.vlines(rs[home], p10_savings[home], p90_savings[home], color='k')
+            plt.bar(
+                rs[home], savings_a[home], width=barWidth,
+                label=label, color='gray', edgecolor="white"
+            )
+            plt.vlines(rs[home], min_savings[home], max_savings[home], color='k')
             # plt.scatter(rs[home], p1_savings[home][0], 'x', color='k')
             # plt.scatter(rs[home], p99_savings[home], 'x', color='k')
 
-        plt.xlabel('Savings per agent')
+        plt.xlabel("Home")
+        plt.ylabel("Private monthly saving [£]")
+        plt.tick_params(
+            axis='x',  # changes apply to the x-axis
+            which='both',  # both major and minor ticks are affected
+            bottom=False,  # ticks along the bottom edge are off
+            top=False,  # ticks along the top edge are off
+            labelbottom=False
+        )
         # plt.xticks([r + barWidth
         #             for r in range(len(eval_not_baseline))],
         #            eval_not_baseline, rotation='vertical')
         # plt.legend()
         title = "Savings per agent relative to " \
-                "individual baseline costs"
+                f"individual baseline costs over {prm['RL']['n_end_test']} days"
         title_and_save(title, fig, prm)
         plt.close('all')
 
@@ -340,6 +356,7 @@ def barplot_indiv_savings(record, prm):
         fig = plt.figure()
         for home in range(len(labels)):
             plt.bar(rs[home], share_sc[home], width=barWidth, label=labels[home])
+        print(f"np.mean(share_sc) = {np.mean(share_sc)}")
         plt.xlabel('share of individual savings from battery costs savings')
         plt.xticks([r + barWidth
                     for r in range(len(prm['RL']['evaluation_methods']))],
