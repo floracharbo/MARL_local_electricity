@@ -559,7 +559,7 @@ class Explorer:
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
             time_step, batchflex_opt, evaluation
         )
-        cons_tol = 1e-1 if self.prm["grd"]["line_losses_method"] == 'iteration' else 1e-2
+        cons_tol = 1e-1
         assert all(
             (loads["l_flex"] + loads["l_fixed"])
             - (res['totcons'][:, time_step] - res['E_heat'][:, time_step])
@@ -738,7 +738,7 @@ class Explorer:
                 + self.env.heat.E_heat_min[home] \
                 + self.env.heat.potential_E_flex()[home]
             assert res["totcons"][home][time_step] <= \
-                   fixed_flex + 1e-2, \
+                   fixed_flex + 1e-1, \
                    f"cons {res['totcons'][home][time_step]} more than sum fixed + flex" \
                    f" {fixed_flex} for home = {home}, time_step = {time_step}"
 

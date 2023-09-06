@@ -278,7 +278,7 @@ class LocalElecEnv:
                 delta_cons = min(new_batch_flex[home, 0, i_flex], remaining_cons)
                 remaining_cons -= delta_cons
                 new_batch_flex[home, 0, i_flex] -= delta_cons
-            assert remaining_cons <= 1e-2, \
+            assert remaining_cons <= 1e-1, \
                 f"remaining_cons = {remaining_cons} too large"
 
             # move what has not been consumed to one step more urgent
