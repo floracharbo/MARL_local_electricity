@@ -63,7 +63,7 @@ class Record:
         for info in [
             "n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space",
             "n_explore", "n_all_epochs", "evaluation_methods",
-            'dim_actions_1', 'dim_states_1'
+            'dim_actions_1', 'dim_states_1', 'competitive'
         ]:
             setattr(self, info, rl[info])
         self.all_methods = rl["evaluation_methods"] \
@@ -131,7 +131,7 @@ class Record:
             method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
-            shape = (self.n_all_epochs, self.n_homes_test) if reward[0: len('indiv')] == 'indiv' \
+            shape = (self.n_all_epochs, self.n_homes_test) if reward[0: len('indiv')] == 'indiv' or self.competitive \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
                 method: np.zeros(shape) for method in all_evaluation_methods
