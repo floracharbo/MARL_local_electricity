@@ -14,12 +14,14 @@ import yaml
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
     # 'grd-line_losses_method',
     # 'RL-facmac-hysteretic'
-    'grd-quadratic_voltage_penalty',
+    # 'grd-quadratic_voltage_penalty',
+    'grd-voltage_penalty',
+    # 'RL-q_learning-eps'
     # 'syst-n_homesP',
     # 'syst-n_homes_test',
     # 'RL-state_space',
@@ -36,7 +38,7 @@ for col in [
     # 'loads-own_flexible_loads'
 ]:
     # COLUMNS_OF_INTEREST.append(col)
-    COLUMNS_OF_INTEREST.append(f"{col}_no")
+    # COLUMNS_OF_INTEREST.append(f"{col}_no")
     pass
 
 # METRIC_VOLTAGE = 'mean_deviation'
@@ -48,13 +50,13 @@ y_label_voltage = {
 }
 
 FILTER = {
-    'type_learning': 'facmac',
-    'trajectory': False,
-    # 'n_repeats': 10,
-    'manage_voltage': True,
-    'n_homes': 55,
-    'reactive_power_for_voltage_control': True,
-
+	'trajectory': True,
+	# 'n_repeats':10,
+	'manage_voltage':True,
+	'n_homes':55,
+	'reactive_power_for_voltage_control':True,
+	# 'min_voltage':0.96,
+	# 'penalty_export':False,
 }
 
 if len(COLUMNS_OF_INTEREST) != len(set(COLUMNS_OF_INTEREST)):
@@ -754,7 +756,7 @@ def add_voltage_metrics_to_row(row, voltage_metrics, keys_methods):
 
         for method in keys_methods + ['baseline']:
             for label in labels:
-                if method in voltage_metrics and label is not None:
+                if method in voltage_metrics and label is not None and label in voltage_metrics[method]:
                     row.append(
                         voltage_metrics[method][label]
                     )
