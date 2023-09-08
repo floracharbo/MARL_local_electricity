@@ -131,9 +131,10 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                     for i in range(len(labels))]
             )
     print(f"shares_reduc['env_r_c'] {shares_reduc['env_r_c']}")
-
+    if plot_type == 'costs':
+        print(f"labels {labels} bars {bars}")
     new_labels = [
-        'Grid costs', 'Storage costs', 'Distribution Costs', 'Import/Export Penalty',
+        'Grid costs', 'Emissions', 'Storage costs', 'Distribution Costs', 'Import/Export Penalty',
         'Voltage Penalty', 'Total Costs'
     ]
     bars.append(list(tots.values()))
@@ -145,7 +146,6 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
         rs.append([x + barWidth for x in rs[ir]])
     plt.figure(figsize=(16, 8))
     for ir in range(len(new_labels)):
-        print(f"{new_labels[ir]}: {bars[ir]}")
         plt.bar(rs[ir], bars[ir], width=barWidth, label=new_labels[ir])
     plt.xlabel('Evaluation Method')
     plt.ylabel('Costs [£/month/home]')
@@ -388,6 +388,8 @@ def plot_voltage_statistics(record, prm):
             record_obj = getattr(record, label)
         fig, ax = plt.subplots(figsize=(16, 8))
         for method in prm['RL']['evaluation_methods']:
+            if record_obj is None:
+                continue
             n = len(record_obj[0][method])
             x_axis = range(n)
             values = np.zeros((prm['RL']['n_repeats'], n))
@@ -406,6 +408,8 @@ def plot_voltage_statistics(record, prm):
     }
     for method in prm['RL']['evaluation_methods']:
         for label in labels:
+            if getattr(record, label) is None:
+                continue
             hist_values[method][label] = np.mean(
                 [
                     np.mean(getattr(record, label)[repeat][method][- prm['RL']['n_end_test']:])
@@ -437,7 +441,12 @@ def plot_voltage_statistics(record, prm):
     cols = [0, 1, 0, 1, 0]
     min_val, max_val = 1e10, -1e10
     for i, (label, row, col) in enumerate(zip(labels, rows, cols)):
-        Y = [hist_values[method][label] for method in methods_hist]
+        Y = [
+            hist_values[method][label]
+            if label in hist_values[method].keys()
+            else 0
+            for method in methods_hist
+        ]
         min_val = min(min_val, min(Y))
         max_val = max(max_val, max(Y))
         methods_labels_i = [methods_labels[method] for method in methods_hist]
