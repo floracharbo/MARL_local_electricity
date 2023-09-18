@@ -468,3 +468,7 @@ def list_potential_paths(
         )
 
     return potential_paths
+
+
+def var_len_is_n_homes(info, competitive):
+    return info[0: len('indiv')] == 'indiv' or (info in ['reward', 'total_costs'] and competitive)

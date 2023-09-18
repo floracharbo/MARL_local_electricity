@@ -22,7 +22,7 @@ from src.environment.experiment_manager.data_manager import DataManager
 from src.environment.experiment_manager.select_actions import ActionSelector
 from src.environment.utilities.userdeftools import (
     initialise_dict, methods_learning_from_exploration, reward_type,
-    set_seeds_rdn)
+    set_seeds_rdn, var_len_is_n_homes)
 from src.learners.learning import LearningManager
 
 
@@ -214,7 +214,7 @@ class Explorer:
             actions_baseline_a[home] = self.rl["default_action"][home]
             combs_actions.append(actions_baseline_a)
         combs_actions.append(self.rl["default_action"])
-        for comb_actions in combs_actions:
+        for home, comb_actions in enumerate(combs_actions):
             # get outp d
             [_, _, reward_a, _, _, constraint_ok, _] = env.step(
                 comb_actions,
@@ -222,15 +222,13 @@ class Explorer:
                 record=False,
                 E_req_only=method == "baseline"
             )
-
+            if self.prm['RL']['competitive'] and home < self.n_homes:
+                reward_a = reward_a[home]
             # add penalty if the constraints are violated
             if not constraint_ok:
                 sequence_feasible = False
-                reward_a, _ = self._apply_reward_penalty(
-                    evaluation, reward_a)
+                reward_a, _ = self._apply_reward_penalty(evaluation, reward_a)
             rewards_baseline.append(reward_a)
-            if reward_a is None:
-                print(f"reward_a {reward_a}")
 
         return rewards_baseline, sequence_feasible
 
@@ -312,8 +310,6 @@ class Explorer:
             )
 
             # interact with environment to get rewards
-
-
             rewards_baseline, sequence_feasible = self._baseline_rewards(
                 method, evaluation, action, env
             )
@@ -476,11 +472,11 @@ class Explorer:
     def _get_shape_step_vals(self, info, evaluation):
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         if info in self.prm['syst']['break_down_rewards_entries']:
-            if info[0: len('indiv')] == 'indiv' or (info in ['reward', 'total_costs'] and self.prm['RL']['competitive']):
+            if var_len_is_n_homes(info, self.prm['RL']['competitive']):
                 shape = (self.N, n_homes)
             else:
                 shape = (self.N, 1)
-        elif info in ['reward', 'total_costs'] and self.prm['RL']['competitive']:
+        elif var_len_is_n_homes(info, self.prm['RL']['competitive']):
             shape = (self.N, n_homes)
         elif info in self.prm['syst']['indiv_step_vals_entries']:
             shape = (self.N, n_homes, self.dim_step_vals[info])
@@ -644,16 +640,19 @@ class Explorer:
         time_step = self.env.time_step - 1
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
-            n = n_homes if info[0: len('indiv')] == 'indiv' or (info == 'reward' and self.prm['RL']['competitive']) else 1
+            n = n_homes if var_len_is_n_homes(info, self.prm['RL']['competitive']) else 1
             step_vals[method][info][time_step][:n] = var
         for info, var in zip(self.prm['syst']['indiv_step_vals_entries'], indiv_step_vals):
             if var is not None:
-                if (info == 'diff_rewards' or info == 'reward' and self.prm['RL']['competitive']) and len(var) == self.n_homes + 1:
+                if var_len_is_n_homes(info, self.prm['RL']['competitive']) and len(var) == self.n_homes + 1:
                     var = var[:-1]
                 var_ = np.array(var.cpu()) if th.is_tensor(var) else var
+                # try:
                 step_vals[method][info][time_step, 0: n_homes, :] = np.reshape(
                     var_, (n_homes, self.dim_step_vals[info])
                 )
+                # except Exception as ex:
+                #     print(ex)
 
         for info, var in zip(self.global_step_vals_entries, global_step_vals):
             step_vals[method][info][time_step] = var
@@ -997,8 +996,8 @@ class Explorer:
                 last_epoch, step_vals_i, batch, evaluation
             )
         assert abs(res["grid_energy_costs"] - sum(res["hourly_grid_energy_costs"])) < 1e-3
-
-        self._test_total_rewards_match(evaluation, res, sum_rl_rewards)
+        if not self.prm['RL']['competitive']:
+            self._test_total_rewards_match(evaluation, res, sum_rl_rewards)
         if not evaluation \
                 and rl["type_learning"] in ["DDPG", "DQN", "facmac"] \
                 and rl["trajectory"]:
