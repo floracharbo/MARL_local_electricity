@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 path0 = '/Users/floracharbonnier/GitHub/MARL_local_electricity/outputs/results'
 
 path_save = ''
-path_record = path0+f"/run2026/record"
+path_record = path0 + f"/run2201/record"
 last = np.load(path_record + "/last_repeat0.npy", allow_pickle=True).item()
 colours = ['darkviolet', 'deepskyblue', 'forestgreen']
 
@@ -14,11 +14,11 @@ tot_ev_cons = np.mean(
         last['batch']['loads_car'], axis=0
     )
 )/2
-tot_flex_cons = np.mean(np.sum(last['totcons']['baseline'], axis=0))
+tot_flex_cons = np.mean(np.sum(last['tot_cons_loads']['baseline'], axis=0))
 
-max_heat_cons = np.mean(np.max(last['tot_E_heat']['env_r_c'],axis=0))
-max_ev_cons = np.mean(np.max(np.array(last['store']['env_r_c'][1:]) - np.array(last['store']['env_r_c'][:-1]),axis=0))
-max_flex_cons = np.mean(np.max(last['flex_cons']['baseline'],axis=0))
+max_heat_cons = np.mean(np.max(last['tot_E_heat']['env_r_c'], axis=0))
+max_ev_cons = np.mean(np.max(np.array(last['store']['env_r_c'][1:]) - np.array(last['store']['env_r_c'][:-1]), axis=0))
+max_flex_cons = np.mean(np.max(last['flex_cons']['baseline'], axis=0))
 
 n_homes_loads = 200
 n_homes_ev = 140
@@ -33,7 +33,7 @@ labels = [
 ]
 
 
-for tot_cons_i, n_homes_i, colour,label in zip(tot_cons, n_homes, colours, labels):
+for tot_cons_i, n_homes_i, colour, label in zip(tot_cons, n_homes, colours, labels):
     axs[0].plot(tot_cons_i, n_homes_i, 'o', color=colour, label=label)
 # axs[0].plot(
 #     [tot_flex_cons, tot_ev_cons, tot_heat_cons],
