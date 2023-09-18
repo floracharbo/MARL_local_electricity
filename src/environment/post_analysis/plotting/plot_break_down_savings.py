@@ -130,7 +130,8 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                 [bars[i][-1] / tots[method] if tots[method] > 0 else None
                     for i in range(len(labels))]
             )
-    print(f"shares_reduc['env_r_c'] {shares_reduc['env_r_c']}")
+    if 'env_r_c' in shares_reduc:
+        print(f"shares_reduc['env_r_c'] {shares_reduc['env_r_c']}")
     if plot_type == 'costs':
         print(f"labels {labels} bars {bars}")
     new_labels = [
@@ -249,88 +250,69 @@ def barplot_grid_energy_costs(record, prm, plot_type='savings'):
     plt.close('all')
 
 
-def barplot_indiv_savings(record, prm):
-    # plot the invidivual savings
-    if len(np.shape(record.indiv_grid_battery_costs[0]['baseline'][0])) == 0:
+def savings_are_individual(indiv_grid_battery_costs):
+    if len(np.shape(indiv_grid_battery_costs[0]['baseline'][0])) == 0:
         indiv_savings = True \
-            if not np.isnan(record.indiv_grid_battery_costs[0]['baseline'][0]) \
+            if not np.isnan(indiv_grid_battery_costs[0]['baseline'][0]) \
             else False
     else:
         indiv_savings = True \
-            if not np.isnan(record.indiv_grid_battery_costs[0]['baseline'][0][0]) \
+            if not np.isnan(indiv_grid_battery_costs[0]['baseline'][0][0]) \
             else False
-    if indiv_savings:
-        eval_not_baseline = [
-            method for method in prm['RL']['evaluation_methods']
-            if method != 'baseline'
-        ]
-        [
-            savings_a, share_sc, std_savings, p10_savings,
-            p90_savings, p1_savings, p99_savings, min_savings, max_savings
-        ] = [
-            [[] for _ in range(prm['syst']['n_homes_test'])]
-            for _ in range(9)
-        ]
-        for home in range(prm['syst']['n_homes_test']):
-            for method in eval_not_baseline:
-                savings_battery_degradation_costs_a, savings_grid_energy_costs_a = [
-                    np.mean([[(reward[repeat]['baseline'][epoch][home]
-                               - reward[repeat][method][epoch])
-                              for epoch in range(prm['RL']['start_end_eval'],
-                                                 prm['RL']['n_epochs'])]
-                             for repeat in range(prm['RL']['n_repeats'])])
-                    for reward in [record.indiv_grid_battery_costs, record.indiv_grid_energy_costs]
-                ]
-                share_sc[home].append(
-                    savings_battery_degradation_costs_a
-                    / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
-                )
-                indiv_grid_battery_costs = record.indiv_grid_battery_costs
-                savings_a_all = [
-                    [
-                        (
-                            indiv_grid_battery_costs[repeat]['baseline'][epoch][home]
-                            - indiv_grid_battery_costs[repeat][method][epoch][home]
-                        ) * prm['syst']['interval_to_month']
-                        for epoch in range(prm['RL']['n_epochs'], prm['RL']['n_all_epochs'])
-                    ]
-                    for repeat in range(prm['RL']['n_repeats'])
-                ]
-                saving_per_month_repeat = np.mean(savings_a_all, axis=1)
-                savings_a[home].append(np.mean(saving_per_month_repeat))
-                min_savings[home].append(np.min(saving_per_month_repeat))
-                max_savings[home].append(np.max(saving_per_month_repeat))
-                p1_savings[home].append(np.percentile(saving_per_month_repeat, 1))
-                p99_savings[home].append(np.percentile(saving_per_month_repeat, 99))
-                p10_savings[home].append(np.percentile(saving_per_month_repeat, 10))
-                p90_savings[home].append(np.percentile(saving_per_month_repeat, 90))
-                std_savings[home].append(np.std(saving_per_month_repeat))
-        for it in range(len(eval_not_baseline)):
-            if eval_not_baseline[it] == 'opt_d_d':
-                savings_opt_d_d = [
-                    savings_a[home][it] for home in range(prm['syst']['n_homes_test'])
-                ]
-                print(f"savings per agent opt_d_d: {savings_opt_d_d}")
-                print(f"mean {np.mean(savings_opt_d_d)}, "
-                      f"std {np.std(savings_opt_d_d)}, "
-                      f"min {min(savings_opt_d_d)}, "
-                      f"max {max(savings_opt_d_d)}")
 
-        # plot total individual savings
-        labels = range(prm['syst']['n_homes_test'])
-        barWidth = 1 / (len(labels) + 1)
+    return indiv_savings
+
+
+def plot_histogram_all_private_savings(saving_per_month_repeat_all, prm, method):
+    fig = plt.figure(figsize=(10, 8))
+    plt.hist(saving_per_month_repeat_all, histtype='stepfilled', alpha=0.3, density=True, bins=40, ec="k",
+             label='Monthly private savings')
+    # plt.hist(hist_saving_per_month_repeat_all_2220, histtype='stepfilled', alpha=0.3, density=True, bins=40,
+    #          ec="k", label='Monthly private savings\nwith voltage management')
+    plt.axvline(saving_per_month_repeat_all.mean(), ls='dashed', color='blue',
+                label='Mean monthly private saving')
+    # plt.axvline(hist_saving_per_month_repeat_all_2220.mean(), ls='dashed', color='orange',
+    #             label='Mean monthly private saving\nwith voltage management')
+    plt.legend(loc='upper left', fancybox=True)
+    plt.xlabel('Monthly private savings [£]')
+    plt.ylabel('Density')
+    fig.savefig(
+        f"{prm['paths']['fig_folder']}/hist_saving_per_month_repeat_all_{method}.pdf",
+        bbox_inches='tight', format='pdf', dpi=1200
+    )
+    plt.close('all')
+
+
+def print_opt_d_d_savings(eval_not_baseline, savings_a, prm):
+    for it in range(len(eval_not_baseline)):
+        if eval_not_baseline[it] == 'opt_d_d':
+            savings_opt_d_d = [
+                savings_a[home][it] for home in range(prm['syst']['n_homes_test'])
+            ]
+            print(f"savings per agent opt_d_d: {savings_opt_d_d}")
+            print(f"mean {np.mean(savings_opt_d_d)}, "
+                  f"std {np.std(savings_opt_d_d)}, "
+                  f"min {min(savings_opt_d_d)}, "
+                  f"max {max(savings_opt_d_d)}")
+
+
+def plot_bar_plot_individual_savings_per_home(prm, savings_a, min_savings, max_savings, eval_not_baseline):
+    labels = range(prm['syst']['n_homes_test'])
+    barWidth = 1 / (len(labels) + 1)
+
+    for i_method, method in enumerate(eval_not_baseline):
         rs = []
-        rs.append(np.arange(len(prm['RL']['evaluation_methods']) - 1))
+        rs.append(np.arange(1))
         for home, _ in enumerate(labels[:- 1]):
             rs.append([x + barWidth for x in rs[home]])
 
         fig = plt.figure()
         for home, label in enumerate(labels):
             plt.bar(
-                rs[home], savings_a[home], width=barWidth,
+                rs[home], savings_a[home, i_method], width=barWidth,
                 label=label, color='gray', edgecolor="white"
             )
-            plt.vlines(rs[home], min_savings[home], max_savings[home], color='k')
+            plt.vlines(rs[home], min_savings[home, i_method], max_savings[home, i_method], color='k')
             # plt.scatter(rs[home], p1_savings[home][0], 'x', color='k')
             # plt.scatter(rs[home], p99_savings[home], 'x', color='k')
 
@@ -348,24 +330,98 @@ def barplot_indiv_savings(record, prm):
         #            eval_not_baseline, rotation='vertical')
         # plt.legend()
         title = "Savings per agent relative to " \
-                f"individual baseline costs over {prm['RL']['n_end_test']} days"
+                f"individual baseline costs over {prm['RL']['n_end_test']} days {method}"
         title_and_save(title, fig, prm)
         plt.close('all')
 
-        # plot share of energy vs battery savings individually
+
+def plot_share_energy_battery_individual_savings(prm, share_sc, eval_not_baseline):
+    labels = range(prm['syst']['n_homes_test'])
+    barWidth = 1 / (len(labels) + 1)
+
+    for i_method, method in enumerate(eval_not_baseline):
+        rs = []
+        rs.append(np.arange(1))
+        for home, _ in enumerate(labels[:- 1]):
+            rs.append([x + barWidth for x in rs[home]])
+
         fig = plt.figure()
         for home in range(len(labels)):
-            plt.bar(rs[home], share_sc[home], width=barWidth, label=labels[home])
+            plt.bar(rs[home], share_sc[home, i_method], width=barWidth, label=labels[home])
         print(f"np.mean(share_sc) = {np.mean(share_sc)}")
         plt.xlabel('share of individual savings from battery costs savings')
-        plt.xticks([r + barWidth
-                    for r in range(len(prm['RL']['evaluation_methods']))],
-                   prm['RL']['evaluation_methods'], rotation='vertical')
+        plt.xticks(
+            [r + barWidth for r in range(len(prm['RL']['evaluation_methods']))],
+            prm['RL']['evaluation_methods'], rotation='vertical'
+        )
         plt.legend()
         title = "share of individual savings from battery costs " \
-            "savings relative to individual baseline costs"
+            f"savings relative to individual baseline costs {method}"
         title_and_save(title, fig, prm)
         plt.close('all')
+
+
+def barplot_indiv_savings(record, prm):
+    # plot the invidivual savings
+    if not savings_are_individual(record.indiv_grid_battery_costs):
+        return
+
+    eval_not_baseline = [
+        method for method in prm['RL']['evaluation_methods']
+        if method != 'baseline'
+    ]
+    [
+        savings_a, share_sc, std_savings, p10_savings,
+        p90_savings, p1_savings, p99_savings, min_savings, max_savings
+    ] = [
+        np.zeros((prm['syst']['n_homes_test'], len(eval_not_baseline)))
+        for _ in range(9)
+    ]
+    for i_method, method in enumerate(eval_not_baseline):
+        all_saving_per_month_repeat = np.zeros((prm['RL']['n_repeats'], prm['RL']['n_homes_test']))
+        for home in range(prm['syst']['n_homes_test']):
+            savings_battery_degradation_costs_a, savings_grid_energy_costs_a = [
+                np.mean([[(reward[repeat]['baseline'][epoch][home]
+                           - reward[repeat][method][epoch])
+                          for epoch in range(prm['RL']['start_end_eval'],
+                                             prm['RL']['n_epochs'])]
+                         for repeat in range(prm['RL']['n_repeats'])])
+                for reward in [record.indiv_grid_battery_costs, record.indiv_grid_energy_costs]
+            ]
+            share_sc[home, i_method] = savings_battery_degradation_costs_a \
+                / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
+            indiv_grid_battery_costs = record.indiv_grid_battery_costs
+            savings_a_all = [
+                [
+                    (
+                        indiv_grid_battery_costs[repeat]['baseline'][epoch][home]
+                        - indiv_grid_battery_costs[repeat][method][epoch][home]
+                    ) * prm['syst']['interval_to_month']
+                    for epoch in range(prm['RL']['n_epochs'], prm['RL']['n_all_epochs'])
+                ]
+                for repeat in range(prm['RL']['n_repeats'])
+            ]
+            saving_per_month_repeat = np.mean(savings_a_all, axis=1)
+            all_saving_per_month_repeat[:, home] = saving_per_month_repeat
+            savings_a[home, i_method] = np.mean(saving_per_month_repeat)
+            min_savings[home, i_method] = np.min(saving_per_month_repeat)
+            max_savings[home, i_method] = np.max(saving_per_month_repeat)
+            p1_savings[home, i_method] = np.percentile(saving_per_month_repeat, 1)
+            p99_savings[home, i_method] = np.percentile(saving_per_month_repeat, 99)
+            p10_savings[home, i_method] = np.percentile(saving_per_month_repeat, 10)
+            p90_savings[home, i_method] = np.percentile(saving_per_month_repeat, 90)
+            std_savings[home, i_method] = np.std(saving_per_month_repeat)
+        saving_per_month_repeat_all = np.array(all_saving_per_month_repeat).flatten()
+
+        plot_histogram_all_private_savings(saving_per_month_repeat_all, prm, method)
+
+    print_opt_d_d_savings(eval_not_baseline, savings_a, prm)
+
+    # plot total individual savings
+    plot_bar_plot_individual_savings_per_home(prm, savings_a, min_savings, max_savings, eval_not_baseline)
+
+    # plot share of energy vs battery savings individually
+    plot_share_energy_battery_individual_savings(prm, share_sc, eval_not_baseline)
 
 
 def plot_voltage_statistics(record, prm):
