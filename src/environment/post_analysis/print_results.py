@@ -83,14 +83,15 @@ def _print_stats(f, prm, record, metrics):
         prm['save']['save_run'],
         f
     )
-    for e in metrics['end_test']['ave'].keys():
-        baseline = metrics['end_test']['ave'][e] \
-            - metrics['end_test']['ave']['baseline']
-        f = _print_str(
-            f"metrics['end_test']['ave'][{e}] - baseline {baseline}",
-            "both",
-            f
-        )
+    if not prm['RL']['competitive']:
+        for e in metrics['end_test']['ave'].keys():
+            baseline = metrics['end_test']['ave'][e] \
+                - metrics['end_test']['ave']['baseline']
+            f = _print_str(
+                f"metrics['end_test']['ave'][{e}] - baseline {baseline}",
+                "both",
+                f
+            )
 
     return f
 
@@ -106,6 +107,7 @@ def print_results(prm, f, record, metrics):
     f = _print_stats(f, prm, record, metrics)
 
     # 9 - print savings
-    _print_savings(metrics, prm)
+    if not prm['RL']['competitive']:
+        _print_savings(metrics, prm)
 
     return f

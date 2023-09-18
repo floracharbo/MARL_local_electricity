@@ -256,7 +256,8 @@ def post_processing(
     file.close()
 
     # save for reliability measures
-    _save_reliability(prm, record)
+    if not prm['RL']['competitive']:
+        _save_reliability(prm, record)
 
     # clean up folder
     _clean_up(prm, no_run)
