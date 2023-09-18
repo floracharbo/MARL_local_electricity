@@ -114,10 +114,13 @@ class Record:
                 self.__dict__[field][repeat] = initialise_dict(range(rl["n_epochs"]))
             else:
                 self.__dict__[field][repeat] = {}
-        for info in ["duration_epoch", "eps", "seed", "n_not_feas"]:
+        for info in ["duration_epoch", "duration_test", "eps", "seed", "n_not_feas"]:
             self.__dict__[info][repeat] = np.zeros(self.n_all_epochs)
+        shape_train_rewards = \
+            (self.n_epochs, self.n_explore * self.N, self.n_homes) \
+            if self.competitive else (self.n_epochs, self.n_explore * self.N)
         self.train_rewards[repeat] = {
-            method: np.zeros((self.n_epochs, self.n_explore * self.N))
+            method: np.zeros(shape_train_rewards)
             for method in rl["exploration_methods"]
         }
         if rl["type_learning"] == "DQN" and rl["distr_learning"] == "decentralised":
@@ -127,8 +130,11 @@ class Record:
         all_evaluation_methods = \
             rl["evaluation_methods"] + ['opt'] if rl["supervised_loss"] \
             else rl["evaluation_methods"]
+        shape_eval_rewards = \
+            (self.n_all_epochs, self.N, self.n_homes) \
+            if self.competitive else (self.n_all_epochs, self.N)
         self.eval_rewards[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
+            method: np.zeros(shape_eval_rewards) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
             shape = (self.n_all_epochs, self.n_homes_test) if reward[0: len('indiv')] == 'indiv' or self.competitive \
@@ -163,6 +169,7 @@ class Record:
                   rl: dict,
                   learner: object,
                   duration_epoch: float,
+                  duration_test: float,
                   end_test: bool = False
                   ):
         """At the end of each epoch, append training or evaluation record."""
@@ -190,6 +197,8 @@ class Record:
         self._update_eps(rl, learner, epoch, end_test)
 
         self.duration_epoch[self.repeat][epoch] = duration_epoch
+        self.duration_test[self.repeat][epoch] = duration_test
+
 
     def last_epoch(self, evaluation, method, record_output, batch, done):
         """Record more information for the final epoch in self.last."""
@@ -344,8 +353,10 @@ class Record:
             the average monthly_mean_eval_rewards_per_home after the end of the training,
             from n_epochs onwards during the fixed policy, test only period.
         """
+        shape_rewards = (self.n_repeats, self.n_all_epochs, self.n_homes_test) \
+            if self.competitive else (self.n_repeats, self.n_all_epochs)
         self.monthly_mean_eval_rewards_per_home = {
-            method: np.zeros((self.n_repeats, self.n_all_epochs))
+            method: np.zeros(shape_rewards)
             for method in self.evaluation_methods
         }
         for reward in [
@@ -429,15 +440,16 @@ class Record:
             epoch for epoch in range(1, self.n_epochs)
             if monthly_mean_eval_rewards_per_home[epoch] is not None
         ]
-        for epoch in epochs:
-            drawdown \
-                = best_eval - monthly_mean_eval_rewards_per_home[epoch]
-            if drawdown > largest_drawdown:
-                largest_drawdown = drawdown
-            if monthly_mean_eval_rewards_per_home[epoch] > best_eval:
-                best_eval = monthly_mean_eval_rewards_per_home[epoch]
-            assert largest_drawdown is not None, \
-                "largest_drawdown is None"
+        if not self.competitive:
+            for epoch in epochs:
+                drawdown \
+                    = best_eval - monthly_mean_eval_rewards_per_home[epoch]
+                if drawdown > largest_drawdown:
+                    largest_drawdown = drawdown
+                if monthly_mean_eval_rewards_per_home[epoch] > best_eval:
+                    best_eval = monthly_mean_eval_rewards_per_home[epoch]
+                assert largest_drawdown is not None, \
+                    "largest_drawdown is None"
 
         return largest_drawdown
 
@@ -612,11 +624,11 @@ class Record:
                     np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
 
         # we have done at least 6 steps
-        if not end_test and len(all_mean_eval_t) > 5 and method != "opt":
-            equal_consecutive = \
-                [abs(all_mean_eval_t[- i]
-                     - all_mean_eval_t[- (i + 1)]) < 1e-5
-                 for i in range(4)]
+        if not end_test and len(all_mean_eval_t) > 5 and method != "opt" and not self.competitive:
+            equal_consecutive = [
+                abs(all_mean_eval_t[- i] - all_mean_eval_t[- (i + 1)]) < 1e-5
+                for i in range(4)
+            ]
             if sum(equal_consecutive) == 4:
                 self.stability[self.repeat][method] = epoch
 

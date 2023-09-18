@@ -109,10 +109,12 @@ class Runner:
                 evaluations_methods = self._check_if_opt_env_needed(epoch, evaluation=True)
                 assert i_explore + 1 == self.rl['n_explore']
 
+                time_start_test = time.time()
                 eval_steps, _ = self.explorer.get_steps(
                     evaluations_methods, repeat, epoch, self.rl['n_explore'],
                     evaluation=True, new_episode_batch=self.new_episode_batch
                 )
+                duration_test = time.time() - time_start_test
 
                 # record
                 for info in ['seed', 'n_not_feas']:
@@ -126,7 +128,7 @@ class Runner:
                 )
                 self.record.end_epoch(
                     epoch, eval_steps, list_train_stepvals,
-                    self.rl, self.learner, duration_epoch
+                    self.rl, self.learner, duration_epoch, duration_test
                 )
 
                 if self.rl['deterministic']:
@@ -516,12 +518,13 @@ class Runner:
                 )
             eval_steps, _ = self.explorer.get_steps(
                 evaluations_methods, repeat, epoch_test, self.rl['n_explore'],
-                evaluation=True, new_episode_batch=self.new_episode_batch)
+                evaluation=True, new_episode_batch=self.new_episode_batch
+            )
             duration_epoch = time.time() - t_start
-
+            duration_test = duration_epoch
             self.record.end_epoch(
                 epoch_test, eval_steps, None,
-                self.rl, self.learner, duration_epoch, end_test=True
+                self.rl, self.learner, duration_epoch, duration_test, end_test=True
             )
 
     def _post_exploration_learning(self, epoch, train_steps_vals):
