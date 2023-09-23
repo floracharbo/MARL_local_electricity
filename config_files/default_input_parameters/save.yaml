@@ -13,7 +13,7 @@ last_entries: [
   'voltage_squared', 'hourly_line_losses',
   'action','reward', 'flex_cons',
   'ldflex', 'ldfixed','tot_cons_loads',
-  'grdC','wholesale', 'wholesale_test',
+  'grdC','wholesale',
   'cintensity',
   'break_down_rewards',  # values i want to store from last epoch so that i can plot
   'loaded_buses', 'sgen_buses',
