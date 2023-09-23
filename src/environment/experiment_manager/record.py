@@ -17,7 +17,7 @@ import numpy as np
 import scipy as sp
 
 from src.environment.utilities.userdeftools import (get_moving_average,
-                                                    initialise_dict)
+                                                    initialise_dict, var_len_is_n_homes)
 
 
 class Record:
@@ -137,7 +137,7 @@ class Record:
             method: np.zeros(shape_eval_rewards) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
-            shape = (self.n_all_epochs, self.n_homes_test) if reward[0: len('indiv')] == 'indiv' or self.competitive \
+            shape = (self.n_all_epochs, self.n_homes_test) if var_len_is_n_homes(reward, self.competitive) \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
                 method: np.zeros(shape) for method in all_evaluation_methods
@@ -353,8 +353,7 @@ class Record:
             the average monthly_mean_eval_rewards_per_home after the end of the training,
             from n_epochs onwards during the fixed policy, test only period.
         """
-        shape_rewards = (self.n_repeats, self.n_all_epochs, self.n_homes_test) \
-            if self.competitive else (self.n_repeats, self.n_all_epochs)
+        shape_rewards = (self.n_repeats, self.n_all_epochs)
         self.monthly_mean_eval_rewards_per_home = {
             method: np.zeros(shape_rewards)
             for method in self.evaluation_methods
@@ -555,6 +554,7 @@ class Record:
                     Path(self.record_folder) / "end_test_above_bl_env_r_c.npy",
                     end_test_above_bl
                 )
+
             for repeat in range(n_repeats):
                 largest_drawdown = self.compute_largest_drawdown_repeat(
                     self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], best_eval
@@ -590,7 +590,7 @@ class Record:
         """Add evaluation results to the appropriate lists."""
         if method in eval_steps:
             if eval_steps[method]["reward"][-1] is not None:
-                epoch_mean_eval_t = np.mean(eval_steps[method]["reward"])
+                epoch_mean_eval_t = np.mean(- eval_steps[method]["total_costs"])
             else:
                 epoch_mean_eval_t = None
             if method in eval_steps:
