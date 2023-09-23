@@ -11,8 +11,7 @@ def _save(prm):
     np.save(fig_folder / 'state_space_0', rl["state_space_0"])
     np.save(fig_folder / 'action_state_space_0',
             rl["action_state_space_0"])
-    if not prm['RL']['competitive']:
-        np.save(fig_folder / 'metrics', rl["metrics"])
+    np.save(fig_folder / 'metrics', rl["metrics"])
 
 
 def _get_mean_rewards_from_record(prm, record):
@@ -22,13 +21,10 @@ def _get_mean_rewards_from_record(prm, record):
         prm["RL"]["state_space_0"],
         prm["save"]["eval_entries_plot"]
     )
-    if not record.competitive:
-        prm["RL"]["metrics"], prm["RL"]["metrics_entries"] \
-            = record.get_metrics(
-            prm, prm["save"]["eval_entries_plot"]
-        )
-    else:
-        prm["RL"]["metrics"] = None
+    prm["RL"]["metrics"], prm["RL"]["metrics_entries"] \
+        = record.get_metrics(
+        prm, prm["save"]["eval_entries_plot"]
+    )
 
     prm["RL"]["monthly_mean_eval_rewards_per_home"] = record.monthly_mean_eval_rewards_per_home
 
