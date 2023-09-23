@@ -215,23 +215,28 @@ def _plot_grid_price(
         ax = axs[row]
     else:
         ax = axs[row, col]
-    ax.step(range(N), last["wholesale"]["baseline"],
-            where="post", label="Wholesale",
-            color=colours_non_methods[2], lw=lw)
-    ax.step(range(N), last["grdC"]["baseline"], where="post",
-            label="$C_g$", color=colours_non_methods[0], lw=lw)
+    ax.step(
+        range(N), last["wholesale"]["baseline"],
+        where="post", label="Wholesale",
+        color=colours_non_methods[2], lw=lw
+    )
+    ax.step(
+        range(N), last["grdC"]["baseline"], where="post",
+        label="$C_g$", color=colours_non_methods[0], lw=lw
+    )
     if display_legend:
         ax.set_ylabel("Grid price [£/kWh]")
         ax.legend(fancybox=True, loc="best")
     ax2 = ax.twinx()
-    ax2.step(range(N), cintensity_kg, where="post",
-             label=title_ylabel_dict["cintensity"][0],
-             color=colours_non_methods[1], lw=lw)
+    ax2.step(
+        range(N), cintensity_kg, where="post",
+        label=title_ylabel_dict["cintensity"][0],
+        color=colours_non_methods[1], lw=lw
+    )
     ax2.yaxis.set_label_position("right")
     ax2.yaxis.tick_right()
     if display_legend:
-        ax2.set_ylabel("Carbon intensity \n[kgCO$_2$/kWh]",
-                       color=colours_non_methods[1])
+        ax2.set_ylabel("Carbon intensity \n[kgCO$_2$/kWh]", color=colours_non_methods[1])
     ylim = ax2.get_ylim()
     ax2.set_ylim([ylim[0], ylim[1] * 1.15])
 
