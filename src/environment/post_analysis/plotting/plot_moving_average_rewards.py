@@ -46,29 +46,29 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
             n_window=prm["save"]["n_window"],
             baseline=baseline
         )
+        if len(p25_not_nan) > 0:
+            min_val = np.min(p25_not_nan) if np.min(p25_not_nan) < min_val \
+                else min_val
+            max_val = np.max(p75_not_nan) if np.max(p75_not_nan) > max_val \
+                else max_val
 
-        min_val = np.min(p25_not_nan) if np.min(p25_not_nan) < min_val \
-            else min_val
-        max_val = np.max(p75_not_nan) if np.max(p75_not_nan) > max_val \
-            else max_val
-
-        lower_bound, upper_bound = _update_lower_upper_bounds(
-            min_val, max_val, lower_bound, upper_bound, prm['paths']
-        )
-        if e == 'opt':
-            ls = 'dotted'
-        elif data_source(e) == 'opt':
-            ls = 'dashed'
-        else:
-            ls = 'solid'
-        n_epochs = prm['RL']['n_epochs']
-        plt.plot(p50[0: n_epochs], label=e, color=prm['save']['colourse'][e], ls=ls)
-        plt.fill_between(
-            epoch_not_nan[0: n_epochs],
-            p25_not_nan[0: n_epochs],
-            p75_not_nan[0: n_epochs],
-            color=prm['save']['colourse'][e], alpha=0.1
-        )
+            lower_bound, upper_bound = _update_lower_upper_bounds(
+                min_val, max_val, lower_bound, upper_bound, prm['paths']
+            )
+            if e == 'opt':
+                ls = 'dotted'
+            elif data_source(e) == 'opt':
+                ls = 'dashed'
+            else:
+                ls = 'solid'
+            n_epochs = prm['RL']['n_epochs']
+            plt.plot(p50[0: n_epochs], label=e, color=prm['save']['colourse'][e], ls=ls)
+            plt.fill_between(
+                epoch_not_nan[0: n_epochs],
+                p25_not_nan[0: n_epochs],
+                p75_not_nan[0: n_epochs],
+                color=prm['save']['colourse'][e], alpha=0.1
+            )
     plt.hlines(
         y=0, xmin=0, xmax=n_epochs - 1, colors='k',
         linestyle='dotted'
