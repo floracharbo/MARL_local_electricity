@@ -15,22 +15,25 @@ def distribution_savings(prm, aggregate='daily'):
     fig = plt.figure()
     test_savings = {}
     for method in [method for method in rl["evaluation_methods"] if method != 'baseline']:
-        test_savings[method] = []
-        for repeat in range(prm['RL']['n_repeats']):
-            rewards_t, rewards_bsl = \
-                [rl["monthly_mean_eval_rewards_per_home"][evaluation_method][repeat][
-                 prm['RL']['n_epochs']:]
-                 for evaluation_method in [method, 'baseline']]
-            savings_rel_baseline = \
-                [reward - baseline for reward, baseline
-                 in zip(rewards_t, rewards_bsl)]
-            if aggregate == 'daily':
-                test_savings[method] += savings_rel_baseline
-            elif aggregate == 'test_period':
-                test_savings[method] += [np.mean(savings_rel_baseline)]
-
-        plt.hist(test_savings[method], alpha=0.5, label=method,
-                 color=prm['save']['colourse'][method])
+        if np.nansum(rl["monthly_mean_eval_rewards_per_home"][method]) != 0:
+            test_savings[method] = []
+            for repeat in range(prm['RL']['n_repeats']):
+                rewards_t, rewards_bsl = [
+                    rl["monthly_mean_eval_rewards_per_home"][evaluation_method][repeat][
+                     prm['RL']['n_epochs']:
+                    ] for evaluation_method in [method, 'baseline']
+                ]
+                savings_rel_baseline = \
+                    [reward - baseline for reward, baseline
+                     in zip(rewards_t, rewards_bsl)]
+                if aggregate == 'daily':
+                    test_savings[method] += savings_rel_baseline
+                elif aggregate == 'test_period':
+                    test_savings[method] += [np.mean(savings_rel_baseline)]
+            plt.hist(
+                test_savings[method], alpha=0.5, label=method,
+                color=prm['save']['colourse'][method]
+            )
 
     plt.legend()
     plt.xlabel("Average test savings [£/h/home]")
@@ -265,14 +268,18 @@ def savings_are_individual(indiv_grid_battery_costs):
 
 def plot_histogram_all_private_savings(saving_per_month_repeat_all, prm, method):
     fig = plt.figure(figsize=(10, 8))
-    plt.hist(saving_per_month_repeat_all, histtype='stepfilled', alpha=0.3, density=True, bins=40, ec="k",
-             label='Monthly private savings')
-    # plt.hist(hist_saving_per_month_repeat_all_2220, histtype='stepfilled', alpha=0.3, density=True, bins=40,
-    #          ec="k", label='Monthly private savings\nwith voltage management')
-    plt.axvline(saving_per_month_repeat_all.mean(), ls='dashed', color='blue',
-                label='Mean monthly private saving')
-    # plt.axvline(hist_saving_per_month_repeat_all_2220.mean(), ls='dashed', color='orange',
+    # plt.hist(saving_per_month_repeat_all_2041, histtype='stepfilled', alpha=0.3, density=True, bins=40,
+    #          ec="k", label='Monthly private savings', color='blue')
+    # plt.axvline(saving_per_month_repeat_all_2041.mean(), ls='dashed',
+    #             label='Mean monthly private saving', color='blue')
+    # plt.hist(saving_per_month_repeat_all_2220, histtype='stepfilled', alpha=0.3, density=True, bins=40,
+    #          ec="k", label='Monthly private savings\nwith voltage management', color='orange')
+    # plt.axvline(saving_per_month_repeat_all_2220.mean(), ls='dashed', color='orange',
     #             label='Mean monthly private saving\nwith voltage management')
+    plt.hist(saving_per_month_repeat_all, histtype='stepfilled', alpha=0.3, density=True, bins=40, ec="k",
+             label='Monthly private savings (competitive)', color='green')
+    plt.axvline(saving_per_month_repeat_all.mean(), ls='dashed', color='green',
+                label='Mean monthly private saving (competitive)')
     plt.legend(loc='upper left', fancybox=True)
     plt.xlabel('Monthly private savings [£]')
     plt.ylabel('Density')
@@ -331,7 +338,7 @@ def plot_bar_plot_individual_savings_per_home(prm, savings_a, min_savings, max_s
         # plt.legend()
         title = "Savings per agent relative to " \
                 f"individual baseline costs over {prm['RL']['n_end_test']} days {method}"
-        title_and_save(title, fig, prm)
+        title_and_save(title, fig, prm, display_title=False)
         plt.close('all')
 
 
