@@ -30,7 +30,7 @@ def patch_find_feasible_data(
     names_files = {}
     files = ['res', 'batch']
     for file in files:
-        names_files[file] = f"{file}_test{self.prm['paths']['opt_res_file_no']}"
+        names_files[file] = f"{file}_test0.npy"
     res, batch = [
         np.load(self.paths['test_data'] / names_files[file], allow_pickle=True).item() for file in files
     ]
@@ -82,7 +82,7 @@ def patch_set_i0_costs(self, i0_costs):
 
 def patch_set_date(
         self, repeat, epoch, i_explore,
-        date0, delta, i0_costs, new_env
+        date0, delta, i0_costs, new_env, evaluation
 ):
     set_seeds_rdn(0)
     delta_days = I0_COSTS/24
