@@ -328,11 +328,10 @@ for line_label in labels.keys():
             xs = list(range(1, max_n_homes + 1))
             f_fitted = [function(x, *coeffs) for x in xs]
             # if line_label == 'OMQ':
-            if True:
-                label = r'$y = $'\
-                    + f'{coeffs[0]:.0f}' + r'$x^2 $'\
-                    + f' + {coeffs[1]:.0f}' + r'$x $'\
-                    + f' + {coeffs[2]:.0f}'
+            label = r'$y = $'\
+                + f'{coeffs[0]:.0f}' + r'$x^2 $'\
+                + f' + {coeffs[1]:.0f}' + r'$x $'\
+                + f' + {coeffs[2]:.0f}'
             # else:
             #     label = r'$y = $' \
             #             + f'{coeffs[0]:.1f}' + r'$x$' \
