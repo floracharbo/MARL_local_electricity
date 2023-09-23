@@ -107,7 +107,6 @@ def print_results(prm, f, record, metrics):
     f = _print_stats(f, prm, record, metrics)
 
     # 9 - print savings
-    if not prm['RL']['competitive']:
-        _print_savings(metrics, prm)
+    _print_savings(metrics, prm)
 
     return f
