@@ -182,8 +182,8 @@ def get_opt_res_file(prm, test=False):
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
         if syst['n_homesP'] > 0:
             paths['opt_res_file' + ext] += f"_nP{syst['n_homesP' + ext]}"
-        # if syst['n_homes_test'] != syst['n_homes']:
-        #     paths['opt_res_file'] += f"_ntest{syst['n_homes_test']}"
+        if (ext == '_test' and syst['year_test'] != syst['year']) or syst['year'] != 2021:
+            paths['opt_res_file' + ext] += f"_year{syst['year' + ext]}"
         if syst['clus_dist_share'] < 1:
             paths['opt_res_file' + ext] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
         if "file" in heat and heat["file"] != "heat.yaml":
@@ -471,4 +471,7 @@ def list_potential_paths(
 
 
 def var_len_is_n_homes(info, competitive):
-    return info[0: len('indiv')] == 'indiv' or (info in ['reward', 'total_costs'] and competitive)
+    return info[0: len('indiv')] == 'indiv' or info == 'diff_rewards' or (info == 'reward' and competitive)
+
+def test_str(evaluation):
+    return '_test' if evaluation else ''

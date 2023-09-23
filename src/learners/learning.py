@@ -175,6 +175,8 @@ class LearningManager:
                                   reward_diffs: list
                                   ):
         """Learn using DDPG, DQN, or DDQN."""
+        if self.prm['syst']['test_different_to_train']:
+            print("implement spaces_test with test_different_to_train DDPG, DQN, or DDQN")
         for method in self.methods_opt:
             # this assumes the states are the same for all
             # and that no trajectory
@@ -283,6 +285,9 @@ class LearningManager:
             self, reward, current_state, action, state, method
     ):
         if self.rl['type_learning'] in ['DQN', 'DDQN']:
+            if self.prm['syst']['test_diff_to_train']:
+                print("implement spaces_test with test_different_to_train with DQN, or DDQN")
+
             ind_current_state, ind_action, ind_state = \
                 [self.env.spaces.get_space_indexes(
                     all_vals=val, value_type=value_type)
@@ -320,6 +325,9 @@ class LearningManager:
                    traj_reward_a: int
                    ):
         """Learn from experience using deep Q-learning (DQN)."""
+        if self.prm['syst']['test_different_to_train']:
+            print("implement spaces_test with test_different_to_train with DQN")
+
         env = self.env
         ind_states, ind_next_states, ind_actions = \
             [[env.spaces.get_space_indexes(

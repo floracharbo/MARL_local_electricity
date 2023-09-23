@@ -30,6 +30,8 @@ class TabularQLearner:
         self.global_to_indiv_index = env.spaces.global_to_indiv_index
         self.indiv_to_global_index = env.spaces.indiv_to_global_index
         self.get_space_indexes = env.spaces.get_space_indexes
+        if env.test_different_to_train:
+            print(f"implement get_space_indexes for test_different_to_train q_learning")
         self.rand_init_seed = 0
         self.q_tables, self.counter = [
             {type_Q: {} for type_Q in rl['type_Qs']} for _ in range(2)

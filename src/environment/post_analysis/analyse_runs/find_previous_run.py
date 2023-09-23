@@ -20,8 +20,15 @@ settings = {
         'type_learning': 'facmac',
         'n_epochs': 20,
         'n_repeats': 10,
-        'trajectory': True,
-        'supervised_loss': False,
+        # 'n_end_test': 30,
+        'trajectory': False,
+        'state_space': 'grdC_min_voltage',
+        # 'supervised_loss': False,
+        # 'state_space': 'grdC',
+        # 'buffer_size': 5000,
+        # 'act_noise': 0,
+        # 'facmac': {'critic_lr': 1e-2},
+        'reactive_power_for_voltage_control': True,
         # 'lr': 1e-4,
         # 'q_learning-eps': 0.1,
         # 'n_discrete_actions': 10,
@@ -31,12 +38,12 @@ settings = {
     'syst': {
         'n_homes': 55,
         'gan_generation': True,
-        'manage_voltage': True,
-        # 'force_optimisation': True,
     },
     'bat': {
         'SoC0': 1,
-    }
+    },
+    'grd': {'penalty_overvoltage': 1e2},
+    # 'grd': {'simulate_panda_power_only': True},
 }
 SETTINGS_ONLY = True
 

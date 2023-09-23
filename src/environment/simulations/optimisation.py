@@ -16,7 +16,7 @@ import picos as pic
 from src.environment.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
     save_results)
-from src.environment.utilities.userdeftools import comb
+from src.environment.utilities.userdeftools import comb, test_str
 
 
 class Optimiser:
@@ -41,17 +41,17 @@ class Optimiser:
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
         self.n_homes = prm['syst']['n_homes_test'] if test else prm['syst']['n_homes']
-        self.ext = '_test' if test and prm['syst']['n_homes_test'] != prm['syst']['n_homes'] else ''
+        self.ext = '_test' if test and prm['syst']['test_different_to_train'] else ''
         if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res, pp_simulation_required = self._solve_line_losses_iteration(test)
         else:
             res, pp_simulation_required, _, _ = self._problem(test)
             perform_checks = True
-            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
+            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks, test)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res, test)
-            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
+            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks, test)
 
         return res, pp_simulation_required
 
@@ -60,7 +60,7 @@ class Optimiser:
         self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
         res, _, constl_consa_constraints, constl_loads_constraints = self._problem(evaluation)
         perform_checks = False
-        res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
+        res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks, evaluation)
         opti_voltages = copy.deepcopy(res['voltage'])
         opti_losses = copy.deepcopy(res['hourly_line_losses'])
         for time_step in range(self.N):
@@ -68,7 +68,7 @@ class Optimiser:
                 netp0 = self.loads['netp0'][:, time_step]
             else:
                 netp0 = np.zeros([1, self.N])
-            grdCt = self.grd['C'][time_step]
+            grdCt = self.grd[f'C{test_str(evaluation)}'][time_step]
             res = self.compare_optimiser_pandapower(
                 res, time_step, netp0, grdCt)
         corr_voltages = copy.deepcopy(res['voltage'])
@@ -83,7 +83,7 @@ class Optimiser:
             self.input_hourly_lij = corr_lij
             res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints = \
                 self._problem(evaluation)
-            res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
+            res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks, evaluation)
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
@@ -91,7 +91,7 @@ class Optimiser:
                     netp0 = self.loads['netp0'][:, time_step]
                 else:
                     netp0 = np.zeros(1)
-                grdCt = self.grd['C'][time_step]
+                grdCt = self.grd[f'C{test_str(evaluation)}'][time_step]
                 res = self.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt)
             corr_voltages = copy.deepcopy(res['voltage'])
@@ -107,7 +107,7 @@ class Optimiser:
             self.prm, corr_lij, evaluation=evaluation
         )
         perform_checks = True
-        res = res_post_processing(res, self.prm, res['lij'], perform_checks)
+        res = res_post_processing(res, self.prm, res['lij'], perform_checks, evaluation)
         return res, pp_simulation_required
 
     def _car_efficiency_iterations(self, prm, res, evaluation):
@@ -458,7 +458,7 @@ class Optimiser:
 
         return p, voltage_costs, q_ext_grid
 
-    def _grid_constraints(self, p, charge, discharge_other, totcons):
+    def _grid_constraints(self, p, charge, discharge_other, totcons, evaluation):
         # variables
         grid = p.add_variable('grid', self.N, vtype='continuous')
         grid2 = p.add_variable('grid2', self.N, vtype='continuous')
@@ -499,7 +499,7 @@ class Optimiser:
         # grid costs
         p.add_constraint(
             grid_energy_costs
-            == (self.grd['C'][0: self.N] | (grid + self.grd['loss'] * grid2))
+            == (self.grd[f'C{test_str(evaluation)}'][0: self.N] | (grid + self.grd['loss'] * grid2))
         )
 
         return p, netp, grid, grid_energy_costs, voltage_costs
@@ -846,7 +846,7 @@ class Optimiser:
         p, totcons, constl_consa_constraints, constl_loads_constraints \
             = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(
-            p, charge, discharge_other, totcons
+            p, charge, discharge_other, totcons, evaluation
         )
         # prosumer energy balance, active power
         p.add_constraint(

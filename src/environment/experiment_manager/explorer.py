@@ -22,7 +22,7 @@ from src.environment.experiment_manager.data_manager import DataManager
 from src.environment.experiment_manager.select_actions import ActionSelector
 from src.environment.utilities.userdeftools import (
     initialise_dict, methods_learning_from_exploration, reward_type,
-    set_seeds_rdn, var_len_is_n_homes)
+    set_seeds_rdn, var_len_is_n_homes, test_str)
 from src.learners.learning import LearningManager
 
 
@@ -188,7 +188,7 @@ class Explorer:
                           load_data=True, passive=True)
 
                 inputs_state_val = [0, env.date, False, env.batch["flex"][:, 0: 2], env.car.store]
-                env.get_state_vals(inputs=inputs_state_val)
+                env.get_state_vals(inputs=inputs_state_val, evaluation=evaluation)
                 sequence_feasible = True
 
         return step_vals
@@ -369,7 +369,7 @@ class Explorer:
         self.homes = range(self.n_homes)
         env.set_passive_active(passive=False, evaluation=evaluation)
         rl = self.rl
-        if evaluation and self.prm['syst']['n_homes_test'] != self.n_homes:
+        if evaluation and self.prm['syst']['test_different_to_train']:
             self.data.ext = "_test"
             self.env.spaces.ext = "_test"
         else:
@@ -433,7 +433,7 @@ class Explorer:
                         method, rdn_eps_greedy_indiv, eps_greedy,
                         rdn_eps_greedy, evaluation, self.t_env, ext=self.data.ext
                     )
-                state = env.get_state_vals(inputs=inputs_state_val)
+                state = env.get_state_vals(inputs=inputs_state_val, evaluation=evaluation)
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
                     method, epoch, actions, state, evaluation, env, batch, step_vals
                 )
@@ -568,8 +568,8 @@ class Explorer:
         home_vars = {
             "gen": self.prm["grd"]["gen"][:, time_step]
         }
-
-        step_vals_i["state"] = self.env.spaces.opt_step_to_state(
+        spaces = self.env.spaces_test if evaluation and self.prm['syst']['test_different_to_train'] else self.env.spaces
+        step_vals_i["state"] = spaces.opt_step_to_state(
             self.prm, res, time_step, loads_prev,
             loads_step, batch_avail_car, loads, home_vars
         )
@@ -647,10 +647,12 @@ class Explorer:
                 if var_len_is_n_homes(info, self.prm['RL']['competitive']) and len(var) == self.n_homes + 1:
                     var = var[:-1]
                 var_ = np.array(var.cpu()) if th.is_tensor(var) else var
+                shape = self._get_shape_step_vals(info, evaluation)[1:]
                 # try:
-                step_vals[method][info][time_step, 0: n_homes, :] = np.reshape(
-                    var_, (n_homes, self.dim_step_vals[info])
+                step_vals[method][info][time_step, 0: n_homes] = np.reshape(
+                    var_, shape
                 )
+                    # step_vals[method][info][time_step, 0: n_homes] = var_
                 # except Exception as ex:
                 #     print(ex)
 
@@ -678,24 +680,15 @@ class Explorer:
             if key_ == 'diff_rewards' and len(step_vals_i[key_]) == n_homes + 1:
                 step_vals_i[key_] = step_vals_i[key_][:-1]
             if len(target_shape) > 0 and target_shape != np.shape(step_vals_i[key_]):
-                try:
-                    step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
-                except Exception as ex:
-                    print(ex)
+                step_vals_i[key_] = np.reshape(step_vals_i[key_], target_shape)
             if (
                     key_[0: len('indiv')] == 'indiv'
                     or key_ in self.prm['syst']['indiv_step_vals_entries']
                     or (key_ == 'reward' and self.prm['RL']['competitive'])
             ):
-                try:
-                    step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
-                except Exception as ex:
-                    print(ex)
+                step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
             else:
-                try:
-                    step_vals[method][key_][time_step] = step_vals_i[key_]
-                except Exception as ex:
-                    print(ex)
+                step_vals[method][key_][time_step] = step_vals_i[key_]
 
         if time_step > 0:
             step_vals[method]["next_state"][time_step][:n_homes] = step_vals_i["state"]
@@ -705,16 +698,21 @@ class Explorer:
             else:
                 step_vals[method]["ind_next_global_state"][time_step] = np.nan
         if time_step == len(res["grid"]) - 1:
+            spaces = self.env.spaces_test if evaluation and self.prm['syst'][
+                'test_different_to_train'] else self.env.spaces
+
             step_vals[method]["next_state"][time_step][:n_homes] = \
-                self.env.spaces.opt_step_to_state(
+                spaces.opt_step_to_state(
                     self.prm, res, time_step + 1, loads_prev,
                     loads_step, batch_avail_car, loads, home_vars
                 )
             if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
-                ind_next_state = self.env.spaces.get_space_indexes(
+                spaces = self.env.spaces_test if evaluation and self.prm['syst'][
+                    'test_different_to_train'] else self.env.spaces
+                ind_next_state = spaces.get_space_indexes(
                     all_vals=step_vals[method]["next_state"][-1])
                 step_vals[method]["ind_next_global_state"].append(
-                    self.env.spaces.indiv_to_global_index(
+                    spaces.indiv_to_global_index(
                         "state", indexes=ind_next_state,
                         multipliers=self.global_multipliers["state"]))
             else:
@@ -726,7 +724,7 @@ class Explorer:
         return step_vals
 
     def _tests_individual_step_rl_matches_res(
-            self, res, time_step, batch, reward, break_down_rewards, flex
+            self, res, time_step, batch, reward, break_down_rewards, flex, evaluation
     ):
         prm = self.prm
         assert isinstance(batch, dict), f"type(batch) {type(batch)}"
@@ -751,14 +749,14 @@ class Explorer:
             f"res cons {sum_consa} does not match input demand " \
             f"{np.sum(batch['loads'][:, 0: self.N])}"
 
-        gc_i = prm["grd"]["C"][time_step] * (
+        gc_i = prm["grd"][f"C{test_str(evaluation)}"][time_step] * (
             res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
         )
         gc_per_start_i = [
-            prm["grd"]["Call"][i + time_step] * (
+            prm["grd"][f"Call{test_str(evaluation)}"][i + time_step] * (
                 res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
             )
-            for i in range(len(prm['grd']['Call']) - self.N)
+            for i in range(len(prm['grd'][f'Call{test_str(evaluation)}']) - self.N)
         ]
         potential_i0s = [
             i for i, gc_start_i in enumerate(gc_per_start_i)
@@ -867,8 +865,8 @@ class Explorer:
                 f"abs(sum_rl_rewards + res['total_costs']) " \
                 f"{abs(sum_rl_rewards + res['total_costs'])}"
 
-    def sum_gc_for_start_Call_index(self, res, i):
-        C = self.prm["grd"]["Call"][i: i + self.N]
+    def sum_gc_for_start_Call_index(self, res, i, evaluation):
+        C = self.prm["grd"][f"Call{test_str(evaluation)}"][i: i + self.N]
         loss = self.prm['grd']['loss']
         sum_gc_i = np.sum(
             [
@@ -880,21 +878,21 @@ class Explorer:
 
         return sum_gc_i
 
-    def _check_i0_costs_res(self, res):
+    def _check_i0_costs_res(self, res, evaluation):
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
-            [self.prm["grd"]["C"][time_step_] * (
+            [self.prm["grd"][f"C{test_str(evaluation)}"][time_step_] * (
                 res['grid'][time_step_] + self.prm["grd"]['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
         )
         if not (abs(sum_gc_0 - res['grid_energy_costs']) < 1e-3):
             i_start_res = [
-                i for i in range(len(self.prm['grd']['Call']) - self.N)
-                if abs(self.sum_gc_for_start_Call_index(res, i) - res['grid_energy_costs']) < 1e-3
+                i for i in range(len(self.prm['grd'][f'Call{test_str(evaluation)}']) - self.N)
+                if abs(self.sum_gc_for_start_Call_index(res, i, evaluation) - res['grid_energy_costs']) < 1e-3
             ]
             if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
-                self.env.update_i0_costs(i_start_res[0])
+                self.env.update_i0_costs(i0_costs=i_start_res[0])
                 np.save(self.env.res_path / f"i0_costs{self.env._file_id()}", i_start_res[0])
 
     def get_steps_opt(
@@ -907,13 +905,13 @@ class Explorer:
         method = "opt"
         sum_rl_rewards = 0
         batchflex_opt, batch_avail_car = [copy.deepcopy(batch[e]) for e in ["flex", "avail_car"]]
-        self._check_i0_costs_res(res)
+        self._check_i0_costs_res(res, evaluation)
 
         # copy the initial flexible and non-flexible demand -
         # table will be updated according to optimiser's decisions
         self.env.car.reset(self.prm)
         self.env.car.add_batch(batch)
-        self.env.heat.reset(self.prm)
+        self.env.heat.reset(self.prm, evaluation=evaluation)
         for time_step in range(len(res["grid"])):
             # initialise step variables
             [step_vals_i, date, loads, loads_step, loads_prev, home_vars] = self._opt_step_init(
@@ -932,7 +930,7 @@ class Explorer:
 
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
-                grdCt = self.prm['grd']['C'][time_step]
+                grdCt = self.prm['grd'][f'C{test_str(evaluation)}'][time_step]
                 res = self.env.network.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt
                 )
@@ -945,12 +943,15 @@ class Explorer:
                 passive_vars=self.env.get_passive_vars(time_step),
                 hourly_line_losses=res['hourly_line_losses'][time_step],
                 voltage_squared=res['voltage_squared'][:, time_step],
+                evaluation=evaluation
             )
             step_vals_i["indiv_grid_battery_costs"] = - np.array(
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
             self._tests_individual_step_rl_matches_res(
-                res, time_step, batch, step_vals_i["reward"], break_down_rewards, batchflex_opt)
+                res, time_step, batch, step_vals_i["reward"], break_down_rewards,
+                batchflex_opt, evaluation
+            )
 
             # substract baseline rewards to reward -
             # for training, not evaluating
@@ -1022,7 +1023,7 @@ class Explorer:
         tot_cons_loads = res["totcons"][:, time_step] - res["E_heat"][:, time_step]
         flex_cons = tot_cons_loads - ldfixed
         wholesalet, cintensityt = [
-            self.prm["grd"][e][self.env.i0_costs + time_step]
+            self.prm["grd"][f"{e}{test_str(evaluation)}"][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
         ]
         if self.prm["grd"]['manage_voltage']:
@@ -1056,7 +1057,7 @@ class Explorer:
         record_output += [
             step_vals_i["action"], step_vals_i["reward"], flex_cons,
             ldflex, ldfixed, tot_cons_loads,
-            self.prm["grd"]["C"][time_step], wholesalet, cintensityt,
+            self.prm["grd"][f"C{test_str(evaluation)}"][time_step], wholesalet, cintensityt,
             break_down_rewards,
             loaded_buses, sgen_buses,
             res['q_ext_grid'][time_step],
@@ -1157,6 +1158,7 @@ class Explorer:
                 passive_vars=passive_vars,
                 hourly_line_losses=hourly_line_losses,
                 voltage_squared=voltage_squared,
+                evaluation=evaluation,
             )
             if self.prm['RL']['competitive'] and home < self.n_homes:
                 reward_baseline_a = reward_baseline_a[home]

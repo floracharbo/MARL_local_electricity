@@ -259,7 +259,7 @@ class DataManager:
 
     def get_res_name(self, evaluation):
         active_seed = self.seed['_test'] \
-            if evaluation and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
+            if evaluation and self.prm['syst']['test_different_to_train'] \
             else self.seed['']
         ext = '_test' if evaluation else ''
         res_name = \
@@ -409,7 +409,7 @@ class DataManager:
         homes = copy.deepcopy(homes_0)
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
-            self.env.fix_data_a(homes, self.file_id(evaluation), its=its)
+            self.env.fix_data_a(homes, self.file_id(evaluation), evaluation, its=its)
             # [factors, clusters] = self._load_res()
 
             self.batch_file, batch = self.env.reset(

@@ -1066,7 +1066,8 @@ class HEDGE:
             self.car['caps' + self.ext] = np.full(self.n_homes, self.car['cap'])
         self.store0 = self.car["SoC0"] * np.array(self.car['cap'])
         # update date and time information
-        self.date = datetime(*prm["syst"]["date0"])
+        test_str_ = '_test' if self.ext == '_test' else ''
+        self.date = datetime(*prm["syst"][f"date0{test_str_}"])
         self.save_day_path = Path(prm["paths"]["record_folder"]) / "hedge_days"
 
     def _get_transformed_features(self, profile, data_type, cluster_id):

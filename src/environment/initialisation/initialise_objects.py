@@ -257,8 +257,9 @@ def _update_paths(paths, prm, no_run):
         correpsonding to prm["paths"]; with updated parameters
     """
     for data in ["wholesale", "carbon_intensity", "temp"]:
-        paths[f"{data}_file"] \
-            = f"{paths[data]}_n{prm['syst']['H']}_{prm['syst']['year']}.npy"
+        for test_str in ['', '_test']:
+            paths[f"{data}{test_str}_file"] \
+                = f"{paths[data]}_n{prm['syst']['H']}_{prm['syst'][f'year{test_str}']}.npy"
     paths["folder_run"] = Path("outputs") / "results" / f"run{no_run}"
     np.save("outputs/current_run_no.npy", no_run)
     paths["record_folder"] = paths["folder_run"] / "record"
@@ -529,7 +530,7 @@ def _expand_grdC_states(rl):
 
 
 def rl_apply_n_homes_test(syst, rl):
-    if syst['n_homes_test'] != syst['n_homes']:
+    if syst['test_different_to_train']:
         if rl['homes_exec_per_home_train'] is None:
             rl['homes_exec_per_home_train'] = [[] for home_train in range(syst['n_homes'])]
             home_train = 0
@@ -709,21 +710,22 @@ def _update_grd_prm(prm):
     grd['active_to_reactive_passive'] = math.tan(math.acos(car['pf_passive_homes']))
 
     # wholesale
-    wholesale_path = paths["open_inputs"] / paths["wholesale_file"]
-    # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
-    wholesale = [x * 1e-2 for x in np.load(wholesale_path)]
-    grd["wholesale_all"] = wholesale
-    carbon_intensity_path = paths["open_inputs"] / paths["carbon_intensity_file"]
+    for test_str in ["", "_test"]:
+        # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
+        grd[f"wholesale_all{test_str}"] = [
+            x * 1e-2 for x in np.load( paths["open_inputs"] / paths[f"wholesale{test_str}_file"])
+        ]
 
-    # gCO2/kWh to tCO2/kWh
-    grd["cintensity_all"] = np.load(
-        carbon_intensity_path, allow_pickle=True) * 1e-6
-    # carbon intensity
-    grd["Call"] = [
-        price + carbon * syst["co2tax"]
-        for price, carbon in zip(wholesale, grd["cintensity_all"])
-    ]
-    grd["perc"] = [np.percentile(grd["Call"], i) for i in range(0, 101)]
+        # gCO2/kWh to tCO2/kWh
+        grd[f"cintensity_all{test_str}"] = np.load(
+            paths["open_inputs"] / paths[f"carbon_intensity{test_str}_file"], allow_pickle=True
+        ) * 1e-6
+        # carbon intensity
+        grd[f"Call{test_str}"] = [
+            price + carbon * syst["co2tax"]
+            for price, carbon in zip(grd[f"wholesale_all{test_str}"], grd[f"cintensity_all{test_str}"])
+        ]
+        grd[f"perc{test_str}"] = [np.percentile(grd[f"Call{test_str}"], i) for i in range(0, 101)]
 
     if grd['compare_pandapower_optimisation'] and not grd['manage_voltage']:
         # comparison between optimisation and pandapower is only relevant if simulating voltage.
@@ -753,7 +755,11 @@ def _syst_info(prm):
     assert syst['n_homes_all'] > 0, "No homes in the system"
 
     syst['n_homes_extensions'] = ["P"]
-    if syst['n_homes_test'] != syst['n_homes']:
+    syst['test_different_to_train'] = (
+            syst['n_homes_test'] != syst['n_homes']
+            or syst['year_test'] != syst['year']
+    )
+    if syst['test_different_to_train']:
         syst['n_homes_extensions'].append("_test")
     syst["n_homes_extensions_all"] = syst['n_homes_extensions'] + [""]
     syst['timestamp'] = datetime.datetime.now().timestamp()
@@ -765,11 +771,13 @@ def _syst_info(prm):
         for next_day in syst["weekday_types"]:
             syst['day_trans'].append(f"{prev_day}2{next_day}")
 
-    syst['date0'] = [syst['year'], syst['month0'], 1, 0]
-    syst['max_date_end'] = [syst['year'], syst['month_end'], 1, 0]
-    # general system parameters
-    for info in ["date0", "max_date_end"]:
-        prm["syst"][f"{info}_dtm"] = datetime.datetime(*prm["syst"][info])
+    for test_str in ['', '_test']:
+        syst[f'date0{test_str}'] = [syst[f'year{test_str}'], syst['month0'], 1, 0]
+        syst[f'max_date_end{test_str}'] = [syst[f'year{test_str}'], syst['month_end'], 1, 0]
+        # general system parameters
+        for info in ["date0", "max_date_end"]:
+            prm["syst"][f"{info}{test_str}_dtm"] = datetime.datetime(*prm["syst"][f"{info}{test_str}"])
+
 
 
 def _homes_info(loads, syst, gen, heat, car):

@@ -29,7 +29,7 @@ from src.environment.post_analysis.post_processing import post_processing
 from src.environment.simulations.local_elec import LocalElecEnv
 from src.environment.utilities.userdeftools import (
     data_source, initialise_dict, methods_learning_from_exploration,
-    reward_type, set_seeds_rdn, should_optimise_for_supervised_loss)
+    reward_type, set_seeds_rdn, should_optimise_for_supervised_loss, test_str)
 from src.learners.DDPG import Learner_DDPG
 from src.learners.DDQN import Agent_DDQN
 from src.learners.DQN import Agent_DQN
@@ -85,7 +85,7 @@ class Runner:
                     steps_vals, date0, delta, i0_costs, exploration_methods \
                         = self._exploration_episode(
                             repeat, epoch, i_explore, date0, delta, i0_costs,
-                            new_env, evaluation=False, evaluation_add1=False
+                            new_env, evaluation_add1=False
                         )
                     train_steps_vals.append(steps_vals)
 
@@ -275,30 +275,33 @@ class Runner:
 
         return episode, converged
 
-    def _set_date(self,
-                  repeat,
-                  epoch,
-                  i_explore,
-                  date0,
-                  delta,
-                  i0_costs,
-                  new_env
-                  ) -> Tuple[date, timedelta, int]:
+    def _set_date(
+            self,
+            repeat,
+            epoch,
+            i_explore,
+            date0,
+            delta,
+            i0_costs,
+            new_env,
+            evaluation=False
+    ) -> Tuple[date, timedelta, int]:
         if self.rl['deterministic'] > 0:
             new_date = True if epoch == 0 and i_explore == 0 and new_env == 1 \
                 else False
         else:
             new_date = True if self.prm['syst']['change_start'] else False
         if new_date:
+            test_str_ = test_str(evaluation)
             seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
             set_seeds_rdn(seed)
             delta_days = int(np.random.choice(range(
-                (self.prm['syst']['max_date_end_dtm']
-                    - self.prm['syst']['date0_dtm']).days
+                (self.prm['syst'][f'max_date_end{test_str_}_dtm']
+                    - self.prm['syst'][f'date0{test_str_}_dtm']).days
                 - self.prm['syst']['D'])))
-            date0 = self.prm['syst']['date0_dtm'] \
+            date0 = self.prm['syst'][f'date0{test_str_}_dtm'] \
                 + datetime.timedelta(days=delta_days)
-            delta = date0 - self.prm['syst']['date0_dtm']
+            delta = date0 - self.prm['syst'][f'date0{test_str_}_dtm']
             i0_costs = int(delta.days * 24 + delta.seconds / 3600)
             self.env.update_date(i0_costs, date0)
 
@@ -468,19 +471,19 @@ class Runner:
 
     def _exploration_episode(
             self, repeat, epoch, i_explore, date0, delta,
-            i0_costs, new_env, evaluation=False, evaluation_add1=False,
+            i0_costs, new_env, evaluation_add1=False,
             set_date=True
     ):
         if set_date:
             date0, delta, i0_costs = self._set_date(
-                repeat, epoch, i_explore, date0, delta, i0_costs, new_env
+                repeat, epoch, i_explore, date0, delta, i0_costs, new_env, evaluation=False
             )
 
         # exploration - obtain experience
-        exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=evaluation)
+        exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=False)
         steps_vals, self.episode_batch = self.explorer.get_steps(
             exploration_methods, repeat, epoch, i_explore,
-            new_episode_batch=self.new_episode_batch, evaluation=evaluation
+            new_episode_batch=self.new_episode_batch, evaluation=False
         )
 
         return steps_vals, date0, delta, i0_costs, exploration_methods
@@ -511,10 +514,9 @@ class Runner:
                 tqdm(range(self.rl['n_epochs'], self.rl['n_all_epochs']),
                      position=0, leave=True):
             t_start = time.time()  # start recording time
-            date0, delta, i0_costs = \
-                self._set_date(
+            date0, delta, i0_costs = self._set_date(
                     repeat, epoch_test, i_explore, date0,
-                    delta, i0_costs, new_env
+                    delta, i0_costs, new_env, evaluation=True
                 )
             eval_steps, _ = self.explorer.get_steps(
                 evaluations_methods, repeat, epoch_test, self.rl['n_explore'],

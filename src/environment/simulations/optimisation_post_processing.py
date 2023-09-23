@@ -2,7 +2,7 @@ import numpy as np
 
 from src.environment.utilities.userdeftools import (
     compute_import_export_costs, compute_voltage_costs,
-    mean_max_hourly_voltage_deviations)
+    mean_max_hourly_voltage_deviations, test_str)
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):
@@ -635,7 +635,7 @@ def _update_res_variables(
         res['grid'] = new_grid
         res['grid2'] = np.square(res['grid'])
         new_grid_energy_costs = np.sum(
-            np.multiply(grd['C'][0: N], (res['grid'] + grd['loss'] * res['grid2']))
+            np.multiply(grd[f'C{test_str(test)}'][0: N], (res['grid'] + grd['loss'] * res['grid2']))
         )
         delta = new_grid_energy_costs - res['grid_energy_costs']
         res['grid_energy_costs'] = new_grid_energy_costs
@@ -766,7 +766,7 @@ def check_and_correct_constraints(
     return res, pp_simulation_required
 
 
-def res_post_processing(res, prm, input_hourly_lij, perform_checks):
+def res_post_processing(res, prm, input_hourly_lij, perform_checks, evaluation):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
@@ -843,7 +843,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['hourly_line_losses'] = np.zeros(N)
         res['q_ext_grid'] = np.zeros(N)
 
-    res['hourly_grid_energy_costs'] = grd['C'][0: N] * (
+    res['hourly_grid_energy_costs'] = grd[f'C{test_str(evaluation)}'][0: N] * (
         res["grid"] + grd["loss"] * res["grid2"]
     )
     res['hourly_battery_degradation_costs'] = car["C"] * (

@@ -17,17 +17,8 @@ from tqdm import tqdm
 ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
-    # 'grd-line_losses_method',
-    # 'RL-facmac-hysteretic'
-    # 'grd-quadratic_voltage_penalty',
     'grd-voltage_penalty',
-    # 'RL-q_learning-eps'
-    # 'syst-n_homesP',
-    # 'syst-n_homes_test',
-    # 'RL-state_space',
-    # 'syst-own_der',
-    # 'syst-share_active'
-    # 'syst-assets'
+    # 'syst-n_homesP'
 ]
 for col in [
     # 'loads-own_flex',
@@ -50,13 +41,15 @@ y_label_voltage = {
 }
 
 FILTER = {
-	'trajectory': True,
-	# 'n_repeats':10,
+	'trajectory': False,
+# 	# 'n_repeats':10,
 	'manage_voltage':True,
 	'n_homes':55,
 	'reactive_power_for_voltage_control':True,
-	# 'min_voltage':0.96,
-	# 'penalty_export':False,
+# 	# 'min_voltage':0.96,
+# 	# 'penalty_export':False,
+    'state_space': 'grdC_min_voltage',
+    'quadratic_voltage_penalty': False,
 }
 
 if len(COLUMNS_OF_INTEREST) != len(set(COLUMNS_OF_INTEREST)):
