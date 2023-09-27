@@ -1216,10 +1216,6 @@ def compare_all_runs_for_column_of_interest(
                     for asset in ordered_assets:
                         if asset in values_of_interest:
                             i_sorted.append(values_of_interest.index(asset))
-                    # if not (len(i_sorted) == len(values_of_interest)):
-                    #     print()
-                    # assert len(i_sorted) == len(values_of_interest)
-                    # assert all(i in i_sorted for i in range(len(values_of_interest)))
                 else:
                     i_sorted = np.argsort(values_of_interest)
                 values_of_interest_sorted = [values_of_interest[i] for i in i_sorted]
