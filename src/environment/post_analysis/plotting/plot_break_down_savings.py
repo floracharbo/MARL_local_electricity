@@ -3,11 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import ScalarFormatter
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.post_analysis.plotting.plotting_utils import (
     formatting_figure, title_and_save)
-from src.environment.utilities.userdeftools import (data_source,
-                                                    distr_learning,
-                                                    reward_type)
 
 
 def distribution_savings(prm, aggregate='daily'):
@@ -64,11 +62,11 @@ def heatmap_savings_per_method(prm):
                 [
                     [i for i in range(len(arr)) if arr[i] == x][0]
                     for arr, x in zip(
-                        [rewards, distrs], [reward_type(e), distr_learning(e)]
+                        [rewards, distrs], [utils.reward_type(e), utils.distr_learning(e)]
                     )
                 ]
             val = metrics['end']['ave'][e] - metrics['end']['ave']['baseline']
-            M[data_source(e)][i_distr][i_reward] = val
+            M[utils.data_source(e)][i_distr][i_reward] = val
             all_vals.append(val)
     if len(all_vals) > 0:
         minval, maxval = np.min(all_vals), np.max(all_vals)

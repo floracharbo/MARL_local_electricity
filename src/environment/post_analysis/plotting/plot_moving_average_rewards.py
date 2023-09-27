@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.post_analysis.plotting.plotting_utils import \
     formatting_figure
-from src.environment.utilities.userdeftools import (data_source,
-                                                    get_moving_average)
 
 
 def _update_lower_upper_bounds(min_val, max_val, lower_bound, upper_bound, paths):
@@ -57,7 +56,7 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
             )
             if e == 'opt':
                 ls = 'dotted'
-            elif data_source(e) == 'opt':
+            elif utils.data_source(e) == 'opt':
                 ls = 'dashed'
             else:
                 ls = 'solid'
@@ -110,12 +109,12 @@ def plot_mova_eval_per_repeat(repeat, prm):
     if not prm['save']['plot_indiv_repeats_rewards']:
         return
     fig = plt.figure()
-    mova_baseline = get_moving_average(
+    mova_baseline = utils.get_moving_average(
         [rl["eval_rewards"][repeat]['baseline']
          for repeat in prm['RL']['n_repeats']], prm["save"]["n_window"])
     # 2 - moving average of all rewards evaluation
     for e in [e for e in prm["save"]["eval_entries_plot"] if e != 'baseline']:
-        mova_e = get_moving_average(
+        mova_e = utils.get_moving_average(
             [rl["eval_rewards"][repeat][e] for repeat in prm['RL']['n_repeats']],
             prm["save"]["n_window"])
         diff = [m - mb if m is not None else None

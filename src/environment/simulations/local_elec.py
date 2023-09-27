@@ -17,6 +17,7 @@ from gym import spaces
 from gym.utils import seeding
 from six import integer_types
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.action_translator import \
     Action_translator
 from src.environment.experiment_manager.hedge import HEDGE
@@ -24,9 +25,7 @@ from src.environment.simulations.battery import Battery
 from src.environment.simulations.heat import Heat
 from src.environment.simulations.network import Network
 from src.environment.utilities.env_spaces import EnvSpaces
-from src.environment.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs, get_opt_res_file,
-    mean_max_hourly_voltage_deviations, test_str)
+from src.environment.utilities.userdeftools import test_str
 
 
 class LocalElecEnv:
@@ -230,7 +229,7 @@ class LocalElecEnv:
         if date0 is not None:
             self.date0 = date0
             self.hedge.date = date0 - timedelta(days=1)
-            spaces = self.spaces_test if evaluation and self.prm['syst']['test_different_to_train'] else self.spaces
+            spaces = self.get_current_spaces(evaluation)
             spaces.current_date0 = self.date0
             self.action_translator.date0 = self.date0
             self.date_end = date0 + timedelta(hours=self.N * self.dt)
@@ -317,6 +316,7 @@ class LocalElecEnv:
         record: bool = False,
         netp_storeout: bool = False,
         E_req_only: bool = False,
+        evaluation=True,
     ) -> list:
         """Compute environment updates and reward from selected action."""
         h = self._get_time_step()
@@ -471,13 +471,13 @@ class LocalElecEnv:
 
         # import and export limits
         if self.prm['grd']['manage_agg_power'] or self.prm['grd']['simulate_panda_power_only']:
-            import_export_costs, _, _ = compute_import_export_costs(
+            import_export_costs, _, _ = utils.compute_import_export_costs(
                 grid, self.prm['grd'], self.prm['syst']['n_int_per_hr']
             )
         else:
             import_export_costs = 0
         if self.prm['grd']['manage_voltage']:
-            voltage_costs = compute_voltage_costs(
+            voltage_costs = utils.compute_voltage_costs(
                 voltage_squared, self.prm['grd']
             )
         else:
@@ -486,7 +486,7 @@ class LocalElecEnv:
             if time_step < self.N - 1:
                 mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, \
                     n_voltage_violation_bus, n_voltage_violation_hour =  \
-                    mean_max_hourly_voltage_deviations(
+                    utils.mean_max_hourly_voltage_deviations(
                         voltage_squared,
                         self.prm['grd']['max_voltage'],
                         self.prm['grd']['min_voltage']
@@ -533,9 +533,9 @@ class LocalElecEnv:
             import_export_costs + voltage_costs
         )
         total_reward = - (
-                battery_degradation_costs + distribution_network_export_costs + grid_energy_costs
-                + network_costs
-            )
+            battery_degradation_costs + distribution_network_export_costs + grid_energy_costs
+            + network_costs
+        )
         if self.prm['RL']['competitive']:
             reward = - np.array(indiv_grid_battery_costs)
         else:
@@ -552,8 +552,8 @@ class LocalElecEnv:
             cost_distribution_network_losses, costs_wholesale, costs_upstream_losses, emissions,
             emissions_from_grid, emissions_from_loss, total_costs,
             indiv_grid_energy_costs, indiv_battery_degradation_costs, indiv_grid_battery_costs,
-            mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_voltage_violation_bus,
-            n_voltage_violation_hour
+            mean_voltage_deviation, mean_voltage_violation, max_voltage_violation,
+            n_voltage_violation_bus, n_voltage_violation_hour
         ]
 
         assert len(break_down_rewards) == len(self.prm['syst']['break_down_rewards_entries']), \
@@ -915,7 +915,9 @@ class LocalElecEnv:
         return val
 
     def _get_grdC_level(self, inputs):
-        spaces = self.spaces_test if 'test' in self.ext and self.prm['syst']['test_different_to_train'] else self.spaces
+        evaluation = 'test' in self.ext
+        spaces = self.get_current_spaces(evaluation)
+
         return spaces._get_grdC_level(inputs)
 
     def _descriptor_to_val(
@@ -952,7 +954,8 @@ class LocalElecEnv:
             val = dict_functions_home[descriptor]()[home]
         elif descriptor[0: len('grdC_t')] == 'grdC_t':
             t_ = int(descriptor[len('grdC_t'):])
-            val = self.prm['grd'][f'C{test_str(evaluation)}'][time_step + t_] if time_step + t_ < self.N \
+            val = self.prm['grd'][f'C{test_str(evaluation)}'][time_step + t_] \
+                if time_step + t_ < self.N \
                 else self.prm['grd'][f'C{test_str(evaluation)}'][self.N - 1]
             assert val >= 0, f"flexibility = {val}"
         elif len(descriptor) >= 4 and descriptor[0:4] == 'grdC':
@@ -980,10 +983,15 @@ class LocalElecEnv:
                 # gen_prod_step / prev and car_cons_step / prev
                 batch_type = 'gen' if descriptor[0:3] == 'gen' else 'loads_car'
                 val = self.batch[batch_type][home, h]
-        spaces = self.spaces_test if evaluation and self.prm['syst']['test_different_to_train'] else self.spaces
+        spaces = self.get_current_spaces(evaluation)
         val = spaces.normalise_state(descriptor, val, home)
 
         return val
+
+    def get_current_spaces(self, evaluation):
+        return self.spaces_test \
+            if evaluation and self.prm['syst']['test_different_to_train'] \
+            else self.spaces
 
     def _batch_tests(self, h):
         if self.test:
@@ -1044,25 +1052,36 @@ class LocalElecEnv:
         i_start, i_end = self.i0_costs, self.i0_costs + self.N + 1
         test_str_ = test_str(evaluation)
         self.prm['grd'][f'C{test_str_}'] = self.prm['grd'][f'Call{test_str_}'][i_start: i_end]
-        self.__dict__[f'wholesale{test_str_}'] = self.prm['grd'][f'wholesale_all{test_str_}'][i_start: i_end]
-        self.__dict__[f'cintensity{test_str_}'] = self.prm['grd'][f'cintensity_all{test_str_}'][i_start: i_end]
+        setattr(
+            self,
+            f'wholesale{test_str_}',
+            self.prm['grd'][f'wholesale_all{test_str_}'][i_start: i_end]
+        )
+        setattr(
+            self,
+            f'cintensity{test_str_}',
+            self.prm['grd'][f'cintensity_all{test_str_}'][i_start: i_end]
+        )
         i_grdC_level = [
             i for i in range(len(self.spaces.descriptors['state']))
             if self.spaces.descriptors['state'][i] == 'grdC_level'
         ]
         if len(i_grdC_level) > 0:
+            min_grdC = min(self.prm['grd'][f'C{test_str_}'][0: self.N])
+            max_grdC = max(self.prm['grd'][f'C{test_str_}'][0: self.N])
             self.__dict__[f'normalised_grdC{test_str_}'] = [
-                (grid_energy_costs - min(self.prm['grd'][f'C{test_str_}'][0: self.N]))
-                 / (max(self.prm['grd'][f'C{test_str_}'][0: self.N])
-                    - min(self.prm['grd'][f'C{test_str_}'][0: self.N]))
-                 for grid_energy_costs in self.prm['grd'][f'C{test_str_}'][0: self.N + 1]
+                (grid_energy_costs - min_grdC) / (max_grdC - min_grdC)
+                for grid_energy_costs in self.prm['grd'][f'C{test_str_}'][0: self.N + 1]
             ]
 
             if not self.spaces.type_env == "continuous":
-                spaces = self.spaces_test if evaluation and self.prm['syst']['test_different_to_train'] else self.spaces
+                spaces = self.get_current_spaces(evaluation)
                 spaces.brackets['state'][i_grdC_level[0]] = [
                     [
-                        np.percentile(self.__dict__[f'normalised_grdC{test_str_}'], i * 100 / self.n_grdC_level)
+                        np.percentile(
+                            self.__dict__[f'normalised_grdC{test_str_}'],
+                            i * 100 / self.n_grdC_level
+                        )
                         for i in range(self.n_grdC_level)
                     ] + [1]
                     for _ in self.homes

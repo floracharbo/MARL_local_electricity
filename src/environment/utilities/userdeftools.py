@@ -437,8 +437,10 @@ def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage
         mean_voltage_violation, max_voltage_violation, n_violation_bus, n_violation_hour = 0, 0, 0, 0
     mean_voltage_deviation = np.mean(np.abs(1 - voltage))
 
-    return mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_violation_bus, n_violation_hour
-
+    return (
+        mean_voltage_deviation, mean_voltage_violation, max_voltage_violation,
+        n_violation_bus, n_violation_hour
+    )
 
 def f_to_interval(f, fs_brackets):
     interval = np.where(f >= fs_brackets[:-1])[0][-1]
@@ -471,7 +473,12 @@ def list_potential_paths(
 
 
 def var_len_is_n_homes(info, competitive):
-    return info[0: len('indiv')] == 'indiv' or info == 'diff_rewards' or (info == 'reward' and competitive)
+    info_indiv = info[0: len('indiv')] == 'indiv'
+    info_diff = info == 'diff_rewards'
+    info_competitive_rewards = info == 'reward' and competitive
+
+    return info_indiv or info_diff or info_competitive_rewards
+
 
 def test_str(evaluation):
     return '_test' if evaluation else ''

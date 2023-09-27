@@ -97,7 +97,7 @@ class ActionSelector:
         if self.n_homes == 0:
             return [], []
 
-        spaces = self.env.spaces_test if evaluation and self.prm['syst']['test_different_to_train'] else self.env.spaces
+        spaces = self.env.get_current_spaces(evaluation)
         rl = self.rl
         if rl['type_learning'] in ['facmac', 'DDPG']:
             tf_prev_state = self._format_tf_prev_state(current_state)
@@ -380,7 +380,7 @@ class ActionSelector:
             self, states, eps_greedy, rdn_eps_greedy, rdn_eps_greedy_indiv, method
     ):
         if self.prm['syst']['test_different_to_train']:
-            print(F"implement spaces_test for DQN")
+            print("implement spaces_test for DQN")
         ind_states = [self.env.spaces.get_space_indexes(
             all_vals=current_state, indiv_indexes=True)
             for current_state in states]

@@ -17,19 +17,16 @@ import numpy as np
 import torch as th
 from tqdm import tqdm
 
+import src.environment.initialisation.input_data as input_data
+import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.explorer import Explorer
 from src.environment.initialisation.initialise_objects import \
     initialise_objects
-from src.environment.initialisation.input_data import (get_settings_i,
-                                                       input_paths,
-                                                       load_existing_prm)
 from src.environment.post_analysis.plotting.plot_summary_no_agents import \
     plot_results_vs_nag
 from src.environment.post_analysis.post_processing import post_processing
 from src.environment.simulations.local_elec import LocalElecEnv
-from src.environment.utilities.userdeftools import (
-    data_source, initialise_dict, methods_learning_from_exploration,
-    reward_type, set_seeds_rdn, should_optimise_for_supervised_loss, test_str)
+from src.environment.utilities.userdeftools import test_str
 from src.learners.DDPG import Learner_DDPG
 from src.learners.DDQN import Agent_DDQN
 from src.learners.DQN import Agent_DQN
@@ -294,7 +291,7 @@ class Runner:
         if new_date:
             test_str_ = test_str(evaluation)
             seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
-            set_seeds_rdn(seed)
+            utils.set_seeds_rdn(seed)
             delta_days = int(np.random.choice(range(
                 (self.prm['syst'][f'max_date_end{test_str_}_dtm']
                     - self.prm['syst'][f'date0{test_str_}_dtm']).days
@@ -309,10 +306,10 @@ class Runner:
 
     def _facmac_episode_batch_insert_and_sample(self, epoch):
         for t_explo in self.rl["exploration_methods"]:
-            methods_to_update = methods_learning_from_exploration(t_explo, epoch, self.rl)
+            methods_to_update = utils.methods_learning_from_exploration(t_explo, epoch, self.rl)
             for method in methods_to_update:
-                diff = True if reward_type(method) == 'd' else False
-                opt = True if data_source(method) == 'opt' else False
+                diff = True if utils.reward_type(method) == 'd' else False
+                opt = True if utils.data_source(method) == 'opt' else False
 
                 self.buffer[method].insert_episode_batch(
                     self.episode_batch[method], difference=diff, optimisation=opt
@@ -336,7 +333,7 @@ class Runner:
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods, i_explore):
-        list_train_stepvals = initialise_dict(self.rl["exploration_methods"], type_obj='empty_dict')
+        list_train_stepvals = {method: {} for method in self.rl["exploration_methods"]}
         train_vals = [
             info for info in train_steps_vals[0][self.rl["exploration_methods"][0]].keys()
             if info not in ['seeds', 'n_not_feas']
@@ -438,7 +435,7 @@ class Runner:
             types_needed = candidate_types
         if opt_stage:
             types_needed = [method for method in types_needed if len(method.split("_")) < 5]
-        if should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' not in types_needed:
+        if utils.should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' not in types_needed:
             types_needed.append('opt')
 
         return types_needed
@@ -515,9 +512,9 @@ class Runner:
                      position=0, leave=True):
             t_start = time.time()  # start recording time
             date0, delta, i0_costs = self._set_date(
-                    repeat, epoch_test, i_explore, date0,
-                    delta, i0_costs, new_env, evaluation=True
-                )
+                repeat, epoch_test, i_explore, date0,
+                delta, i0_costs, new_env, evaluation=True
+            )
             eval_steps, _ = self.explorer.get_steps(
                 evaluations_methods, repeat, epoch_test, self.rl['n_explore'],
                 evaluation=True, new_episode_batch=self.new_episode_batch
@@ -597,7 +594,7 @@ def print_description_run(prm, settings):
 
 
 def run(run_mode, settings, no_runs=None):
-    prm = input_paths()
+    prm = input_data.input_paths()
 
     if run_mode == 1:
         # obtain the number of runs from the longest settings entry
@@ -611,7 +608,7 @@ def run(run_mode, settings, no_runs=None):
             start_time = time.time()  # start recording time
             # obtain run-specific settings
 
-            settings_i = get_settings_i(settings, i)
+            settings_i = input_data.get_settings_i(settings, i)
             fewer_than_10_homes = settings_i['syst']['n_homes'] < 10
             if 'type_learning' not in settings_i['RL']:
                 settings_i['RL']['type_learning'] = 'q_learning' if fewer_than_10_homes \
@@ -625,9 +622,13 @@ def run(run_mode, settings, no_runs=None):
 
             else:
                 if 'trajectory' not in settings_i['RL']:
-                    settings_i['RL']['trajectory'] = True if settings_i['RL']['type_learning'] == 'facmac' else False
+                    settings_i['RL']['trajectory'] = True \
+                        if settings_i['RL']['type_learning'] == 'facmac' \
+                        else False
                 if 'evaluation_methods' not in settings['RL']:
-                    settings_i['RL']['evaluation_methods'] = 'env_r_c' if settings_i['RL']['type_learning'] == 'facmac' else None
+                    settings_i['RL']['evaluation_methods'] = 'env_r_c' \
+                        if settings_i['RL']['type_learning'] == 'facmac' \
+                        else None
 
             trajectory = settings_i['RL']['trajectory']
             values_traj = {
@@ -648,7 +649,7 @@ def run(run_mode, settings, no_runs=None):
 
             if prm['RL']['type_learning'] == 'facmac':
                 # Setting the random seed throughout the modules
-                set_seeds_rdn(prm["syst"]["seed"])
+                utils.set_seeds_rdn(prm["syst"]["seed"])
 
             env = LocalElecEnv(prm)
             # second part of initialisation specifying environment
@@ -666,7 +667,9 @@ def run(run_mode, settings, no_runs=None):
 
     # post learning analysis / plotting
     elif run_mode == 2:
-        list_runs = [int(file_name[3:]) for file_name in os.listdir('outputs/results') if file_name[0] != '.']
+        list_runs = [
+            int(file_name[3:]) for file_name in os.listdir('outputs/results') if file_name[0] != '.'
+        ]
         if isinstance(no_runs, int):
             no_runs = [no_runs]  # the runs need to be in an array
 
@@ -674,7 +677,7 @@ def run(run_mode, settings, no_runs=None):
             if no_run not in list_runs:
                 print(f"run {no_run} not found")
                 continue
-            rl, prm = load_existing_prm(prm, no_run)
+            rl, prm = input_data.load_existing_prm(prm, no_run)
 
             prm, record = initialise_objects(prm, no_run=no_run, run_mode=run_mode)
             # make user defined environment

@@ -15,12 +15,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.initialisation.initialise_objects import \
     initialise_objects
-from src.environment.utilities.userdeftools import (data_source,
-                                                    distr_learning,
-                                                    initialise_dict,
-                                                    reward_type)
 
 
 def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag, run_mode=1):
@@ -49,7 +46,7 @@ def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag, run_mode=1):
     if n_ag == 1:
         prm['RL']['evaluation_methods'] = \
             [e for e in prm['RL']['evaluation_methods']
-             if distr_learning(e) == 'd' or e in ['baseline', 'opt']]
+             if utils.distr_learning(e) == 'd' or e in ['baseline', 'opt']]
     metrics = np.load(
         PATH + f'run{run}/figures/metrics.npy',
         allow_pickle=True).item()
@@ -57,7 +54,7 @@ def _get_prm(PATH, MAIN_DIR_NOT_SERVER, run, server, n_ag, run_mode=1):
     if run < 254:
         prm['RL']['evaluation_methods'] = [
             method for method in prm['RL']['evaluation_methods']
-            if method == 'opt' or data_source[method] == 'opt'
+            if method == 'opt' or utils.data_source[method] == 'opt'
         ]
 
     return prm, metrics
@@ -71,7 +68,7 @@ def _metrics_to_results(prm, n_ag, to_plot, res, res_entries, metrics):
             type_evals = [evaluation_method]
         else:
             type_evals = \
-                [f"{data_source[evaluation_method]}_{reward_type(evaluation_method)}_{e}"
+                [f"{utils.data_source[evaluation_method]}_{utils.reward_type(evaluation_method)}_{e}"
                  for e in ['c', 'd']]
 
         for t_ in type_evals:
@@ -106,7 +103,7 @@ def plot_results_vs_nag():
     PATH0 = '/Users/floracharbonnier/OneDrive - Nexus365/DPhil/Python/Phase2/'
     PATH = PATH0 + 'results/results_EPGbeast/'
     res_entries = ['xs', 'ave', 'std', 'p25', 'p50', 'p75']
-    res = initialise_dict(res_entries, 'empty_dict')
+    res = {entry: {} for entry in res_entries}
 
     # i removed 10 opts True,  diff False largeQ False (run 232) as
     # there now is run 236 opts True diff True largeQ False
@@ -276,7 +273,7 @@ def plot_results_vs_nag():
         colour = prm['save']['colourse'][evaluation_method] \
             if evaluation_method == 'opt' \
             else prm['save']['colourse'][
-            f"{data_source(evaluation_method)}_{reward_type(evaluation_method)}_d"]
+            f"{utils.data_source(evaluation_method)}_{utils.reward_type(evaluation_method)}_d"]
         plt.plot(
             res['xs'][evaluation_method],
             res['p50'][evaluation_method],

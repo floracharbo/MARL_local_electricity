@@ -13,8 +13,7 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.environment.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs)
+import src.environment.utilities.userdeftools as utils
 
 
 class Network:
@@ -269,7 +268,9 @@ class Network:
         else:
             self.net.sgen[type].iloc[house_index] = abs(power) / 1000
 
-    def power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex, passive=False, implement=True):
+    def power_flow_res_with_pandapower(
+            self, home_vars, netp0, q_car_flex, passive=False, implement=True
+    ):
         """Using active power, calculates reactive power and solves power flow
         with pandapower """
 
@@ -318,7 +319,7 @@ class Network:
             replace_with_pp_simulation = True
 
         # Impact of voltage costs on total costs
-        hourly_voltage_costs_pp = compute_voltage_costs(
+        hourly_voltage_costs_pp = utils.compute_voltage_costs(
             np.square(voltage_pp), self.grd
         )
         abs_rel_voltage_error = abs(
@@ -397,7 +398,7 @@ class Network:
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp, _, _ = compute_import_export_costs(
+        import_export_costs_pp, _, _ = utils.compute_import_export_costs(
             grid_pp, self.grd, self.n_int_per_hr
         )
         delta_import_export_costs = \

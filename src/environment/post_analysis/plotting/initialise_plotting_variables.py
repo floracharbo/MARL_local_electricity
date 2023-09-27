@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.environment.utilities.userdeftools import (distr_learning,
-                                                    initialise_dict)
+from src.environment.utilities.userdeftools import distr_learning
 
 
 def _save(prm):
@@ -82,7 +81,7 @@ def initialise_variables(prm, spaces, record):
     plt.rcParams['font.size'] = '11'
     rl = prm['RL']
     for space in ['action_state_space_0', 'state_space_0']:
-        rl[space] = initialise_dict(range(rl['n_repeats']))
+        rl[space] = {repeat: [] for repeat in range(rl['n_repeats'])}
 
     rl['eval_rewards'] = record.eval_rewards  # [repeat][method][epoch]
     prm["save"]["n_window"] = int(

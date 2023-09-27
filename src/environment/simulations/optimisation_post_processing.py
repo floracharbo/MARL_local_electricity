@@ -1,8 +1,6 @@
 import numpy as np
 
-from src.environment.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs,
-    mean_max_hourly_voltage_deviations, test_str)
+import src.environment.utilities.userdeftools as utils
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):
@@ -635,7 +633,10 @@ def _update_res_variables(
         res['grid'] = new_grid
         res['grid2'] = np.square(res['grid'])
         new_grid_energy_costs = np.sum(
-            np.multiply(grd[f'C{test_str(test)}'][0: N], (res['grid'] + grd['loss'] * res['grid2']))
+            np.multiply(
+                grd[f'C{utils.test_str(test)}'][0: N],
+                (res['grid'] + grd['loss'] * res['grid2'])
+            )
         )
         delta = new_grid_energy_costs - res['grid_energy_costs']
         res['grid_energy_costs'] = new_grid_energy_costs
@@ -819,13 +820,14 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks, evaluation):
             np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N])
                    * grd['per_unit_to_kW_conversion'], axis=0)
         for time_step in range(N):
-            res['hourly_import_export_costs'][time_step], _, _ = compute_import_export_costs(
+            res['hourly_import_export_costs'][time_step], _, _ = utils.compute_import_export_costs(
                 res['grid'][time_step], prm['grd'], prm['syst']['n_int_per_hr']
             )
             res['hourly_voltage_costs'][time_step] = \
-                compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
-            (mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_bus, n_hour) = \
-                mean_max_hourly_voltage_deviations(
+                utils.compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
+            (
+                mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_bus, n_hour
+            ) = utils.mean_max_hourly_voltage_deviations(
                 res['voltage_squared'][:, time_step],
                 prm['grd']['max_voltage'],
                 prm['grd']['min_voltage'],
@@ -843,7 +845,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks, evaluation):
         res['hourly_line_losses'] = np.zeros(N)
         res['q_ext_grid'] = np.zeros(N)
 
-    res['hourly_grid_energy_costs'] = grd[f'C{test_str(evaluation)}'][0: N] * (
+    res['hourly_grid_energy_costs'] = grd[f'C{utils.test_str(evaluation)}'][0: N] * (
         res["grid"] + grd["loss"] * res["grid2"]
     )
     res['hourly_battery_degradation_costs'] = car["C"] * (

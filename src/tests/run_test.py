@@ -6,9 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.runner import run
-from src.environment.utilities.userdeftools import (current_no_run,
-                                                    set_seeds_rdn)
 
 I0_COSTS = 288
 
@@ -26,7 +25,7 @@ def patch_find_feasible_data(
         epoch: int,
         passive: bool = False
 ):
-    set_seeds_rdn(0)
+    utils.set_seeds_rdn(0)
     names_files = {}
     files = ['res', 'batch']
     for file in files:
@@ -84,7 +83,7 @@ def patch_set_date(
         self, repeat, epoch, i_explore,
         date0, delta, i0_costs, new_env, evaluation
 ):
-    set_seeds_rdn(0)
+    utils.set_seeds_rdn(0)
     delta_days = I0_COSTS/24
     date0 = self.prm['syst']['date0_dtm'] \
         + timedelta(days=delta_days)
@@ -266,7 +265,7 @@ def test_all(mocker):
                     os.mkdir('outputs')
                 if not Path(paths_results).exists():
                     os.mkdir(paths_results)
-                no_run = current_no_run(paths_results)
+                no_run = utils.current_no_run(paths_results)
 
                 if prev_no_run is not None:
                     assert no_run == prev_no_run + 1, "results not saving"

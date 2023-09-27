@@ -18,11 +18,9 @@ from typing import Tuple
 import numpy as np
 import torch as th
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.data_manager import DataManager
 from src.environment.experiment_manager.select_actions import ActionSelector
-from src.environment.utilities.userdeftools import (
-    initialise_dict, methods_learning_from_exploration, reward_type,
-    set_seeds_rdn, var_len_is_n_homes, test_str)
 from src.learners.learning import LearningManager
 
 
@@ -144,9 +142,8 @@ class Explorer:
 
             _, done, _, _, _, sequence_feasible, [
                 netp, discharge_tot, charge] = env.step(
-                    action, record=record,
-                    netp_storeout=True
-            )
+                    action, record=record, netp_storeout=True, evaluation=evaluation,
+                )
             if not done:
                 for info, val in zip(
                         ["netp0", "discharge_tot0", "charge0"],
@@ -197,7 +194,7 @@ class Explorer:
         sequence_feasible = True
         # substract baseline rewards to reward -
         # for training, not evaluating
-        if evaluation or len(method.split("_")) == 1 or reward_type(method) != "d":
+        if evaluation or len(method.split("_")) == 1 or utils.reward_type(method) != "d":
             return None, sequence_feasible
 
         # for each agent, get rewards
@@ -220,7 +217,8 @@ class Explorer:
                 comb_actions,
                 implement=False,
                 record=False,
-                E_req_only=method == "baseline"
+                E_req_only=method == "baseline",
+                evaluation=evaluation,
             )
             if self.prm['RL']['competitive'] and home < self.n_homes:
                 reward_a = reward_a[home]
@@ -235,7 +233,7 @@ class Explorer:
     def _init_traj_reward(self, method, evaluation):
         if (
             len(method.split("_")) > 1
-            and reward_type(method) == "d"
+            and utils.reward_type(method) == "d"
             and not evaluation
         ):
             traj_reward = [0 for _ in self.homes]
@@ -248,7 +246,7 @@ class Explorer:
             self, method, evaluation, reward, rewards_baseline, break_down_rewards
     ):
         if len(method.split("_")) > 1 \
-                and reward_type(method) == "d" \
+                and utils.reward_type(method) == "d" \
                 and not evaluation:
 
             if self.rl["competitive"]:
@@ -317,8 +315,7 @@ class Explorer:
             [
                 state, done, reward, break_down_rewards, bool_flex, constraint_ok, record_output
             ] = env.step(
-                action_, record=record,
-                E_req_only=method == "baseline"
+                action_, record=record, E_req_only=method == "baseline", evaluation=evaluation
             )
             if record:
                 self.last_epoch(evaluation, method, record_output, batch, done)
@@ -335,7 +332,7 @@ class Explorer:
                 if self.n_homes > 0:
                     t_start_learn = time.time()
                     if not evaluation and not self.rl['trajectory']:
-                        for eval_method in methods_learning_from_exploration(
+                        for eval_method in utils.methods_learning_from_exploration(
                                 method, epoch, self.rl
                         ):
                             self.learning_manager.learning(
@@ -411,7 +408,7 @@ class Explorer:
                 method = methods_nonopt[i_t]
                 i_t += 1
                 self.data.get_seed(seed_ind)
-                set_seeds_rdn(self.data.seed[self.data.ext])
+                utils.set_seeds_rdn(self.data.seed[self.data.ext])
 
                 # reset environment with adequate data
                 env.reset(
@@ -425,7 +422,7 @@ class Explorer:
                 # initialise data for current method
                 if method == method0:
                     initt0 += 1
-                vars_env[method] = initialise_dict(self.prm["save"]["last_entries"])
+                vars_env[method] = {entry: [] for entry in self.prm["save"]["last_entries"]}
 
                 actions = None
                 if rl["type_learning"] in ["DDPG", "DQN", "facmac", "DDQN"] and rl["trajectory"]:
@@ -443,7 +440,8 @@ class Explorer:
                         and not evaluation \
                         and method != "baseline":
                     t_start_learn = time.time()
-                    for eval_method in methods_learning_from_exploration(method, epoch, self.rl):
+                    eval_methods = utils.methods_learning_from_exploration(method, epoch, self.rl)
+                    for eval_method in eval_methods:
                         self.learning_manager.trajectory_deep_learn(
                             states, actions, traj_reward, eval_method, evaluation, step_vals, epoch
                         )
@@ -472,11 +470,11 @@ class Explorer:
     def _get_shape_step_vals(self, info, evaluation):
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         if info in self.prm['syst']['break_down_rewards_entries']:
-            if var_len_is_n_homes(info, self.prm['RL']['competitive']):
+            if utils.var_len_is_n_homes(info, self.prm['RL']['competitive']):
                 shape = (self.N, n_homes)
             else:
                 shape = (self.N, 1)
-        elif var_len_is_n_homes(info, self.prm['RL']['competitive']):
+        elif utils.var_len_is_n_homes(info, self.prm['RL']['competitive']):
             shape = (self.N, n_homes)
         elif info in self.prm['syst']['indiv_step_vals_entries']:
             shape = (self.N, n_homes, self.dim_step_vals[info])
@@ -500,9 +498,11 @@ class Explorer:
         # initialise output
         step_vals = {}
         for method in methods:
-            step_vals[method] = initialise_dict(
+            step_vals[method] = {
+                entry: []
+                for entry in
                 self.prm['syst']['break_down_rewards_entries'] + self.method_vals_entries
-            )
+            }
             entries = self.prm['syst']['indiv_step_vals_entries'] \
                 + self.global_step_vals_entries \
                 + self.prm['syst']['break_down_rewards_entries']
@@ -568,7 +568,7 @@ class Explorer:
         home_vars = {
             "gen": self.prm["grd"]["gen"][:, time_step]
         }
-        spaces = self.env.spaces_test if evaluation and self.prm['syst']['test_different_to_train'] else self.env.spaces
+        spaces = self.env.get_current_spaces(evaluation)
         step_vals_i["state"] = spaces.opt_step_to_state(
             self.prm, res, time_step, loads_prev,
             loads_step, batch_avail_car, loads, home_vars
@@ -594,7 +594,7 @@ class Explorer:
     ):
         obtain_diff_reward = any(
             len(q.split("_")) >= 2
-            and reward_type(q) == "d"
+            and utils.reward_type(q) == "d"
             for q in self.prm["RL"]["type_Qs"]
         )
         if obtain_diff_reward and not evaluation:
@@ -640,11 +640,14 @@ class Explorer:
         time_step = self.env.time_step - 1
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
-            n = n_homes if var_len_is_n_homes(info, self.prm['RL']['competitive']) else 1
+            n = n_homes if utils.var_len_is_n_homes(info, self.prm['RL']['competitive']) else 1
             step_vals[method][info][time_step][:n] = var
         for info, var in zip(self.prm['syst']['indiv_step_vals_entries'], indiv_step_vals):
             if var is not None:
-                if var_len_is_n_homes(info, self.prm['RL']['competitive']) and len(var) == self.n_homes + 1:
+                if (
+                    utils.var_len_is_n_homes(info, self.prm['RL']['competitive'])
+                    and len(var) == self.n_homes + 1
+                ):
                     var = var[:-1]
                 var_ = np.array(var.cpu()) if th.is_tensor(var) else var
                 shape = self._get_shape_step_vals(info, evaluation)[1:]
@@ -652,9 +655,6 @@ class Explorer:
                 step_vals[method][info][time_step, 0: n_homes] = np.reshape(
                     var_, shape
                 )
-                    # step_vals[method][info][time_step, 0: n_homes] = var_
-                # except Exception as ex:
-                #     print(ex)
 
         for info, var in zip(self.global_step_vals_entries, global_step_vals):
             step_vals[method][info][time_step] = var
@@ -698,8 +698,7 @@ class Explorer:
             else:
                 step_vals[method]["ind_next_global_state"][time_step] = np.nan
         if time_step == len(res["grid"]) - 1:
-            spaces = self.env.spaces_test if evaluation and self.prm['syst'][
-                'test_different_to_train'] else self.env.spaces
+            spaces = self.env.get_current_spaces(evaluation)
 
             step_vals[method]["next_state"][time_step][:n_homes] = \
                 spaces.opt_step_to_state(
@@ -707,8 +706,7 @@ class Explorer:
                     loads_step, batch_avail_car, loads, home_vars
                 )
             if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
-                spaces = self.env.spaces_test if evaluation and self.prm['syst'][
-                    'test_different_to_train'] else self.env.spaces
+                spaces = self.env.get_current_spaces(evaluation)
                 ind_next_state = spaces.get_space_indexes(
                     all_vals=step_vals[method]["next_state"][-1])
                 step_vals[method]["ind_next_global_state"].append(
@@ -749,14 +747,14 @@ class Explorer:
             f"res cons {sum_consa} does not match input demand " \
             f"{np.sum(batch['loads'][:, 0: self.N])}"
 
-        gc_i = prm["grd"][f"C{test_str(evaluation)}"][time_step] * (
+        gc_i = prm["grd"][f"C{utils.test_str(evaluation)}"][time_step] * (
             res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
         )
         gc_per_start_i = [
-            prm["grd"][f"Call{test_str(evaluation)}"][i + time_step] * (
+            prm["grd"][f"Call{utils.test_str(evaluation)}"][i + time_step] * (
                 res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
             )
-            for i in range(len(prm['grd'][f'Call{test_str(evaluation)}']) - self.N)
+            for i in range(len(prm['grd'][f'Call{utils.test_str(evaluation)}']) - self.N)
         ]
         potential_i0s = [
             i for i, gc_start_i in enumerate(gc_per_start_i)
@@ -839,7 +837,7 @@ class Explorer:
                     "terminated": th.from_numpy(np.array(time_step == self.N - 1)),
                 }
 
-                evaluation_methods = methods_learning_from_exploration(
+                evaluation_methods = utils.methods_learning_from_exploration(
                     exploration_method, epoch, rl
                 )
                 for evaluation_method in evaluation_methods:
@@ -866,7 +864,7 @@ class Explorer:
                 f"{abs(sum_rl_rewards + res['total_costs'])}"
 
     def sum_gc_for_start_Call_index(self, res, i, evaluation):
-        C = self.prm["grd"][f"Call{test_str(evaluation)}"][i: i + self.N]
+        C = self.prm["grd"][f"Call{utils.test_str(evaluation)}"][i: i + self.N]
         loss = self.prm['grd']['loss']
         sum_gc_i = np.sum(
             [
@@ -881,14 +879,16 @@ class Explorer:
     def _check_i0_costs_res(self, res, evaluation):
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
-            [self.prm["grd"][f"C{test_str(evaluation)}"][time_step_] * (
+            [self.prm["grd"][f"C{utils.test_str(evaluation)}"][time_step_] * (
                 res['grid'][time_step_] + self.prm["grd"]['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
         )
         if not (abs(sum_gc_0 - res['grid_energy_costs']) < 1e-3):
             i_start_res = [
-                i for i in range(len(self.prm['grd'][f'Call{test_str(evaluation)}']) - self.N)
-                if abs(self.sum_gc_for_start_Call_index(res, i, evaluation) - res['grid_energy_costs']) < 1e-3
+                i for i in range(len(self.prm['grd'][f'Call{utils.test_str(evaluation)}']) - self.N)
+                if abs(
+                    self.sum_gc_for_start_Call_index(res, i, evaluation) - res['grid_energy_costs']
+                ) < 1e-3
             ]
             if self.env.i0_costs != i_start_res[0]:
                 print("update res i0_costs")
@@ -930,7 +930,7 @@ class Explorer:
 
             if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
-                grdCt = self.prm['grd'][f'C{test_str(evaluation)}'][time_step]
+                grdCt = self.prm['grd'][f'C{utils.test_str(evaluation)}'][time_step]
                 res = self.env.network.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt
                 )
@@ -1023,7 +1023,7 @@ class Explorer:
         tot_cons_loads = res["totcons"][:, time_step] - res["E_heat"][:, time_step]
         flex_cons = tot_cons_loads - ldfixed
         wholesalet, cintensityt = [
-            self.prm["grd"][f"{e}{test_str(evaluation)}"][self.env.i0_costs + time_step]
+            self.prm["grd"][f"{e}{utils.test_str(evaluation)}"][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
         ]
         if self.prm["grd"]['manage_voltage']:
@@ -1057,7 +1057,7 @@ class Explorer:
         record_output += [
             step_vals_i["action"], step_vals_i["reward"], flex_cons,
             ldflex, ldfixed, tot_cons_loads,
-            self.prm["grd"][f"C{test_str(evaluation)}"][time_step], wholesalet, cintensityt,
+            self.prm["grd"][f"C{utils.test_str(evaluation)}"][time_step], wholesalet, cintensityt,
             break_down_rewards,
             loaded_buses, sgen_buses,
             res['q_ext_grid'][time_step],
@@ -1178,7 +1178,7 @@ class Explorer:
     def _init_facmac_mac(self, methods, new_episode_batch, epoch):
         if self.rl["type_learning"] == "facmac":
             for exploration_method in methods:
-                evaluation_methods = methods_learning_from_exploration(
+                evaluation_methods = utils.methods_learning_from_exploration(
                     exploration_method, epoch, self.rl
                 )
                 for evaluation_method in evaluation_methods:

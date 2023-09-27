@@ -10,9 +10,7 @@ import math
 
 import numpy as np
 
-from src.environment.utilities.userdeftools import (
-    data_source, distr_learning, methods_learning_from_exploration,
-    reward_type)
+import src.environment.utilities.userdeftools as utils
 
 
 # %% TabularQLearner
@@ -43,9 +41,9 @@ class TabularQLearner:
     def set0(self):
         """ for each repeat, reinitialise q_tables and counters """
         for method in self.rl['type_Qs']:
-            str_frame = 'all' if distr_learning(method) in ['Cc0', 'Cd0'] else '1'
+            str_frame = 'all' if utils.distr_learning(method) in ['Cc0', 'Cd0'] else '1'
             n_homes = self.n_homes if (
-                distr_learning(method) in ['d', 'Cd', 'd0']
+                utils.distr_learning(method) in ['d', 'Cd', 'd0']
                 or self.rl['competitive']
             ) else 1
             shape = [n_homes, self.n_states[str_frame], self.n_actions[str_frame]]
@@ -102,7 +100,7 @@ class TabularQLearner:
 
     def sample_action(self, q, ind_state, home, eps_greedy=True):
         ind_action = []
-        i_table = home if distr_learning(q) == 'd' else 0
+        i_table = home if utils.distr_learning(q) == 'd' else 0
         q_table = np.array(self.q_tables[q][i_table])
         for s in ind_state:
             n_action = len(q_table[s])
@@ -151,7 +149,7 @@ class TabularQLearner:
                     if eps_greedy and rdn_eps < eps \
                     else greedy_ind_action
                 ind_action.append(ind_action_mixed)
-        if distr_learning(q) == 'C':
+        if utils.distr_learning(q) == 'C':
             ind_action = self.global_to_indiv_index(
                 'global_action', ind_action[0])
 
@@ -174,7 +172,7 @@ class TabularQLearner:
             if type(td_error) in [list, np.ndarray]:
                 print(f'td_error {td_error}')
             add_supervised_loss = True \
-                if data_source(q_table_name, epoch) == 'opt' \
+                if utils.data_source(q_table_name, epoch) == 'opt' \
                 and self.rl['supervised_loss'] \
                 and epoch < self.rl['n_epochs_supervised_loss'] \
                 else False
@@ -204,7 +202,7 @@ class TabularQLearner:
         return lr
 
     def learn(self, t_explo, step_vals, epoch, step=None):
-        q_to_update = methods_learning_from_exploration(t_explo, epoch, self.rl)
+        q_to_update = utils.methods_learning_from_exploration(t_explo, epoch, self.rl)
         rangestep = range(len(step_vals['reward'])) if step is None else [step]
         for step in rangestep:
             for q in q_to_update:
@@ -296,7 +294,7 @@ class TabularQLearner:
                         self.eps[method] = 0
 
     def _get_reward_home(self, diff_rewards, indiv_grid_battery_costs, reward, q, home):
-        if reward_type(q) == 'd':
+        if utils.reward_type(q) == 'd':
             reward_a = diff_rewards[home]
         elif self.rl['competitive']:
             reward_a = indiv_grid_battery_costs[home]
@@ -326,21 +324,21 @@ class TabularQLearner:
             for vals, types in zip([indiv_s, next_indiv_s], ['state', 'next_state'])
         ]
 
-        if reward_type(q) == 'n':
+        if utils.reward_type(q) == 'n':
             for home in range(self.n_homes):
                 if indiv_ac[home] is not None:
-                    i_table = home if distr_learning(q) == 'd' else 0
+                    i_table = home if utils.distr_learning(q) == 'd' else 0
                     self.q_tables[q][i_table][ind_indiv_s[home]][
                         ind_indiv_ac[home]] += 1
                     self.counter[q][i_table][ind_indiv_s[home]][ind_indiv_ac[home]] += 1
         else:
-            if reward_type(q) == 'A':
+            if utils.reward_type(q) == 'A':
                 self.advantage_update_q_step(
                     q, indiv_ac, reward, done, ind_indiv_ac, ind_indiv_s, ind_next_indiv_s,
                     ind_global_ac, ind_global_s, ind_next_global_s, epoch
                 )
 
-            elif distr_learning(q) in ['Cc', 'Cd']:
+            elif utils.distr_learning(q) in ['Cc', 'Cd']:
                 # this is env_d_C or opt_d_C
                 # difference to global baseline
                 if ind_global_ac[0] is not None:
@@ -350,7 +348,7 @@ class TabularQLearner:
                         i_table=0, q_table_name=q + '0'
                     )
                     for home in range(self.n_homes):
-                        i_table = 0 if distr_learning == 'Cc' else home
+                        i_table = 0 if utils.distr_learning == 'Cc' else home
                         local_q_val = self.q_tables[q][i_table][
                             ind_indiv_s[home]][ind_indiv_ac[home]]
                         global_q_val = self.q_tables[q + '0'][0][
@@ -364,7 +362,7 @@ class TabularQLearner:
             else:
                 for home in range(self.n_homes):
                     if indiv_ac[home] is not None:
-                        i_table = 0 if distr_learning(q) == 'c' else home
+                        i_table = 0 if utils.distr_learning(q) == 'c' else home
                         reward_home = self._get_reward_home(
                             diff_rewards, indiv_grid_battery_costs, reward, q, home
                         )
@@ -379,18 +377,18 @@ class TabularQLearner:
             ind_indiv_ac, ind_indiv_s, ind_next_indiv_s,
             ind_global_ac, ind_global_s, ind_next_global_s, epoch
     ):
-        if distr_learning(q) in ['Cc', 'Cd']:
+        if utils.distr_learning(q) in ['Cc', 'Cd']:
             self._advantage_global_table(
                 reward, done, ind_global_s, ind_global_ac, ind_next_global_s,
                 indiv_ac, q, ind_indiv_ac, ind_indiv_s, epoch
             )
 
-        elif distr_learning(q) == 'c':
+        elif utils.distr_learning(q) == 'c':
             self._advantage_centralised_table(
                 reward, done, ind_indiv_s, ind_indiv_ac,
                 ind_next_indiv_s, indiv_ac, q, epoch
             )
-        elif distr_learning(q) == 'd':
+        elif utils.distr_learning(q) == 'd':
             self._advantage_decentralised_table(
                 reward, done, ind_indiv_s, ind_indiv_ac,
                 ind_next_indiv_s, indiv_ac, q, epoch
@@ -414,7 +412,7 @@ class TabularQLearner:
              for iab in indiv_ind_actions_baselinea]
         for home in range(self.n_homes):
             if indiv_ac[home] is not None:
-                i_table = 0 if distr_learning(q) == 'Cc' else home
+                i_table = 0 if utils.distr_learning(q) == 'Cc' else home
                 q0 = self.q_tables[q + '0'][0]
                 q0_a = q0[ind_global_s[0]][ind_global_ac[0]]
                 q0_baseline_a = q0[ind_global_s[0]][ind_a_global_abaseline[home]]

@@ -9,10 +9,8 @@ from typing import List
 import numpy as np
 import torch as th
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.utilities.env_spaces import granularity_to_multipliers
-from src.environment.utilities.userdeftools import (
-    data_source, methods_learning_from_exploration, reward_type,
-    should_optimise_for_supervised_loss)
 
 
 class LearningManager:
@@ -52,16 +50,16 @@ class LearningManager:
                 "terminated": th.from_numpy(np.array(done)),
             }
 
-            self.should_optimise_for_supervised_loss(epoch, step_vals)
+            self.utils.should_optimise_for_supervised_loss(epoch, step_vals)
             if self.rl['trajectory']:
-                if self.should_optimise_for_supervised_loss(epoch, step_vals):
+                if self.utils.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action']
                 else:
                     post_transition_data["optimal_actions"] = np.full(
                         (self.N, self.n_homes, self.rl['dim_actions_1']), - 1
                     )
             else:
-                if self.should_optimise_for_supervised_loss(epoch, step_vals):
+                if self.utils.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
                 else:
                     post_transition_data["optimal_actions"] = np.full(
@@ -76,7 +74,7 @@ class LearningManager:
         if self.rl['type_learning'] in ['DDPG', 'DQN', 'DDQN'] \
                 and method != 'baseline' \
                 and not done:
-            if reward_type(method) == 'd':
+            if utils.reward_type(method) == 'd':
                 self._learning_difference_rewards(
                     step_vals['diff_rewards'][step], current_state, action, state, method
                 )
@@ -89,8 +87,8 @@ class LearningManager:
                     reward, current_state, action, state, method
                 )
 
-    def should_optimise_for_supervised_loss(self, epoch, step_vals=None):
-        return should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' in step_vals
+    def utils.should_optimise_for_supervised_loss(self, epoch, step_vals=None):
+        return utils.should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' in step_vals
 
     def _learn_trajectory_opt_facmac(self, step_vals, epoch):
         states, actions = [
@@ -110,7 +108,7 @@ class LearningManager:
             "reward": th.from_numpy(np.array(traj_reward)),
             "terminated": th.from_numpy(np.array(True)),
         }
-        if self.should_optimise_for_supervised_loss(epoch, step_vals):
+        if self.utils.should_optimise_for_supervised_loss(epoch, step_vals):
             post_transition_data["optimal_actions"] = th.from_numpy(step_vals['opt']['action'])
         else:
             post_transition_data["optimal_actions"] = th.from_numpy(np.full(
@@ -118,7 +116,7 @@ class LearningManager:
                 -1
             ))
 
-        for evaluation_method in methods_learning_from_exploration('opt', epoch, self.rl):
+        for evaluation_method in utils.methods_learning_from_exploration('opt', epoch, self.rl):
             self.episode_batch[evaluation_method].update(pre_transition_data, ts=0)
             self.episode_batch[evaluation_method].update(post_transition_data, ts=0)
 
@@ -135,8 +133,8 @@ class LearningManager:
                     ) for e in ["state", "next_state"]
                 ]
                 for method in self.methods_opt:
-                    if reward_type(method) == "d":
-                        reward_diff_e = "reward_diff" if data_source(method, epoch) == "opt" \
+                    if utils.reward_type(method) == "d":
+                        reward_diff_e = "reward_diff" if utils.data_source(method, epoch) == "opt" \
                             else "reward"
                         traj_reward_a = sum(
                             [
@@ -145,7 +143,7 @@ class LearningManager:
                             ]
                         )
 
-                    elif reward_type(method) == "r":
+                    elif utils.reward_type(method) == "r":
                         traj_reward_a = sum(step_vals["opt"]["reward"][0: self.N])
                     actions_a = [
                         step_vals["opt"]["action"][time_step][home] for time_step in range(self.N)
@@ -186,9 +184,9 @@ class LearningManager:
                 )
             else:
                 for home in self.homes:
-                    if reward_type(method) == 'r' and self.rl['competitive']:
+                    if utils.reward_type(method) == 'r' and self.rl['competitive']:
                         reward = indiv_grid_battery_costs[home]
-                    elif reward_type(method) == 'd':
+                    elif utils.reward_type(method) == 'd':
                         reward = reward_diffs[home]
                     if self.rl['type_learning'] in ['DQN', 'DDQN']:
                         i_current_state, i_action, i_state = [
@@ -232,7 +230,7 @@ class LearningManager:
                 states[time_step][home] for time_step in range(1, self.N + 1)
             ]
             traj_reward_a = traj_reward[home] \
-                if len(method.split('_')) > 1 and reward_type(method) == 'd' \
+                if len(method.split('_')) > 1 and utils.reward_type(method) == 'd' \
                 and not evaluation \
                 else traj_reward
             if self.rl['type_learning'] == 'facmac' and not evaluation:

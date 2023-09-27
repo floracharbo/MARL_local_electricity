@@ -16,9 +16,7 @@ from typing import Tuple
 import numpy as np
 import scipy as sp
 
-from src.environment.utilities.userdeftools import (get_moving_average,
-                                                    initialise_dict,
-                                                    var_len_is_n_homes)
+import src.environment.utilities.userdeftools as utils
 
 
 class Record:
@@ -57,7 +55,7 @@ class Record:
         self.discrete_states_info_entries = prm['save']['discrete_states_info_entries']
         self.last_entries = prm["save"]["last_entries"]
         for entry in self.repeat_entries:
-            setattr(self, entry, initialise_dict(range(self.n_repeats)))
+            setattr(self, entry, {repeat: [] for repeat in range(self.n_repeats)})
 
     def _add_rl_info_to_object(self, rl):
         # all exploration / evaluation methods
@@ -112,7 +110,7 @@ class Record:
 
         for field in ["q_tables", "counter"]:
             if self.save_qtables:
-                self.__dict__[field][repeat] = initialise_dict(range(rl["n_epochs"]))
+                self.__dict__[field][repeat] = {epoch: [] for epoch in range(rl["n_epochs"])}
             else:
                 self.__dict__[field][repeat] = {}
         for info in ["duration_epoch", "duration_test", "eps", "seed", "n_not_feas"]:
@@ -138,7 +136,8 @@ class Record:
             method: np.zeros(shape_eval_rewards) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
-            shape = (self.n_all_epochs, self.n_homes_test) if var_len_is_n_homes(reward, self.competitive) \
+            shape = (self.n_all_epochs, self.n_homes_test) \
+                if utils.var_len_is_n_homes(reward, self.competitive) \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
                 method: np.zeros(shape) for method in all_evaluation_methods
@@ -159,9 +158,9 @@ class Record:
         }
         self.stability[repeat] = {method: None for method in rl["evaluation_methods"]}
 
-        self.last[repeat] = initialise_dict(self.last_entries + ["batch"], "empty_dict")
+        self.last[repeat] = {entry: {} for entry in self.last_entries + ["batch"]}
         for e in self.last_entries:
-            self.last[repeat][e] = initialise_dict(self.all_methods)
+            self.last[repeat][e] = {method: [] for method in self.all_methods}
 
     def end_epoch(self,
                   epoch: int,
@@ -199,7 +198,6 @@ class Record:
 
         self.duration_epoch[self.repeat][epoch] = duration_epoch
         self.duration_test[self.repeat][epoch] = duration_test
-
 
     def last_epoch(self, evaluation, method, record_output, batch, done):
         """Record more information for the final epoch in self.last."""
@@ -321,7 +319,7 @@ class Record:
                     np.nan if len(diff_repeats) == 0 else np.percentile(diff_repeats, p)
         if mov_average:
             for p in [25, 50, 75]:
-                percentiles[p] = get_moving_average(percentiles[p], n_window, Nones=False)
+                percentiles[p] = utils.get_moving_average(percentiles[p], n_window, Nones=False)
 
         p25, p50, p75 = [percentiles[p] for p in p_vals]
         not_nan = ~np.isnan(p25)
@@ -370,7 +368,7 @@ class Record:
 
         for repeat in range(prm["RL"]["n_repeats"]):  # loop through repetitions
             action_state_space_0[repeat], state_space_0[repeat] = \
-                [initialise_dict(range(prm["syst"]["n_homes"])) for _ in range(2)]
+                [{home: [] for home in range(prm["syst"]["n_homes"])} for _ in range(2)]
             # 1 - mean rewards
             if "end_decay" not in prm["RL"] or "DQN" not in prm["RL"]:
                 for type_learning in ["DQN", "DDQN", "q_learning"]:
@@ -510,7 +508,7 @@ class Record:
             "mean", "DT", "SRT", "LRT", "DR", "RR"
         ]
         subentries = ["ave", "std", "p25", "p75", "p50"]
-        metrics = initialise_dict(
+        metrics = utils.initialise_dict(
             metric_entries, "empty_dict",
             second_level_entries=subentries, second_type="empty_dict"
         )

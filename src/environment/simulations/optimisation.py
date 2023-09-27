@@ -13,10 +13,11 @@ import copy
 import numpy as np
 import picos as pic
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
     save_results)
-from src.environment.utilities.userdeftools import comb, test_str
+from src.environment.utilities.userdeftools import test_str
 
 
 class Optimiser:
@@ -83,7 +84,9 @@ class Optimiser:
             self.input_hourly_lij = corr_lij
             res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints = \
                 self._problem(evaluation)
-            res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks, evaluation)
+            res = res_post_processing(
+                res, self.prm, self.input_hourly_lij, perform_checks, evaluation
+            )
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
@@ -431,8 +434,12 @@ class Optimiser:
             # )
             for time_step in range(self.N):
                 p.add_list_of_constraints(
-                    [voltage_cost_per_bus[bus, time_step] >= 1 - 2 * voltage_squared[bus, time_step] ** (1 / 2) + voltage_squared[bus, time_step] for bus in range(self.grd['n_buses'] - 1)
-                ]
+                    [
+                        voltage_cost_per_bus[bus, time_step]
+                        >= 1 - 2 * voltage_squared[bus, time_step] ** (1 / 2)
+                        + voltage_squared[bus, time_step]
+                        for bus in range(self.grd['n_buses'] - 1)
+                    ]
                 )
             p.add_constraint(
                 voltage_costs == pic.sum(
@@ -444,12 +451,16 @@ class Optimiser:
             p.add_constraint(overvoltage_costs >= 0)
             p.add_constraint(
                 overvoltage_costs
-                >= self.grd['penalty_overvoltage'] * (voltage_squared - self.grd['max_voltage'] ** 2)
+                >= self.grd['penalty_overvoltage'] * (
+                    voltage_squared - self.grd['max_voltage'] ** 2
+                )
             )
             p.add_constraint(undervoltage_costs >= 0)
             p.add_constraint(
                 undervoltage_costs
-                >= self.grd['penalty_undervoltage'] * (self.grd['min_voltage'] ** 2 - voltage_squared)
+                >= self.grd['penalty_undervoltage'] * (
+                    self.grd['min_voltage'] ** 2 - voltage_squared
+                )
             )
             # sum over all buses
             p.add_constraint(
@@ -659,7 +670,7 @@ class Optimiser:
         for load_type in range(self.loads['n_types']):
             consa.append(p.add_variable('consa({0})'.format(load_type), (self.n_homes, self.N)))
         constl = {}
-        tlpairs = comb(np.array([self.N, self.loads['n_types']]))
+        tlpairs = utils.comb(np.array([self.N, self.loads['n_types']]))
         for tl in tlpairs:
             constl[tl] = p.add_variable('constl{0}'.format(tl), (self.n_homes, self.N))
 

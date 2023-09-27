@@ -6,11 +6,9 @@ import numpy as np
 import pandapower.plotting as pp_plot
 import seaborn as sns
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.post_analysis.plotting.plotting_utils import (
     formatting_figure, title_and_save)
-from src.environment.utilities.userdeftools import (data_source,
-                                                    initialise_dict,
-                                                    reward_type)
 
 
 def annotate_buses(last, method, prm, net):
@@ -349,7 +347,7 @@ def _plot_all_agents_res(
     fig, axs = plt.subplots(n_rows, n_cols, figsize=(13, 13))
     all_cum_rewards = {method: [] for method in all_methods_to_plot}
     all_T_air = {method: [] for method in all_methods_to_plot}
-    all_vals = initialise_dict(
+    all_vals = utils.initialise_dict(
         entries, second_level_entries=all_methods_to_plot
     )
     for e in entries:
@@ -605,8 +603,8 @@ def plot_res(prm, indiv=True, list_repeat=None, sum_agents=False):
         elif method == "baseline":
             labels[method] = method
         else:
-            label = reward_labels[reward_type(method)]
-            label += experience_labels[data_source(method)]
+            label = reward_labels[utils.reward_type(method)]
+            label += experience_labels[utils.data_source(method)]
             labels[method] = label
 
     if indiv:  # do one figure per agent and per repeat

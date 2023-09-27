@@ -20,16 +20,12 @@ import numpy as np
 import torch as th
 from gym import spaces
 
+import src.environment.utilities.env_spaces as env_spaces
+import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.record import Record
 from src.environment.initialisation.generate_colours import generate_colours
 from src.environment.initialisation.get_heat_coeffs import get_heat_coeffs
 from src.environment.initialisation.input_data import input_params
-from src.environment.utilities.env_spaces import (_actions_from_unit_box,
-                                                  _actions_to_unit_box)
-from src.environment.utilities.userdeftools import (current_no_run,
-                                                    distr_learning,
-                                                    get_opt_res_file,
-                                                    reward_type)
 from src.learners.facmac.components.transforms import OneHot
 
 
@@ -78,7 +74,7 @@ def initialise_objects(
             os.mkdir(prm['paths'][folder])
 
     if no_run is None:
-        no_run = current_no_run(prm['paths']["results"])
+        no_run = utils.current_no_run(prm['paths']["results"])
 
     # turn into a usable format
     prm = initialise_prm(
@@ -144,8 +140,8 @@ def _make_action_space(rl, reactive_power_for_voltage_control):
     rl["avail_actions"] = np.ones((rl["n_homes"], rl["dim_actions"]))
 
     # make conversion functions globally available
-    rl["actions2unit"] = _actions_to_unit_box
-    rl["unit2actions"] = _actions_from_unit_box
+    rl["actions2unit"] = env_spaces._actions_to_unit_box
+    rl["unit2actions"] = env_spaces._actions_from_unit_box
     rl["actions_dtype"] = np.float32
 
 
@@ -453,7 +449,7 @@ def _exploration_parameters(rl):
             if specified_per_reward_only:
                 for evaluation_method in rl["eval_action_choice"]:
                     rl["control_window_eps"][evaluation_method] = \
-                        control_window_eps[reward_type(evaluation_method)]
+                        control_window_eps[utils.reward_type(evaluation_method)]
 
 
 def _dims_states_actions(rl, syst, reactive_power_for_voltage_control):
@@ -671,7 +667,7 @@ def opt_res_seed_save_paths(prm):
     rl, heat, syst, grd, paths, car, loads = \
         [prm[key] for key in ["RL", "heat", "syst", "grd", "paths", "car", "loads"]]
 
-    paths = get_opt_res_file(prm)
+    paths = utils.get_opt_res_file(prm)
 
     if os.path.exists(paths["seeds_file"]):
         rl["seeds"] = np.load(paths["seeds_file"], allow_pickle=True).item()
@@ -713,7 +709,7 @@ def _update_grd_prm(prm):
     for test_str in ["", "_test"]:
         # p/kWh -> £/kWh (nordpool was EUR/MWh so was * 1e-3)
         grd[f"wholesale_all{test_str}"] = [
-            x * 1e-2 for x in np.load( paths["open_inputs"] / paths[f"wholesale{test_str}_file"])
+            x * 1e-2 for x in np.load(paths["open_inputs"] / paths[f"wholesale{test_str}_file"])
         ]
 
         # gCO2/kWh to tCO2/kWh
@@ -723,7 +719,9 @@ def _update_grd_prm(prm):
         # carbon intensity
         grd[f"Call{test_str}"] = [
             price + carbon * syst["co2tax"]
-            for price, carbon in zip(grd[f"wholesale_all{test_str}"], grd[f"cintensity_all{test_str}"])
+            for price, carbon in zip(
+                grd[f"wholesale_all{test_str}"], grd[f"cintensity_all{test_str}"]
+            )
         ]
         grd[f"perc{test_str}"] = [np.percentile(grd[f"Call{test_str}"], i) for i in range(0, 101)]
 
@@ -756,8 +754,8 @@ def _syst_info(prm):
 
     syst['n_homes_extensions'] = ["P"]
     syst['test_different_to_train'] = (
-            syst['n_homes_test'] != syst['n_homes']
-            or syst['year_test'] != syst['year']
+        syst['n_homes_test'] != syst['n_homes']
+        or syst['year_test'] != syst['year']
     )
     if syst['test_different_to_train']:
         syst['n_homes_extensions'].append("_test")
@@ -776,8 +774,9 @@ def _syst_info(prm):
         syst[f'max_date_end{test_str}'] = [syst[f'year{test_str}'], syst['month_end'], 1, 0]
         # general system parameters
         for info in ["date0", "max_date_end"]:
-            prm["syst"][f"{info}{test_str}_dtm"] = datetime.datetime(*prm["syst"][f"{info}{test_str}"])
-
+            prm["syst"][f"{info}{test_str}_dtm"] = datetime.datetime(
+                *prm["syst"][f"{info}{test_str}"]
+            )
 
 
 def _homes_info(loads, syst, gen, heat, car):
@@ -870,7 +869,7 @@ def _filter_type_learning_facmac(rl):
         for method in rl[f"{stage}_methods"]:
             new_method = method
             if len(method.split("_")) == 3:
-                if distr_learning(method) == "d":
+                if utils.distr_learning(method) == "d":
                     new_method = f"{method.split('_')[0]}_{method.split('_')[1]}_c"
             new_methods.append(new_method)
         rl[f"{stage}_methods"] = []
@@ -891,7 +890,7 @@ def _filter_type_learning_competitive(rl):
         rl["evaluation_methods"] = [
             method for method in rl["evaluation_methods"]
             if method in ["opt", "baseline"]
-            or (reward_type(method) != "A" and distr_learning(method) != "c")
+            or (utils.reward_type(method) != "A" and utils.distr_learning(method) != "c")
         ]
 
     return rl
@@ -980,7 +979,7 @@ def _make_type_eval_list(rl, large_q_bool=False):
         = rl["eval_action_choice"] + [
         ac + "0" for ac in rl["eval_action_choice"]
         if len(ac.split("_")) >= 3 and (
-            reward_type(ac) == "A" or distr_learning(ac)[0] == "C"
+            utils.reward_type(ac) == "A" or utils.distr_learning(ac)[0] == "C"
         )
     ]
 

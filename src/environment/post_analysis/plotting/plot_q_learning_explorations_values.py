@@ -3,12 +3,10 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.post_analysis.plotting.plotting_utils import (
     formatting_ticks, title_and_save)
 from src.environment.utilities.env_spaces import granularity_to_multipliers
-from src.environment.utilities.userdeftools import (distr_learning,
-                                                    initialise_dict,
-                                                    reward_type)
 
 
 def _plot_1d_state_space_best_psi(
@@ -19,7 +17,7 @@ def _plot_1d_state_space_best_psi(
         fig, ax = plt.subplots()
         theta_M = []
         for method in prm["save"]["eval_entries_plot_indiv"]:
-            index_a = home if distr_learning(method) in ['d', 'Cd'] else 0
+            index_a = home if utils.distr_learning(method) in ['d', 'Cd'] else 0
             theta_M.append(
                 [best_theta[method][index_a][int(s)] for s in range(rl["possible_states"])]
             )
@@ -45,7 +43,7 @@ def _plot_2d_state_space_best_psi(
             method = prm["save"]["eval_entries_plot_indiv"][i_t]
             M = np.zeros((record.granularity_state0,
                           record.granularity_state1))
-            index_a = home if distr_learning(method) in ['d', 'Cd'] else 0
+            index_a = home if utils.distr_learning(method) in ['d', 'Cd'] else 0
             for s in range(rl["possible_states"]):
                 s1, s2 = spaces.global_to_indiv_index(
                     'state', s, multipliers=granularity_to_multipliers(
@@ -76,8 +74,8 @@ def _plot_unique_state_best_psi(
     eval_entries_plot_indiv = prm["save"]["eval_entries_plot_indiv"]
 
     for method in eval_entries_plot_indiv:
-        n_homes = prm['syst']['n_homes'] if distr_learning(method) in ['d', 'Cd'] else 1
-        best_theta[method] = initialise_dict(range(n_homes), type_obj='empty_dict')
+        n_homes = prm['syst']['n_homes'] if utils.distr_learning(method) in ['d', 'Cd'] else 1
+        best_theta[method] = {home: {} for home in range(n_homes)}
         for home in range(n_homes):
             best_theta[method][home] = np.zeros((possible_states,))
             for s in range(possible_states):
@@ -89,7 +87,7 @@ def _plot_unique_state_best_psi(
             fig, ax = plt.subplots()
             y_pos = np.arange(len(eval_entries_plot_indiv))
             i_tables = [
-                home if distr_learning(method) == 'd' else 0
+                home if utils.distr_learning(method) == 'd' else 0
                 for method in eval_entries_plot_indiv
             ]
             best_thetas = \
@@ -127,13 +125,13 @@ def plot_best_actions(
     ):
         return
 
-    best_theta = initialise_dict(prm["save"]["eval_entries_plot_indiv"])
+    best_theta = {entry: [] for entry in prm["save"]["eval_entries_plot_indiv"]}
     q = rl["q_tables"][repeat][rl['n_epochs'] - 1] \
         if record.save_qtables else rl["q_tables"][repeat]
 
     for method in prm["save"]["eval_entries_plot_indiv"]:
-        n_homes = prm['syst']['n_homes'] if distr_learning(method) in ['d', 'Cd'] else 1
-        best_theta[method] = initialise_dict(range(n_homes), type_obj='empty_dict')
+        n_homes = prm['syst']['n_homes'] if utils.distr_learning(method) in ['d', 'Cd'] else 1
+        best_theta[method] = {home: {} for home in range(n_homes)}
         for home in range(n_homes):
             best_theta[method][home] = np.zeros((rl['possible_states'],))
             for s in range(rl['possible_states']):
@@ -171,7 +169,7 @@ def plot_q_values(repeat, index_to_val, prm):
 
             for i_t in range(len(eval_entries_plot_indiv)):
                 method = eval_entries_plot_indiv[i_t]
-                i_table = home if distr_learning(method) == 'd' else 0
+                i_table = home if utils.distr_learning(method) == 'd' else 0
                 qvals = rl["q_tables"][repeat][rl['n_epochs'] - 1][method][i_table][
                     0]  # in final epoch, in 0-th (unique) state
                 M[i_t, :] = qvals
@@ -269,10 +267,10 @@ def plot_final_explorations(repeat, record, prm):
         return
 
     for method in rl["q_entries"]:
-        n_homes = prm['syst']['n_homes'] if reward_type(method) == '1' else 1
+        n_homes = prm['syst']['n_homes'] if utils.reward_type(method) == '1' else 1
         for home in range(n_homes):
             rl["action_state_space_0"][repeat][home], rl["state_space_0"][repeat][home] =\
-                [initialise_dict(rl["q_entries"]) for _ in range(2)]
+                [{entry: [] for entry in rl["q_entries"]} for _ in range(2)]
             fig, ax = plt.subplots()
             counters_plot = rl["counters"][repeat][rl['n_epochs'] - 1][method][home] \
                 if record.save_qtables else rl["counters"][repeat][method][home]

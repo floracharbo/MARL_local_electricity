@@ -1,12 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.environment.initialisation.generate_colours import generate_colours
+import src.environment.utilities.userdeftools as utils
 from src.environment.post_analysis.plotting.plotting_utils import (
     formatting_figure, title_and_save)
-from src.environment.utilities.userdeftools import (data_source,
-                                                    distr_learning,
-                                                    reward_type)
 
 
 def _barplot_text_labels(ax, text_labels):
@@ -113,7 +110,7 @@ def compute_lists_barplot_colours(prm):
     ]
     eval_entries_notCd = [
         e for e in prm["save"]["eval_entries_plot"]
-        if not (len(e.split('_')) > 1 and distr_learning(e) == 'Cd')
+        if not (len(e.split('_')) > 1 and utils.distr_learning(e) == 'Cd')
     ]
     colours_barplot = [
         prm['save']['colourse'][e] for e in eval_entries_bars
@@ -274,7 +271,7 @@ def _plot_compare_all_signs(
     xs, colours_plot_end = {}, {}
 
     for i, entry in enumerate(eval_entries_notCd):
-        label = data_source(entry) + '_' + reward_type(entry) \
+        label = utils.data_source(entry) + '_' + utils.reward_type(entry) \
             if len(entry.split('_')) > 1 else entry
         xs[label] = i
         colours_plot_end[label] = prm['save']['colourse'][entry]
@@ -285,9 +282,9 @@ def _plot_compare_all_signs(
         for e in ['baseline', 'opt']
     ]
     for e in eval_entries_notCd:
-        label = data_source(e) + '_' + reward_type(e) \
+        label = utils.data_source(e) + '_' + utils.reward_type(e) \
             if len(e.split('_')) > 1 else e
-        distr_learning_to_ls = {
+        utils.distr_learning_to_ls = {
             'd': 'o',
             'c': 'x',
             'Cc': '^'
@@ -295,8 +292,8 @@ def _plot_compare_all_signs(
         if len(e.split('_')) < 2:
             ls = 'o'
         else:
-            ls = distr_learning_to_ls[distr_learning(e)]
-        legend = distr_learning(e) if len(e.split('_')) > 1 else e
+            ls = utils.distr_learning_to_ls[utils.distr_learning(e)]
+        legend = utils.distr_learning(e) if len(e.split('_')) > 1 else e
         to_plot = metrics[m_][ave][e] - baseline \
             if m_ == 'end' else metrics[m_][ave][e]
         ax.plot(xs[label], to_plot, ls,
@@ -312,7 +309,7 @@ def _plot_compare_all_signs(
                 max([metrics[m_][ave][e]
                      for e in metrics[m_][ave].keys()
                      if len(e.split('_')) > 1
-                     and f"{data_source(e)}_{reward_type(e)}"
+                     and f"{utils.data_source(e)}_{utils.reward_type(e)}"
                      == label])
             plottext = maxval[label] - baseline \
                 if m_ == 'end' else maxval[label]

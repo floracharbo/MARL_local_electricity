@@ -24,9 +24,7 @@ import torch as th
 import yaml
 from scipy.stats import norm
 
-from src.environment.utilities.userdeftools import (f_to_interval,
-                                                    initialise_dict,
-                                                    list_potential_paths)
+import src.environment.utilities.userdeftools as utils
 
 
 def check_file_start(name, file):
@@ -219,7 +217,7 @@ class HEDGE:
             "p_clus", "p_trans", "min_cdfs", "max_cdfs", "clus_dist_bin_edges",
             "clus_dist_cdfs", "fitted_kmeans_obj", "fitted_scalers"
         ]:
-            potential_paths = list_potential_paths(
+            potential_paths = utils.list_potential_paths(
                 prm, data_types=self.data_types,
                 root_path=prm['paths']["input_folder"],
                 data_folder='hedge_inputs', sub_data_folder='clusters'
@@ -379,7 +377,7 @@ class HEDGE:
                     else:
                         transition_ = transition
                     previous_intervals = tuple(
-                        f_to_interval(
+                        utils.f_to_interval(
                             prev_factors[data_type][home][- (self.n_consecutive_days - 1 - d)],
                             self.fs_brackets[data_type][transition_]
                         )
@@ -408,7 +406,7 @@ class HEDGE:
         return factors, interval_f
 
     def _next_clusters(self, transition, prev_clusters):
-        clusters = initialise_dict(self.behaviour_types)
+        clusters = {behaviour: [] for behaviour in self.behaviour_types}
 
         # random_clus = [
         #     [np.random.rand() for _ in self.homes]
@@ -621,7 +619,7 @@ class HEDGE:
         return choice
 
     def _load_dem_profiles(self, profiles, prm):
-        profiles["loads"] = initialise_dict(prm["syst"]["weekday_type"])
+        profiles["loads"] = {day_type: [] for day_type in prm["syst"]["weekday_type"]}
 
         self.n_prof["loads"] = {}
         clusters = [
