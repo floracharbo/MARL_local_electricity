@@ -476,10 +476,13 @@ class LocalElecEnv:
             )
         else:
             import_export_costs = 0
-        if (self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']):
+        if self.prm['grd']['manage_voltage']:
             voltage_costs = compute_voltage_costs(
                 voltage_squared, self.prm['grd']
             )
+        else:
+            voltage_costs = 0
+        if self.prm['grd']['manage_voltage'] or self.prm['grd']['simulate_panda_power_only']:
             if time_step < self.N - 1:
                 mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, \
                     n_voltage_violation_bus, n_voltage_violation_hour =  \
@@ -495,7 +498,6 @@ class LocalElecEnv:
                 n_voltage_violation_bus = 0
                 n_voltage_violation_hour = 0
         else:
-            voltage_costs = 0
             mean_voltage_deviation = 0
             mean_voltage_violation = 0
             max_voltage_violation = 0
