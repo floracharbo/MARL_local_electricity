@@ -50,16 +50,16 @@ class LearningManager:
                 "terminated": th.from_numpy(np.array(done)),
             }
 
-            self.utils.should_optimise_for_supervised_loss(epoch, step_vals)
+            self.should_optimise_for_supervised_loss(epoch, step_vals)
             if self.rl['trajectory']:
-                if self.utils.should_optimise_for_supervised_loss(epoch, step_vals):
+                if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action']
                 else:
                     post_transition_data["optimal_actions"] = np.full(
                         (self.N, self.n_homes, self.rl['dim_actions_1']), - 1
                     )
             else:
-                if self.utils.should_optimise_for_supervised_loss(epoch, step_vals):
+                if self.should_optimise_for_supervised_loss(epoch, step_vals):
                     post_transition_data["optimal_actions"] = step_vals['opt']['action'][step]
                 else:
                     post_transition_data["optimal_actions"] = np.full(
@@ -87,7 +87,7 @@ class LearningManager:
                     reward, current_state, action, state, method
                 )
 
-    def utils.should_optimise_for_supervised_loss(self, epoch, step_vals=None):
+    def should_optimise_for_supervised_loss(self, epoch, step_vals=None):
         return utils.should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' in step_vals
 
     def _learn_trajectory_opt_facmac(self, step_vals, epoch):
@@ -108,7 +108,7 @@ class LearningManager:
             "reward": th.from_numpy(np.array(traj_reward)),
             "terminated": th.from_numpy(np.array(True)),
         }
-        if self.utils.should_optimise_for_supervised_loss(epoch, step_vals):
+        if self.should_optimise_for_supervised_loss(epoch, step_vals):
             post_transition_data["optimal_actions"] = th.from_numpy(step_vals['opt']['action'])
         else:
             post_transition_data["optimal_actions"] = th.from_numpy(np.full(
