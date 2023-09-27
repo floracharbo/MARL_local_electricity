@@ -11,14 +11,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
+from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = True
+ANNOTATE_RUN_NOS = False
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
     'grd-voltage_penalty',
-    # 'syst-n_homesP'
+    # 'syst-year_test', 'syst-year'
 ]
 for col in [
     # 'loads-own_flex',
@@ -34,6 +35,7 @@ for col in [
 
 # METRIC_VOLTAGE = 'mean_deviation'
 METRIC_VOLTAGE = 'n_violation'
+NORMALISED_n_violation = True
 
 y_label_voltage = {
     'mean_deviation': 'Mean voltage deviation [p.u.]',
@@ -42,13 +44,15 @@ y_label_voltage = {
 
 FILTER = {
 	'trajectory': False,
-# 	# 'n_repeats':10,
+	'n_repeats':10,
 	'manage_voltage':True,
 	'n_homes':55,
-	'reactive_power_for_voltage_control':True,
-# 	# 'min_voltage':0.96,
-# 	# 'penalty_export':False,
-    'state_space': 'grdC_min_voltage',
+    # 'n_epochs': 20,
+    'type_learning': 'facmac',
+	'reactive_power_for_voltage_control': True,
+	'min_voltage':0.96,
+	'penalty_export':False,
+#     'state_space': 'grdC_min_voltage',
     'quadratic_voltage_penalty': False,
 }
 
@@ -91,7 +95,8 @@ X_LABELS = {
     'cnn_kernel_size': 'Kernel size',
     'state_space': 'State space',
     'n_homes': 'Number of homes',
-    'voltage_penalty': 'Voltage constraint violation penalty [£/p.u.]'
+    'voltage_penalty': 'Voltage constraint violation penalty [£/p.u.]',
+    'year': 'Training year',
 }
 
 
@@ -231,7 +236,7 @@ def get_list_all_fields(results_path):
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
         'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action',
-        'RL-lr', 'c_max0', 'net-version'
+        'RL-lr', 'c_max0', 'net-version', 'test_different_to_train'
     ]
     if IGNORE_FORCE_OPTIMISATION:
         ignore += ['syst-force_optimisation', 'device', 'ncpu', 'server']
@@ -668,8 +673,8 @@ def get_prm_data_for_a_result_no(results_path, result_no, columns0):
                 row.append(row_to_assets_str(row, columns0))
             elif key is None or key not in prm:
                 row.append(None)
-                if column != 'RL-n_homes':
-                    print(f"column {column} does not correspond to a prm key")
+                # if column != 'RL-n_homes':
+                #     print(f"column {column} does not correspond to a prm key")
             elif subsubkey is None:
                 if subkey == 'state_space' and subkey in prm[key]:
                     row.append(list_obs_to_str(prm[key][subkey]))
@@ -1093,8 +1098,12 @@ def compare_all_runs_for_column_of_interest(
             for p in [25, 75]:
                 best_scores[k][f'p{p}'] = [log[f'p{p}_best_score_{k}'].loc[initial_setup_row]]
         time_best_score = [log['time_end'].loc[initial_setup_row]]
-        mean_deviation = [log[f'{METRIC_VOLTAGE}_best_all'].loc[initial_setup_row]]
-        mean_deviation_baseline = [log[f'{METRIC_VOLTAGE}_baseline'].loc[initial_setup_row]]
+        if NORMALISED_n_violation and METRIC_VOLTAGE == 'n_violation':
+            multiplier_voltage_metric = 1/(24 * 906) * 100
+        else:
+            multiplier_voltage_metric = 1
+        mean_deviation = [log[f'{METRIC_VOLTAGE}_best_all'].loc[initial_setup_row] * multiplier_voltage_metric]
+        mean_deviation_baseline = [log[f'{METRIC_VOLTAGE}_baseline'].loc[initial_setup_row] * multiplier_voltage_metric]
         for row in range(len(log)):
             row_setup = [log[col].loc[row] for col in other_columns]
             new_row = row not in rows_considered
@@ -1125,6 +1134,7 @@ def compare_all_runs_for_column_of_interest(
                     indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac, row,
                     columns_irrelevant_to_q_learning, columns_irrelevant_to_facmac,
                 )
+                # try:
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
                         (not isinstance(current_col, str) and np.isnan(current_col))
@@ -1133,6 +1143,8 @@ def compare_all_runs_for_column_of_interest(
                     for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
                     if i_col not in indexes_ignore
                 )
+                # except Exception as ex:
+                #     print(ex)
                 if (
                         column_of_interest == 'n_homesP'
                         and not (np.isnan(log.loc[initial_setup_row, 'n_homes_testP']) and np.isnan(log.loc[row, 'n_homes_testP']))
@@ -1168,8 +1180,8 @@ def compare_all_runs_for_column_of_interest(
                         best_scores[k][f'p{p}'].append(log[f'p{p}_best_score_{k}'].loc[row])
 
                 time_best_score.append(log['time_end'].loc[row])
-                mean_deviation.append(log[f'{METRIC_VOLTAGE}_best_all'].loc[row])
-                mean_deviation_baseline.append(log[f'{METRIC_VOLTAGE}_baseline'].loc[row])
+                mean_deviation.append(log[f'{METRIC_VOLTAGE}_best_all'].loc[row] * multiplier_voltage_metric)
+                mean_deviation_baseline.append(log[f'{METRIC_VOLTAGE}_baseline'].loc[row] * multiplier_voltage_metric)
 
         if len(values_of_interest) > 1:
             all_setups_same_as_0 = all(
@@ -1341,7 +1353,9 @@ def compare_all_runs_for_column_of_interest(
         for ax in axs_:
             ax.set_xscale('log')
     if PLOT_VOLTAGE_DEVIATIONS and order_of_magnitudes_gap_voltage and not any_zero_values_voltage:
-        axs[-1].set_yscale('log')
+    #     axs[-1].set_yscale('log')
+        ylim_ = axs[-1].get_ylim()
+        axs[-1].set_ylim(0, ylim_[1])
     if len(time_values) > 1 and PLOT_TIME:
         end_time_best_score_sorted = [time_values_[-1] for time_values_ in time_values]
         if max(end_time_best_score_sorted) / min(end_time_best_score_sorted) > 30:
@@ -1380,7 +1394,9 @@ def adapt_figure_for_state_space(state_space_vals, axs):
     x_labels_sorted = [all_x_labels[i] for i in i_sorted]
     fig, axs = plt.subplots(n_subplots, 1, figsize=(6.4, 11 / 3 * n_subplots))
 
-    for i, (best, env, time, mean_deviation, mean_deviation_baseline) in enumerate(zip(all_best_vals, all_env_vals, all_time_vals, all_mean_deviation_vals, all_mean_deviation_baseline_vals)):
+    for i, (best, env, time, mean_deviation, mean_deviation_baseline) in enumerate(
+        zip(all_best_vals, all_env_vals, all_time_vals, all_mean_deviation_vals, all_mean_deviation_baseline_vals)
+    ):
         best_sorted = [best[i] for i in i_sorted]
         env_sorted = [env[i] for i in i_sorted]
         time_sorted = [time[i] for i in i_sorted]
@@ -1405,7 +1421,10 @@ def adapt_figure_for_state_space(state_space_vals, axs):
             axs[i_subplot_time].plot(x_labels_sorted, time_sorted, '-o', label=i + 1, markerfacecolor='None')
         if PLOT_VOLTAGE_DEVIATIONS:
             axs[-1].plot(x_labels_sorted, mean_deviation_sorted, '-o', label=i + 1, markerfacecolor='None')
-            axs[-1].plot(x_labels_sorted, mean_deviation_baseline_sorted, 'x--', label=f"{i + 1}_baseline", markerfacecolor='None')
+            axs[-1].plot(
+                x_labels_sorted, mean_deviation_baseline_sorted, 'x--',
+                label=f"{i + 1}_baseline", markerfacecolor='None'
+            )
 
     return fig, axs
 
@@ -1520,6 +1539,11 @@ def plot_sensitivity_analyses(new_columns, log):
             ax0 = axs if n_subplots == 1 else axs[0]
             if column_of_interest == 'state_space':
                 fig, axs = adapt_figure_for_state_space(state_space_vals, axs)
+            elif column_of_interest.startswith('year'):
+                axs_ = [axs] if n_subplots == 1 else axs
+                for ax in axs_:
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
             # see what varies between setups
             varied_columns = list_columns_that_vary_between_setups(setups, other_columns)
             if column_of_interest in ['state_space', 'type_learning']:
@@ -1556,7 +1580,11 @@ def plot_sensitivity_analyses(new_columns, log):
             if PLOT_TIME:
                 axs[i_subplot_time].set_ylabel("Time [s]")
             if PLOT_VOLTAGE_DEVIATIONS:
-                axs[-1].set_ylabel(y_label_voltage[METRIC_VOLTAGE])
+                if METRIC_VOLTAGE == 'n_violation' and NORMALISED_n_violation:
+                    y_label_voltage_ = 'Percentage of Voltage Violations\namong all Bus-Time Steps'
+                else:
+                    y_label_voltage_ = y_label_voltage[METRIC_VOLTAGE]
+                axs[-1].set_ylabel(y_label_voltage_)
             ax_xlabel = axs if n_subplots == 1 else axs[-1]
             x_label = X_LABELS[column_of_interest] if column_of_interest in X_LABELS \
                 else column_of_interest
