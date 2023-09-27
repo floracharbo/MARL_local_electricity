@@ -413,7 +413,7 @@ class Runner:
 
     def _check_if_opt_env_needed(self, epoch, evaluation=False):
         opts_in_eval = sum(
-            method != 'opt' and method[0: 3] == 'opt' for method in self.rl["evaluation_methods"]
+            method[0: 3] == 'opt' for method in self.rl["evaluation_methods"]
         ) > 0
         opt_stage = False
         for method in self.rl["evaluation_methods"]:
