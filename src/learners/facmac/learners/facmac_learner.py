@@ -10,7 +10,6 @@ from src.learners.facmac.learners.learner import Learner
 from src.learners.facmac.modules.critics.facmac_critic import FACMACCritic
 
 
-
 class FACMACLearner(Learner):
     def __init__(self, mac, scheme, rl, N, target_mac):
         self.__name__ = 'FACMACLearner'

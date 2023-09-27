@@ -1,5 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 path0 = '/Users/floracharbonnier/GitHub/MARL_local_electricity/outputs/results'
 
@@ -87,6 +87,7 @@ X_axis = np.arange(len(X))
 
 
 import seaborn as sns
+
 sns.color_palette("Set2")
 fig = plt.figure()
 plt.bar(X_axis - 0.2, Y_heat, 0.2, label='Heat pump'

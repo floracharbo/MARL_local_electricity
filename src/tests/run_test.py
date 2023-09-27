@@ -1,8 +1,8 @@
+import os
 import pickle
 import shutil
 from datetime import timedelta
 from pathlib import Path
-import os
 
 import numpy as np
 

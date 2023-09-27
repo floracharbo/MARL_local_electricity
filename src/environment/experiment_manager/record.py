@@ -17,7 +17,8 @@ import numpy as np
 import scipy as sp
 
 from src.environment.utilities.userdeftools import (get_moving_average,
-                                                    initialise_dict, var_len_is_n_homes)
+                                                    initialise_dict,
+                                                    var_len_is_n_homes)
 
 
 class Record:
