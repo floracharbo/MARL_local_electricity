@@ -21,8 +21,10 @@ import torch as th
 import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.data_manager import DataManager
 from src.environment.experiment_manager.select_actions import ActionSelector
+from src.environment.simulations.optimisation_post_processing import \
+    check_temp_equations
 from src.learners.learning import LearningManager
-from src.environment.simulations.optimisation_post_processing import check_temp_equations
+
 
 # %% Environment exploration
 class Explorer:
@@ -37,7 +39,7 @@ class Explorer:
         """
         # create link to data/methods in the Explorer's methods:
         self.env, self.prm = env, prm
-        self.rl = self.prm["RL"]
+        self.rl, self.grd = [self.prm[key] for key in ['RL', 'grd']]
         if self.rl["type_env"] == "discrete":
             self.rl["n_total_discrete_states"] = env.spaces.n["state"]
         for info in [
@@ -163,6 +165,8 @@ class Explorer:
                         )
                         for filename in files:
                             os.remove(filename)
+                            print(f"Sequence not feasible at step {env.time_step} remove {filename}")
+
                     self.data.d_seed[self.data.ext] += 1
 
                 print("infeasible in loop passive")
@@ -220,7 +224,7 @@ class Explorer:
                 E_req_only=method == "baseline",
                 evaluation=evaluation,
             )
-            if self.prm['RL']['competitive'] and home < self.n_homes:
+            if self.rl['competitive'] and home < self.n_homes:
                 reward_a = reward_a[home]
             # add penalty if the constraints are violated
             if not constraint_ok:
@@ -471,16 +475,18 @@ class Explorer:
     def _get_shape_step_vals(self, info, evaluation):
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         if info in self.prm['syst']['break_down_rewards_entries']:
-            if utils.var_len_is_n_homes(info, self.prm['RL']['competitive']):
+            if utils.var_len_is_n_homes(info, self.rl['competitive']):
                 shape = (self.N, n_homes)
             else:
                 shape = (self.N, 1)
-        elif utils.var_len_is_n_homes(info, self.prm['RL']['competitive']):
+        elif utils.var_len_is_n_homes(info, self.rl['competitive']):
             shape = (self.N, n_homes)
         elif info in self.prm['syst']['indiv_step_vals_entries']:
             shape = (self.N, n_homes, self.dim_step_vals[info])
         elif info in self.global_step_vals_entries:
             shape = (self.N,)
+        else:
+            print(f"info {info} not recognised")
 
         return shape
 
@@ -560,13 +566,20 @@ class Explorer:
 
                 # check energy prices used are the same
                 assert sum(
-                    self.prm['grd']['C_test'][time_step] * (res['grid'][time_step] + self.prm['grd']['loss'] * res['grid2'][time_step])
+                    self.grd['C_test'][time_step] * (res['grid'][time_step] + self.grd['loss'] * res['grid2'][time_step])
                     for time_step in range(self.N)
                 ) == res['grid_energy_costs']
 
                 # check that heat T_out is the same as in opt
                 T_out = self.env.heat.T_out[0: 24]
                 check_temp_equations(res, self.prm['syst'], self.prm['heat'], T_out)
+
+                # check loads_car matches
+                for home in range(self.n_homes):
+                    assert abs(
+                        np.sum(res['discharge_tot'][home] - res['discharge_other'][home] / self.prm['car']['eta_dis'])
+                        - np.sum(self.env.batch['loads_car'][home, 0: self.N])
+                    ) < 1e-3
 
         return sequence_feasible
 
@@ -595,7 +608,7 @@ class Explorer:
             max(0, time_step - 1), batchflex_opt, evaluation
         )
         home_vars = {
-            "gen": self.prm["grd"]["gen"][:, time_step]
+            "gen": self.grd["gen"][:, time_step]
         }
         spaces = self.env.get_current_spaces(evaluation)
         step_vals_i["state"] = spaces.opt_step_to_state(
@@ -624,7 +637,7 @@ class Explorer:
         obtain_diff_reward = any(
             len(q.split("_")) >= 2
             and utils.reward_type(q) == "d"
-            for q in self.prm["RL"]["type_Qs"]
+            for q in self.rl["type_Qs"]
         )
         if obtain_diff_reward and not evaluation:
             self._check_res_T_air(res, time_step)
@@ -634,7 +647,7 @@ class Explorer:
                 )
             if not feasible_getting_baseline:
                 feasible = False
-            if self.prm["RL"]["competitive"]:
+            if self.rl["competitive"]:
                 diff_rewards = [
                     indiv_grid_battery_costs[home] - rewards_baseline[home]
                     for home in self.homes
@@ -669,12 +682,12 @@ class Explorer:
         time_step = self.env.time_step - 1
         n_homes = self.prm['syst']['n_homes_test'] if evaluation else self.n_homes
         for info, var in zip(self.prm['syst']['break_down_rewards_entries'], break_down_rewards):
-            n = n_homes if utils.var_len_is_n_homes(info, self.prm['RL']['competitive']) else 1
+            n = n_homes if utils.var_len_is_n_homes(info, self.rl['competitive']) else 1
             step_vals[method][info][time_step][:n] = var
         for info, var in zip(self.prm['syst']['indiv_step_vals_entries'], indiv_step_vals):
             if var is not None:
                 if (
-                    utils.var_len_is_n_homes(info, self.prm['RL']['competitive'])
+                    utils.var_len_is_n_homes(info, self.rl['competitive'])
                     and len(var) == self.n_homes + 1
                 ):
                     var = var[:-1]
@@ -713,7 +726,7 @@ class Explorer:
             if (
                     key_[0: len('indiv')] == 'indiv'
                     or key_ in self.prm['syst']['indiv_step_vals_entries']
-                    or (key_ == 'reward' and self.prm['RL']['competitive'])
+                    or (key_ == 'reward' and self.rl['competitive'])
             ):
                 step_vals[method][key_][time_step][0: n_homes] = step_vals_i[key_]
             else:
@@ -721,7 +734,7 @@ class Explorer:
 
         if time_step > 0:
             step_vals[method]["next_state"][time_step][:n_homes] = step_vals_i["state"]
-            if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
+            if self.rl["type_env"] == "discrete" and method[-2] == 'C':
                 step_vals[method]["ind_next_global_state"][time_step] = \
                     step_vals_i["ind_global_state"]
             else:
@@ -734,7 +747,7 @@ class Explorer:
                     self.prm, res, time_step + 1, loads_prev,
                     loads_step, batch_avail_car, loads, home_vars
                 )
-            if self.prm["RL"]["type_env"] == "discrete" and method[-2] == 'C':
+            if self.rl["type_env"] == "discrete" and method[-2] == 'C':
                 spaces = self.env.get_current_spaces(evaluation)
                 ind_next_state = spaces.get_space_indexes(
                     all_vals=step_vals[method]["next_state"][-1])
@@ -826,7 +839,7 @@ class Explorer:
     def _instant_feedback_steps_opt(
             self, evaluation, exploration_method, time_step, step_vals, epoch, ext
     ):
-        rl = self.prm["RL"]
+        rl = self.rl
         if (rl["type_learning"] in ["DQN", "DDQN", "DDPG", "facmac"]
             or rl["instant_feedback"]) \
                 and not evaluation \
@@ -882,7 +895,7 @@ class Explorer:
                 )
 
     def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
-        if not (self.prm["RL"]["competitive"] and not evaluation):
+        if not (self.rl["competitive"] and not evaluation):
             assert abs(
                 sum_rl_rewards - self.N * self.rl['delta_reward'] + res['total_costs']
             ) < 1e-2, \
@@ -893,8 +906,8 @@ class Explorer:
                 f"{abs(sum_rl_rewards + res['total_costs'])}"
 
     def sum_gc_for_start_Call_index(self, res, i, evaluation):
-        C = self.prm["grd"][f"Call{utils.test_str(evaluation)}"][i: i + self.N]
-        loss = self.prm['grd']['loss']
+        C = self.grd[f"Call{utils.test_str(evaluation)}"][i: i + self.N]
+        loss = self.grd['loss']
         sum_gc_i = np.sum(
             [
                 C[time_step_]
@@ -908,13 +921,13 @@ class Explorer:
     def _check_i0_costs_res(self, res, evaluation):
         # check the correct i0_costs is used
         sum_gc_0 = np.sum(
-            [self.prm["grd"][f"C{utils.test_str(evaluation)}"][time_step_] * (
-                res['grid'][time_step_] + self.prm["grd"]['loss'] * res['grid2'][time_step_]
+            [self.grd[f"C{utils.test_str(evaluation)}"][time_step_] * (
+                res['grid'][time_step_] + self.grd['loss'] * res['grid2'][time_step_]
             ) for time_step_ in range(self.N)]
         )
         if not (abs(sum_gc_0 - res['grid_energy_costs']) < 1e-3):
             i_start_res = [
-                i for i in range(len(self.prm['grd'][f'Call{utils.test_str(evaluation)}']) - self.N)
+                i for i in range(len(self.grd[f'Call{utils.test_str(evaluation)}']) - self.N)
                 if abs(
                     self.sum_gc_for_start_Call_index(res, i, evaluation) - res['grid_energy_costs']
                 ) < 1e-3
@@ -928,7 +941,7 @@ class Explorer:
             self, res, pp_simulation_required, step_vals, evaluation, batch, epoch
     ):
         """Translate optimisation results to states, actions, rewards."""
-        env, rl = self.env, self.prm["RL"]
+        env, rl = self.env, self.rl
         last_epoch = epoch == rl['n_epochs'] - 1
         feasible = True
         method = "opt"
@@ -957,16 +970,18 @@ class Explorer:
             step_vals_i = self.env.spaces.get_ind_global_state_action(step_vals_i)
             feasible = not any(error)
 
-            if self.prm["grd"]['compare_pandapower_optimisation'] or pp_simulation_required:
+            if self.grd['compare_pandapower_optimisation'] or pp_simulation_required:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
-                grdCt = self.prm['grd'][f'C{utils.test_str(evaluation)}'][time_step]
+                grdCt = self.grd[f'C{utils.test_str(evaluation)}'][time_step]
                 res = self.env.network.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt
                 )
-            if not self.prm['grd']['manage_voltage'] and self.prm['grd']['simulate_panda_power_only']:
-                gens = self.prm["grd"]["gen"][:, time_step]
+            if not self.grd['manage_voltage'] and self.grd['simulate_panda_power_only']:
+                gens = self.grd["gen"][:, time_step]
                 input_take_action = date, step_vals_i["action"], gens, loads
-                (_, _, _, voltage_squared, _, _, _, _) = env.policy_to_rewardvar(None, other_input=input_take_action)
+                (_, _, _, voltage_squared, _, _, _, _) = env.policy_to_rewardvar(
+                    None, other_input=input_take_action
+                )
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
                 discharge_tot=res["discharge_tot"][:, time_step],
@@ -1026,10 +1041,10 @@ class Explorer:
             # record if last epoch
             self._record_last_epoch_opt(
                 res, time_step, break_down_rewards, batchflex_opt,
-                last_epoch, step_vals_i, batch, evaluation
+                last_epoch, step_vals_i, batch, evaluation, voltage_squared
             )
         assert abs(res["grid_energy_costs"] - sum(res["hourly_grid_energy_costs"])) < 1e-3
-        if not self.prm['RL']['competitive']:
+        if not self.rl['competitive']:
             self._test_total_rewards_match(evaluation, res, sum_rl_rewards)
         if not evaluation \
                 and rl["type_learning"] in ["DDPG", "DQN", "facmac"] \
@@ -1040,7 +1055,7 @@ class Explorer:
 
     def _record_last_epoch_opt(
             self, res, time_step, break_down_rewards, batchflex_opt,
-            last_epoch, step_vals_i, batch, evaluation
+            last_epoch, step_vals_i, batch, evaluation, voltage_squared
     ):
         if not last_epoch:
             return
@@ -1055,25 +1070,25 @@ class Explorer:
         tot_cons_loads = res["totcons"][:, time_step] - res["E_heat"][:, time_step]
         flex_cons = tot_cons_loads - ldfixed
         wholesalet, cintensityt = [
-            self.prm["grd"][f"{e}{utils.test_str(evaluation)}"][self.env.i0_costs + time_step]
+            self.grd[f"{e}{utils.test_str(evaluation)}"][self.env.i0_costs + time_step]
             for e in ["wholesale_all", "cintensity_all"]
         ]
-        if self.prm["grd"]['manage_voltage']:
+        if self.grd['manage_voltage']:
             q_car = res["q_car_flex"][:, time_step]
             q_house = res["netq_flex"][:, time_step] - q_car
-        elif self.prm['grd']['simulate_panda_power_only']:
+        elif self.grd['simulate_panda_power_only']:
             p_car_flex = res['charge'][:, time_step] / self.prm['car']['eta_ch'] \
                 - res['discharge_other'][:, time_step]
-            q_car = p_car_flex * self.prm['grd']['active_to_reactive_flex']
+            q_car = p_car_flex * self.grd['active_to_reactive_flex']
             q_house = (
-                res['totcons'][:, time_step] - self.prm['grd']['gen'][:, time_step]
-            ) * self.prm['grd']['active_to_reactive_flex']
+                res['totcons'][:, time_step] - self.grd['gen'][:, time_step]
+            ) * self.grd['active_to_reactive_flex']
         else:
             q_car, q_house = None, None
 
         if (
-                self.prm["grd"]['compare_pandapower_optimisation']
-                or self.prm['grd']['simulate_panda_power_only']
+                self.grd['compare_pandapower_optimisation']
+                or self.grd['simulate_panda_power_only']
         ):
             loaded_buses, sgen_buses = self.env.network.loaded_buses, self.env.network.sgen_buses
         else:
@@ -1082,14 +1097,15 @@ class Explorer:
         record_output = []
         for entry in [
             'netp', 'netp0', 'discharge_other', 'store', 'totcons', 'E_heat',
-            'T', 'T_air', 'voltage_squared'
+            'T', 'T_air'
         ]:
             record_output.append(res[entry][:, time_step])
+        record_output.append(voltage_squared)
         record_output.append(res['hourly_line_losses'][time_step])
         record_output += [
             step_vals_i["action"], step_vals_i["reward"], flex_cons,
             ldflex, ldfixed, tot_cons_loads,
-            self.prm["grd"][f"C{utils.test_str(evaluation)}"][time_step], wholesalet, cintensityt,
+            self.grd[f"C{utils.test_str(evaluation)}"][time_step], wholesalet, cintensityt,
             break_down_rewards,
             loaded_buses, sgen_buses,
             res['q_ext_grid'][time_step],
@@ -1142,7 +1158,7 @@ class Explorer:
         return flex_load, l_fixed, loads_step
 
     def _get_combs_actions(self, actions):
-        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.prm['RL']['dim_actions_1']))
+        combs_actions = np.ones((self.n_homes + 1, self.n_homes, self.rl['dim_actions_1']))
         for home in self.homes:
             actions_baseline_a = np.array(actions)
             actions_baseline_a[home] = 1
@@ -1192,7 +1208,7 @@ class Explorer:
                 voltage_squared=voltage_squared,
                 evaluation=evaluation,
             )
-            if self.prm['RL']['competitive'] and home < self.n_homes:
+            if self.rl['competitive'] and home < self.n_homes:
                 reward_baseline_a = reward_baseline_a[home]
             if not constraint_ok:
                 feasible = False
