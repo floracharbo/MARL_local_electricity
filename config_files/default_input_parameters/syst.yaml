@@ -16,7 +16,7 @@ break_down_rewards_entries: [
   'costs_upstream_losses', 'emissions', 'emissions_from_grid',
   'emissions_from_loss', 'total_costs',
   'indiv_grid_energy_costs', 'indiv_battery_degradation_costs','indiv_grid_battery_costs',
-  'mean_voltage_deviation', 'mean_voltage_violation', 'max_voltage_deviation', 'n_voltage_violation_bus',
+  'mean_voltage_deviation', 'mean_voltage_violation', 'max_voltage_violation', 'n_voltage_violation_bus',
   'n_voltage_violation_hour'
 ]
 share_centroid: 1 # what share of profiles to include in each cluster ordered from closest to furthest from centroid of each cluster
