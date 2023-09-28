@@ -165,7 +165,6 @@ class Explorer:
                         )
                         for filename in files:
                             os.remove(filename)
-                            print(f"Sequence not feasible at step {env.time_step} remove {filename}")
 
                     self.data.d_seed[self.data.ext] += 1
 
