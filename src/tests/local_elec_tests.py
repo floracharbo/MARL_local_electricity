@@ -6,7 +6,7 @@ class LocalElecTests:
     def __init__(self, env):
         self.env = env
         for attribute in ['prm', 'paths', 'N', 'grd', 'n_homes', 'rl', 'test', 'max_delay']:
-            setattr(self, attribute, env[attribute])
+            setattr(self, attribute, getattr(env, attribute))
 
     @property
     def time_step(self):
