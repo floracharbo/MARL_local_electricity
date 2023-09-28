@@ -21,9 +21,8 @@ import torch as th
 import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.data_manager import DataManager
 from src.environment.experiment_manager.select_actions import ActionSelector
-from src.environment.simulations.optimisation_post_processing import \
-    check_temp_equations
 from src.learners.learning import LearningManager
+from src.tests.explorer_tests import ExplorerTests
 
 
 # %% Environment exploration
@@ -70,6 +69,7 @@ class Explorer:
 
         self.paths = prm["paths"]
         self.duration_learning = 0
+        self.tests = ExplorerTests(self)
 
     def _initialise_step_vals_entries(self, prm):
         self.dim_step_vals = {
@@ -544,41 +544,7 @@ class Explorer:
                     f"self.data.seed[{self.data.ext}] {self.data.seed[self.data.ext]}"
                 )
                 sequence_feasible = False
-
-                # check env batch matches res
-                res = np.load(
-                    self.paths['opt_res'] / self.data.get_res_name(evaluation),
-                    allow_pickle=True
-                ).item()
-                assert abs(np.sum(step_vals['opt']['reward']) + np.sum(res['hourly_total_costs'])) < 1e-3
-                assert (
-                        abs(
-                            res['discharge_tot'] - res['discharge_other'] / self.prm['car']['eta_dis']
-                            - self.env.batch['loads_car'][:, 0: self.N]
-                        ) < 1e-3
-                ).all()
-
-                # check total household consumption matches between res and env
-                assert abs(np.sum(self.env.tot_cons_loads) - np.sum(res['totcons'] - res['E_heat'])) < 1e-3, \
-                    f"tot_cons_loads env {np.sum(self.env.tot_cons_loads)} " \
-                    f"and res {np.sum(res['totcons'] - res['E_heat'])} not matching"
-
-                # check energy prices used are the same
-                assert sum(
-                    self.grd['C_test'][time_step] * (res['grid'][time_step] + self.grd['loss'] * res['grid2'][time_step])
-                    for time_step in range(self.N)
-                ) == res['grid_energy_costs']
-
-                # check that heat T_out is the same as in opt
-                T_out = self.env.heat.T_out[0: 24]
-                check_temp_equations(res, self.prm['syst'], self.prm['heat'], T_out)
-
-                # check loads_car matches
-                for home in range(self.n_homes):
-                    assert abs(
-                        np.sum(res['discharge_tot'][home] - res['discharge_other'][home] / self.prm['car']['eta_dis'])
-                        - np.sum(self.env.batch['loads_car'][home, 0: self.N])
-                    ) < 1e-3
+                self.tests.investigate_opt_env_rewards_unequal(step_vals, evaluation)
 
         return sequence_feasible
 
@@ -596,13 +562,8 @@ class Explorer:
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
             time_step, batchflex_opt, evaluation
         )
-        cons_tol = 1e-1
-        assert all(
-            (loads["l_flex"] + loads["l_fixed"])
-            - (res['totcons'][:, time_step] - res['E_heat'][:, time_step])
-            >= - cons_tol
-        ), f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
-           f"available loads {loads['l_flex'] + loads['l_fixed']}"
+
+        self.test.check_cons_less_than_or_equal_to_available_loads()
         _, _, loads_prev = self._fixed_flex_loads(
             max(0, time_step - 1), batchflex_opt, evaluation
         )
@@ -762,79 +723,6 @@ class Explorer:
 
         return step_vals
 
-    def _tests_individual_step_rl_matches_res(
-            self, res, time_step, batch, reward, break_down_rewards, flex, evaluation
-    ):
-        prm = self.prm
-        assert isinstance(batch, dict), f"type(batch) {type(batch)}"
-
-        # check tot cons
-        for home in self.homes:
-            fixed_flex = sum(flex[home][time_step]) \
-                + self.env.heat.E_heat_min[home] \
-                + self.env.heat.potential_E_flex()[home]
-            assert res["totcons"][home][time_step] <= \
-                   fixed_flex + 1e-1, \
-                   f"cons {res['totcons'][home][time_step]} more than sum fixed + flex" \
-                   f" {fixed_flex} for home = {home}, time_step = {time_step}"
-
-        # check loads and consumption match
-        sum_consa = 0
-        for load_type in range(2):
-            sum_consa += np.sum(res[f'consa({load_type})'])
-
-        assert len(np.shape(batch['loads'])) == 2, f"np.shape(loads) == {np.shape(batch['loads'])}"
-        assert abs((np.sum(batch['loads'][:, 0: self.N]) - sum_consa) / sum_consa) < 1e-2, \
-            f"res cons {sum_consa} does not match input demand " \
-            f"{np.sum(batch['loads'][:, 0: self.N])}"
-
-        gc_i = prm["grd"][f"C{utils.test_str(evaluation)}"][time_step] * (
-            res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
-        )
-        gc_per_start_i = [
-            prm["grd"][f"Call{utils.test_str(evaluation)}"][i + time_step] * (
-                res['grid'][time_step] + prm["grd"]['loss'] * res['grid2'][time_step]
-            )
-            for i in range(len(prm['grd'][f'Call{utils.test_str(evaluation)}']) - self.N)
-        ]
-        potential_i0s = [
-            i for i, gc_start_i in enumerate(gc_per_start_i)
-            if abs(gc_start_i - gc_i) < 1e-3
-        ]
-        assert self.env.i0_costs in potential_i0s
-
-        # check reward from environment and res variables match
-        if not prm["RL"]["competitive"]:
-            if abs(reward - self.rl['delta_reward'] + res['hourly_total_costs'][time_step]) > 5e-3:
-                tot_delta = reward + res['hourly_total_costs'][time_step]
-                print(
-                    f"reward {reward} != "
-                    f"res reward {- res['hourly_total_costs'][time_step]} "
-                    f"(delta {tot_delta})"
-                )
-                labels = [
-                    'grid_energy_costs',
-                    'battery_degradation_costs',
-                    'distribution_network_export_costs',
-                    'import_export_costs',
-                    'voltage_costs'
-                ]
-                for label in labels:
-                    sub_cost_env = break_down_rewards[
-                        self.prm['syst']['break_down_rewards_entries'].index(label)
-                    ]
-                    sub_cost_res = res[f'hourly_{label}'][time_step]
-                    if abs(sub_cost_env - sub_cost_res) > 1e-3:
-                        sub_delta = sub_cost_env - sub_cost_res
-                        print(
-                            f"{label} costs do not match: env {sub_cost_env} vs res {sub_cost_res} "
-                            f"(error {sub_delta} is {sub_delta/tot_delta * 100} % of total delta)"
-                        )
-
-            assert abs(
-                reward - self.rl['delta_reward'] + res['hourly_total_costs'][time_step]
-            ) < 5e-3, f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
-
     def _instant_feedback_steps_opt(
             self, evaluation, exploration_method, time_step, step_vals, epoch, ext
     ):
@@ -892,17 +780,6 @@ class Explorer:
                     current_state, actions, reward, indiv_grid_battery_costs,
                     state, reward_diffs
                 )
-
-    def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
-        if not (self.rl["competitive"] and not evaluation):
-            assert abs(
-                sum_rl_rewards - self.N * self.rl['delta_reward'] + res['total_costs']
-            ) < 1e-2, \
-                "tot rewards don't match: " \
-                f"sum_RL_rewards = {sum_rl_rewards}, " \
-                f"sum costs opt = {res['total_costs']}" \
-                f"abs(sum_rl_rewards + res['total_costs']) " \
-                f"{abs(sum_rl_rewards + res['total_costs'])}"
 
     def sum_gc_for_start_Call_index(self, res, i, evaluation):
         C = self.grd[f"Call{utils.test_str(evaluation)}"][i: i + self.N]
@@ -994,7 +871,7 @@ class Explorer:
             step_vals_i["indiv_grid_battery_costs"] = - np.array(
                 self._get_break_down_reward(break_down_rewards, "indiv_grid_battery_costs")
             )
-            self._tests_individual_step_rl_matches_res(
+            self.tests.tests_individual_step_rl_matches_res(
                 res, time_step, batch, step_vals_i["reward"], break_down_rewards,
                 batchflex_opt, evaluation
             )
@@ -1042,9 +919,9 @@ class Explorer:
                 res, time_step, break_down_rewards, batchflex_opt,
                 last_epoch, step_vals_i, batch, evaluation, voltage_squared
             )
-        assert abs(res["grid_energy_costs"] - sum(res["hourly_grid_energy_costs"])) < 1e-3
+
         if not self.rl['competitive']:
-            self._test_total_rewards_match(evaluation, res, sum_rl_rewards)
+            self.tests.test_total_rewards_match(evaluation, res, sum_rl_rewards)
         if not evaluation \
                 and rl["type_learning"] in ["DDPG", "DQN", "facmac"] \
                 and rl["trajectory"]:
@@ -1115,8 +992,7 @@ class Explorer:
 
     def _apply_reward_penalty(self, evaluation, reward, diff_rewards=None):
         if self.rl["apply_penalty"] and not evaluation:
-            if self.rl["competitive"]:
-                assert diff_rewards is not None
+            self.tests.check_competitive_has_diff_rewards(diff_rewards)
             if diff_rewards is not None:
                 for home in self.homes:
                     diff_rewards[home] -= self.rl["penalty"]
