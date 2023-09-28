@@ -748,7 +748,7 @@ def add_voltage_metrics_to_row(row, voltage_metrics, keys_methods):
             ]
         else:
             labels = [
-                'mean_voltage_violation', 'mean_voltage_deviation', 'max_voltage_deviation',
+                'mean_voltage_violation', 'mean_voltage_deviation', 'max_voltage_violation',
                 'n_voltage_violation_bus', 'n_voltage_violation_hour'
             ]
 

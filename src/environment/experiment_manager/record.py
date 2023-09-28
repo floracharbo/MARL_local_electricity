@@ -592,10 +592,9 @@ class Record:
                 epoch_mean_eval_t = np.mean(- eval_steps[method]["total_costs"])
             else:
                 epoch_mean_eval_t = None
-            if method in eval_steps:
-                for info in ["reward", "action"]:
-                    self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
-                        = eval_steps[method][info]
+            for info in ["reward", "action"]:
+                self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
+                    = eval_steps[method][info]
         else:
             for info in ["eval_rewards", "eval_actions"]:
                 self.__dict__[info][self.repeat][method][epoch] = None
@@ -607,7 +606,7 @@ class Record:
             eval_step_t_e = \
                 None if method not in eval_steps \
                 else eval_steps[method][info]
-            if info == 'max_voltage_deviation':
+            if info == 'max_voltage_violation':
                 self.__dict__[info][self.repeat][method][epoch] = \
                     max(eval_step_t_e[:-1]) if eval_step_t_e is not None else None
             # during one epoch, how many buses in total had a voltage deviation

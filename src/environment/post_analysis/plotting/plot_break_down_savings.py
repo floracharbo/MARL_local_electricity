@@ -435,7 +435,7 @@ def plot_voltage_statistics(record, prm):
         record.break_down_rewards_entries[prm['syst']['break_down_rewards_entries'].index(label)]
         for label in [
             'mean_voltage_deviation',
-            'mean_voltage_violation', 'max_voltage_deviation',
+            'mean_voltage_violation', 'max_voltage_violation',
             'n_voltage_violation_bus', 'n_voltage_violation_hour'
         ]
         if label in record.break_down_rewards_entries
@@ -488,10 +488,11 @@ def plot_voltage_statistics(record, prm):
         'Number of bus-hours \nwith voltage constraint violation',
         'Number of hours \nwith voltage constraint violation',
     ]
-    methods_hist = [
-        method for method in prm['RL']['evaluation_methods']
-        if method in ['opt_d_d', 'env_r_c', 'baseline']
-    ]
+    # methods_hist = [
+    #     method for method in prm['RL']['evaluation_methods']
+    #     if method in ['opt_d_d', 'env_r_c', 'baseline']
+    # ]
+    methods_hist = prm['RL']['evaluation_methods']
     methods_labels = {
         method: method for method in methods_hist
     }
