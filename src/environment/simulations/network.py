@@ -348,8 +348,7 @@ class Network:
 
         return replace_with_pp_simulation
 
-    def compare_optimiser_pandapower(
-            self, res, time_step, netp0, grdCt):
+    def compare_optimiser_pandapower(self, res, time_step, netp0, grdCt):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = netp0 * self.grd['active_to_reactive_passive']

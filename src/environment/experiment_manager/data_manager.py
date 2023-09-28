@@ -210,9 +210,10 @@ class DataManager:
             )
         else:
             if opt_needed:
-                res = np.load(self.paths['opt_res']
-                              / self.get_res_name(evaluation),
-                              allow_pickle=True).item()
+                res = np.load(
+                    self.paths['opt_res'] / self.get_res_name(evaluation),
+                    allow_pickle=True
+                ).item()
                 pp_simulation_required = False
                 if 'house_cons' not in res:
                     res['house_cons'] = res['totcons'] - res['E_heat']

@@ -958,84 +958,83 @@ def map_over_undervoltage(
             repeat, all_methods_to_plot, folder_run
         )
         for method in methods_to_plot:
-            if method != 'opt':
-                # Plot all the buses
-                bus_collection = pp_plot.create_bus_collection(
-                    net, net.bus.index, size=.2,
-                    color="black", zorder=10
+            # Plot all the buses
+            bus_collection = pp_plot.create_bus_collection(
+                net, net.bus.index, size=.2,
+                color="black", zorder=10
+            )
+            # Plot Transformers
+            transformer_line, transformer_patch = pp_plot.create_trafo_collection(
+                net, net.trafo.index, color="dimgrey", size=1.5
+            )
+            # Plot all the lines
+            line_collection = pp_plot.create_line_collection(
+                net, net.line.index, color="grey",
+                linewidths=0.5, use_bus_geodata=True
+            )
+            # Plot the external grid
+            external_grid_buses = pp_plot.create_bus_collection(
+                net, net.ext_grid.bus.values, patch_type="poly3",
+                size=.7, color="grey", zorder=11
+            )
+            # Plot all the loads and generations
+            loaded_buses = pp_plot.create_bus_collection(
+                net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
+                patch_type="poly3", size=1.4, color="coral", alpha=0.5, zorder=11,
+                label='Loads'
+            )
+            generation_buses = pp_plot.create_bus_collection(
+                net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
+                patch_type="poly3", size=1.4, color="g", alpha=0.5, zorder=11,
+                label='Generators'
+            )
+            ax = pp_plot.draw_collections(
+                [
+                    line_collection, bus_collection, transformer_line, transformer_patch,
+                    external_grid_buses, loaded_buses, generation_buses
+                ],
+                figsize=(20, 20)
+            )
+            # Save
+            plt.legend()
+            title = f'map_test_network'
+            title_and_save(title, ax.figure, prm, display_title=False)
+
+            for time_step in range(9, 23):
+                # Plot over and under voltages
+                overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation = \
+                    get_index_over_under_voltage_last_time_step(
+                        last, method, prm, time_step=time_step
+                    )
+                max_deviation_all[method] = np.max([max_deviation_all[method], max_deviation])
+                min_deviation_all[method] = np.min([min_deviation_all[method], min_deviation])
+                n_over_voltages[method][repeat, time_step] = len(overvoltage_bus_index)
+                n_under_voltages[method][repeat, time_step] = len(undervoltage_bus_index)
+                over = pp_plot.create_bus_collection(
+                    net,
+                    overvoltage_bus_index,
+                    size=0.6, color="red", zorder=10,
+                    label='Overvoltage'
                 )
-                # Plot Transformers
-                transformer_line, transformer_patch = pp_plot.create_trafo_collection(
-                    net, net.trafo.index, color="dimgrey", size=1.5
+                under = pp_plot.create_bus_collection(
+                    net,
+                    undervoltage_bus_index,
+                    size=0.6, color="dodgerblue", zorder=10,
+                    label='Undervoltage'
                 )
-                # Plot all the lines
-                line_collection = pp_plot.create_line_collection(
-                    net, net.line.index, color="grey",
-                    linewidths=0.5, use_bus_geodata=True
-                )
-                # Plot the external grid
-                external_grid_buses = pp_plot.create_bus_collection(
-                    net, net.ext_grid.bus.values, patch_type="poly3",
-                    size=.7, color="grey", zorder=11
-                )
-                # Plot all the loads and generations
-                loaded_buses = pp_plot.create_bus_collection(
-                    net, last['loaded_buses'][method][prm["syst"]["N"] - 1],
-                    patch_type="poly3", size=1.4, color="coral", alpha=0.5, zorder=11,
-                    label='Loads'
-                )
-                generation_buses = pp_plot.create_bus_collection(
-                    net, last['sgen_buses'][method][prm["syst"]["N"] - 1],
-                    patch_type="poly3", size=1.4, color="g", alpha=0.5, zorder=11,
-                    label='Generators'
-                )
+                # Draw all the collected plots
                 ax = pp_plot.draw_collections(
-                    [
-                        line_collection, bus_collection, transformer_line, transformer_patch,
-                        external_grid_buses, loaded_buses, generation_buses
-                    ],
+                    [line_collection, bus_collection, transformer_line, transformer_patch, external_grid_buses, loaded_buses, generation_buses, over, under],
                     figsize=(20, 20)
                 )
+                # Add legend to homes
+                annotate = False
+                if annotate:
+                    annotate_buses(last, method, prm, net)
                 # Save
                 plt.legend()
-                title = f'map_test_network'
+                title = f'map_over_under_voltage{repeat}_{method}_t{time_step}'
                 title_and_save(title, ax.figure, prm, display_title=False)
-
-                for time_step in range(9, 23):
-                    # Plot over and under voltages
-                    overvoltage_bus_index, undervoltage_bus_index, max_deviation, min_deviation = \
-                        get_index_over_under_voltage_last_time_step(
-                            last, method, prm, time_step=time_step
-                        )
-                    max_deviation_all[method] = np.max([max_deviation_all[method], max_deviation])
-                    min_deviation_all[method] = np.min([min_deviation_all[method], min_deviation])
-                    n_over_voltages[method][repeat, time_step] = len(overvoltage_bus_index)
-                    n_under_voltages[method][repeat, time_step] = len(undervoltage_bus_index)
-                    over = pp_plot.create_bus_collection(
-                        net,
-                        overvoltage_bus_index,
-                        size=0.6, color="red", zorder=10,
-                        label='Overvoltage'
-                    )
-                    under = pp_plot.create_bus_collection(
-                        net,
-                        undervoltage_bus_index,
-                        size=0.6, color="dodgerblue", zorder=10,
-                        label='Undervoltage'
-                    )
-                    # Draw all the collected plots
-                    ax = pp_plot.draw_collections(
-                        [line_collection, bus_collection, transformer_line, transformer_patch, external_grid_buses, loaded_buses, generation_buses, over, under],
-                        figsize=(20, 20)
-                    )
-                    # Add legend to homes
-                    annotate = False
-                    if annotate:
-                        annotate_buses(last, method, prm, net)
-                    # Save
-                    plt.legend()
-                    title = f'map_over_under_voltage{repeat}_{method}_t{time_step}'
-                    title_and_save(title, ax.figure, prm, display_title=False)
 
     n_subplots = sum(
         sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0

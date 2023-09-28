@@ -152,7 +152,6 @@ def get_opt_res_file(prm, test=False):
         prm[info] for info in ['syst', 'heat', 'car', 'loads', 'paths', 'RL', 'grd', 'gen']
     ]
 
-    ext = '_test' if test else ''
     if np.all(car['caps'] == car['cap']):
         cap_str = f"car_cap{car['cap']}"
     else:
