@@ -22,7 +22,7 @@ import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.data_manager import DataManager
 from src.environment.experiment_manager.select_actions import ActionSelector
 from src.learners.learning import LearningManager
-
+from src.environment.simulations.optimisation_post_processing import check_temp_equations
 
 # %% Environment exploration
 class Explorer:
@@ -431,6 +431,8 @@ class Explorer:
                         rdn_eps_greedy, evaluation, self.t_env, ext=self.data.ext
                     )
                 state = env.get_state_vals(inputs=inputs_state_val, evaluation=evaluation)
+                # check batch corresponds to optimisation
+
                 step_vals, traj_reward, sequence_feasible = self._get_one_episode(
                     method, epoch, actions, state, evaluation, env, batch, step_vals
                 )
@@ -456,8 +458,7 @@ class Explorer:
                 self.data.deterministic_created = False
                 print("find feas opt data again!")
                 [_, batch], step_vals = self.data.find_feasible_data(
-                    seed_ind, methods, step_vals,
-                    evaluation, epoch
+                    seed_ind, methods, step_vals, evaluation, epoch
                 )
 
         step_vals["seed"] = self.data.seed[self.data.ext]
@@ -538,6 +539,34 @@ class Explorer:
                     f"self.data.seed[{self.data.ext}] {self.data.seed[self.data.ext]}"
                 )
                 sequence_feasible = False
+
+                # check env batch matches res
+                res = np.load(
+                    self.paths['opt_res'] / self.data.get_res_name(evaluation),
+                    allow_pickle=True
+                ).item()
+                assert abs(np.sum(step_vals['opt']['reward']) + np.sum(res['hourly_total_costs'])) < 1e-3
+                assert (
+                        abs(
+                            res['discharge_tot'] - res['discharge_other'] / self.prm['car']['eta_dis']
+                            - self.env.batch['loads_car'][:, 0: self.N]
+                        ) < 1e-3
+                ).all()
+
+                # check total household consumption matches between res and env
+                assert abs(np.sum(self.env.tot_cons_loads) - np.sum(res['totcons'] - res['E_heat'])) < 1e-3, \
+                    f"tot_cons_loads env {np.sum(self.env.tot_cons_loads)} " \
+                    f"and res {np.sum(res['totcons'] - res['E_heat'])} not matching"
+
+                # check energy prices used are the same
+                assert sum(
+                    self.prm['grd']['C_test'][time_step] * (res['grid'][time_step] + self.prm['grd']['loss'] * res['grid2'][time_step])
+                    for time_step in range(self.N)
+                ) == res['grid_energy_costs']
+
+                # check that heat T_out is the same as in opt
+                T_out = self.env.heat.T_out[0: 24]
+                check_temp_equations(res, self.prm['syst'], self.prm['heat'], T_out)
 
         return sequence_feasible
 
@@ -673,7 +702,7 @@ class Explorer:
             step_vals_i[key_] = var
         for key_ in step_vals_i.keys():
             if step_vals_i[key_] is None:
-                break
+                continue
             target_shape = self._get_shape_step_vals(key_, evaluation)
             if not isinstance(target_shape, int):
                 target_shape = target_shape[1:]
@@ -934,7 +963,10 @@ class Explorer:
                 res = self.env.network.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt
                 )
-
+            if not self.prm['grd']['manage_voltage'] and self.prm['grd']['simulate_panda_power_only']:
+                gens = self.prm["grd"]["gen"][:, time_step]
+                input_take_action = date, step_vals_i["action"], gens, loads
+                (_, _, _, voltage_squared, _, _, _, _) = env.policy_to_rewardvar(None, other_input=input_take_action)
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
                 discharge_tot=res["discharge_tot"][:, time_step],
@@ -942,7 +974,7 @@ class Explorer:
                 time_step=time_step,
                 passive_vars=self.env.get_passive_vars(time_step),
                 hourly_line_losses=res['hourly_line_losses'][time_step],
-                voltage_squared=res['voltage_squared'][:, time_step],
+                voltage_squared=voltage_squared,
                 evaluation=evaluation
             )
             step_vals_i["indiv_grid_battery_costs"] = - np.array(

@@ -238,9 +238,10 @@ def _check_cons_equations(res, N, loads, syst, grd):
     ), "still totcons minus E_geat not adding up to loads"
 
 
-def _check_temp_equations(res, syst, heat):
+def check_temp_equations(res, syst, heat, T_out=None):
     n_homes, N = [syst[info] for info in ['n_homes', 'N']]
-
+    if T_out is None:
+        T_out = heat['T_out']
     for home in range(n_homes):
         if heat['own_heat'][home]:
             assert res['T'][home, 0] == heat['T0']
@@ -249,7 +250,7 @@ def _check_temp_equations(res, syst, heat):
                     abs(
                         heat['T_coeff'][home][0]
                         + heat['T_coeff'][home][1] * res['T'][home, time_step]
-                        + heat['T_coeff'][home][2] * heat['T_out'][time_step]
+                        + heat['T_coeff'][home][2] * T_out[time_step]
                         # heat['T_coeff'][home][3] * heat['phi_sol'][time_step]
                         + heat['T_coeff'][home][4] * res['E_heat'][home, time_step]
                         * 1e3 * syst['n_int_per_hr']
@@ -260,7 +261,7 @@ def _check_temp_equations(res, syst, heat):
                 abs(
                     heat['T_air_coeff'][home][0]
                     + heat['T_air_coeff'][home][1] * res['T'][home, :]
-                    + heat['T_air_coeff'][home][2] * heat['T_out'][0: N]
+                    + heat['T_air_coeff'][home][2] * T_out[0: N]
                     # heat['T_air_coeff'][home][3] * heat['phi_sol'][time_step] +
                     + heat['T_air_coeff'][home][4] * res['E_heat'][home, :]
                     * 1e3 * syst['n_int_per_hr']
@@ -308,7 +309,7 @@ def check_constraints_hold(res, prm, input_hourly_lij=None):
     # _check_power_flow_equations(res, grd, N, input_hourly_lij)
     _check_storage_equations(res, N, car, grd, syst)
     _check_cons_equations(res, N, loads, syst, grd)
-    _check_temp_equations(res, syst, heat)
+    check_temp_equations(res, syst, heat)
 
 
 def _add_val_to_res(res, var, val, size, arr):
