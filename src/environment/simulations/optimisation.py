@@ -47,12 +47,11 @@ class Optimiser:
             res, pp_simulation_required = self._solve_line_losses_iteration(test)
         else:
             res, pp_simulation_required, _, _ = self._problem(test)
-            perform_checks = True
-            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks, test)
+            res = res_post_processing(res, prm, self.input_hourly_lij, evaluation=test)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res, test)
-            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks, test)
+            res = res_post_processing(res, prm, self.input_hourly_lij, evaluation=test)
 
         return res, pp_simulation_required
 
@@ -111,6 +110,7 @@ class Optimiser:
         )
         perform_checks = True
         res = res_post_processing(res, self.prm, res['lij'], perform_checks, evaluation)
+
         return res, pp_simulation_required
 
     def _car_efficiency_iterations(self, prm, res, evaluation):
