@@ -618,10 +618,11 @@ def _update_res_variables(
             - res['discharge_other'][home, time_step] \
             - grd['gen'][home, time_step] \
             + res['totcons'][home, time_step]
-        res['netq_flex'][home, time_step] = \
-            res['q_car_flex'][home, time_step] \
-            + res['totcons'][home, time_step] * grd['active_to_reactive_flex'] \
-            - grd['gen'][home, time_step] * grd['active_to_reactive_flex']
+        if prm['grd']['manage_voltage']:
+            res['netq_flex'][home, time_step] = \
+                res['q_car_flex'][home, time_step] \
+                + res['totcons'][home, time_step] * grd['active_to_reactive_flex'] \
+                - grd['gen'][home, time_step] * grd['active_to_reactive_flex']
         if grd['penalise_individual_exports']:
             res['netp_export'][home, time_step] = np.where(
                 res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
@@ -734,6 +735,7 @@ def check_and_correct_constraints(
     for time_step in range(N):
         for load_type in range(loads['n_types']):
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
+
     # 3 - check that const translates into consa
     res, pp_simulation_required, homes_to_update, time_steps_to_update \
         = _check_constl_to_consa(
@@ -768,7 +770,7 @@ def check_and_correct_constraints(
     return res, pp_simulation_required
 
 
-def res_post_processing(res, prm, input_hourly_lij, perform_checks, evaluation):
+def res_post_processing(res, prm, input_hourly_lij, perform_checks=True, evaluation=False):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
