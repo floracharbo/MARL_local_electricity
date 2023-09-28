@@ -1067,7 +1067,7 @@ def map_over_undervoltage(
         ):
             if sum(np.sum(n_deviations[method][:-1]) for method in all_methods_to_plot) > 0:
                 ax = axs if n_subplots == 1 else axs[i_subplot]
-                for method in ['opt_d_d', 'baseline', 'env_r_c']:
+                for method in ['opt_d_d', 'baseline', 'env_r_c', 'opt']:
                     if method not in n_deviations:
                         continue
                     ax.plot(
@@ -1089,7 +1089,7 @@ def map_over_undervoltage(
 
             i_subplot += 1
 
-        title_and_save('n_voltage_deviations_vs_time', fig, prm, display_title=False)
+        title_and_save('n_voltage_violations_vs_time', fig, prm, display_title=False)
 
     list_voltage_values = {method: [] for method in all_methods_to_plot}
     for repeat in range(prm['RL']['n_repeats']):
