@@ -347,7 +347,6 @@ class LocalElecEnv:
             return [None, None, None, None, None, constraint_ok, None]
 
         else:
-            evaluation = 'test' in self.ext
             reward, break_down_rewards = self.get_reward(
                 netp=home_vars['netp'],
                 hourly_line_losses=hourly_line_losses,
@@ -914,8 +913,7 @@ class LocalElecEnv:
 
         return val
 
-    def _get_grdC_level(self, inputs):
-        evaluation = 'test' in self.ext
+    def _get_grdC_level(self, inputs, evaluation):
         spaces = self.get_current_spaces(evaluation)
 
         return spaces._get_grdC_level(inputs)
@@ -939,7 +937,7 @@ class LocalElecEnv:
             "day_type": idt,
             "dT": self.prm["heat"]["T_req" + self.ext][home][time_step] - self.T_air[home],
             "grdC_level": self._get_grdC_level(
-                [time_step, None, None, None, self.prm]
+                [time_step, None, None, None, self.prm], evaluation
             )
         }
         dict_functions_home = {
