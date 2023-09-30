@@ -608,7 +608,7 @@ def _update_rl_prm(prm, initialise_all):
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
     prm["RL"]["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
-    rl["start_end_eval"] = int(rl["share_epochs_start_end_eval"] * rl["n_epochs"])
+    rl["start_end_eval"] = min(int(rl["share_epochs_start_end_eval"] * rl["n_epochs"]), rl['n_epochs'] - 1)
     rl["n_all_epochs"] = rl["n_epochs"] + rl["n_end_test"]
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
@@ -960,10 +960,10 @@ def _make_type_eval_list(rl, large_q_bool=False):
 
     rl["exploration_methods"] = [
         method for method in rl["evaluation_methods"]
-        if not (method[0:3] == "opt" and len(method) > 3)
+        if not method.startswith("opt")
     ]
 
-    if sum(method[0: 3] == 'opt' and len(method) > 3 for method in rl["evaluation_methods"]) > 0:
+    if sum(method.startswith("opt") and len(method) > 3 for method in rl["evaluation_methods"]) > 0:
         rl["exploration_methods"] += ['opt']
 
     rl["eval_action_choice"] = [
