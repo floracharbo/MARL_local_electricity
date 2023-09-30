@@ -1103,11 +1103,16 @@ def compare_all_runs_for_column_of_interest(
         else:
             multiplier_voltage_metric = 1
         mean_deviation = [log[f'{METRIC_VOLTAGE}_best_all'].loc[initial_setup_row] * multiplier_voltage_metric]
-        mean_deviation_baseline = [log[f'{METRIC_VOLTAGE}_baseline'].loc[initial_setup_row] * multiplier_voltage_metric]
+        try:
+            mean_deviation_baseline = [log[f'{METRIC_VOLTAGE}_baseline'].loc[initial_setup_row] * multiplier_voltage_metric]
+        except Exception as ex:
+            if str(ex) == "unsupported operand type(s) for *: 'NoneType' and 'float'":
+                mean_deviation_baseline = [np.nan]
+            else:
+                print(ex)
         for row in range(len(log)):
             row_setup = [log[col].loc[row] for col in other_columns]
             new_row = row not in rows_considered
-            # new_row = True
             relevant_cnn = not (
                 column_of_interest[0: 3] == 'cnn'
                 and log['nn_type'].loc[row] != 'cnn'
@@ -1134,7 +1139,6 @@ def compare_all_runs_for_column_of_interest(
                     indexes_columns_ignore_q_learning, indexes_columns_ignore_facmac, row,
                     columns_irrelevant_to_q_learning, columns_irrelevant_to_facmac,
                 )
-                # try:
                 only_col_of_interest_changes = all(
                     current_col == row_col or (
                         (not isinstance(current_col, str) and np.isnan(current_col))
@@ -1143,8 +1147,6 @@ def compare_all_runs_for_column_of_interest(
                     for i_col, (current_col, row_col) in enumerate(zip(current_setup, row_setup))
                     if i_col not in indexes_ignore
                 )
-                # except Exception as ex:
-                #     print(ex)
                 if (
                         column_of_interest == 'n_homesP'
                         and not (np.isnan(log.loc[initial_setup_row, 'n_homes_testP']) and np.isnan(log.loc[row, 'n_homes_testP']))
@@ -1181,7 +1183,13 @@ def compare_all_runs_for_column_of_interest(
 
                 time_best_score.append(log['time_end'].loc[row])
                 mean_deviation.append(log[f'{METRIC_VOLTAGE}_best_all'].loc[row] * multiplier_voltage_metric)
-                mean_deviation_baseline.append(log[f'{METRIC_VOLTAGE}_baseline'].loc[row] * multiplier_voltage_metric)
+                try:
+                    mean_deviation_baseline.append(log[f'{METRIC_VOLTAGE}_baseline'].loc[row] * multiplier_voltage_metric)
+                except Exception as ex:
+                    if str(ex) == "unsupported operand type(s) for *: 'NoneType' and 'float'":
+                        mean_deviation_baseline.append(np.nan)
+                    else:
+                        print(ex)
 
         if len(values_of_interest) > 1:
             all_setups_same_as_0 = all(
@@ -1674,6 +1682,16 @@ if __name__ == "__main__":
         log, columns0, columns_results_methods
     )
     log, new_columns = add_default_values(log, new_columns)
+    columns_check_duplicates = [col for col in new_columns if col not in ['syst-time_end', 'syst-timestamp', 'run']]
+    duplicate_runs = log.loc[log.duplicated(subset=columns_check_duplicates, keep='last'), 'run']
+    print(f"move {len(duplicate_runs)} runs to duplicated_results")
+    if not os.path.exists("outputs/duplicated_results"):
+        os.mkdir("outputs/duplicated_results")
+    for run in duplicate_runs:
+        shutil.move(f"outputs/results/run{run}", f"outputs/duplicated_results/run{run}")
+        log.drop(log[log['run'] == run].index, inplace=True)
+        log = log.reset_index()
+
     log = fix_learning_specific_values(log)
     new_columns = remove_key_from_columns_names(new_columns)
     COLUMNS_OF_INTEREST = remove_key_from_columns_names(COLUMNS_OF_INTEREST)
