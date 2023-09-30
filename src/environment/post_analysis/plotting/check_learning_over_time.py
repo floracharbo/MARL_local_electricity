@@ -14,8 +14,8 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
     """Plot evaluation actions selected over epochs for one repeat"""
     n_intervals = 50
     density_matrix = np.zeros((prm["RL"]["n_epochs"], n_intervals))
-    min_action = np.min(actions_[:, :, :, i_action])
-    max_action = np.max(actions_[:, :, :, i_action])
+    min_action = np.nanmin(actions_[:, :, :, i_action])
+    max_action = np.nanmax(actions_[:, :, :, i_action])
     intervals = np.linspace(min_action, max_action, n_intervals)
 
     for epoch in range(prm["RL"]["n_epochs"]):
@@ -26,17 +26,13 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
         for step in range(len(actions_[epoch])):
             for home in range(len(actions_[epoch][step])):
                 action = actions_[epoch][step][home][i_action]
-                if action is None:
+                if action is None or np.isnan(action):
                     if evaluation_method != 'opt':
                         print(f"None in {evaluation_method}")
                     continue
                 i_interval = np.where(action >= intervals)[0][-1]
                 density_matrix[epoch, i_interval] += 1
-                # plt.plot(
-                #     epoch,
-                #     action,
-                #     'o'
-                # )
+
     fig = plt.figure()
     plt.imshow(np.transpose(density_matrix), interpolation='none')
     # min_label = min_action + (0.05 - min_action % 0.05)
