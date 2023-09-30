@@ -143,6 +143,8 @@ def _naming_file_extension_network_parameters(grd):
                     file_extension += f"_subset_losses{grd['subset_line_losses_modelled']}"
                 if grd['reactive_power_for_voltage_control']:
                     file_extension += '_q_action'
+    if grd['manage_voltage'] and grd['compare_pandapower_optimisation']:
+        file_extension += '_pp'
 
     return file_extension
 
