@@ -562,8 +562,9 @@ class Explorer:
         loads["l_flex"], loads["l_fixed"], loads_step = self._fixed_flex_loads(
             time_step, batchflex_opt, evaluation
         )
-
-        self.test.check_cons_less_than_or_equal_to_available_loads()
+        self.tests.check_cons_less_than_or_equal_to_available_loads(
+            loads, res, time_step, batchflex_opt, evaluation
+        )
         _, _, loads_prev = self._fixed_flex_loads(
             max(0, time_step - 1), batchflex_opt, evaluation
         )

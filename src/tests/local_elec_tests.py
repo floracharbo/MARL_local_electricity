@@ -5,7 +5,7 @@ import pickle
 class LocalElecTests:
     def __init__(self, env):
         self.env = env
-        for attribute in ['prm', 'paths', 'N', 'grd', 'n_homes', 'rl', 'test', 'max_delay']:
+        for attribute in ['prm', 'N', 'n_homes', 'rl', 'test', 'max_delay']:
             setattr(self, attribute, getattr(env, attribute))
 
     @property
@@ -75,7 +75,7 @@ class LocalElecTests:
 
     def check_no_flex_left_unmet(self, home_vars, loads, h):
         share_flexs = self.prm['loads']['share_flexs' + self.ext]
-        for home in self.homes:
+        for home in range(self.n_homes):
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
                 f"home = {home}, no flex cons at last time step"
             assert loads['l_fixed'][home] \
@@ -90,7 +90,7 @@ class LocalElecTests:
         if not self.test:
             return
         share_flexs = self.env.share_flexs
-        for home in self.homes:
+        for home in range(self.n_homes):
             fixed_to_flex = share_flexs[home] / (1 - share_flexs[home])
             assert sum(self.batch_flex[home][time_step][1: 5]) \
                 <= sum(self.batch_flex[home][0: time_step + 1, 0]) * fixed_to_flex, \
@@ -134,12 +134,13 @@ class LocalElecTests:
         ), "loads_next_flex too large"
 
     def loads_test(self):
-        for home in self.homes:
+        for home in self.env.homes:
             for ih in range(self.N):
-                assert (self.batch['loads'][home, ih]
-                        <= self.batch['flex'][home, ih, 0]
-                        + self.batch['flex'][home, ih, -1] + 1e-3
-                        ), "loads too large"
+                assert (
+                    self.batch['loads'][home, ih]
+                    <= self.batch['flex'][home, ih, 0]
+                    + self.batch['flex'][home, ih, -1] + 1e-3
+                ), "loads too large"
 
     def check_batch_flex(self, time_step):
         for ih in range(time_step + 1, time_step + self.N):

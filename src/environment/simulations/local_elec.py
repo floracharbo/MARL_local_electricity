@@ -586,7 +586,7 @@ class LocalElecEnv:
         else:
             loads, home_vars, bool_penalty, flexible_q_car = \
                 self.action_translator.actions_to_env_vars(loads, home_vars, action, date, time_step)
-        self.tests.check_no_flex_left_unmet(home_vars, loads, h)
+        self.tests.check_no_flex_left_unmet(home_vars, loads, time_step)
 
         self.heat.next_T(update=True)
         self._check_constraints(

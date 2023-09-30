@@ -9,7 +9,7 @@ class ExplorerTests:
     def __init__(self, explorer):
         self.explorer = explorer
         for attribute in ['data', 'prm', 'paths', 'N', 'grd', 'n_homes', 'rl']:
-            setattr(self, attribute, explorer[attribute])
+            setattr(self, attribute, getattr(explorer, attribute))
 
     def investigate_opt_env_rewards_unequal(self, step_vals, evaluation):
         # check env batch matches res
@@ -57,20 +57,16 @@ class ExplorerTests:
             >= - cons_tol
         ), f"res loads cons {res['totcons'][:, time_step] - res['E_heat'][:, time_step]}, " \
            f"available loads {loads['l_flex'] + loads['l_fixed']}"
-        _, _, loads_prev = self._fixed_flex_loads(
-            max(0, time_step - 1), batchflex_opt, evaluation
-        )
 
     def tests_individual_step_rl_matches_res(
             self, res, time_step, batch, reward, break_down_rewards, batchflex_opt, evaluation
     ):
         prm = self.prm
-        for home in self.homes:
+        for home in range(self.n_homes):
             fixed_flex = sum(batchflex_opt[home][time_step]) \
-                         + self.explorer.env.heat.E_heat_min[home] \
-                         + self.explorer.env.heat.potential_E_flex()[home]
-            assert res["totcons"][home][time_step] <= \
-                   fixed_flex + 1e-1, \
+                 + self.explorer.env.heat.E_heat_min[home] \
+                 + self.explorer.env.heat.potential_E_flex()[home]
+            assert res["totcons"][home][time_step] <= fixed_flex + 1e-1, \
                 f"cons {res['totcons'][home][time_step]} more than sum fixed + flex" \
                 f" {fixed_flex} for home = {home}, time_step = {time_step}"
 
@@ -131,7 +127,7 @@ class ExplorerTests:
                 reward - self.rl['delta_reward'] + res['hourly_total_costs'][time_step]
             ) < 5e-3, f"reward env {reward} != reward opt {- res['hourly_total_costs'][time_step]}"
     
-    def _test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
+    def test_total_rewards_match(self, evaluation, res, sum_rl_rewards):
         if not (self.rl["competitive"] and not evaluation):
             assert abs(
                 sum_rl_rewards - self.N * self.rl['delta_reward'] + res['total_costs']
