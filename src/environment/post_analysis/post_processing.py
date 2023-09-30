@@ -193,7 +193,7 @@ def _print_stats_cons_constraints_errors(prm, data_manager):
                 f"of optimisations, the flexible consumption constraints were violated by "
                 f"more than {prm['syst']['tol_constraints']}.\n"
                 f"The maximum violation was {data_manager.max_cons_slack:.2E}.\n"
-                "This was be corrected, but optimality is not guaranteed."
+                "This was corrected, but optimality is not guaranteed."
             )
 
 
@@ -256,8 +256,8 @@ def post_processing(
     file.close()
 
     # save for reliability measures
-    if not prm['RL']['competitive']:
-        _save_reliability(prm, record)
+    # if not prm['RL']['competitive']:
+    #     _save_reliability(prm, record)
 
     # clean up folder
     _clean_up(prm, no_run)

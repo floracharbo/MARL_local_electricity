@@ -69,8 +69,7 @@ class Optimiser:
             else:
                 netp0 = np.zeros([1, self.N])
             grdCt = self.grd[f'C{test_str(evaluation)}'][time_step]
-            res = self.compare_optimiser_pandapower(
-                res, time_step, netp0, grdCt)
+            res = self.compare_optimiser_pandapower(res, time_step, netp0, grdCt)
         corr_voltages = copy.deepcopy(res['voltage'])
         corr_losses = copy.deepcopy(res['hourly_line_losses'])
         corr_lij = copy.deepcopy(res['lij'])
