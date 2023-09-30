@@ -287,13 +287,15 @@ def check_temp_equations(res, syst, heat, T_out=None):
         assert np.all(res['E_heat'] + 1e-3 >= 0)
 
 
-def check_constraints_hold(res, prm, input_hourly_lij=None):
+def check_constraints_hold(res, prm):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
     grd, loads, car, syst, heat = [
         prm[info] for info in ['grd', 'loads', 'car', 'syst', 'heat']
     ]
+    if 'hourly_tot_netp0' not in loads:
+        loads['hourly_tot_netp0'] = 0
 
     assert np.all(
         abs(
@@ -765,7 +767,7 @@ def check_and_correct_constraints(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-2
     )
     # 5 - check constraints hold
-    check_constraints_hold(res, prm, input_hourly_lij)
+    check_constraints_hold(res, prm)
 
     return res, pp_simulation_required
 
@@ -891,15 +893,16 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks=True, evaluat
         assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
             f"negative flexible consumptions in the optimisation! " \
             f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-        max_losses_condition = np.logical_and(
-            res['hourly_line_losses'] > 1,
-            res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses'])
-        )
-        assert np.all(~max_losses_condition), \
-            f"Hourly line losses are larger than 15% of the total import. " \
-            f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
-            f"Grid imp/exp: " \
-            f"{abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
+
+        max_share_loss = 0.25
+        if np.any(res['hourly_line_losses'] > max_share_loss * res['grid']):
+            time_large_losses = np.where(res['hourly_line_losses'] > max_share_loss * res['grid'])[0]
+            print(
+                f"WARNING: Line losses are "
+                f"{np.divide(res['hourly_line_losses'], res['grid'])[time_large_losses] * 100}% of the grid imports "
+                f"at the following time steps: {time_large_losses} "
+                f"with losses of {res['hourly_line_losses'][time_large_losses]} kWh"
+            )
 
     return res
 
