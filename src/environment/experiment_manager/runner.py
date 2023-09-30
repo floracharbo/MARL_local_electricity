@@ -133,6 +133,7 @@ class Runner:
                 self._end_of_epoch_parameter_updates(repeat, epoch)
 
             # then do evaluation only for one month, no learning
+            evaluations_methods = self._check_if_opt_env_needed(epoch + 1, evaluation=True)
             self._end_evaluation(
                 repeat, new_env, evaluations_methods, i0_costs, delta, date0
             )
@@ -410,7 +411,7 @@ class Runner:
 
     def _check_if_opt_env_needed(self, epoch, evaluation=False):
         opts_in_eval = sum(
-            method[0: 3] == 'opt' for method in self.rl["evaluation_methods"]
+            method != "opt" and method.startswith("opt") for method in self.rl["evaluation_methods"]
         ) > 0
         opt_stage = False
         for method in self.rl["evaluation_methods"]:
