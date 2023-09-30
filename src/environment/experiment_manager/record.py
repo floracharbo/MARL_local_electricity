@@ -285,14 +285,17 @@ class Record:
         Given instruction for specific file to load by load method,
         """
         str_ = f"{label}" if repeat is None else f"{label}_repeat{repeat}"
-        str_ = os.path.join(self.record_folder, str_ + ".npy")
-        obj = np.load(str_, allow_pickle=True)
-        if len(np.shape(obj)) == 0:
-            obj = obj.item()
-        if repeat is not None:
-            self.__dict__[label][repeat] = obj
+        path = os.path.join(self.record_folder, str_ + ".npy")
+        if os.path.isfile(path):
+            obj = np.load(path, allow_pickle=True)
+            if len(np.shape(obj)) == 0:
+                obj = obj.item()
+            if repeat is not None:
+                self.__dict__[label][repeat] = obj
+            else:
+                setattr(self, label, obj)
         else:
-            setattr(self, label, obj)
+            print(f"File {path} does not exist")
 
     def results_to_percentiles(
         self,
