@@ -6,7 +6,7 @@
 # timestamp_changes = datetime.datetime.now().timestamp()
 
 # 2 - enter all the parameter changes for this machine-time pair in the file as:
-# parameter_changed: [timestamp_change_idx, previous_default_value]
+# parameter_changed-timestamp_change_idx: previous_default_value
 
 # note the syntax for parameter_changed: key-subkey or key-subkey-subsubkey;
 # for example, if changing the default number of epochs in RL.yaml:
@@ -32,6 +32,7 @@ timestamp_changes:
   14: 1689159178.064695
   15: 1689848900.26677
   16: 1691761734.606261
+  17: 1696106998.215323
 
 'RL-n_hidden_layers-1': 1
 'RL-aggregate_actions-1': True
@@ -71,3 +72,4 @@ timestamp_changes:
 'RL-q_learning-alpha-14': 0.01
 'car-c_max-15': 6.6
 'grd-min_voltage-16': 0.96
+'grd-compare_pandapower_optimisation-17': False
