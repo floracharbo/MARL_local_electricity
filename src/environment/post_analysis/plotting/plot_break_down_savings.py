@@ -128,8 +128,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
                     )
             tots[method] = bars[-1][-1]
             shares_reduc[method].append(
-                [bars[i][-1] / tots[method] if tots[method] > 0 else None
-                    for i in range(len(labels))]
+                [bars[i][-1] / tots[method] for i in range(len(labels))]
             )
     if 'env_r_c' in shares_reduc:
         print(f"shares_reduc['env_r_c'] {shares_reduc['env_r_c']}")
@@ -388,8 +387,8 @@ def barplot_indiv_savings(record, prm):
             savings_battery_degradation_costs_a, savings_grid_energy_costs_a = [
                 np.mean([[(reward[repeat]['baseline'][epoch][home]
                            - reward[repeat][method][epoch])
-                          for epoch in range(prm['RL']['start_end_eval'],
-                                             prm['RL']['n_epochs'])]
+                          for epoch in range(prm['RL']['n_epochs'],
+                                             prm['RL']['n_all_epochs'])]
                          for repeat in range(prm['RL']['n_repeats'])])
                 for reward in [record.indiv_grid_battery_costs, record.indiv_grid_energy_costs]
             ]
@@ -473,7 +472,7 @@ def plot_voltage_statistics(record, prm):
                 continue
             hist_values[method][label] = np.mean(
                 [
-                    np.mean(getattr(record, label)[repeat][method][- prm['RL']['n_end_test']:])
+                    np.mean(getattr(record, label)[repeat][method][prm['RL']['n_epochs']:])
                     for repeat in range(prm['RL']['n_repeats'])
                 ]
             )
