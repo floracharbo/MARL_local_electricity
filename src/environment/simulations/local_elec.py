@@ -88,7 +88,6 @@ class LocalElecEnv:
             "competitive", "n_grdC_level", "offset_reward", "delta_reward"
         ]:
             setattr(self, data, self.rl[data])
-        self.share_flexs = prm['loads']['share_flexs']
         self.res_path = prm['paths']['opt_res']
         self.slid_day = False
 
@@ -755,13 +754,12 @@ class LocalElecEnv:
     def _loads_to_flex(self, homes: list = None, i_load: int = 0):
         """Apply share of flexible loads to new day loads data."""
         homes = self.homes if len(homes) == 0 else homes
-        share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in homes:
             dayflex_a = np.zeros((self.N, self.max_delay + 1))
             for time_step in range(self.N):
                 loads_t = self.batch["loads"][home, i_load * self.N + time_step]
-                dayflex_a[time_step, 0] = (1 - share_flexs[home]) * loads_t
-                dayflex_a[time_step, self.max_delay] = share_flexs[home] * loads_t
+                dayflex_a[time_step, 0] = (1 - self.share_flexs[home]) * loads_t
+                dayflex_a[time_step, self.max_delay] = self.share_flexs[home] * loads_t
             self.batch['flex'][home, i_load * self.N: (i_load + 1) * self.N] = dayflex_a
 
     def _get_time_step(self, date: datetime = None) -> int:
@@ -796,6 +794,10 @@ class LocalElecEnv:
             bool_penalty[home] = True
 
         return bool_penalty
+
+    @property
+    def share_flexs(self):
+        return self.prm['loads']['share_flexs' + self.ext]
 
     def _check_constraints(
             self,
@@ -835,10 +837,9 @@ class LocalElecEnv:
                 print(f"negative tot_cons {home_vars['tot_cons'][home]} home = {home}")
                 bool_penalty[home] = True
 
-            share_flexs = self.prm['loads']['share_flexs' + self.ext]
             if last_step \
                     and home_vars['tot_cons'][home] < \
-                    self.batch['loads'][home, time_step] * (1 - share_flexs[home]):
+                    self.batch['loads'][home, time_step] * (1 - self.share_flexs[home]):
                 print(f"home = {home}, no flex cons at last time step")
                 bool_penalty[home] = True
         # self.car.revert_last_update_step()

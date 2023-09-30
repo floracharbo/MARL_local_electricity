@@ -73,13 +73,16 @@ class LocalElecTests:
             f"== len(self.prm['syst']['break_down_rewards_entries']) " \
             f"{len(self.prm['syst']['break_down_rewards_entries'])}"
 
+    @property
+    def share_flexs(self):
+        return self.env.share_flexs
+
     def check_no_flex_left_unmet(self, home_vars, loads, h):
-        share_flexs = self.prm['loads']['share_flexs' + self.ext]
         for home in range(self.n_homes):
             assert home_vars['tot_cons'][home] + 1e-3 >= loads['l_fixed'][home], \
                 f"home = {home}, no flex cons at last time step"
             assert loads['l_fixed'][home] \
-                   >= self.batch['loads'][home, h] * (1 - share_flexs[home]), \
+                   >= self.batch['loads'][home, h] * (1 - self.share_flexs[home]), \
                 f"home {home} l_fixed and batch do not match"
 
     def check_time_car_and_env_match(self, time_step):
@@ -89,16 +92,15 @@ class LocalElecTests:
     def batch_tests(self, time_step):
         if not self.test:
             return
-        share_flexs = self.env.share_flexs
         for home in range(self.n_homes):
-            fixed_to_flex = share_flexs[home] / (1 - share_flexs[home])
+            fixed_to_flex = self.share_flexs[home] / (1 - self.share_flexs[home])
             assert sum(self.batch_flex[home][time_step][1: 5]) \
                 <= sum(self.batch_flex[home][0: time_step + 1, 0]) * fixed_to_flex, \
                 "batch_flex too large time_step"
 
             assert sum(self.batch_flex[home][time_step + 1][1: 5]) <= sum(
                 self.batch_flex[home][ih][0]
-                / (1 - share_flexs[home]) * share_flexs[home]
+                / (1 - self.share_flexs[home]) * self.share_flexs[home]
                 for ih in range(0, time_step + 2)), "batch_flex too large time_step + 1"
 
             n = min(time_step + 30, len(self.batch['loads'][home]))
