@@ -859,6 +859,10 @@ class Explorer:
                 (_, _, _, voltage_squared, _, _, _, _) = env.policy_to_rewardvar(
                     None, other_input=input_take_action
                 )
+            elif self.grd['manage_voltage']:
+                voltage_squared = res['voltage_squared'][:, time_step]
+            else:
+                voltage_squared = None
             step_vals_i["reward"], break_down_rewards = env.get_reward(
                 netp=res["netp"][:, time_step],
                 discharge_tot=res["discharge_tot"][:, time_step],
