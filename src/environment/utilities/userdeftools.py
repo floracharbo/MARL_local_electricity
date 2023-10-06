@@ -182,7 +182,7 @@ def get_opt_res_file(prm, test=False):
         paths['opt_res_file' + ext] += f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
         f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
         if syst['n_homesP'] > 0:
-            paths['opt_res_file' + ext] += f"_nP{syst['n_homesP' + ext]}"
+            paths['opt_res_file' + ext] += f"_nP{syst['n_homesP']}"
         if (ext == '_test' and syst['year_test'] != syst['year']) or syst['year'] != 2021:
             paths['opt_res_file' + ext] += f"_year{syst['year' + ext]}"
         if syst['clus_dist_share'] < 1:
