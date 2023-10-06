@@ -846,6 +846,8 @@ class Explorer:
 
             step_vals_i = self.env.spaces.get_ind_global_state_action(step_vals_i)
             feasible = not any(error)
+            if not feasible:
+                break
 
             if self.grd['compare_pandapower_optimisation'] or pp_simulation_required:
                 netp0, _, _ = self.env.get_passive_vars(time_step)
@@ -925,11 +927,11 @@ class Explorer:
                 last_epoch, step_vals_i, batch, evaluation, voltage_squared
             )
 
-        if not self.rl['competitive']:
+        if not self.rl['competitive'] and feasible:
             self.tests.test_total_rewards_match(evaluation, res, sum_rl_rewards)
         if not evaluation \
                 and rl["type_learning"] in ["DDPG", "DQN", "facmac"] \
-                and rl["trajectory"]:
+                and rl["trajectory"] and feasible:
             self.learning_manager.learn_trajectory_opt(step_vals, epoch)
 
         return step_vals, feasible
