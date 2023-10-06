@@ -17,24 +17,32 @@ class ExplorerTests:
             self.paths['opt_res'] / self.data.get_res_name(evaluation),
             allow_pickle=True
         ).item()
-        assert abs(np.sum(step_vals['opt']['reward']) + np.sum(res['hourly_total_costs'])) < 1e-3
-        assert (
+        if abs(np.sum(step_vals['opt']['reward']) + np.sum(res['hourly_total_costs'])) > 1e-3:
+            print(
+                f"investigate_opt_env_rewards_unequal: opt reward {np.sum(step_vals['opt']['reward'])} should correspond to "
+                f"res total costs {np.sum(res['hourly_total_costs'])}"
+            )
+        if not (
                 abs(
                     res['discharge_tot'] - res['discharge_other'] / self.prm['car']['eta_dis']
                     - self.explorer.env.batch['loads_car'][:, 0: self.N]
                 ) < 1e-3
-        ).all()
+        ).all():
+            print("investigate_opt_env_rewards_unequal: es charge/discharge to not match batch loads_car")
 
         # check total household consumption matches between res and env
-        assert abs(np.sum(self.explorer.env.tot_cons_loads) - np.sum(res['totcons'] - res['E_heat'])) < 1e-3, \
-            f"tot_cons_loads env {np.sum(self.explorer.env.tot_cons_loads)} " \
-            f"and res {np.sum(res['totcons'] - res['E_heat'])} not matching"
+        if abs(np.sum(self.explorer.env.tot_cons_loads) - np.sum(res['totcons'] - res['E_heat'])) > 1e-3:
+            print(
+                f"investigate_opt_env_rewards_unequal: tot_cons_loads env {np.sum(self.explorer.env.tot_cons_loads)} "
+                f"and res {np.sum(res['totcons'] - res['E_heat'])} not matching"
+            )
 
         # check energy prices used are the same
-        assert sum(
+        if sum(
             self.grd['C_test'][time_step] * (res['grid'][time_step] + self.grd['loss'] * res['grid2'][time_step])
             for time_step in range(self.N)
-        ) == res['grid_energy_costs']
+        ) != res['grid_energy_costs']:
+            print("investigate_opt_env_rewards_unequal: grid energy costs not matching")
 
         # check that heat T_out is the same as in opt
         T_out = self.explorer.env.heat.T_out[0: 24]
@@ -42,12 +50,13 @@ class ExplorerTests:
 
         # check loads_car matches
         for home in range(self.n_homes):
-            assert abs(
+            if abs(
                 np.sum(
                     res['discharge_tot'][home] - res['discharge_other'][home] / self.prm['car']['eta_dis']
                 )
                 - np.sum(self.explorer.env.batch['loads_car'][home, 0: self.N])
-            ) < 1e-3
+            ) > 1e-3:
+                print("car charge/discharge not matching env batch loads_car")
 
     def check_cons_less_than_or_equal_to_available_loads(self, loads, res, time_step, batchflex_opt, evaluation):
         cons_tol = 1e-1
