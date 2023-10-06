@@ -147,6 +147,7 @@ def barplot_breakdown_savings(record, prm, plot_type='savings'):
         rs.append([x + barWidth for x in rs[ir]])
     plt.figure(figsize=(16, 8))
     for ir in range(len(new_labels)):
+        print(f"{new_labels[ir]}: {bars[ir]}")
         plt.bar(rs[ir], bars[ir], width=barWidth, label=new_labels[ir])
     plt.xlabel('Evaluation Method')
     plt.ylabel('Costs [£/month/home]')
@@ -259,7 +260,6 @@ def savings_are_individual(indiv_grid_battery_costs):
         indiv_savings = True \
             if not np.isnan(indiv_grid_battery_costs[0]['baseline'][0][0]) \
             else False
-
     return indiv_savings
 
 
@@ -274,12 +274,13 @@ def plot_histogram_all_private_savings(saving_per_month_repeat_all, prm, method)
     # plt.axvline(saving_per_month_repeat_all_2220.mean(), ls='dashed', color='orange',
     #             label='Mean monthly private saving\nwith voltage management')
     plt.hist(saving_per_month_repeat_all, histtype='stepfilled', alpha=0.3, density=True, bins=40, ec="k",
-             label='Monthly private savings (competitive)', color='green')
+             label='Monthly private savings', color='green')
     plt.axvline(saving_per_month_repeat_all.mean(), ls='dashed', color='green',
-                label='Mean monthly private saving (competitive)')
+                label='Mean monthly private saving')
     plt.legend(loc='upper left', fancybox=True)
     plt.xlabel('Monthly private savings [£]')
     plt.ylabel('Density')
+    np.save(f"{prm['paths']['fig_folder']}/saving_per_month_repeat_all_{method}.npy", saving_per_month_repeat_all)
     fig.savefig(
         f"{prm['paths']['fig_folder']}/hist_saving_per_month_repeat_all_{method}.pdf",
         bbox_inches='tight', format='pdf', dpi=1200
@@ -351,8 +352,7 @@ def plot_share_energy_battery_individual_savings(prm, share_sc, eval_not_baselin
 
         fig = plt.figure()
         for home in range(len(labels)):
-            plt.bar(rs[home], share_sc[home, i_method], width=barWidth, label=labels[home])
-        print(f"np.mean(share_sc) = {np.mean(share_sc)}")
+            plt.bar(rs[home], share_sc[home], width=barWidth, label=labels[home])
         plt.xlabel('share of individual savings from battery costs savings')
         plt.xticks(
             [r + barWidth for r in range(len(prm['RL']['evaluation_methods']))],
@@ -430,26 +430,37 @@ def barplot_indiv_savings(record, prm):
 
 def plot_voltage_statistics(record, prm):
     """ Creates plot of mean, max and number of voltage deviations per method """
-    labels = [
-        record.break_down_rewards_entries[prm['syst']['break_down_rewards_entries'].index(label)]
-        for label in [
+    if 'mean_voltage_violation' not in record.__dict__.keys() and 'max_voltage_violation' not in record.__dict__.keys():
+        labels = [
             'mean_voltage_deviation',
-            'mean_voltage_violation', 'max_voltage_violation',
-            'n_voltage_violation_bus', 'n_voltage_violation_hour'
+            # None,
+            'max_voltage_deviation',
+            'n_voltage_deviation_bus',
+            # 'n_voltage_deviation_hour'
         ]
-        if label in record.break_down_rewards_entries
-    ]
-    if 'mean_voltage_violation' not in record.__dict__.keys():
-        record.mean_voltage_violation = record.mean_voltage_deviation
-        record.mean_voltage_deviation = None
+    elif 'max_voltage_violation' not in record.__dict__.keys():
+        labels = [
+            'mean_voltage_violation',
+            # None,
+            'max_voltage_deviation',
+            'n_voltage_violation_bus',
+            # 'n_voltage_deviation_hour'
+        ]
+    else:
+        labels = [
+            'mean_voltage_violation',
+            # 'mean_voltage_deviation',
+            'max_voltage_violation',
+            'n_voltage_violation_bus',
+            # 'n_voltage_violation_hour'
+        ]
 
     for label in labels:
-        if label in record.__dict__.keys():
-            record_obj = getattr(record, label)
+        if label is None:
+            continue
+        record_obj = getattr(record, label)
         fig, ax = plt.subplots(figsize=(16, 8))
         for method in prm['RL']['evaluation_methods']:
-            if record_obj is None:
-                continue
             n = len(record_obj[0][method])
             x_axis = range(n)
             values = np.zeros((prm['RL']['n_repeats'], n))
@@ -468,11 +479,11 @@ def plot_voltage_statistics(record, prm):
     }
     for method in prm['RL']['evaluation_methods']:
         for label in labels:
-            if getattr(record, label) is None:
+            if label is None:
                 continue
             hist_values[method][label] = np.mean(
                 [
-                    np.mean(getattr(record, label)[repeat][method][prm['RL']['n_epochs']:])
+                    np.mean(getattr(record, label)[repeat][method][- prm['RL']['n_end_test']:])
                     for repeat in range(prm['RL']['n_repeats'])
                 ]
             )
@@ -481,46 +492,49 @@ def plot_voltage_statistics(record, prm):
         hist_values
     )
     y_axis_labels = [
-        'Mean \nvoltage deviation \n[p.u.]',
         'Mean \nvoltage constraint violation \n[p.u.]',
+        # 'Mean \nvoltage constraint deviation \n[p.u.]',
         'Max \nvoltage constraint violation \n[p.u.]',
-        'Number of bus-hours \nwith voltage constraint violation',
-        'Number of hours \nwith voltage constraint violation',
+        "Percentage of voltage violations\nover all buses and time steps"
+        # "Percentage of voltage violations\nover all buses and time steps"
+        # 'Number of hours \nwith voltage constraint violation'
     ]
-    # methods_hist = [
-    #     method for method in prm['RL']['evaluation_methods']
-    #     if method in ['opt_d_d', 'env_r_c', 'baseline']
-    # ]
-    methods_hist = prm['RL']['evaluation_methods']
+    methods_hist = [
+        method for method in prm['RL']['evaluation_methods']
+        if method in ['opt_d_d', 'env_r_c', 'baseline', 'opt']
+    ]
     methods_labels = {
         method: method for method in methods_hist
     }
     methods_labels['baseline'] = 'Baseline'
     methods_labels['env_r_c'] = 'MARL'
-    fig, axs = plt.subplots(3, 2, figsize=(16, 8))
-    rows = [0, 0, 1, 1, 2]
-    cols = [0, 1, 0, 1, 0]
+    methods_labels['opt'] = 'Optimal'
+    fig, axs = plt.subplots(1, 3, figsize=(16, 8))
+    # rows = [0, 0, 1, 1]
+    # cols = [0, 1, 0, 1]
     min_val, max_val = 1e10, -1e10
-    for i, (label, row, col) in enumerate(zip(labels, rows, cols)):
-        Y = [
-            hist_values[method][label]
-            if label in hist_values[method].keys()
-            else 0
-            for method in methods_hist
-        ]
+    ylims = [2.3e-3, 0.023, 18]
+    print(f"hist_values {hist_values}")
+    for i, (label, ylim) in enumerate(zip(labels, ylims)):
+        Y = [hist_values[method][label] for method in methods_hist]
+        if i == 2:
+            Y = [y/(24 * 906) * 100 for y in Y]
+        # ax = axs[row, col]
+        ax = axs[i]
         min_val = min(min_val, min(Y))
         max_val = max(max_val, max(Y))
         methods_labels_i = [methods_labels[method] for method in methods_hist]
-        axs[row, col].bar(methods_labels_i, Y, color='gray')
+        ax.bar(methods_labels_i, Y, color='gray')
         print(f"{label} {methods_labels_i} {Y}")
         # axs[row, col].set_xlabel("Learning method")
-        axs[row, col].set_ylabel(y_axis_labels[i])
+        ax.set_ylabel(y_axis_labels[i])
+        ax.set_ylim([-0.02 * ylim, ylim])
         # Set the tick label formatter to ScalarFormatter
         formatter = ScalarFormatter(useMathText=True)
         formatter.set_scientific(True)
         formatter.set_powerlimits((-3, 4))  # Adjust the power limits as needed
         # Apply the formatter to the tick labels on the y-axis
-        axs[row, col].yaxis.set_major_formatter(formatter)
+        ax.yaxis.set_major_formatter(formatter)
         # axs[row, col].set_ticklabel_format(axis='both', style='sci', scilimits=(4, 4))
 
     plt.tight_layout()
