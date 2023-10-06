@@ -5,7 +5,7 @@ import pickle
 class LocalElecTests:
     def __init__(self, env):
         self.env = env
-        for attribute in ['prm', 'N', 'n_homes', 'rl', 'test', 'max_delay']:
+        for attribute in ['prm', 'N', 'rl', 'test', 'max_delay']:
             setattr(self, attribute, getattr(env, attribute))
 
     @property
@@ -35,6 +35,14 @@ class LocalElecTests:
     @property
     def d_loaded(self):
         return self.env.d_loaded
+
+    @property
+    def share_flexs(self):
+        return self.env.share_flexs
+
+    @property
+    def n_homes(self):
+        return self.env.n_homes
 
     def check_shape_batch_flex(self, batch_flex):
         assert np.shape(batch_flex)[0] == self.n_homes, \
@@ -72,10 +80,6 @@ class LocalElecTests:
             f"len(break_down_rewards) {len(break_down_rewards)} " \
             f"== len(self.prm['syst']['break_down_rewards_entries']) " \
             f"{len(self.prm['syst']['break_down_rewards_entries'])}"
-
-    @property
-    def share_flexs(self):
-        return self.env.share_flexs
 
     def check_no_flex_left_unmet(self, home_vars, loads, h):
         for home in range(self.n_homes):
