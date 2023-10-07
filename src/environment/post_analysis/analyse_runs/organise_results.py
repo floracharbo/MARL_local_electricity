@@ -15,7 +15,7 @@ from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
 
 # plot timing vs performance for n layers / dim layers; runs 742-656
-ANNOTATE_RUN_NOS = False
+ANNOTATE_RUN_NOS = True
 FILTER_N_HOMES = False
 COLUMNS_OF_INTEREST = [
     'grd-voltage_penalty',
@@ -44,10 +44,9 @@ y_label_voltage = {
 
 FILTER = {
 	'trajectory': False,
-	'n_repeats':10,
+	'n_repeats': 10,
 	'manage_voltage':True,
 	'n_homes':55,
-    # 'n_epochs': 20,
     'type_learning': 'facmac',
 	'reactive_power_for_voltage_control': True,
 	'min_voltage':0.96,
@@ -236,7 +235,8 @@ def get_list_all_fields(results_path):
         'no_flex_action_to_target', 'N', 'n_int_per_hr', 'possible_states', 'n_all',
         'n_opti_constraints', 'dim_states_1', 'facmac-lr_decay_param',
         'facmac-critic_lr_decay_param', 'RL-n_homes_test', 'car-cap', 'RL-default_action',
-        'RL-lr', 'c_max0', 'net-version', 'test_different_to_train'
+        'RL-lr', 'c_max0', 'net-version', 'test_different_to_train', 'share_epochs_start_end_eval',
+        'compare_pandapower_optimisation',
     ]
     if IGNORE_FORCE_OPTIMISATION:
         ignore += ['syst-force_optimisation', 'device', 'ncpu', 'server']
@@ -1392,7 +1392,7 @@ def adapt_figure_for_state_space(state_space_vals, axs):
             all_mean_deviation_vals[i, idx_value] = mean_deviation_values[i][j]
             all_mean_deviation_baseline_vals[i, idx_value] = mean_deviation_baseline_values[i][j]
 
-    plt.close()
+    plt.close('all')
 
     i_sorted = np.argsort(all_x_labels)
     x_labels_sorted = [all_x_labels[i] for i in i_sorted]
