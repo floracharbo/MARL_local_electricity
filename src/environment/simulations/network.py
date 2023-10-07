@@ -119,17 +119,17 @@ class Network:
         """ Creates a matrix indicating at which bus there is a flexible agents """
         n_homes = self.n_homes_test + self.n_homes_testP if test else self.n_homes + self.n_homesP
         flex_buses = np.zeros((len(self.net.bus), n_homes))
-        free_buses = [i for i in range(len(self.net.bus)) if i not in self.existing_homes_network]
-        free_buses.remove(0)
+        self.free_buses = [i for i in range(len(self.net.bus)) if i not in self.existing_homes_network]
+        self.free_buses.remove(0)
         self.home_to_bus = np.zeros(n_homes)
         for i in range(n_homes):
             if i < len(self.existing_homes_network):
                 flex_buses[self.existing_homes_network[i], i] = 1
                 self.home_to_bus[i] = self.existing_homes_network[i]
             else:
-                bus = random.choice(free_buses)
+                bus = random.choice(self.free_buses)
                 flex_buses[bus, i] = 1
-                free_buses.remove(bus)
+                self.free_buses.remove(bus)
                 self.home_to_bus[i] = bus
 
         return flex_buses
@@ -138,8 +138,15 @@ class Network:
         """ Creates a matrix indicating at which bus there is a non-flexible home """
         if self.n_passive_homes > 0:
             passive_buses = np.zeros((len(self.net.bus), self.n_passive_homes))
-            for i in range(self.n_passive_homes):
-                passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
+            n_passive_homes_on_existing_homes = min(self.n_passive_homes, len(self.existing_homes_network) - self.n_homes)
+            for i in range(n_passive_homes_on_existing_homes):
+                if i < min(self.n_passive_homes, len(self.existing_homes_network) - self.n_homes):
+                    bus = self.existing_homes_network[i + self.n_homes]
+                else:
+                    bus = random.choice(self.free_buses)
+                    self.free_buses.remove(bus)
+                passive_buses[bus, i] = 1
+                self.home_to_bus[i] = bus
         else:
             passive_buses = np.zeros((len(self.net.bus), 0))
 
