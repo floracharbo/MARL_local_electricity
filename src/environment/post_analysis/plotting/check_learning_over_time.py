@@ -45,9 +45,11 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
     plt.ylabel(labels[i_action])
     plt.xlabel("Epoch")
     title = f"actions {evaluation_method} {labels[i_action]} {repeat}"
-    title_and_save(title, fig, prm)
+    title_and_save(title, fig, prm, display_title=False)
 
 
+# 'Flexible EV charge action [-]',
+# 'Flexible battery reactive power action'
 def plot_eval_action(record, prm):
     """Plot actions selected during evaluation phase over the epochs for all repeats."""
     actions = record.eval_actions
