@@ -381,6 +381,7 @@ def barplot_indiv_savings(record, prm):
         np.zeros((prm['syst']['n_homes_test'], len(eval_not_baseline)))
         for _ in range(9)
     ]
+    savings_per_repeat = np.zeros((prm['RL']['n_repeats'], len(eval_not_baseline)))
     for i_method, method in enumerate(eval_not_baseline):
         all_saving_per_month_repeat = np.zeros((prm['RL']['n_repeats'], prm['RL']['n_homes_test']))
         for home in range(prm['syst']['n_homes_test']):
@@ -392,6 +393,7 @@ def barplot_indiv_savings(record, prm):
                          for repeat in range(prm['RL']['n_repeats'])])
                 for reward in [record.indiv_grid_battery_costs, record.indiv_grid_energy_costs]
             ]
+
             share_sc[home, i_method] = savings_battery_degradation_costs_a \
                 / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
             indiv_grid_battery_costs = record.indiv_grid_battery_costs
@@ -415,11 +417,65 @@ def barplot_indiv_savings(record, prm):
             p10_savings[home, i_method] = np.percentile(saving_per_month_repeat, 10)
             p90_savings[home, i_method] = np.percentile(saving_per_month_repeat, 90)
             std_savings[home, i_method] = np.std(saving_per_month_repeat)
+            savings_per_repeat[:, i_method] = saving_per_month_repeat
         saving_per_month_repeat_all = np.array(all_saving_per_month_repeat).flatten()
 
         plot_histogram_all_private_savings(saving_per_month_repeat_all, prm, method)
 
     print_opt_d_d_savings(eval_not_baseline, savings_a, prm)
+    share_sc_neg_pos, share_sc_pos_pos, share_sc_neg_neg, share_sc_pos_neg = [
+        np.full((len(eval_not_baseline), prm['syst']['n_homes_test'], prm['RL']['n_repeats'], prm['RL']['n_epochs']), np.nan) for _ in
+        range(4)]
+    for i_method, method in enumerate(eval_not_baseline):
+        for home in range(prm['syst']['n_homes_test']):
+            for repeat in range(prm['RL']['n_repeats']):
+                for epoch in range(prm['RL']['n_epochs']):
+                    savings_battery_degradation_costs_a, savings_grid_energy_costs_a = [
+                        reward[repeat]['baseline'][epoch][home] - reward[repeat][method][epoch][home]
+                        for reward in [record.indiv_grid_battery_costs, record.indiv_grid_energy_costs]
+                    ]
+                    share_sc_ = savings_battery_degradation_costs_a \
+                        / (savings_battery_degradation_costs_a + savings_grid_energy_costs_a)
+                    if savings_battery_degradation_costs_a < 0 and savings_grid_energy_costs_a < 0:
+                        share_sc_neg_neg[i_method, home, repeat, epoch] = share_sc_
+                    elif savings_battery_degradation_costs_a < 0 and savings_grid_energy_costs_a > 0:
+                        share_sc_neg_pos[i_method, home, repeat, epoch] = share_sc_
+                    elif savings_battery_degradation_costs_a > 0 and savings_grid_energy_costs_a < 0:
+                        share_sc_pos_neg[i_method, home, repeat, epoch] = share_sc_
+                    elif savings_battery_degradation_costs_a > 0 and savings_grid_energy_costs_a > 0:
+                        share_sc_pos_pos[i_method, home, repeat, epoch] = share_sc_
+
+    n_tot = np.prod(np.shape(share_sc_neg_neg))
+    print(f'share_sc_neg battery costs _neg energy costs {np.nanmean(share_sc_neg_neg)} (n={np.count_nonzero(~np.isnan(share_sc_neg_neg))/n_tot})')
+    print(f'share_sc_neg_pos {np.nanmean(share_sc_neg_pos)} (n={np.count_nonzero(~np.isnan(share_sc_neg_pos))/n_tot})')
+    print(f'share_sc_pos_neg {np.nanmean(share_sc_pos_neg)} (n={np.count_nonzero(~np.isnan(share_sc_pos_neg))/n_tot})')
+    print(f'share_sc_pos_pos {np.nanmean(share_sc_pos_pos)} (n={np.count_nonzero(~np.isnan(share_sc_pos_pos))/n_tot})')
+
+    # plot variation per home and epoch within repeat
+    for repeat in [1, 4]:
+        savings_a_all_repeat1 = [
+            [
+                (
+                        indiv_grid_battery_costs[repeat]['baseline'][epoch][home]
+                        - indiv_grid_battery_costs[repeat][method][epoch][home]
+                ) * prm['syst']['interval_to_month']
+                for epoch in range(prm['RL']['n_epochs'], prm['RL']['n_all_epochs'])
+            ]
+            for home in range(prm['RL']['n_homes'])
+        ]
+        print(f"repeat {repeat} np.mean across homes and epochs: {np.mean(savings_a_all_repeat1)}")
+        print(f"repeat {repeat} np.std across homes and epochs: {np.std(savings_a_all_repeat1)}")
+        print(f"repeat {repeat} np.std across homes: {np.std(np.mean(savings_a_all_repeat1, axis=1))}")
+        print(f"repeat {repeat} np.std across epochs: {np.std(np.mean(savings_a_all_repeat1, axis=0))}")
+
+        # Turn off interactive mode
+        plt.ioff()
+
+        fig = plt.figure()
+        plt.imshow(savings_a_all_repeat1, cmap='hot', interpolation='nearest')
+        title = f'savings_a_all_repeat{repeat}_per_home_and_epoch'
+        title_and_save(title, fig, prm)
+        plt.close('all')
 
     # plot total individual savings
     plot_bar_plot_individual_savings_per_home(prm, savings_a, min_savings, max_savings, eval_not_baseline)
@@ -509,7 +565,7 @@ def plot_voltage_statistics(record, prm):
     methods_labels['baseline'] = 'Baseline'
     methods_labels['env_r_c'] = 'MARL'
     methods_labels['opt'] = 'Optimal'
-    fig, axs = plt.subplots(1, 3, figsize=(16, 8))
+    fig, axs = plt.subplots(1, 3, figsize=(8, 4))
     # rows = [0, 0, 1, 1]
     # cols = [0, 1, 0, 1]
     min_val, max_val = 1e10, -1e10
