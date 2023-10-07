@@ -253,7 +253,7 @@ def video_visit_states(
             else:
                 figname = f'fig{epoch}'
                 fig.savefig(figname)
-                plt.close()
+                plt.close('all')
                 frame = cv2.imread(figname + '.png', 1)
                 os.remove(figname + '.png')
                 out.write(frame)

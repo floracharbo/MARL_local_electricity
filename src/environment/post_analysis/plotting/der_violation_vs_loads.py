@@ -104,6 +104,5 @@ plt.ylabel("Number of homes causing voltage constraint violations\nnormalised by
 # plt.title("Normalised number of homes causing voltage constraint violations")
 plt.legend()
 fig.gca().set_yscale('log')
-plt.show()
 fig.savefig("/Users/floracharbonnier/n_homes_violation_normalised.pdf", bbox_inches='tight', format='pdf', dpi=1200)
 plt.close('all')

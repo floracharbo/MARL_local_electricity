@@ -647,7 +647,6 @@ def _plot_noisy_deterministic_inputs(prm, batch_entries, record, repeat):
                             cbar=True, ax=axs[home])
         title = f"noisy repeat {repeat} {e}"
         title_and_save(title, fig, prm)
-        fig.show()
         fig.savefig(e)
 
 

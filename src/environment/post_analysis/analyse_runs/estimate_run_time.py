@@ -55,8 +55,6 @@ plt.plot(list(range(x_new)), [c * x ** 2 + d for x in list(range(x_new))],
 plt.plot(list(range(x_new)), [x ** e + f for x in list(range(x_new))],
          label='exponential')
 plt.legend()
-plt.show()
-
 
 for f, name, params in zip([first_order, second, exponential],
                            ['first_order', 'second', 'exponential'],
