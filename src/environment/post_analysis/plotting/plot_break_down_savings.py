@@ -453,6 +453,8 @@ def barplot_indiv_savings(record, prm):
 
     # plot variation per home and epoch within repeat
     for repeat in [1, 4]:
+        if repeat not in indiv_grid_battery_costs:
+            continue
         savings_a_all_repeat1 = [
             [
                 (
