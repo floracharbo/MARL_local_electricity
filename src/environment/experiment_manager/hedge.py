@@ -1045,7 +1045,7 @@ class HEDGE:
     def _init_params(self, prm):
         # add relevant parameters to object properties
         for info in [
-            'data_types', 'n_items', 'n_items_gen', 'clus_dist_share', 'dem_intervals', 'month0'
+            'data_types', 'n_items', 'clus_dist_share', 'dem_intervals', 'month0'
         ]:
             setattr(self, info, prm['syst'][info])
         self.own_loads = prm['loads']['own_loads' + self.ext]
