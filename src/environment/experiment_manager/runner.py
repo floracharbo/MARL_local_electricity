@@ -17,19 +17,16 @@ import numpy as np
 import torch as th
 from tqdm import tqdm
 
+import src.environment.initialisation.input_data as input_data
+import src.environment.utilities.userdeftools as utils
 from src.environment.experiment_manager.explorer import Explorer
 from src.environment.initialisation.initialise_objects import \
     initialise_objects
-from src.environment.initialisation.input_data import (get_settings_i,
-                                                       input_paths,
-                                                       load_existing_prm)
 from src.environment.post_analysis.plotting.plot_summary_no_agents import \
     plot_results_vs_nag
 from src.environment.post_analysis.post_processing import post_processing
 from src.environment.simulations.local_elec import LocalElecEnv
-from src.environment.utilities.userdeftools import (
-    data_source, initialise_dict, methods_learning_from_exploration,
-    reward_type, set_seeds_rdn, should_optimise_for_supervised_loss)
+from src.environment.utilities.userdeftools import test_str
 from src.learners.DDPG import Learner_DDPG
 from src.learners.DDQN import Agent_DDQN
 from src.learners.DQN import Agent_DQN
@@ -85,7 +82,7 @@ class Runner:
                     steps_vals, date0, delta, i0_costs, exploration_methods \
                         = self._exploration_episode(
                             repeat, epoch, i_explore, date0, delta, i0_costs,
-                            new_env, evaluation=False, evaluation_add1=False
+                            new_env, evaluation_add1=False
                         )
                     train_steps_vals.append(steps_vals)
 
@@ -109,10 +106,12 @@ class Runner:
                 evaluations_methods = self._check_if_opt_env_needed(epoch, evaluation=True)
                 assert i_explore + 1 == self.rl['n_explore']
 
+                time_start_test = time.time()
                 eval_steps, _ = self.explorer.get_steps(
                     evaluations_methods, repeat, epoch, self.rl['n_explore'],
                     evaluation=True, new_episode_batch=self.new_episode_batch
                 )
+                duration_test = time.time() - time_start_test
 
                 # record
                 for info in ['seed', 'n_not_feas']:
@@ -126,7 +125,7 @@ class Runner:
                 )
                 self.record.end_epoch(
                     epoch, eval_steps, list_train_stepvals,
-                    self.rl, self.learner, duration_epoch
+                    self.rl, self.learner, duration_epoch, duration_test
                 )
 
                 if self.rl['deterministic']:
@@ -134,6 +133,7 @@ class Runner:
                 self._end_of_epoch_parameter_updates(repeat, epoch)
 
             # then do evaluation only for one month, no learning
+            evaluations_methods = self._check_if_opt_env_needed(epoch + 1, evaluation=True)
             self._end_evaluation(
                 repeat, new_env, evaluations_methods, i0_costs, delta, date0
             )
@@ -273,30 +273,33 @@ class Runner:
 
         return episode, converged
 
-    def _set_date(self,
-                  repeat,
-                  epoch,
-                  i_explore,
-                  date0,
-                  delta,
-                  i0_costs,
-                  new_env
-                  ) -> Tuple[date, timedelta, int]:
+    def _set_date(
+            self,
+            repeat,
+            epoch,
+            i_explore,
+            date0,
+            delta,
+            i0_costs,
+            new_env,
+            evaluation=False
+    ) -> Tuple[date, timedelta, int]:
         if self.rl['deterministic'] > 0:
             new_date = True if epoch == 0 and i_explore == 0 and new_env == 1 \
                 else False
         else:
             new_date = True if self.prm['syst']['change_start'] else False
         if new_date:
+            test_str_ = test_str(evaluation)
             seed = self.explorer.data.get_seed_ind(repeat, epoch, i_explore)
-            set_seeds_rdn(seed)
+            utils.set_seeds_rdn(seed)
             delta_days = int(np.random.choice(range(
-                (self.prm['syst']['max_date_end_dtm']
-                    - self.prm['syst']['date0_dtm']).days
+                (self.prm['syst'][f'max_date_end{test_str_}_dtm']
+                    - self.prm['syst'][f'date0{test_str_}_dtm']).days
                 - self.prm['syst']['D'])))
-            date0 = self.prm['syst']['date0_dtm'] \
+            date0 = self.prm['syst'][f'date0{test_str_}_dtm'] \
                 + datetime.timedelta(days=delta_days)
-            delta = date0 - self.prm['syst']['date0_dtm']
+            delta = date0 - self.prm['syst'][f'date0{test_str_}_dtm']
             i0_costs = int(delta.days * 24 + delta.seconds / 3600)
             self.env.update_date(i0_costs, date0)
 
@@ -304,10 +307,10 @@ class Runner:
 
     def _facmac_episode_batch_insert_and_sample(self, epoch):
         for t_explo in self.rl["exploration_methods"]:
-            methods_to_update = methods_learning_from_exploration(t_explo, epoch, self.rl)
+            methods_to_update = utils.methods_learning_from_exploration(t_explo, epoch, self.rl)
             for method in methods_to_update:
-                diff = True if reward_type(method) == 'd' else False
-                opt = True if data_source(method) == 'opt' else False
+                diff = True if utils.reward_type(method) == 'd' else False
+                opt = True if utils.data_source(method) == 'opt' else False
 
                 self.buffer[method].insert_episode_batch(
                     self.episode_batch[method], difference=diff, optimisation=opt
@@ -331,7 +334,7 @@ class Runner:
                     )
 
     def _train_vals_to_list(self, train_steps_vals, exploration_methods, i_explore):
-        list_train_stepvals = initialise_dict(self.rl["exploration_methods"], type_obj='empty_dict')
+        list_train_stepvals = {method: {} for method in self.rl["exploration_methods"]}
         train_vals = [
             info for info in train_steps_vals[0][self.rl["exploration_methods"][0]].keys()
             if info not in ['seeds', 'n_not_feas']
@@ -343,6 +346,8 @@ class Runner:
                 if (
                     info[0: len('indiv')] == 'indiv'
                     or info in self.prm['syst']['indiv_step_vals_entries']
+                    or (info == 'reward' and self.prm['RL']['competitive'])
+
                 ):
                     shape0 = list(shape0)
                     shape0[1] = self.n_homes
@@ -358,6 +363,7 @@ class Runner:
                             if (
                                 info[0: len('indiv')] == 'indiv'
                                 or info in self.prm['syst']['indiv_step_vals_entries']
+                                or (info == 'reward' and self.prm['RL']['competitive'])
                             ):
                                 list_train_stepvals[method][info][
                                     i_explore * self.N: (i_explore + 1) * self.N
@@ -405,7 +411,7 @@ class Runner:
 
     def _check_if_opt_env_needed(self, epoch, evaluation=False):
         opts_in_eval = sum(
-            method != 'opt' and method[0: 3] == 'opt' for method in self.rl["evaluation_methods"]
+            method != "opt" and method.startswith("opt") for method in self.rl["evaluation_methods"]
         ) > 0
         opt_stage = False
         for method in self.rl["evaluation_methods"]:
@@ -430,7 +436,7 @@ class Runner:
             types_needed = candidate_types
         if opt_stage:
             types_needed = [method for method in types_needed if len(method.split("_")) < 5]
-        if should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' not in types_needed:
+        if utils.should_optimise_for_supervised_loss(epoch, self.rl) and 'opt' not in types_needed:
             types_needed.append('opt')
 
         return types_needed
@@ -463,19 +469,19 @@ class Runner:
 
     def _exploration_episode(
             self, repeat, epoch, i_explore, date0, delta,
-            i0_costs, new_env, evaluation=False, evaluation_add1=False,
+            i0_costs, new_env, evaluation_add1=False,
             set_date=True
     ):
         if set_date:
             date0, delta, i0_costs = self._set_date(
-                repeat, epoch, i_explore, date0, delta, i0_costs, new_env
+                repeat, epoch, i_explore, date0, delta, i0_costs, new_env, evaluation=False
             )
 
         # exploration - obtain experience
-        exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=evaluation)
+        exploration_methods = self._check_if_opt_env_needed(epoch, evaluation=False)
         steps_vals, self.episode_batch = self.explorer.get_steps(
             exploration_methods, repeat, epoch, i_explore,
-            new_episode_batch=self.new_episode_batch, evaluation=evaluation
+            new_episode_batch=self.new_episode_batch, evaluation=False
         )
 
         return steps_vals, date0, delta, i0_costs, exploration_methods
@@ -506,19 +512,19 @@ class Runner:
                 tqdm(range(self.rl['n_epochs'], self.rl['n_all_epochs']),
                      position=0, leave=True):
             t_start = time.time()  # start recording time
-            date0, delta, i0_costs = \
-                self._set_date(
-                    repeat, epoch_test, i_explore, date0,
-                    delta, i0_costs, new_env
-                )
+            date0, delta, i0_costs = self._set_date(
+                repeat, epoch_test, i_explore, date0,
+                delta, i0_costs, new_env, evaluation=True
+            )
             eval_steps, _ = self.explorer.get_steps(
                 evaluations_methods, repeat, epoch_test, self.rl['n_explore'],
-                evaluation=True, new_episode_batch=self.new_episode_batch)
+                evaluation=True, new_episode_batch=self.new_episode_batch
+            )
             duration_epoch = time.time() - t_start
-
+            duration_test = duration_epoch
             self.record.end_epoch(
                 epoch_test, eval_steps, None,
-                self.rl, self.learner, duration_epoch, end_test=True
+                self.rl, self.learner, duration_epoch, duration_test, end_test=True
             )
 
     def _post_exploration_learning(self, epoch, train_steps_vals):
@@ -577,7 +583,10 @@ def print_description_run(prm, settings):
     for key, setting in settings.items():
         for subkey, subsetting in setting.items():
             if subkey not in base_RL_settings:
-                description_run += f"settings[{key}][{subkey}] {subsetting}"
+                if subkey[0:3] == 'own':
+                    description_run += f"prm[{key}][{subkey}] {sum(subsetting) / len(subsetting)}"
+                else:
+                    description_run += f"settings[{key}][{subkey}] {subsetting}"
 
     print(description_run)
     prm['save']['description_run'] = description_run
@@ -586,7 +595,7 @@ def print_description_run(prm, settings):
 
 
 def run(run_mode, settings, no_runs=None):
-    prm = input_paths()
+    prm = input_data.input_paths()
 
     if run_mode == 1:
         # obtain the number of runs from the longest settings entry
@@ -600,20 +609,27 @@ def run(run_mode, settings, no_runs=None):
             start_time = time.time()  # start recording time
             # obtain run-specific settings
 
-            settings_i = get_settings_i(settings, i)
+            settings_i = input_data.get_settings_i(settings, i)
             fewer_than_10_homes = settings_i['syst']['n_homes'] < 10
             if 'type_learning' not in settings_i['RL']:
                 settings_i['RL']['type_learning'] = 'q_learning' if fewer_than_10_homes \
                     else 'facmac'
-                settings_i['RL']['trajectory'] = False if fewer_than_10_homes \
-                    else True
                 settings_i['RL']['evaluation_methods'] = None if fewer_than_10_homes \
                     else 'env_r_c'
+
+                if 'trajectory' not in settings_i['RL']:
+                    settings_i['RL']['trajectory'] = False if fewer_than_10_homes \
+                        else True
+
             else:
                 if 'trajectory' not in settings_i['RL']:
-                    settings_i['RL']['trajectory'] = True if settings_i['RL']['type_learning'] == 'facmac' else False
+                    settings_i['RL']['trajectory'] = True \
+                        if settings_i['RL']['type_learning'] == 'facmac' \
+                        else False
                 if 'evaluation_methods' not in settings['RL']:
-                    settings_i['RL']['evaluation_methods'] = 'env_r_c' if settings_i['RL']['type_learning'] == 'facmac' else None
+                    settings_i['RL']['evaluation_methods'] = 'env_r_c' \
+                        if settings_i['RL']['type_learning'] == 'facmac' \
+                        else None
 
             trajectory = settings_i['RL']['trajectory']
             values_traj = {
@@ -634,7 +650,7 @@ def run(run_mode, settings, no_runs=None):
 
             if prm['RL']['type_learning'] == 'facmac':
                 # Setting the random seed throughout the modules
-                set_seeds_rdn(prm["syst"]["seed"])
+                utils.set_seeds_rdn(prm["syst"]["seed"])
 
             env = LocalElecEnv(prm)
             # second part of initialisation specifying environment
@@ -652,11 +668,17 @@ def run(run_mode, settings, no_runs=None):
 
     # post learning analysis / plotting
     elif run_mode == 2:
+        list_runs = [
+            int(file_name[3:]) for file_name in os.listdir('outputs/results') if file_name[0] != '.'
+        ]
         if isinstance(no_runs, int):
             no_runs = [no_runs]  # the runs need to be in an array
 
         for no_run in no_runs:
-            rl, prm = load_existing_prm(prm, no_run)
+            if no_run not in list_runs:
+                print(f"run {no_run} not found")
+                continue
+            rl, prm = input_data.load_existing_prm(prm, no_run)
 
             prm, record = initialise_objects(prm, no_run=no_run, run_mode=run_mode)
             # make user defined environment

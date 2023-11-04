@@ -16,20 +16,20 @@ matplotlib.rc('font', **font)
 save_label = 'new_july23_2'
 plot_times = True
 
-compare_times = ['OMQ']
-# , 'FD']
+compare_times = ['OMQ'
+, 'FD']
 labels = {
     'IQ': 'Independent Q-learning',
     'OIQ': 'Optimisation-informed independent Q-learning',
-    'AQ': 'Advantage-based Q-learning',
-    'OAQ': 'Optimisation-informed, Advantage-based Q-learning',
+    # 'AQ': 'Advantage-based Q-learning',
+    # 'OAQ': 'Optimisation-informed, Advantage-based Q-learning',
     'MQ': 'Marginal reward Q-learning',
     'OMQ': 'Optimisation-informed, marginal reward Q-learning',
     # 'OCQ': 'Optimisation-informed, count-based Q-learning',
 
     'opt': 'Optimal',
-    # 'FD': 'Centralised but factored critic',
-    # 'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
+    'FD': 'Centralised but factored critic',
+    'FDO': 'Optimisation-informed  FACMAC (day-ahead)',
     # 'FH': 'FACMAC',  # (hourly)
     # 'FHO': 'Optimisation-informed FACMAC (hourly)'
 }
@@ -81,7 +81,8 @@ opt_informed = {
 # runQ = [418, 419, 420, 489]
 # runQ = list(range(1216, 1222)) + list(range(1467, 1471))
 # runQ = list(range(1516, 1526))
-runQ = list(range(1517, 1526)) + [1570]
+# runQ = list(range(1517, 1526)) + [1570]
+runQ = [1660] + list(range(1647, 1656))
 
 # for impacts varying n testing homes
 # runQ = [2196, 2210]
@@ -238,12 +239,9 @@ for line_label in labels.keys():
         runs[line_label] = runs[line_label][0]
     for i, run in enumerate(runs[line_label]):
         if run is not None:
-            try:
-                n_homes_i = log.loc[
-                    log['run'] == run, 'n_homes'
-                ].values[0]
-            except Exception as ex:
-                print(ex)
+            n_homes_i = log.loc[
+                log['run'] == run, 'n_homes'
+            ].values[0]
             if n_homes_i in n_homes:
                 n_home_to_run[line_label][n_homes_i] = run
                 values_i = n_homes.index(n_homes_i)
@@ -289,27 +287,51 @@ for line_label in labels.keys():
         ax0.title.set_text('a')
 
     if plot_times and line_label in compare_times:
+        time_end_ = time_end[mask]
+        if line_label == 'OMQ':
+            time_end_ = np.array([677.3949084,
+                                     1112.966202,
+                                     1561.278003,
+                                     2023.808341,
+                                     2523.682673,
+                                     5469.413578,
+                                     9197.885538,
+                                     13694.25507,
+                                     18816.5943,
+                                     24670.05158])
+        elif line_label == 'FD':
+            time_end_ = np.array([170.0188396,
+                                     97.94422889,
+                                     117.6901603,
+                                     236.0045609,
+                                     335.8083498,
+                                     337.6679354,
+                                     522.1084502,
+                                     514.4204128,
+                                     693.0230236])
+            if len(time_end_) != len(np.array(n_homes)[mask]):
+                time_end_ = np.append(time_end_, 2880.282562)
         axs[1].plot(
-            np.array(n_homes)[mask], time_end[mask], 'o',
+            np.array(n_homes)[mask], time_end_, 'o',
             color=colour
         )
-        ys_time[line_label] = time_end
+        ys_time[line_label] = time_end_
         function = polynomial2
         # if line_label == 'OMQ' else first_order
         if sum(~np.isnan(time_end)) > 2:
             i_n_homes_fit = [i for i, home in enumerate(list(np.array(n_homes)[mask])) if home in n_homes_fit_time]
-            homes_fit, time_end_fit = np.array(n_homes)[mask][i_n_homes_fit], time_end[mask][i_n_homes_fit]
+            homes_fit, time_end_fit = np.array(n_homes)[mask][i_n_homes_fit], time_end_[i_n_homes_fit]
+
             popt, pcov = optimize.curve_fit(function, homes_fit, time_end_fit)
             coeffs = popt
             max_n_homes = n_homes[np.where(mask)[0][-1]]
             xs = list(range(1, max_n_homes + 1))
             f_fitted = [function(x, *coeffs) for x in xs]
             # if line_label == 'OMQ':
-            if True:
-                label = r'$y = $'\
-                    + f'{coeffs[0]:.0f}' + r'$x^2 $'\
-                    + f' + {coeffs[1]:.0f}' + r'$x $'\
-                    + f' + {coeffs[2]:.0f}'
+            label = r'$y = $'\
+                + f'{coeffs[0]:.0f}' + r'$x^2 $'\
+                + f' + {coeffs[1]:.0f}' + r'$x $'\
+                + f' + {coeffs[2]:.0f}'
             # else:
             #     label = r'$y = $' \
             #             + f'{coeffs[0]:.1f}' + r'$x$' \
@@ -325,7 +347,7 @@ for line_label in labels.keys():
 ax0.set_xlim(0, max_n_homes * 1.05)
 ax0.set_ylim(- 120, 125)
 ax0.set_ylabel("Savings [£/home/month]")
-ax0.legend(fancybox=True, loc='lower right')
+# ax0.legend(fancybox=True, loc='lower right')
 
 if plot_times:
     axs[1].set_yscale('log')
@@ -443,6 +465,8 @@ if plot_times:
         if line_label in ys_time and len(ys_time[line_label]) > 0:
             xs = n_homes
             ys = ys_time[line_label]
+            if len(ys) < len(xs):
+                xs = xs[:len(ys)]
             fig = plt.figure()
             plt.plot(xs, ys, 'o', label='data')
 
@@ -458,7 +482,11 @@ if plot_times:
                 mask = ~np.isnan(ys)
                 if sum(mask) > 4:
                     xs, ys = np.array(xs)[mask], ys[mask]
-                    params, pcov = optimize.curve_fit(function, xs, ys)
+                    try:
+                        params, pcov = optimize.curve_fit(function, xs, ys)
+                    except Exception as ex:
+                        print(f"{label_func}: {ex}")
+                        continue
                     fitted = [function(x, *params) for x in list(range(1, x_max + 1))]
                     sum_square_error = sum((y_fitted - y) ** 2 for y_fitted, y in zip(fitted, ys))
                     print(f"sum square error {sum_square_error:.2e}")

@@ -1,6 +1,7 @@
 # battery
 dep: 0.0152 # 20.e-3 * 0.76 # 20e-3 * 0.76 GBP/kWh cost of battery depreciation from Mortsyn multiclass 2019 / 3.2p/kWh V2GB
-c_max: 6.6  # kWh max battery charge per time interval (based on kW charging rate)
+#c_max: 6.6  # kWh max battery charge per time interval (based on kW charging rate)
+c_max: 9.759928631734544  #  np.sqrt((6.6/car['eta_ch'])**2*(1 + car['pf_passive_homes'] ** 2))
 # Max active power delivered by and to the car battery by a convetional charger in kW
 # from 'Reactive power support in residential LV distribution grids through electric vehicle charging', 2015
 # for a supercharger, max_active_power_car = 150 kW (Tesla V2)

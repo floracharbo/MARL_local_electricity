@@ -143,16 +143,17 @@ def _naming_file_extension_network_parameters(grd):
                     file_extension += f"_subset_losses{grd['subset_line_losses_modelled']}"
                 if grd['reactive_power_for_voltage_control']:
                     file_extension += '_q_action'
+    if grd['manage_voltage'] and grd['compare_pandapower_optimisation']:
+        file_extension += '_pp'
 
     return file_extension
 
 
 def get_opt_res_file(prm, test=False):
-    syst, heat, car, loads, paths, rl, grd = [
-        prm[info] for info in ['syst', 'heat', 'car', 'loads', 'paths', 'RL', 'grd']
+    syst, heat, car, loads, paths, rl, grd, gen = [
+        prm[info] for info in ['syst', 'heat', 'car', 'loads', 'paths', 'RL', 'grd', 'gen']
     ]
 
-    ext = '_test' if test else ''
     if np.all(car['caps'] == car['cap']):
         cap_str = f"car_cap{car['cap']}"
     else:
@@ -172,54 +173,62 @@ def get_opt_res_file(prm, test=False):
     for der, f0 in zip(['car', 'gen', 'loads'], [8, 8, 9]):
         if prm['syst']['f0'][der] != f0:
             cap_str += f"_f0_{der}_{prm['syst']['f0'][der]}"
-    paths['opt_res_file'] = \
-        f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
-        f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
-        f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
-    if syst['n_homesP'] > 0:
-        paths['opt_res_file'] += f"_nP{syst['n_homesP' + ext]}"
-    # if syst['n_homes_test'] != syst['n_homes']:
-    #     opt_res_file += f"_ntest{syst['n_homes_test']}"
-    if syst['clus_dist_share'] < 1:
-        paths['opt_res_file'] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
-    if "file" in heat and heat["file"] != "heat.yaml":
-        paths['opt_res_file'] += f"_{heat['file']}"
+    opt_res_file0 = f"_D{syst['D']}_H{syst['H']}_{syst['solver']}_Uval{heat['Uvalues']}" \
 
-    for obj, label in zip([car, heat, loads], ['car', 'heat', 'loads']):
-        ownership = np.array(obj[f'own_{label}'])
-        if sum(ownership) != len(ownership):
-            paths['opt_res_file'] += f"_no_{label}"
-            homes = np.where(ownership == 0)[0]
-            if len(homes) == 1:
-                paths['opt_res_file'] += f"_{homes[0]}"
-            elif all(homes[1:] == homes[:-1] + 1):
-                paths['opt_res_file'] += f"_{homes[0]}_to_{homes[-1]}"
-            else:
-                for home in np.where(ownership == 0)[0]:
-                    paths['opt_res_file'] += f"_{home}"
+    for ext in ['_test', '']:
+        if ext not in syst["n_homes_extensions_all"]:
+            continue
+        paths['opt_res_file' + ext] = opt_res_file0
+        paths['opt_res_file' + ext] += f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
+            f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
+        if syst['n_homesP'] > 0:
+            paths['opt_res_file' + ext] += f"_nP{syst['n_homesP']}"
+        if (ext == '_test' and syst['year_test'] != syst['year']) or syst['year'] != 2021:
+            paths['opt_res_file' + ext] += f"_year{syst['year' + ext]}"
+        if syst['clus_dist_share'] < 1:
+            paths['opt_res_file' + ext] += f"_clus_share{int(syst['clus_dist_share'] * 100)}"
+        if "file" in heat and heat["file"] != "heat.yaml":
+            paths['opt_res_file' + ext] += f"_{heat['file']}"
 
-    paths["seeds_file"] = f"outputs/seeds/seeds{paths['opt_res_file']}"
-    if rl["deterministic"] == 2:
-        for file in ["opt_res_file", "seeds_file"]:
-            paths[file] += "_noisy"
+        for obj, label in zip(
+                [car, heat, loads, loads, gen], ['car', 'heat', 'loads', 'flex', 'PV']
+        ):
+            ownership = np.array(obj[f'own_{label}' + ext])
+            if sum(ownership) != len(ownership):
+                paths['opt_res_file' + ext] += f"_no_{label}"
+                homes = np.where(ownership == 0)[0]
+                if len(homes) == 1:
+                    paths['opt_res_file' + ext] += f"_{homes[0]}"
+                elif all(homes[1:] == homes[:-1] + 1):
+                    paths['opt_res_file' + ext] += f"_{homes[0]}_to_{homes[-1]}"
+                else:
+                    for home in np.where(ownership == 0)[0]:
+                        paths['opt_res_file' + ext] += f"_{home}"
 
-    for file in ["opt_res_file", "seeds_file"]:
         if rl["deterministic"] == 2:
-            paths[file] += "_noisy"
-        paths[file] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
-                       f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
-        if file == "opt_res_file" and prm["syst"]["change_start"]:
-            paths["opt_res_file"] += "_changestart"
-        paths[file] += _naming_file_extension_network_parameters(grd)
+            paths['opt_res_file' + ext] += "_noisy"
+        paths['opt_res_file' + ext] += f"_r{rl['n_repeats']}_epochs{rl['n_epochs']}" \
+            f"_explore{rl['n_explore']}_endtest{rl['n_end_test']}"
+        if prm["syst"]["change_start"]:
+            paths["opt_res_file" + ext] += "_changestart"
+        paths['opt_res_file' + ext] += _naming_file_extension_network_parameters(grd)
         # eff does not matter for seeds, but only for res
-        if file == "opt_res_file" and prm["car"]["efftype"] == 1:
-            paths["opt_res_file"] += "_eff1"
+        if prm["car"]["efftype"] == 1:
+            paths["opt_res_file" + ext] += "_eff1"
+        if grd['quadratic_voltage_penalty']:
+            paths["opt_res_file" + ext] += "_quadratic_voltage"
 
-        paths[file] += ".npy"
+        paths['opt_res_file' + ext] += ".npy"
 
-    if paths['opt_res_file'] not in paths['files_list']:
-        paths['files_list'].append(paths['opt_res_file'])
-    paths['opt_res_file_no'] = f"{paths['files_list'].index(paths['opt_res_file'])}.npy"
+        if paths['opt_res_file' + ext] not in paths['files_list']:
+            paths['files_list'].append(paths['opt_res_file' + ext])
+        paths['opt_res_file_no' + ext] = \
+            f"{paths['files_list'].index(paths['opt_res_file' + ext])}.npy"
+        paths["seeds_file" + ext] = f"outputs/seeds/seeds{paths['opt_res_file_no' + ext]}"
+
+    if '_test' not in syst['n_homes_extensions_all']:
+        paths['opt_res_file_no_test'] = paths['opt_res_file_no']
+        paths['seeds_file_test'] = paths['seeds_file']
 
     return paths
 
@@ -303,7 +312,7 @@ def methods_learning_from_exploration(t_explo, epoch, rl):
 
 def add_prm_save_list(val, dict_, key):
     """Save all int/float/bool items."""
-    if isinstance(val, list):
+    if isinstance(val, list) or (isinstance(val, np.ndarray) and len(np.shape(val)) == 1):
         dict_[key] = []
         for item in val:
             if isinstance(item, (str, int, float, bool)):
@@ -335,7 +344,6 @@ def get_prm_save_RL(prm_save, prm):
 
 def get_prm_save(prm):
     """Save run parameters for record-keeping."""
-    prm_save = {}  # save selected system parameters
     with open(prm["paths"]["open_inputs"] / "prm_to_save.yaml", "rb") as file:
         prm_save = yaml.safe_load(file)
 
@@ -398,36 +406,46 @@ def compute_import_export_costs(grid, grd, n_int_per_hr):
 
 
 def compute_voltage_costs(voltage_squared, grd):
-    over_voltage_costs = grd['penalty_overvoltage'] * np.where(
-        voltage_squared > grd['max_voltage'] ** 2,
-        voltage_squared - grd['max_voltage'] ** 2,
-        0
-    )
-    under_voltage_costs = grd['penalty_undervoltage'] * np.where(
-        voltage_squared < grd['min_voltage'] ** 2,
-        grd['min_voltage'] ** 2 - voltage_squared,
-        0
-    )
+    if grd['quadratic_voltage_penalty']:
+        voltage_costs = np.sum(
+            grd['penalty_undervoltage'] * (1 - voltage_squared ** (1 / 2)) ** 2
+        )
+    else:
+        over_voltage_costs = grd['penalty_overvoltage'] * np.where(
+            voltage_squared > grd['max_voltage'] ** 2,
+            voltage_squared - grd['max_voltage'] ** 2,
+            0
+        )
+        under_voltage_costs = grd['penalty_undervoltage'] * np.where(
+            voltage_squared < grd['min_voltage'] ** 2,
+            grd['min_voltage'] ** 2 - voltage_squared,
+            0
+        )
+        voltage_costs = np.sum(over_voltage_costs + under_voltage_costs)
 
-    return np.sum(over_voltage_costs + under_voltage_costs)
+    return voltage_costs
 
 
 def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage):
     assert np.all(voltage_squared >= 0), f"voltage_squared has negative values {voltage_squared}"
-    overvoltage_deviation = \
-        (np.sqrt(voltage_squared) - max_voltage)[voltage_squared > max_voltage ** 2]
-    undervoltage_deviation = \
-        (min_voltage - np.sqrt(voltage_squared))[voltage_squared < min_voltage ** 2]
-    voltage_deviation = np.concatenate([overvoltage_deviation, undervoltage_deviation])
-    if len(voltage_deviation) > 0:
-        mean = np.mean(voltage_deviation)
-        max = np.max(voltage_deviation)
-        n_deviations_bus = len(voltage_deviation)
-        n_deviations_hour = 1
+    voltage = np.sqrt(voltage_squared)
+    overvoltage_violation = (voltage - max_voltage)[voltage_squared > max_voltage ** 2]
+    undervoltage_violation = (min_voltage - voltage)[voltage_squared < min_voltage ** 2]
+    voltage_violation = np.concatenate([overvoltage_violation, undervoltage_violation])
+    if len(voltage_violation) > 0:
+        mean_voltage_violation = np.mean(voltage_violation)
+        max_voltage_violation = np.max(voltage_violation)
+        n_violation_bus = len(voltage_violation)
+        n_violation_hour = 1
     else:
-        mean, max, n_deviations_bus, n_deviations_hour = 0, 0, 0, 0
+        mean_voltage_violation, max_voltage_violation = 0, 0
+        n_violation_bus, n_violation_hour = 0, 0
+    mean_voltage_deviation = np.mean(np.abs(1 - voltage))
 
-    return mean, max, n_deviations_bus, n_deviations_hour
+    return (
+        mean_voltage_deviation, mean_voltage_violation, max_voltage_violation,
+        n_violation_bus, n_violation_hour
+    )
 
 
 def f_to_interval(f, fs_brackets):
@@ -458,3 +476,15 @@ def list_potential_paths(
         )
 
     return potential_paths
+
+
+def var_len_is_n_homes(info, competitive):
+    info_indiv = info[0: len('indiv')] == 'indiv'
+    info_diff = info == 'diff_rewards'
+    info_competitive_rewards = info == 'reward' and competitive
+
+    return info_indiv or info_diff or info_competitive_rewards
+
+
+def test_str(evaluation):
+    return '_test' if evaluation else ''

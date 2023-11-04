@@ -13,10 +13,11 @@ import copy
 import numpy as np
 import picos as pic
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.simulations.optimisation_post_processing import (
     check_and_correct_constraints, efficiencies, res_post_processing,
     save_results)
-from src.environment.utilities.userdeftools import comb
+from src.environment.utilities.userdeftools import test_str
 
 
 class Optimiser:
@@ -41,17 +42,16 @@ class Optimiser:
         """Solve optimisation problem given prm input data."""
         self._update_prm(prm)
         self.n_homes = prm['syst']['n_homes_test'] if test else prm['syst']['n_homes']
-        self.ext = '_test' if test and prm['syst']['n_homes_test'] != prm['syst']['n_homes'] else ''
+        self.ext = '_test' if test and prm['syst']['test_different_to_train'] else ''
         if self.grd['manage_voltage'] and self.grd['line_losses_method'] == 'iteration':
             res, pp_simulation_required = self._solve_line_losses_iteration(test)
         else:
             res, pp_simulation_required, _, _ = self._problem(test)
-            perform_checks = True
-            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
+            res = res_post_processing(res, prm, self.input_hourly_lij, evaluation=test)
 
         if prm['car']['efftype'] == 1:
             res = self._car_efficiency_iterations(prm, res, test)
-            res = res_post_processing(res, prm, self.input_hourly_lij, perform_checks)
+            res = res_post_processing(res, prm, self.input_hourly_lij, evaluation=test)
 
         return res, pp_simulation_required
 
@@ -60,7 +60,7 @@ class Optimiser:
         self.input_hourly_lij = np.zeros((self.grd['n_lines'], self.N))
         res, _, constl_consa_constraints, constl_loads_constraints = self._problem(evaluation)
         perform_checks = False
-        res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
+        res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks, evaluation)
         opti_voltages = copy.deepcopy(res['voltage'])
         opti_losses = copy.deepcopy(res['hourly_line_losses'])
         for time_step in range(self.N):
@@ -68,9 +68,8 @@ class Optimiser:
                 netp0 = self.loads['netp0'][:, time_step]
             else:
                 netp0 = np.zeros([1, self.N])
-            grdCt = self.grd['C'][time_step]
-            res = self.compare_optimiser_pandapower(
-                res, time_step, netp0, grdCt)
+            grdCt = self.grd[f'C{test_str(evaluation)}'][time_step]
+            res = self.compare_optimiser_pandapower(res, time_step, netp0, grdCt)
         corr_voltages = copy.deepcopy(res['voltage'])
         corr_losses = copy.deepcopy(res['hourly_line_losses'])
         corr_lij = copy.deepcopy(res['lij'])
@@ -83,7 +82,9 @@ class Optimiser:
             self.input_hourly_lij = corr_lij
             res, pp_simulation_required, constl_consa_constraints, constl_loads_constraints = \
                 self._problem(evaluation)
-            res = res_post_processing(res, self.prm, self.input_hourly_lij, perform_checks)
+            res = res_post_processing(
+                res, self.prm, self.input_hourly_lij, perform_checks, evaluation
+            )
             opti_voltages = copy.deepcopy(res['voltage'])
             opti_losses = copy.deepcopy(res['hourly_line_losses'])
             for time_step in range(self.N):
@@ -91,7 +92,7 @@ class Optimiser:
                     netp0 = self.loads['netp0'][:, time_step]
                 else:
                     netp0 = np.zeros(1)
-                grdCt = self.grd['C'][time_step]
+                grdCt = self.grd[f'C{test_str(evaluation)}'][time_step]
                 res = self.compare_optimiser_pandapower(
                     res, time_step, netp0, grdCt)
             corr_voltages = copy.deepcopy(res['voltage'])
@@ -107,7 +108,8 @@ class Optimiser:
             self.prm, corr_lij, evaluation=evaluation
         )
         perform_checks = True
-        res = res_post_processing(res, self.prm, res['lij'], perform_checks)
+        res = res_post_processing(res, self.prm, res['lij'], perform_checks, evaluation)
+
         return res, pp_simulation_required
 
     def _car_efficiency_iterations(self, prm, res, evaluation):
@@ -159,6 +161,10 @@ class Optimiser:
         voltage_squared = p.add_variable(
             'voltage_squared', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
         )
+        if self.grd['quadratic_voltage_penalty']:
+            voltage_cost_per_bus = p.add_variable(
+                'voltage_cost_per_bus', (self.grd['n_buses'] - 1, self.N), vtype='continuous'
+            )
         q_ext_grid = p.add_variable('q_ext_grid', self.N, vtype='continuous')
         line_losses_pu = p.add_variable(
             'line_losses_pu', (self.grd['n_lines'], self.N), vtype='continuous'
@@ -418,25 +424,51 @@ class Optimiser:
 
         # Voltage limitation penalty
         # for each bus
-        p.add_constraint(overvoltage_costs >= 0)
-        p.add_constraint(
-            overvoltage_costs
-            >= self.grd['penalty_overvoltage'] * (voltage_squared - self.grd['max_voltage'] ** 2)
-        )
-        p.add_constraint(undervoltage_costs >= 0)
-        p.add_constraint(
-            undervoltage_costs
-            >= self.grd['penalty_undervoltage'] * (self.grd['min_voltage'] ** 2 - voltage_squared)
-        )
 
-        # sum over all buses
-        p.add_constraint(
-            voltage_costs == pic.sum(overvoltage_costs + undervoltage_costs)
-        )
+        if self.grd['quadratic_voltage_penalty']:
+            # p.add_constraint(
+            #     voltage_costs == pic.sum(
+            #         self.grd['penalty_undervoltage'] * (1 - voltage_squared ** (1 / 2)) ** 2
+            #     )
+            # )
+            for time_step in range(self.N):
+                p.add_list_of_constraints(
+                    [
+                        voltage_cost_per_bus[bus, time_step]
+                        >= 1 - 2 * voltage_squared[bus, time_step] ** (1 / 2)
+                        + voltage_squared[bus, time_step]
+                        for bus in range(self.grd['n_buses'] - 1)
+                    ]
+                )
+            p.add_constraint(
+                voltage_costs == pic.sum(
+                    self.grd['penalty_undervoltage'] * voltage_cost_per_bus
+                )
+            )
+
+        else:
+            p.add_constraint(overvoltage_costs >= 0)
+            p.add_constraint(
+                overvoltage_costs
+                >= self.grd['penalty_overvoltage'] * (
+                    voltage_squared - self.grd['max_voltage'] ** 2
+                )
+            )
+            p.add_constraint(undervoltage_costs >= 0)
+            p.add_constraint(
+                undervoltage_costs
+                >= self.grd['penalty_undervoltage'] * (
+                    self.grd['min_voltage'] ** 2 - voltage_squared
+                )
+            )
+            # sum over all buses
+            p.add_constraint(
+                voltage_costs == pic.sum(overvoltage_costs + undervoltage_costs)
+            )
 
         return p, voltage_costs, q_ext_grid
 
-    def _grid_constraints(self, p, charge, discharge_other, totcons):
+    def _grid_constraints(self, p, charge, discharge_other, totcons, evaluation):
         # variables
         grid = p.add_variable('grid', self.N, vtype='continuous')
         grid2 = p.add_variable('grid2', self.N, vtype='continuous')
@@ -477,7 +509,7 @@ class Optimiser:
         # grid costs
         p.add_constraint(
             grid_energy_costs
-            == (self.grd['C'][0: self.N] | (grid + self.grd['loss'] * grid2))
+            == (self.grd[f'C{test_str(evaluation)}'][0: self.N] | (grid + self.grd['loss'] * grid2))
         )
 
         return p, netp, grid, grid_energy_costs, voltage_costs
@@ -637,7 +669,7 @@ class Optimiser:
         for load_type in range(self.loads['n_types']):
             consa.append(p.add_variable('consa({0})'.format(load_type), (self.n_homes, self.N)))
         constl = {}
-        tlpairs = comb(np.array([self.N, self.loads['n_types']]))
+        tlpairs = utils.comb(np.array([self.N, self.loads['n_types']]))
         for tl in tlpairs:
             constl[tl] = p.add_variable('constl{0}'.format(tl), (self.n_homes, self.N))
 
@@ -824,7 +856,7 @@ class Optimiser:
         p, totcons, constl_consa_constraints, constl_loads_constraints \
             = self._cons_constraints(p, E_heat)
         p, netp, grid, grid_energy_costs, voltage_costs = self._grid_constraints(
-            p, charge, discharge_other, totcons
+            p, charge, discharge_other, totcons, evaluation
         )
         # prosumer energy balance, active power
         p.add_constraint(

@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.post_analysis.plotting.plotting_utils import \
     formatting_figure
-from src.environment.utilities.userdeftools import (data_source,
-                                                    get_moving_average)
 
 
 def _update_lower_upper_bounds(min_val, max_val, lower_bound, upper_bound, paths):
@@ -46,29 +45,29 @@ def plot_results_all_repeats(prm, record, moving_average=True, diff_to_opt=False
             n_window=prm["save"]["n_window"],
             baseline=baseline
         )
+        if len(p25_not_nan) > 0:
+            min_val = np.min(p25_not_nan) if np.min(p25_not_nan) < min_val \
+                else min_val
+            max_val = np.max(p75_not_nan) if np.max(p75_not_nan) > max_val \
+                else max_val
 
-        min_val = np.min(p25_not_nan) if np.min(p25_not_nan) < min_val \
-            else min_val
-        max_val = np.max(p75_not_nan) if np.max(p75_not_nan) > max_val \
-            else max_val
-
-        lower_bound, upper_bound = _update_lower_upper_bounds(
-            min_val, max_val, lower_bound, upper_bound, prm['paths']
-        )
-        if e == 'opt':
-            ls = 'dotted'
-        elif data_source(e) == 'opt':
-            ls = 'dashed'
-        else:
-            ls = 'solid'
-        n_epochs = prm['RL']['n_epochs']
-        plt.plot(p50[0: n_epochs], label=e, color=prm['save']['colourse'][e], ls=ls)
-        plt.fill_between(
-            epoch_not_nan[0: n_epochs],
-            p25_not_nan[0: n_epochs],
-            p75_not_nan[0: n_epochs],
-            color=prm['save']['colourse'][e], alpha=0.1
-        )
+            lower_bound, upper_bound = _update_lower_upper_bounds(
+                min_val, max_val, lower_bound, upper_bound, prm['paths']
+            )
+            if e == 'opt':
+                ls = 'dotted'
+            elif utils.data_source(e) == 'opt':
+                ls = 'dashed'
+            else:
+                ls = 'solid'
+            n_epochs = prm['RL']['n_epochs']
+            plt.plot(p50[0: n_epochs], label=e, color=prm['save']['colourse'][e], ls=ls)
+            plt.fill_between(
+                epoch_not_nan[0: n_epochs],
+                p25_not_nan[0: n_epochs],
+                p75_not_nan[0: n_epochs],
+                color=prm['save']['colourse'][e], alpha=0.1
+            )
     plt.hlines(
         y=0, xmin=0, xmax=n_epochs - 1, colors='k',
         linestyle='dotted'
@@ -110,12 +109,12 @@ def plot_mova_eval_per_repeat(repeat, prm):
     if not prm['save']['plot_indiv_repeats_rewards']:
         return
     fig = plt.figure()
-    mova_baseline = get_moving_average(
+    mova_baseline = utils.get_moving_average(
         [rl["eval_rewards"][repeat]['baseline']
          for repeat in prm['RL']['n_repeats']], prm["save"]["n_window"])
     # 2 - moving average of all rewards evaluation
     for e in [e for e in prm["save"]["eval_entries_plot"] if e != 'baseline']:
-        mova_e = get_moving_average(
+        mova_e = utils.get_moving_average(
             [rl["eval_rewards"][repeat][e] for repeat in prm['RL']['n_repeats']],
             prm["save"]["n_window"])
         diff = [m - mb if m is not None else None

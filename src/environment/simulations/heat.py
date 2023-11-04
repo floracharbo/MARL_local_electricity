@@ -7,6 +7,8 @@ Created on Tue Dec  7 14:39:04 2021.
 """
 import numpy as np
 
+from src.environment.utilities.userdeftools import test_str
+
 
 class Heat:
     """
@@ -37,7 +39,7 @@ class Heat:
         Obtain heating energy required to reach next T_air_target.
     """
 
-    def __init__(self, prm, i0_costs, ext, E_req_only):
+    def __init__(self, prm, i0_costs, ext, E_req_only, evaluation):
         """
         Initialise Heat object.
 
@@ -71,11 +73,11 @@ class Heat:
         # / could have been delayed
         self.E_flex = None
 
-        self.reset(prm, i0_costs, ext, E_req_only)
+        self.reset(prm, i0_costs, ext, E_req_only, evaluation=evaluation)
         for attribute in ['T_air', 'tot_E', 'T_next']:
             setattr(self, attribute, np.full(self.n_homes, np.nan))
 
-    def reset(self, prm, i0_costs=None, ext=None, E_req_only=None):
+    def reset(self, prm, i0_costs=None, ext=None, E_req_only=None, evaluation=False):
         """
         Reset object for new episode.
 
@@ -99,7 +101,7 @@ class Heat:
             self._update_passive_active_vars(prm)
 
         if i0_costs is not None:
-            self.update_i0_costs(prm, i0_costs)
+            self.update_i0_costs(prm, i0_costs, evaluation)
 
         if E_req_only is None:
             E_req_only = False
@@ -117,11 +119,12 @@ class Heat:
         else:
             self.T_UB, self.T_LB = [self.T_req for _ in range(2)]
 
-    def update_i0_costs(self, prm, i0_costs):
+    def update_i0_costs(self, prm, i0_costs, evaluation):
         self.i0_costs = i0_costs
         # external temperature
-        self.T_out = prm["heat"]['T_out_all'][
-            self.i0_costs: self.i0_costs + prm['syst']['N'] + 1]
+        self.T_out = prm["heat"][f'T_out_all{test_str(evaluation)}'][
+            self.i0_costs: self.i0_costs + prm['syst']['N'] + 1
+        ]
 
     def next_T(self, T_start=None, E_heat=None, T_out_t=None,
                update=False, home=None):

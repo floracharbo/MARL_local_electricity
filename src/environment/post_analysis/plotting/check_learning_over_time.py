@@ -14,8 +14,8 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
     """Plot evaluation actions selected over epochs for one repeat"""
     n_intervals = 50
     density_matrix = np.zeros((prm["RL"]["n_epochs"], n_intervals))
-    min_action = np.min(actions_[:, :, :, i_action])
-    max_action = np.max(actions_[:, :, :, i_action])
+    min_action = np.nanmin(actions_[:, :, :, i_action])
+    max_action = np.nanmax(actions_[:, :, :, i_action])
     intervals = np.linspace(min_action, max_action, n_intervals)
 
     for epoch in range(prm["RL"]["n_epochs"]):
@@ -26,19 +26,21 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
         for step in range(len(actions_[epoch])):
             for home in range(len(actions_[epoch][step])):
                 action = actions_[epoch][step][home][i_action]
-                if action is None:
+                if action is None or np.isnan(action):
                     if evaluation_method != 'opt':
                         print(f"None in {evaluation_method}")
                     continue
                 i_interval = np.where(action >= intervals)[0][-1]
                 density_matrix[epoch, i_interval] += 1
-                # plt.plot(
-                #     epoch,
-                #     action,
-                #     'o'
-                # )
+
     fig = plt.figure()
-    plt.imshow(np.transpose(density_matrix), interpolation='none')
+    im = plt.imshow(np.transpose(density_matrix), interpolation='none')
+    # Add a colorbar
+    cbar = plt.colorbar(im)
+    # Optionally, you can set a label for the colorbar
+    cbar.set_label('Number of action selections')
+
+    # Show the plot
     # min_label = min_action + (0.05 - min_action % 0.05)
     # max_label = max_action - (max_action % 0.01)
     y_labels = [f"{label:.2f}" for label in np.linspace(min_action, max_action, 5)]
@@ -48,10 +50,13 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
 
     plt.ylabel(labels[i_action])
     plt.xlabel("Epoch")
+    plt.tight_layout()
     title = f"actions {evaluation_method} {labels[i_action]} {repeat}"
-    title_and_save(title, fig, prm)
+    title_and_save(title, fig, prm, display_title=False)
 
 
+# 'Flexible EV charge action [-]',
+# 'Flexible battery reactive power action'
 def plot_eval_action(record, prm):
     """Plot actions selected during evaluation phase over the epochs for all repeats."""
     actions = record.eval_actions
@@ -104,6 +109,7 @@ def check_model_changes_facmac(prm):
             nos.sort()
             agents, critics, mixers = [], [], []
             for no in nos:
+                mixer = None
                 path = prm["paths"]["record_folder"] / f"models_{method}_{no}"
                 try:
                     agent = th.load(path / "agent.th")
@@ -113,7 +119,7 @@ def check_model_changes_facmac(prm):
                 except Exception:
                     agent = th.load(path / "agent.th", map_location=th.device('cpu'))
                     critic = th.load(path / "critic.th", map_location=th.device('cpu'))
-                    if prm['syst']['n_homes'] > 1 and prm['RL']['mixer'] is not None:
+                    if (path / "mixer.th").is_file() and prm['syst']['n_homes'] > 1 and prm['RL']['mixer'] is not None:
                         mixer = th.load(path / "mixer.th", map_location=th.device('cpu'))
                 agents.append(agent)
                 critics.append(critic)
@@ -147,11 +153,12 @@ def check_model_changes_facmac(prm):
 
             check_mixer = prm['syst']['n_homes'] > 1 and prm["RL"]["mixer"] == "qmix"
             if check_mixer:
-                for weight in mixers[0].keys():
-                    mixer_learned[method] = not th.all(mixers[0][weight] == mixers[-1][weight])
-                    if not mixer_learned[method]:
-                        prm["RL"]["nn_learned"] = False
-                        print(f"mixer_learned {mixer_learned} {weight}")
+                if mixers[0] is not None:
+                    for weight in mixers[0].keys():
+                        mixer_learned[method] = not th.all(mixers[0][weight] == mixers[-1][weight])
+                        if not mixer_learned[method]:
+                            prm["RL"]["nn_learned"] = False
+                            print(f"mixer_learned {mixer_learned} {weight}")
 
     prm_save = get_prm_save(prm)
     np.save(prm['paths']["folder_run"] / "inputData" / "prm", prm_save)

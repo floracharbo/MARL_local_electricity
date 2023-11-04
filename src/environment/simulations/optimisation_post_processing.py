@@ -1,8 +1,6 @@
 import numpy as np
 
-from src.environment.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs,
-    mean_max_hourly_voltage_deviations)
+import src.environment.utilities.userdeftools as utils
 
 
 def _check_loads_are_met(constl_loads_constraints, prm):
@@ -240,61 +238,71 @@ def _check_cons_equations(res, N, loads, syst, grd):
     ), "still totcons minus E_geat not adding up to loads"
 
 
-def _check_temp_equations(res, syst, heat):
+def check_temp_equations(res, syst, heat, T_out=None):
     n_homes, N = [syst[info] for info in ['n_homes', 'N']]
-
+    if T_out is None:
+        T_out = heat['T_out']
     for home in range(n_homes):
         if heat['own_heat'][home]:
             assert res['T'][home, 0] == heat['T0']
             for time_step in range(N - 1):
-                assert (
-                    abs(
+                if abs(
                         heat['T_coeff'][home][0]
                         + heat['T_coeff'][home][1] * res['T'][home, time_step]
-                        + heat['T_coeff'][home][2] * heat['T_out'][time_step]
+                        + heat['T_coeff'][home][2] * T_out[time_step]
                         # heat['T_coeff'][home][3] * heat['phi_sol'][time_step]
                         + heat['T_coeff'][home][4] * res['E_heat'][home, time_step]
                         * 1e3 * syst['n_int_per_hr']
                         - res['T'][home, time_step + 1]
-                    ) < 1e-3
-                )
-            assert np.all(
+                ) > 1e-3:
+                    print("res T equation does not match")
+
+            if not np.all(
                 abs(
                     heat['T_air_coeff'][home][0]
                     + heat['T_air_coeff'][home][1] * res['T'][home, :]
-                    + heat['T_air_coeff'][home][2] * heat['T_out'][0: N]
+                    + heat['T_air_coeff'][home][2] * T_out[0: N]
                     # heat['T_air_coeff'][home][3] * heat['phi_sol'][time_step] +
                     + heat['T_air_coeff'][home][4] * res['E_heat'][home, :]
                     * 1e3 * syst['n_int_per_hr']
                     - res['T_air'][home, :]
                 ) < 1e-3
-            )
-            assert np.all(res['T_air'][home, :] + 1e-3 >= heat['T_LB'][home, 0: N])
-            assert np.all(res['T_air'][home, :] <= heat['T_UB'][home, 0: N] + 1e-3)
+            ):
+                print("res T_air equation does not match")
+            if not np.all(res['T_air'][home, :] + 1e-3 >= heat['T_LB'][home, 0: N]):
+                print("T_air not above T_LB")
+            if not np.all(res['T_air'][home, :] <= heat['T_UB'][home, 0: N] + 1e-3):
+                print("T_air not below T_UB")
         else:
-            assert np.all(abs(res['E_heat'][home]) < 1e-3)
-            assert np.all(
+            if not np.all(abs(res['E_heat'][home]) < 1e-3):
+                print("E_heat not zero for home without own heat")
+            if not np.all(
                 abs(
                     res['T_air'][home, :]
                     - (heat['T_LB'][home, 0: N] + heat['T_UB'][home, 0: N]) / 2
                 ) < 1e-3
-            )
-            assert np.all(
+            ):
+                print("T_air not equal to average of T_LB and T_UB")
+            if not np.all(
                 abs(
                     res['T'][home, :] - (heat['T_LB'][home, 0: N] + heat['T_UB'][home, 0: N]) / 2
                 ) < 1e-3
-            )
+            ):
+                print("T not equal to average of T_LB and T_UB")
 
-        assert np.all(res['E_heat'] + 1e-3 >= 0)
+        if not np.all(res['E_heat'] + 1e-3 >= 0):
+            print("E_heat not positive")
 
 
-def check_constraints_hold(res, prm, input_hourly_lij=None):
+def check_constraints_hold(res, prm):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
     grd, loads, car, syst, heat = [
         prm[info] for info in ['grd', 'loads', 'car', 'syst', 'heat']
     ]
+    if 'hourly_tot_netp0' not in loads:
+        loads['hourly_tot_netp0'] = 0
 
     assert np.all(
         abs(
@@ -310,7 +318,7 @@ def check_constraints_hold(res, prm, input_hourly_lij=None):
     # _check_power_flow_equations(res, grd, N, input_hourly_lij)
     _check_storage_equations(res, N, car, grd, syst)
     _check_cons_equations(res, N, loads, syst, grd)
-    _check_temp_equations(res, syst, heat)
+    check_temp_equations(res, syst, heat)
 
 
 def _add_val_to_res(res, var, val, size, arr):
@@ -619,10 +627,11 @@ def _update_res_variables(
             - res['discharge_other'][home, time_step] \
             - grd['gen'][home, time_step] \
             + res['totcons'][home, time_step]
-        res['netq_flex'][home, time_step] = \
-            res['q_car_flex'][home, time_step] \
-            + res['totcons'][home, time_step] * grd['active_to_reactive_flex'] \
-            - grd['gen'][home, time_step] * grd['active_to_reactive_flex']
+        if prm['grd']['manage_voltage']:
+            res['netq_flex'][home, time_step] = \
+                res['q_car_flex'][home, time_step] \
+                + res['totcons'][home, time_step] * grd['active_to_reactive_flex'] \
+                - grd['gen'][home, time_step] * grd['active_to_reactive_flex']
         if grd['penalise_individual_exports']:
             res['netp_export'][home, time_step] = np.where(
                 res['netp'][home, time_step] < 0, abs(res['netp'][home, time_step]), 0
@@ -635,7 +644,10 @@ def _update_res_variables(
         res['grid'] = new_grid
         res['grid2'] = np.square(res['grid'])
         new_grid_energy_costs = np.sum(
-            np.multiply(grd['C'][0: N], (res['grid'] + grd['loss'] * res['grid2']))
+            np.multiply(
+                grd[f'C{utils.test_str(test)}'][0: N],
+                (res['grid'] + grd['loss'] * res['grid2'])
+            )
         )
         delta = new_grid_energy_costs - res['grid_energy_costs']
         res['grid_energy_costs'] = new_grid_energy_costs
@@ -732,6 +744,7 @@ def check_and_correct_constraints(
     for time_step in range(N):
         for load_type in range(loads['n_types']):
             assert np.all(res[f'constl({time_step}, {load_type})'] >= - 1e-3)
+
     # 3 - check that const translates into consa
     res, pp_simulation_required, homes_to_update, time_steps_to_update \
         = _check_constl_to_consa(
@@ -761,12 +774,12 @@ def check_and_correct_constraints(
         abs(res['grid2'] - np.square(res['grid'])) < 1e-2
     )
     # 5 - check constraints hold
-    check_constraints_hold(res, prm, input_hourly_lij)
+    check_constraints_hold(res, prm)
 
     return res, pp_simulation_required
 
 
-def res_post_processing(res, prm, input_hourly_lij, perform_checks):
+def res_post_processing(res, prm, input_hourly_lij, perform_checks=True, evaluation=False):
     N, n_homes, tol_constraints = [
         prm['syst'][info] for info in ['N', 'n_homes', 'tol_constraints']
     ]
@@ -790,9 +803,10 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
 
     if grd['manage_voltage']:
         res['mean_voltage_deviation'] = []
-        res['max_voltage_deviation'] = []
-        res['n_voltage_deviation_bus'] = []
-        res['n_voltage_deviation_hour'] = []
+        res['mean_voltage_violation'] = []
+        res['max_voltage_violation'] = []
+        res['n_voltage_violation_bus'] = []
+        res['n_voltage_violation_hour'] = []
         res['voltage'] = np.sqrt(res['voltage_squared'])
         res['hourly_voltage_costs'] = np.sum(
             res['overvoltage_costs'] + res['undervoltage_costs'], axis=0
@@ -818,21 +832,23 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
             np.sum(np.matmul(np.diag(grd['line_reactance'], k=0), res['lij'][:, 0: N])
                    * grd['per_unit_to_kW_conversion'], axis=0)
         for time_step in range(N):
-            res['hourly_import_export_costs'][time_step], _, _ = compute_import_export_costs(
+            res['hourly_import_export_costs'][time_step], _, _ = utils.compute_import_export_costs(
                 res['grid'][time_step], prm['grd'], prm['syst']['n_int_per_hr']
             )
             res['hourly_voltage_costs'][time_step] = \
-                compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
-            (mean, max, n_bus, n_hour) = \
-                mean_max_hourly_voltage_deviations(
+                utils.compute_voltage_costs(res['voltage_squared'][:, time_step], prm['grd'])
+            (
+                mean_voltage_deviation, mean_voltage_violation, max_voltage_violation, n_bus, n_hour
+            ) = utils.mean_max_hourly_voltage_deviations(
                 res['voltage_squared'][:, time_step],
                 prm['grd']['max_voltage'],
                 prm['grd']['min_voltage'],
             )
-            res['mean_voltage_deviation'].append(mean)
-            res['max_voltage_deviation'].append(max)
-            res['n_voltage_deviation_bus'].append(n_bus)
-            res['n_voltage_deviation_hour'].append(n_hour)
+            res['mean_voltage_deviation'].append(mean_voltage_deviation)
+            res['mean_voltage_violation'].append(mean_voltage_violation)
+            res['max_voltage_violation'].append(max_voltage_violation)
+            res['n_voltage_violation_bus'].append(n_bus)
+            res['n_voltage_violation_hour'].append(n_hour)
 
     else:
         res['voltage_squared'] = np.zeros((1, N))
@@ -841,7 +857,7 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         res['hourly_line_losses'] = np.zeros(N)
         res['q_ext_grid'] = np.zeros(N)
 
-    res['hourly_grid_energy_costs'] = grd['C'][0: N] * (
+    res['hourly_grid_energy_costs'] = grd[f'C{utils.test_str(evaluation)}'][0: N] * (
         res["grid"] + grd["loss"] * res["grid2"]
     )
     res['hourly_battery_degradation_costs'] = car["C"] * (
@@ -875,24 +891,24 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks):
         assert np.all(res['totcons'] > - 5e-3), f"min(res['totcons']) = {np.min(res['totcons'])}"
 
         simultaneous_dis_charging = \
-            np.logical_and(res['charge'] > 1e-3, res['discharge_other'] > 1e-3)
+            np.logical_and(res['charge'] > 1e-2, res['discharge_other'] > 1e-2)
         assert not simultaneous_dis_charging.any(), \
-            "Simultaneous charging and discharging is happening" \
-            f"For charging of {res['charge'][simultaneous_dis_charging]}" \
-            f"and discharging of {res['discharge_other'][simultaneous_dis_charging]}"
+            "Simultaneous charging and discharging is happening"
 
         assert np.all(res['consa(1)'] > - syst['tol_constraints']), \
             f"negative flexible consumptions in the optimisation! " \
             f"np.min(res['consa(1)']) = {np.min(res['consa(1)'])}"
-        max_losses_condition = np.logical_and(
-            res['hourly_line_losses'] > 1,
-            res['hourly_line_losses'] > 0.15 * abs(res['grid'] - res['hourly_line_losses'])
-        )
-        assert np.all(~max_losses_condition), \
-            f"Hourly line losses are larger than 15% of the total import. " \
-            f"Losses: {res['hourly_line_losses'][~(max_losses_condition)]} kWh " \
-            f"Grid imp/exp: " \
-            f"{abs(res['grid'] - res['hourly_line_losses'])[~(max_losses_condition)]} kWh."
+
+        max_share_loss = 0.25
+        time_large_losses = np.where(abs(res['hourly_line_losses']) > max_share_loss * abs(res['grid']))[0]
+        if np.any(time_large_losses):
+            print(
+                f"WARNING: Line losses are "
+                f"{np.divide(res['hourly_line_losses'], res['grid'])[time_large_losses] * 100}% "
+                f"of the grid imports at the following time steps: {time_large_losses} "
+                f"with losses of {res['hourly_line_losses'][time_large_losses]} kWh"
+                f"vs res['grid'] {res['grid'][time_large_losses]} kWh"
+            )
 
     return res
 

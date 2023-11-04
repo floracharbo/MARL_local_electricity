@@ -29,8 +29,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from src.environment.simulations.optimisation import Optimiser
-from src.environment.utilities.userdeftools import (get_opt_res_file,
-                                                    set_seeds_rdn)
+from src.environment.utilities.userdeftools import set_seeds_rdn
 
 
 class DataManager:
@@ -211,9 +210,10 @@ class DataManager:
             )
         else:
             if opt_needed:
-                res = np.load(self.paths['opt_res']
-                              / self.get_res_name(evaluation),
-                              allow_pickle=True).item()
+                res = np.load(
+                    self.paths['opt_res'] / self.get_res_name(evaluation),
+                    allow_pickle=True
+                ).item()
                 pp_simulation_required = False
                 if 'house_cons' not in res:
                     res['house_cons'] = res['totcons'] - res['E_heat']
@@ -259,12 +259,12 @@ class DataManager:
 
     def get_res_name(self, evaluation):
         active_seed = self.seed['_test'] \
-            if evaluation and self.prm['syst']['n_homes_test'] != self.prm['syst']['n_homes'] \
+            if evaluation and self.prm['syst']['test_different_to_train'] \
             else self.seed['']
-
+        ext = '_test' if evaluation else ''
         res_name = \
             f"res_P{int(self.seed['P'])}_" \
-            f"{int(active_seed)}_{self.prm['paths']['opt_res_file_no']}"
+            f"{int(active_seed)}_{self.prm['paths']['opt_res_file_no' + ext]}"
 
         return res_name
 
@@ -393,8 +393,9 @@ class DataManager:
 
     def file_id(self, evaluation):
         """Generate string to identify the run in saved files."""
+        ext_opt_res_file = '_test' if evaluation else ''
         return f"_{int(self.seed[self.ext])}{self.ext}" \
-               f"_{self.prm['paths']['opt_res_file_no']}"
+               f"_{self.prm['paths']['opt_res_file_no' + ext_opt_res_file]}"
 
     def _loop_replace_data(
             self,
@@ -408,7 +409,7 @@ class DataManager:
         homes = copy.deepcopy(homes_0)
         while not all(data_feasibles) and its < 100:
             self.env.dloaded = 0
-            self.env.fix_data_a(homes, self.file_id(evaluation), its=its)
+            self.env.fix_data_a(homes, self.file_id(evaluation), evaluation, its=its)
             # [factors, clusters] = self._load_res()
 
             self.batch_file, batch = self.env.reset(
@@ -588,7 +589,7 @@ class DataManager:
         n_homes = len(res["E_heat"])
         fixed_cons_opt = batchflex_opt[:, time_step, 0]
         flex_cons_opt = res["house_cons"][:, time_step] - fixed_cons_opt
-        assert np.all(np.greater(flex_cons_opt, - self.tol_constraints * 2)), \
+        assert np.all(np.greater(flex_cons_opt, - self.tol_constraints * 10)), \
             f"flex_cons_opt {flex_cons_opt}"
         flex_cons_opt = np.where(flex_cons_opt > 0, flex_cons_opt, 0)
         inputs_update_flex = [

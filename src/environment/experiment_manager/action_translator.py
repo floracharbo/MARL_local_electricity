@@ -522,8 +522,6 @@ class Action_translator:
         # fontsize=font_size)
 
         fig.tight_layout()
-
-        plt.show()
         if save_fig:
             fig.save_fig(name_fig + '.svg',
                          bbox_inches='tight', format='svg', dpi=1200)

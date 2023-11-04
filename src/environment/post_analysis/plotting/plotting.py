@@ -96,22 +96,24 @@ def plotting(record, spaces, prm, f):
             )
 
         # 2 - bar plot metrics
-        barplot_metrics(prm, lower_bound, upper_bound)
+        if not prm['RL']['competitive']:
+            barplot_metrics(prm, lower_bound, upper_bound)
 
         if prm['save']['plot_type'] > 0:
             # 3 - plot distribution of daily savings
-            distribution_savings(prm, aggregate='daily')
-            distribution_savings(prm, aggregate='test_period')
+            if not prm['RL']['competitive']:
+                distribution_savings(prm, aggregate='daily')
+                distribution_savings(prm, aggregate='test_period')
 
-            # 4 - heat map of reductions rel to baseline per data source,
-            # reward ref and MARL structure
-            heatmap_savings_per_method(prm)
+                # 4 - heat map of reductions rel to baseline per data source,
+                # reward ref and MARL structure
+                heatmap_savings_per_method(prm)
 
-            # 5 - do bar plot of all costs reduction rel to baseline,
-            barplot_breakdown_savings(record, prm, plot_type='savings')
+                # 5 - do bar plot of all costs reduction rel to baseline,
+                barplot_breakdown_savings(record, prm, plot_type='savings')
 
-            # 6 - do bar plot of all costs reduction rel to baseline,
-            barplot_breakdown_savings(record, prm, plot_type='costs')
+                # 6 - do bar plot of all costs reduction rel to baseline,
+                barplot_breakdown_savings(record, prm, plot_type='costs')
 
             # 7 - plot individual savings as well as share battery
             # vs energy costs in individual savings
@@ -161,11 +163,13 @@ def plotting(record, spaces, prm, f):
     # 19 - grid import and export and corresponding constraint violations
     all_methods_to_plot = prm['RL']['evaluation_methods']
     folder_run = prm["paths"]["folder_run"]
+
     # 20 - plot the aggregated hourly import and export and the limits
     if prm['grd']['manage_agg_power'] or prm['grd']['simulate_panda_power_only']:
         plot_imp_exp_violations(prm, all_methods_to_plot, folder_run)
         if not prm['grd']['manage_voltage'] or prm['grd']['simulate_panda_power_only']:
             barplot_breakdown_savings(record, prm, plot_type='costs')
+
     # 21 - (Sanity Check) plot grid = grid_in - grid_out
     if prm['save']['plot_imp_exp_check']:
         plot_imp_exp_check(prm, all_methods_to_plot, folder_run)
@@ -178,12 +182,13 @@ def plotting(record, spaces, prm, f):
         # plot_voltage_violations(prm, all_methods_to_plot, folder_run)
         barplot_breakdown_savings(record, prm, plot_type='costs')
         barplot_grid_energy_costs(record, prm, plot_type='costs')
-        plot_voltage_statistics(record, prm)
         voltage_penalty_per_bus(prm, all_methods_to_plot, folder_run)
+        plot_voltage_statistics(record, prm)
         plot_reactive_power(prm, all_methods_to_plot, folder_run)
         plot_indiv_reactive_power(prm, all_methods_to_plot, folder_run)
 
-    barplot_breakdown_savings(record, prm, plot_type='costs')
+    if not prm['RL']['competitive']:
+        barplot_breakdown_savings(record, prm, plot_type='costs')
 
     # 22 - check that some learning has occurred
     check_model_changes(prm)

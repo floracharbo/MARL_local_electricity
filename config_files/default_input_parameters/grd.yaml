@@ -13,9 +13,9 @@ penalty_export: 0.01 # Coefficient multiplied with export values to determine pe
 small_coefficient: 1.e-5 # Small coefficient used in the import and export constraints
 manage_voltage: False # Add constraints and penalty to limit voltage violations with relaxed optimisation
 penalise_individual_exports: True # Penalises the export to the external grid
-compare_pandapower_optimisation: False # Compares the power flows and losses results from relaxed opti and pandapower
+compare_pandapower_optimisation: True # Compares the power flows and losses results from relaxed opti and pandapower
 max_voltage: 1.1 # Upper limit for voltage on buses in per unit
-min_voltage: 0.96 # Lower limit for voltage on buses in per unit
+min_voltage: 0.94 # Lower limit for voltage on buses in per unit
 penalty_overvoltage: 1.e-5 # Coefficient multiplied with overvoltage values to determine penalty
 penalty_undervoltage: 1.e-5 # Coefficient multiplied with undervoltage values to determine penalty
 weight_network_costs: 1 # Reward weight of network costs voltage_costs and import_export_costs
@@ -29,3 +29,5 @@ reactive_power_for_voltage_control: False  # if True, the power factor is not fi
 line_losses_method : 'subset_of_lines' # choice between subset_of_lines and iteration
 tol_voltage_iteration: 0.001 # tolerance on voltages when iteratively solving the optimization
 simulate_panda_power_only: False
+n_buses: 907
+quadratic_voltage_penalty: False

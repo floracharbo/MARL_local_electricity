@@ -6,7 +6,8 @@ grd: ['V',
   'penalty_import',
   'penalty_export',
   'Bcap',
-  'charge_type'
+  'charge_type',
+  'n_buses',
   ]
 syst: ['solver',
   'D',
@@ -26,7 +27,7 @@ syst: ['solver',
   'n_homesP',
   'n_opti_constraints'
 ]
-loads: ['flextype', 'share_flex', 'max_delay']
+loads: ['flextype', 'share_flex', 'max_delay', 'own_loads', 'own_flex']
 RL: []
 paths: []
 save: []
@@ -41,5 +42,8 @@ car: ['dep',
   'eff',
   'c_max',
   'd_max',
-  'eta_ch'
+  'eta_ch',
+  'own_car',
 ]
+gen:
+  ['own_PV']

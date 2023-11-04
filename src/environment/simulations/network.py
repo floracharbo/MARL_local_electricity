@@ -13,8 +13,7 @@ import numpy as np
 import pandapower as pp
 import pandapower.networks
 
-from src.environment.utilities.userdeftools import (
-    compute_import_export_costs, compute_voltage_costs)
+import src.environment.utilities.userdeftools as utils
 
 
 class Network:
@@ -73,7 +72,7 @@ class Network:
             'active_to_reactive_flex', 'tol_rel_voltage_diff', 'tol_rel_voltage_costs',
             'tol_abs_line_losses', 'penalty_overvoltage', 'penalty_undervoltage',
             'max_voltage', 'min_voltage', 'manage_agg_power', 'penalty_import',
-            'penalty_export', 'max_grid_import', 'max_grid_export'
+            'penalty_export', 'max_grid_import', 'max_grid_export', 'quadratic_voltage_penalty',
         ]:
             self.grd[info] = prm['grd'][info]
 
@@ -120,17 +119,19 @@ class Network:
         """ Creates a matrix indicating at which bus there is a flexible agents """
         n_homes = self.n_homes_test + self.n_homes_testP if test else self.n_homes + self.n_homesP
         flex_buses = np.zeros((len(self.net.bus), n_homes))
-        free_buses = [i for i in range(len(self.net.bus)) if i not in self.existing_homes_network]
-        free_buses.remove(0)
+        self.free_buses = [
+            i for i in range(len(self.net.bus)) if i not in self.existing_homes_network
+        ]
+        self.free_buses.remove(0)
         self.home_to_bus = np.zeros(n_homes)
         for i in range(n_homes):
             if i < len(self.existing_homes_network):
                 flex_buses[self.existing_homes_network[i], i] = 1
                 self.home_to_bus[i] = self.existing_homes_network[i]
             else:
-                bus = random.choice(free_buses)
+                bus = random.choice(self.free_buses)
                 flex_buses[bus, i] = 1
-                free_buses.remove(bus)
+                self.free_buses.remove(bus)
                 self.home_to_bus[i] = bus
 
         return flex_buses
@@ -139,8 +140,18 @@ class Network:
         """ Creates a matrix indicating at which bus there is a non-flexible home """
         if self.n_passive_homes > 0:
             passive_buses = np.zeros((len(self.net.bus), self.n_passive_homes))
-            for i in range(self.n_passive_homes):
-                passive_buses[self.existing_homes_network[i + self.n_homes], i] = 1
+            n_passive_homes_on_existing_homes = min(
+                self.n_passive_homes,
+                len(self.existing_homes_network) - self.n_homes
+            )
+            for i in range(n_passive_homes_on_existing_homes):
+                if i < min(self.n_passive_homes, len(self.existing_homes_network) - self.n_homes):
+                    bus = self.existing_homes_network[i + self.n_homes]
+                else:
+                    bus = random.choice(self.free_buses)
+                    self.free_buses.remove(bus)
+                passive_buses[bus, i] = 1
+                self.home_to_bus[i] = bus
         else:
             passive_buses = np.zeros((len(self.net.bus), 0))
 
@@ -242,9 +253,11 @@ class Network:
         if self.n_homesP > 0:
             for homeP in self.homesP:
                 self._assign_power_to_load_or_sgen(
-                    netp0[homeP], self.n_homes + homeP, type='p_mw')
+                    netp0[homeP], self.n_homes + homeP, type='p_mw'
+                )
                 self._assign_power_to_load_or_sgen(
-                    netq_passive[homeP], self.n_homes + homeP, type='q_mvar')
+                    netq_passive[homeP], self.n_homes + homeP, type='q_mvar'
+                )
         pp.runpp(self.net)
         self.loaded_buses = np.array(self.net.load.bus[self.net.load.p_mw > 0])
         self.sgen_buses = np.array(self.net.sgen.bus[self.net.sgen.p_mw > 0])
@@ -267,7 +280,9 @@ class Network:
         else:
             self.net.sgen[type].iloc[house_index] = abs(power) / 1000
 
-    def _power_flow_res_with_pandapower(self, home_vars, netp0, q_car_flex, passive=False):
+    def power_flow_res_with_pandapower(
+            self, home_vars, netp0, q_car_flex, passive=False, implement=True
+    ):
         """Using active power, calculates reactive power and solves power flow
         with pandapower """
 
@@ -288,6 +303,8 @@ class Network:
         q_ext_grid = sum(q_heat_home_car_passive) + sum(q_car_flex) \
             + sum(q_heat_home_flex) + reactive_power_losses
         voltage_squared = np.square(voltage)
+        if implement:
+            self.voltage = voltage
 
         return voltage_squared, hourly_line_losses, q_ext_grid, netq_flex
 
@@ -314,7 +331,7 @@ class Network:
             replace_with_pp_simulation = True
 
         # Impact of voltage costs on total costs
-        hourly_voltage_costs_pp = compute_voltage_costs(
+        hourly_voltage_costs_pp = utils.compute_voltage_costs(
             np.square(voltage_pp), self.grd
         )
         abs_rel_voltage_error = abs(
@@ -343,8 +360,7 @@ class Network:
 
         return replace_with_pp_simulation
 
-    def compare_optimiser_pandapower(
-            self, res, time_step, netp0, grdCt):
+    def compare_optimiser_pandapower(self, res, time_step, netp0, grdCt):
         """Prepares the reactive power injected and compares optimization with pandapower"""
         if self.n_homesP > 0:
             netq_passive = netp0 * self.grd['active_to_reactive_passive']
@@ -393,7 +409,7 @@ class Network:
         delta_grid_energy_costs = \
             hourly_grid_energy_costs_pp - res['hourly_grid_energy_costs'][time_step]
 
-        import_export_costs_pp, _, _ = compute_import_export_costs(
+        import_export_costs_pp, _, _ = utils.compute_import_export_costs(
             grid_pp, self.grd, self.n_int_per_hr
         )
         delta_import_export_costs = \

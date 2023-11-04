@@ -16,8 +16,7 @@ from typing import Tuple
 import numpy as np
 import scipy as sp
 
-from src.environment.utilities.userdeftools import (get_moving_average,
-                                                    initialise_dict)
+import src.environment.utilities.userdeftools as utils
 
 
 class Record:
@@ -56,14 +55,14 @@ class Record:
         self.discrete_states_info_entries = prm['save']['discrete_states_info_entries']
         self.last_entries = prm["save"]["last_entries"]
         for entry in self.repeat_entries:
-            setattr(self, entry, initialise_dict(range(self.n_repeats)))
+            setattr(self, entry, {repeat: [] for repeat in range(self.n_repeats)})
 
     def _add_rl_info_to_object(self, rl):
         # all exploration / evaluation methods
         for info in [
             "n_epochs", "instant_feedback", "type_env", "n_repeats", "state_space",
             "n_explore", "n_all_epochs", "evaluation_methods",
-            'dim_actions_1', 'dim_states_1'
+            'dim_actions_1', 'dim_states_1', 'competitive'
         ]:
             setattr(self, info, rl[info])
         self.all_methods = rl["evaluation_methods"] \
@@ -111,13 +110,16 @@ class Record:
 
         for field in ["q_tables", "counter"]:
             if self.save_qtables:
-                self.__dict__[field][repeat] = initialise_dict(range(rl["n_epochs"]))
+                self.__dict__[field][repeat] = {epoch: [] for epoch in range(rl["n_epochs"])}
             else:
                 self.__dict__[field][repeat] = {}
-        for info in ["duration_epoch", "eps", "seed", "n_not_feas"]:
+        for info in ["duration_epoch", "duration_test", "eps", "seed", "n_not_feas"]:
             self.__dict__[info][repeat] = np.zeros(self.n_all_epochs)
+        shape_train_rewards = \
+            (self.n_epochs, self.n_explore * self.N, self.n_homes) \
+            if self.competitive else (self.n_epochs, self.n_explore * self.N)
         self.train_rewards[repeat] = {
-            method: np.zeros((self.n_epochs, self.n_explore * self.N))
+            method: np.zeros(shape_train_rewards)
             for method in rl["exploration_methods"]
         }
         if rl["type_learning"] == "DQN" and rl["distr_learning"] == "decentralised":
@@ -127,11 +129,15 @@ class Record:
         all_evaluation_methods = \
             rl["evaluation_methods"] + ['opt'] if rl["supervised_loss"] \
             else rl["evaluation_methods"]
+        shape_eval_rewards = \
+            (self.n_all_epochs, self.N, self.n_homes) \
+            if self.competitive else (self.n_all_epochs, self.N)
         self.eval_rewards[repeat] = {
-            method: np.zeros((self.n_all_epochs, self.N)) for method in all_evaluation_methods
+            method: np.zeros(shape_eval_rewards) for method in all_evaluation_methods
         }
         for reward in ["mean_eval_rewards"] + self.break_down_rewards_entries:
-            shape = (self.n_all_epochs, self.n_homes_test) if reward[0: len('indiv')] == 'indiv' \
+            shape = (self.n_all_epochs, self.n_homes_test) \
+                if utils.var_len_is_n_homes(reward, self.competitive) \
                 else (self.n_all_epochs)
             self.__dict__[reward][repeat] = {
                 method: np.zeros(shape) for method in all_evaluation_methods
@@ -152,9 +158,9 @@ class Record:
         }
         self.stability[repeat] = {method: None for method in rl["evaluation_methods"]}
 
-        self.last[repeat] = initialise_dict(self.last_entries + ["batch"], "empty_dict")
+        self.last[repeat] = {entry: {} for entry in self.last_entries + ["batch"]}
         for e in self.last_entries:
-            self.last[repeat][e] = initialise_dict(self.all_methods)
+            self.last[repeat][e] = {method: [] for method in self.all_methods}
 
     def end_epoch(self,
                   epoch: int,
@@ -163,6 +169,7 @@ class Record:
                   rl: dict,
                   learner: object,
                   duration_epoch: float,
+                  duration_test: float,
                   end_test: bool = False
                   ):
         """At the end of each epoch, append training or evaluation record."""
@@ -190,6 +197,7 @@ class Record:
         self._update_eps(rl, learner, epoch, end_test)
 
         self.duration_epoch[self.repeat][epoch] = duration_epoch
+        self.duration_test[self.repeat][epoch] = duration_test
 
     def last_epoch(self, evaluation, method, record_output, batch, done):
         """Record more information for the final epoch in self.last."""
@@ -277,14 +285,17 @@ class Record:
         Given instruction for specific file to load by load method,
         """
         str_ = f"{label}" if repeat is None else f"{label}_repeat{repeat}"
-        str_ = os.path.join(self.record_folder, str_ + ".npy")
-        obj = np.load(str_, allow_pickle=True)
-        if len(np.shape(obj)) == 0:
-            obj = obj.item()
-        if repeat is not None:
-            self.__dict__[label][repeat] = obj
+        path = os.path.join(self.record_folder, str_ + ".npy")
+        if os.path.isfile(path):
+            obj = np.load(path, allow_pickle=True)
+            if len(np.shape(obj)) == 0:
+                obj = obj.item()
+            if repeat is not None:
+                self.__dict__[label][repeat] = obj
+            else:
+                setattr(self, label, obj)
         else:
-            setattr(self, label, obj)
+            print(f"File {path} does not exist")
 
     def results_to_percentiles(
         self,
@@ -311,7 +322,7 @@ class Record:
                     np.nan if len(diff_repeats) == 0 else np.percentile(diff_repeats, p)
         if mov_average:
             for p in [25, 50, 75]:
-                percentiles[p] = get_moving_average(percentiles[p], n_window, Nones=False)
+                percentiles[p] = utils.get_moving_average(percentiles[p], n_window, Nones=False)
 
         p25, p50, p75 = [percentiles[p] for p in p_vals]
         not_nan = ~np.isnan(p25)
@@ -344,8 +355,9 @@ class Record:
             the average monthly_mean_eval_rewards_per_home after the end of the training,
             from n_epochs onwards during the fixed policy, test only period.
         """
+        shape_rewards = (self.n_repeats, self.n_all_epochs)
         self.monthly_mean_eval_rewards_per_home = {
-            method: np.zeros((self.n_repeats, self.n_all_epochs))
+            method: np.zeros(shape_rewards)
             for method in self.evaluation_methods
         }
         for reward in [
@@ -359,7 +371,7 @@ class Record:
 
         for repeat in range(prm["RL"]["n_repeats"]):  # loop through repetitions
             action_state_space_0[repeat], state_space_0[repeat] = \
-                [initialise_dict(range(prm["syst"]["n_homes"])) for _ in range(2)]
+                [{home: [] for home in range(prm["syst"]["n_homes"])} for _ in range(2)]
             # 1 - mean rewards
             if "end_decay" not in prm["RL"] or "DQN" not in prm["RL"]:
                 for type_learning in ["DQN", "DDQN", "q_learning"]:
@@ -429,15 +441,16 @@ class Record:
             epoch for epoch in range(1, self.n_epochs)
             if monthly_mean_eval_rewards_per_home[epoch] is not None
         ]
-        for epoch in epochs:
-            drawdown \
-                = best_eval - monthly_mean_eval_rewards_per_home[epoch]
-            if drawdown > largest_drawdown:
-                largest_drawdown = drawdown
-            if monthly_mean_eval_rewards_per_home[epoch] > best_eval:
-                best_eval = monthly_mean_eval_rewards_per_home[epoch]
-            assert largest_drawdown is not None, \
-                "largest_drawdown is None"
+        if not self.competitive:
+            for epoch in epochs:
+                drawdown \
+                    = best_eval - monthly_mean_eval_rewards_per_home[epoch]
+                if drawdown > largest_drawdown:
+                    largest_drawdown = drawdown
+                if monthly_mean_eval_rewards_per_home[epoch] > best_eval:
+                    best_eval = monthly_mean_eval_rewards_per_home[epoch]
+                assert largest_drawdown is not None, \
+                    "largest_drawdown is None"
 
         return largest_drawdown
 
@@ -498,7 +511,7 @@ class Record:
             "mean", "DT", "SRT", "LRT", "DR", "RR"
         ]
         subentries = ["ave", "std", "p25", "p75", "p50"]
-        metrics = initialise_dict(
+        metrics = utils.initialise_dict(
             metric_entries, "empty_dict",
             second_level_entries=subentries, second_type="empty_dict"
         )
@@ -543,6 +556,7 @@ class Record:
                     Path(self.record_folder) / "end_test_above_bl_env_r_c.npy",
                     end_test_above_bl
                 )
+
             for repeat in range(n_repeats):
                 largest_drawdown = self.compute_largest_drawdown_repeat(
                     self.monthly_mean_eval_rewards_per_home[eval_entry][repeat], best_eval
@@ -578,13 +592,12 @@ class Record:
         """Add evaluation results to the appropriate lists."""
         if method in eval_steps:
             if eval_steps[method]["reward"][-1] is not None:
-                epoch_mean_eval_t = np.mean(eval_steps[method]["reward"])
+                epoch_mean_eval_t = np.mean(- eval_steps[method]["total_costs"])
             else:
                 epoch_mean_eval_t = None
-            if method in eval_steps:
-                for info in ["reward", "action"]:
-                    self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
-                        = eval_steps[method][info]
+            for info in ["reward", "action"]:
+                self.__dict__[f"eval_{info}s"][self.repeat][method][epoch] \
+                    = eval_steps[method][info]
         else:
             for info in ["eval_rewards", "eval_actions"]:
                 self.__dict__[info][self.repeat][method][epoch] = None
@@ -596,15 +609,15 @@ class Record:
             eval_step_t_e = \
                 None if method not in eval_steps \
                 else eval_steps[method][info]
-            if info == 'max_voltage_deviation':
+            if info == 'max_voltage_violation':
                 self.__dict__[info][self.repeat][method][epoch] = \
                     max(eval_step_t_e[:-1]) if eval_step_t_e is not None else None
             # during one epoch, how many buses in total had a voltage deviation
             # during one epoch, how many hours had at least one voltage deviation
-            elif info in ['n_voltage_deviation_bus', 'n_voltage_deviation_hour']:
+            elif info in ['n_voltage_violation_bus', 'n_voltage_violation_hour']:
                 self.__dict__[info][self.repeat][method][epoch] = \
                     np.sum(eval_step_t_e[:-1]) if eval_step_t_e is not None else None
-            elif info == 'mean_voltage_deviation':
+            elif info in ['mean_voltage_violation', 'mean_voltage_deviation']:
                 self.__dict__[info][self.repeat][method][epoch] = \
                     np.mean(eval_step_t_e[:-1], axis=0) if eval_step_t_e is not None else None
             else:
@@ -612,11 +625,11 @@ class Record:
                     np.mean(eval_step_t_e, axis=0) if eval_step_t_e is not None else None
 
         # we have done at least 6 steps
-        if not end_test and len(all_mean_eval_t) > 5 and method != "opt":
-            equal_consecutive = \
-                [abs(all_mean_eval_t[- i]
-                     - all_mean_eval_t[- (i + 1)]) < 1e-5
-                 for i in range(4)]
+        if not end_test and len(all_mean_eval_t) > 5 and method != "opt" and not self.competitive:
+            equal_consecutive = [
+                abs(all_mean_eval_t[- i] - all_mean_eval_t[- (i + 1)]) < 1e-5
+                for i in range(4)
+            ]
             if sum(equal_consecutive) == 4:
                 self.stability[self.repeat][method] = epoch
 

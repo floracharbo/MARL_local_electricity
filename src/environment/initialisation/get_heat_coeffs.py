@@ -190,7 +190,10 @@ def get_heat_coeffs(heat, syst, paths):
     # boolean for whether comfort temperature is required
     heat = _get_required_temperatures(heat, syst)
 
-    heat['T_out_all'] = np.load(paths['open_inputs'] / paths['temp_file'])
+    for test_str_ in ['', '_test']:
+        heat[f'T_out_all{test_str_}'] = np.load(
+            paths['open_inputs'] / paths[f'temp{test_str_}_file']
+        )
 
     tau = 60 * 60 * 24 / syst['N']  # time step in seconds
     A, H, psi, Cm = _get_building_characteristics(heat)

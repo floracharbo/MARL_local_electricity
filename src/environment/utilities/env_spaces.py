@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import torch as th
 
+from src.environment.utilities.userdeftools import test_str
+
 
 def _actions_to_unit_box(actions, rl):
     if isinstance(actions, np.ndarray):
@@ -72,17 +74,18 @@ def compute_max_car_cons_gen_values(env, state_space):
 class EnvSpaces:
     """Manage operations for environment states and actions spaces."""
 
-    def __init__(self, env):
+    def __init__(self, env, evaluation=False):
         """Initialise EnvSpaces class, add properties."""
         for property in ['n_homes', 'N', 'i0_costs']:
             setattr(self, property, getattr(env, property))
-
+        self.test_str = test_str(evaluation)
+        self.n_homes_test = env.prm['syst']['n_homes_test']
         for property in [
             "dim_actions", "aggregate_actions", "type_env", "normalise_states",
             "n_discrete_actions", "evaluation_methods", "flexibility_states",
         ]:
             setattr(self, property, env.prm["RL"][property])
-        self.current_date0 = env.prm['syst']['date0_dtm']
+        self.current_date0 = env.prm['syst'][f'date0{self.test_str}_dtm']
         self.c_max = env.prm["car"]["c_max"]
         self.reactive_power_for_voltage_control = \
             env.prm['grd']['reactive_power_for_voltage_control']
@@ -98,6 +101,7 @@ class EnvSpaces:
             "store0": self._get_store,
             "grdC_level": self._get_grdC_level,
             "dT_next": self._get_dT_next,
+            "min_voltage": self._get_min_voltage,
             "car_tau": self._get_car_tau,
             "car_dem_agg": self._get_car_dem_agg,
             "bool_flex": self.get_bool_flex,
@@ -111,7 +115,7 @@ class EnvSpaces:
         self.perc = {}
         for e in ["loads", "gen", "car", "grd"]:
             if "perc" in prm[e]:
-                self.perc[e] = prm[e]["perc"]
+                self.perc[e] = prm[e][f"perc{self.test_str}"]
 
     def _get_space_info(self, env):
         """Initialise information on action and state spaces."""
@@ -138,7 +142,13 @@ class EnvSpaces:
             ["None", 0, 0, 1, 1],
             ["time_step_day", 0, prm['syst']['H'], n_other_states, 0],
             ["store0", 0, prm["car"]["caps"], n_other_states, 0],
-            ["grdC", min(prm["grd"]["Call"]), max(prm["grd"]["Call"]), n_other_states, 0],
+            [
+                "grdC",
+                min(prm["grd"][f"Call{self.test_str}"]),
+                max(prm["grd"][f"Call{self.test_str}"]),
+                n_other_states,
+                0
+            ],
             ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
             ["dT", - max_dT, max_dT, n_other_states, 0],
             [
@@ -153,6 +163,7 @@ class EnvSpaces:
             ["flexibility", 0, max_flexibility, n_other_states, 0],
             ["bool_flex", 0, 1, 2, 1],
             ["avail_car_step", 0, 1, 2, 1],
+            ["min_voltage", 0.7, 1.1, n_other_states, 0],
             ["avail_car_prev", 0, 1, 2, 1],
             ["car_tau", 0, prm["car"]["c_max"], n_other_states, 0],
             # clusters - for whole day
@@ -190,9 +201,11 @@ class EnvSpaces:
 
     def new_state_space(self, state_space):
         """Initialise current indicators info for state and action spaces."""
-        [self.descriptors, self.granularity, self.maxval, self.minval,
-         self.multipliers, self.global_multipliers, self.n, self.discrete,
-         self.possible] = [{} for _ in range(9)]
+        [
+            self.descriptors, self.granularity, self.maxval, self.minval,
+            self.multipliers, self.global_multipliers, self.n, self.discrete,
+            self.possible
+        ] = [{} for _ in range(9)]
         if self.aggregate_actions:
             action_space = ["action"]
         elif self.reactive_power_for_voltage_control:
@@ -212,10 +225,13 @@ class EnvSpaces:
                 for descriptor in descriptors
             ]
             subtable = [self.space_info.loc[i] for i in descriptors_idx]
-            [self.granularity[space], self.minval[space],
-             self.maxval[space], self.discrete[space]] = [
+            [
+                self.granularity[space], self.minval[space],
+                self.maxval[space], self.discrete[space]
+            ] = [
                 [row[field].values.item() for row in subtable]
-                for field in ["n", "min", "max", "discrete"]]
+                for field in ["n", "min", "max", "discrete"]
+            ]
 
             if self.type_env == "discrete":
                 self.n[space] = np.prod(self.granularity[space])
@@ -227,9 +243,9 @@ class EnvSpaces:
                 # initialise global multipliers for going to agent
                 # states and actions to global states and actions
                 if any(method[-2] == 'C' for method in self.evaluation_methods):
-                    self.global_multipliers[space] = \
-                        granularity_to_multipliers(
-                            [self.n[space] for _ in range(self.n_homes)])
+                    self.global_multipliers[space] = granularity_to_multipliers(
+                        [self.n[space] for _ in range(self.n_homes)]
+                    )
 
         # need to first define descriptors to define brackets
         self.brackets = self._init_brackets()
@@ -258,15 +274,17 @@ class EnvSpaces:
 
         return indexes
 
-    def indiv_to_global_index(self, type_descriptor, indexes=None,
-                              multipliers=None, done=False):
+    def indiv_to_global_index(
+            self, type_descriptor, indexes=None,
+            multipliers=None, done=False, evaluation=False
+    ):
         """From discrete space indexes, get global combined index."""
         if indexes is None and type_descriptor == "state":
             if done:
                 indexes = np.full(self.n_homes, np.nan)
             else:
                 indexes = self.get_space_indexes(
-                    done=done, all_vals=self.get_state_vals()
+                    done=done, all_vals=self.get_state_vals(evaluation=evaluation)
                 )
         elif indexes is None and type_descriptor == "action":
             print("need to input action indexes for indiv_to_global_index")
@@ -295,13 +313,16 @@ class EnvSpaces:
                 elif typev == "action" and index_i == self.n_discrete_actions - 1:
                     val.append(1)
                 else:
-                    val.append((brackets_s[int(index_i)]
-                                + brackets_s[int(index_i + 1)]) / 2)
+                    val.append(
+                        (brackets_s[int(index_i)] + brackets_s[int(index_i + 1)]) / 2
+                    )
 
         return val
 
-    def get_space_indexes(self, done=False, all_vals=None,
-                          value_type="state", indiv_indexes=False):
+    def get_space_indexes(
+            self, done=False, all_vals=None,
+            value_type="state", indiv_indexes=False
+    ):
         """
         Return array of indexes of current agents' states/actions.
 
@@ -370,12 +391,15 @@ class EnvSpaces:
     def get_global_ind(self, current_state, state, action, done, method):
         """Given state/action values list, get global space index."""
         global_ind = {}
-        for label, type_ind, x in zip(["state", "next_state", "action"],
-                                      ["state", "state", "action"],
-                                      [current_state, state, action]):
+        for label, type_ind, x in zip(
+                ["state", "next_state", "action"],
+                ["state", "state", "action"],
+                [current_state, state, action]
+        ):
             if not (label == "next_state" and done):
                 ind_x = self.get_space_indexes(
-                    done=False, all_vals=x, value_type=type_ind)
+                    done=False, all_vals=x, value_type=type_ind
+                )
                 if method[-2] == 'C':
                     global_ind[label] = [
                         self.indiv_to_global_index(
@@ -401,12 +425,7 @@ class EnvSpaces:
             ):
                 brackets[typev] = None
                 continue
-            perc_dict = {
-                # 'loads_cons_step': 'loads',
-                # 'gen_prod_step': 'gen',
-                # 'car_cons_step': 'car',
-                'grdC': 'grd'
-            }
+
             brackets[typev] = []
             for s in range(len(self.descriptors[typev])):
                 ind_str = self.descriptors[typev][s]
@@ -426,25 +445,37 @@ class EnvSpaces:
                     brackets[typev].append([-75, 0, 10, self.c_max])
                 elif type(self.maxval[typev][s]) in [int, float]:
                     brackets[typev].append(
-                        [self.minval[typev][s]
-                         + (self.maxval[typev][s] - self.minval[typev][s])
-                         / n_bins * i
-                         for i in range(n_bins + 1)])
+                        [
+                            self.minval[typev][s]
+                            + (self.maxval[typev][s] - self.minval[typev][s])
+                            / n_bins * i
+                            for i in range(n_bins + 1)
+                        ]
+                    )
                 else:
                     if isinstance(self.maxval[typev][s], list):
                         brackets[typev].append(
-                            [[self.minval[typev][s]
-                              + (self.maxval[typev][s][home]
-                                 - self.minval[typev][s]) / n_bins * i
-                              for i in range(n_bins + 1)]
-                             for home in range(self.n_homes)])
+                            [
+                                [
+                                    self.minval[typev][s]
+                                    + (self.maxval[typev][s][home] - self.minval[typev][s])
+                                    / n_bins * i
+                                    for i in range(n_bins + 1)
+                                ]
+                                for home in range(max(self.n_homes_test, self.n_homes))
+                            ]
+                        )
                     else:
                         brackets[typev].append(
-                            [[self.minval[typev][s]
-                              + (self.maxval[typev][s]
-                                 - self.minval[typev][s]) / n_bins * i
-                              for i in range(n_bins + 1)]
-                             for _ in range(self.n_homes)])
+                            [
+                                [
+                                    self.minval[typev][s]
+                                    + (self.maxval[typev][s] - self.minval[typev][s]) / n_bins * i
+                                    for i in range(n_bins + 1)
+                                ]
+                                for home in range(max(self.n_homes_test, self.n_homes))
+                            ]
+                        )
 
         return brackets
 
@@ -456,19 +487,23 @@ class EnvSpaces:
                 and any(method[-2] == 'C' for method in self.evaluation_methods)
         ):
             ind_state = self.get_space_indexes(all_vals=step_vals_i["state"])
-            step_vals_i["ind_global_state"] = \
-                [self.indiv_to_global_index(
+            step_vals_i["ind_global_state"] = [
+                self.indiv_to_global_index(
                     "state", indexes=ind_state,
-                    multipliers=self.global_multipliers["state"])]
+                    multipliers=self.global_multipliers["state"]
+                )
+            ]
             ind_action = self.get_space_indexes(all_vals=action, value_type="action")
             for home in range(self.n_homes):
                 assert not (ind_action is None and action[home] is not None), \
                     f"action[{home}] {step_vals_i['action'][home]} " \
                     f"is none whereas action {action[home]} is not"
-            step_vals_i["ind_global_action"] = \
-                [self.indiv_to_global_index(
+            step_vals_i["ind_global_action"] = [
+                self.indiv_to_global_index(
                     "action", indexes=ind_action,
-                    multipliers=self.global_multipliers["action"])]
+                    multipliers=self.global_multipliers["action"]
+                )
+            ]
         else:
             step_vals_i["ind_global_state"] = np.nan
             step_vals_i["ind_global_action"] = np.nan
@@ -541,9 +576,10 @@ class EnvSpaces:
                         if time_step + t_ < self.N \
                         else prm["grd"]["Call"][self.i0_costs + self.N - 1]
 
-                elif len(descriptor) > 9 \
-                        and (descriptor[-9: -5] == "fact"
-                             or descriptor[-9: -5] == "clus"):
+                elif (
+                        len(descriptor) > 9
+                        and (descriptor[-9: -5] == "fact" or descriptor[-9: -5] == "clus")
+                ):
                     # scaling factors / profile clusters for the whole day
                     day = (date - self.current_date0).days
                     if time_step == 24:
@@ -581,6 +617,12 @@ class EnvSpaces:
 
         return vals
 
+    def _get_min_voltage(self, inputs):
+        """Get minimum nodal voltage over the whole network"""
+        time_step, res, _, _, prm = inputs
+
+        return np.min(res['voltage_squared'][time_step])
+
     def _get_dT_next(self, inputs):
         """Get temperature requirements parameter at current time step."""
         time_step, _, home, _, prm = inputs
@@ -617,8 +659,7 @@ class EnvSpaces:
 
         time_step, res, home, date, _ = inputs
 
-        loads_T, deltaT, _ = \
-            self.car.next_trip_details(time_step, date, home)
+        loads_T, deltaT, _ = self.car.next_trip_details(time_step, date, home)
         time_step_ = self.N - 1 if time_step == self.N else time_step
         current_store = res["store"][home][time_step_]
         if loads_T is not None and loads_T > current_store and deltaT > 0:
@@ -642,7 +683,7 @@ class EnvSpaces:
         """Get the grdC level for the current time step."""
         time_step = inputs[0]
         prm = inputs[-1]
-        costs = prm["grd"]["Call"][
+        costs = prm["grd"][f"Call{self.test_str}"][
             self.i0_costs: self.i0_costs + self.N + 1
         ]
         val = (costs[time_step] - min(costs)) \
