@@ -904,8 +904,8 @@ def res_post_processing(res, prm, input_hourly_lij, perform_checks=True, evaluat
             time_large_losses = np.where(res['hourly_line_losses'] > max_share_loss * res['grid'])[0]
             print(
                 f"WARNING: Line losses are "
-                f"{np.divide(res['hourly_line_losses'], res['grid'])[time_large_losses] * 100}% of the grid imports "
-                f"at the following time steps: {time_large_losses} "
+                f"{np.divide(res['hourly_line_losses'], res['grid'])[time_large_losses] * 100}% "
+                f"of the grid imports at the following time steps: {time_large_losses} "
                 f"with losses of {res['hourly_line_losses'][time_large_losses]} kWh"
             )
 

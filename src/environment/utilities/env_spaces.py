@@ -143,8 +143,11 @@ class EnvSpaces:
             ["time_step_day", 0, prm['syst']['H'], n_other_states, 0],
             ["store0", 0, prm["car"]["caps"], n_other_states, 0],
             [
-                "grdC", min(prm["grd"][f"Call{self.test_str}"]), max(prm["grd"][f"Call{self.test_str}"]),
-                n_other_states, 0
+                "grdC",
+                min(prm["grd"][f"Call{self.test_str}"]),
+                max(prm["grd"][f"Call{self.test_str}"]),
+                n_other_states,
+                0
             ],
             ["grdC_level", 0, 1, rl["n_grdC_level"], 0],
             ["dT", - max_dT, max_dT, n_other_states, 0],
@@ -453,10 +456,12 @@ class EnvSpaces:
                     if isinstance(self.maxval[typev][s], list):
                         brackets[typev].append(
                             [
-                                [self.minval[typev][s]
-                                + (self.maxval[typev][s][home]
-                                - self.minval[typev][s]) / n_bins * i
-                                for i in range(n_bins + 1)]
+                                [
+                                    self.minval[typev][s]
+                                    + (self.maxval[typev][s][home] - self.minval[typev][s])
+                                    / n_bins * i
+                                    for i in range(n_bins + 1)
+                                ]
                                 for home in range(max(self.n_homes_test, self.n_homes))
                             ]
                         )
@@ -465,8 +470,7 @@ class EnvSpaces:
                             [
                                 [
                                     self.minval[typev][s]
-                                    + (self.maxval[typev][s]
-                                    - self.minval[typev][s]) / n_bins * i
+                                    + (self.maxval[typev][s] - self.minval[typev][s]) / n_bins * i
                                     for i in range(n_bins + 1)
                                 ]
                                 for home in range(max(self.n_homes_test, self.n_homes))
@@ -485,8 +489,9 @@ class EnvSpaces:
             ind_state = self.get_space_indexes(all_vals=step_vals_i["state"])
             step_vals_i["ind_global_state"] = [
                 self.indiv_to_global_index(
-                "state", indexes=ind_state,
-                multipliers=self.global_multipliers["state"])
+                    "state", indexes=ind_state,
+                    multipliers=self.global_multipliers["state"]
+                )
             ]
             ind_action = self.get_space_indexes(all_vals=action, value_type="action")
             for home in range(self.n_homes):
@@ -495,8 +500,9 @@ class EnvSpaces:
                     f"is none whereas action {action[home]} is not"
             step_vals_i["ind_global_action"] = [
                 self.indiv_to_global_index(
-                "action", indexes=ind_action,
-                multipliers=self.global_multipliers["action"])
+                    "action", indexes=ind_action,
+                    multipliers=self.global_multipliers["action"]
+                )
             ]
         else:
             step_vals_i["ind_global_state"] = np.nan

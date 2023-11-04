@@ -119,7 +119,9 @@ class Network:
         """ Creates a matrix indicating at which bus there is a flexible agents """
         n_homes = self.n_homes_test + self.n_homes_testP if test else self.n_homes + self.n_homesP
         flex_buses = np.zeros((len(self.net.bus), n_homes))
-        self.free_buses = [i for i in range(len(self.net.bus)) if i not in self.existing_homes_network]
+        self.free_buses = [
+            i for i in range(len(self.net.bus)) if i not in self.existing_homes_network
+        ]
         self.free_buses.remove(0)
         self.home_to_bus = np.zeros(n_homes)
         for i in range(n_homes):
@@ -138,7 +140,10 @@ class Network:
         """ Creates a matrix indicating at which bus there is a non-flexible home """
         if self.n_passive_homes > 0:
             passive_buses = np.zeros((len(self.net.bus), self.n_passive_homes))
-            n_passive_homes_on_existing_homes = min(self.n_passive_homes, len(self.existing_homes_network) - self.n_homes)
+            n_passive_homes_on_existing_homes = min(
+                self.n_passive_homes,
+                len(self.existing_homes_network) - self.n_homes
+            )
             for i in range(n_passive_homes_on_existing_homes):
                 if i < min(self.n_passive_homes, len(self.existing_homes_network) - self.n_homes):
                     bus = self.existing_homes_network[i + self.n_homes]

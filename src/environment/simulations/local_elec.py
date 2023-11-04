@@ -23,9 +23,9 @@ from src.environment.experiment_manager.hedge import HEDGE
 from src.environment.simulations.battery import Battery
 from src.environment.simulations.heat import Heat
 from src.environment.simulations.network import Network
-from src.tests.local_elec_tests import LocalElecTests
 from src.environment.utilities.env_spaces import EnvSpaces
 from src.environment.utilities.userdeftools import test_str
+from src.tests.local_elec_tests import LocalElecTests
 
 
 class LocalElecEnv:
@@ -272,7 +272,9 @@ class LocalElecEnv:
                 remaining_cons -= delta_cons
                 new_batch_flex[home, 0, i_flex] -= delta_cons
 
-            self.tests.check_flex_and_remaining_cons_after_update_home(flex_cons, batch_flex, remaining_cons, home, time_step)
+            self.tests.check_flex_and_remaining_cons_after_update_home(
+                flex_cons, batch_flex, remaining_cons, home, time_step
+            )
 
             # move what has not been consumed to one step more urgent
             self._prep_next_flex_step(batch_flex, new_batch_flex, time_step, home)
@@ -583,8 +585,9 @@ class LocalElecEnv:
             for info in ['netp', 'tot_cons']:
                 home_vars[info] = np.zeros(self.n_homes)
         else:
-            loads, home_vars, bool_penalty, flexible_q_car = \
-                self.action_translator.actions_to_env_vars(loads, home_vars, action, date, time_step)
+            loads, home_vars, bool_penalty, flexible_q_car = self.action_translator.actions_to_env_vars(
+                    loads, home_vars, action, date, time_step
+            )
         self.tests.check_no_flex_left_unmet(home_vars, loads, time_step)
 
         self.heat.next_T(update=True)

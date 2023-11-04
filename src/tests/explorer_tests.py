@@ -1,8 +1,8 @@
 import numpy as np
 
+import src.environment.utilities.userdeftools as utils
 from src.environment.simulations.optimisation_post_processing import \
     check_temp_equations
-import src.environment.utilities.userdeftools as utils
 
 
 class ExplorerTests:

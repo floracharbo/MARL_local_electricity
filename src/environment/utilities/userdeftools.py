@@ -180,7 +180,7 @@ def get_opt_res_file(prm, test=False):
             continue
         paths['opt_res_file' + ext] = opt_res_file0
         paths['opt_res_file' + ext] += f"_ntwn{syst['n_homes' + ext]}_cmax{car['c_max0']}_" \
-        f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
+            f"dmax{car['d_max']}_cap{cap_str}_SoC0{car['SoC0']}"
         if syst['n_homesP'] > 0:
             paths['opt_res_file' + ext] += f"_nP{syst['n_homesP']}"
         if (ext == '_test' and syst['year_test'] != syst['year']) or syst['year'] != 2021:
@@ -190,7 +190,9 @@ def get_opt_res_file(prm, test=False):
         if "file" in heat and heat["file"] != "heat.yaml":
             paths['opt_res_file' + ext] += f"_{heat['file']}"
 
-        for obj, label in zip([car, heat, loads, loads, gen], ['car', 'heat', 'loads', 'flex', 'PV']):
+        for obj, label in zip(
+                [car, heat, loads, loads, gen], ['car', 'heat', 'loads', 'flex', 'PV']
+        ):
             ownership = np.array(obj[f'own_{label}' + ext])
             if sum(ownership) != len(ownership):
                 paths['opt_res_file' + ext] += f"_no_{label}"
@@ -214,13 +216,14 @@ def get_opt_res_file(prm, test=False):
         if prm["car"]["efftype"] == 1:
             paths["opt_res_file" + ext] += "_eff1"
         if grd['quadratic_voltage_penalty']:
-            paths["opt_res_file" + ext] += f"_quadratic_voltage"
+            paths["opt_res_file" + ext] += "_quadratic_voltage"
 
         paths['opt_res_file' + ext] += ".npy"
 
         if paths['opt_res_file' + ext] not in paths['files_list']:
             paths['files_list'].append(paths['opt_res_file' + ext])
-        paths['opt_res_file_no' + ext] = f"{paths['files_list'].index(paths['opt_res_file' + ext])}.npy"
+        paths['opt_res_file_no' + ext] = \
+            f"{paths['files_list'].index(paths['opt_res_file' + ext])}.npy"
         paths["seeds_file" + ext] = f"outputs/seeds/seeds{paths['opt_res_file_no' + ext]}"
 
     if '_test' not in syst['n_homes_extensions_all']:
@@ -404,7 +407,7 @@ def compute_import_export_costs(grid, grd, n_int_per_hr):
 
 def compute_voltage_costs(voltage_squared, grd):
     if grd['quadratic_voltage_penalty']:
-         voltage_costs = np.sum(
+        voltage_costs = np.sum(
             grd['penalty_undervoltage'] * (1 - voltage_squared ** (1 / 2)) ** 2
         )
     else:
@@ -435,13 +438,15 @@ def mean_max_hourly_voltage_deviations(voltage_squared, max_voltage, min_voltage
         n_violation_bus = len(voltage_violation)
         n_violation_hour = 1
     else:
-        mean_voltage_violation, max_voltage_violation, n_violation_bus, n_violation_hour = 0, 0, 0, 0
+        mean_voltage_violation, max_voltage_violation = 0, 0
+        n_violation_bus, n_violation_hour = 0, 0
     mean_voltage_deviation = np.mean(np.abs(1 - voltage))
 
     return (
         mean_voltage_deviation, mean_voltage_violation, max_voltage_violation,
         n_violation_bus, n_violation_hour
     )
+
 
 def f_to_interval(f, fs_brackets):
     interval = np.where(f >= fs_brackets[:-1])[0][-1]

@@ -608,7 +608,10 @@ def _update_rl_prm(prm, initialise_all):
     rl["tot_learn_cycles"] = rl["n_epochs"] * rl["ncpu"] \
         if rl["parallel"] else rl["n_epochs"]
     prm["RL"]["type_env"] = rl["type_learn_to_space"][rl["type_learning"]]
-    rl["start_end_eval"] = min(int(rl["share_epochs_start_end_eval"] * rl["n_epochs"]), rl['n_epochs'] - 1)
+    rl["start_end_eval"] = min(
+        int(rl["share_epochs_start_end_eval"] * rl["n_epochs"]),
+        rl['n_epochs'] - 1
+    )
     rl["n_all_epochs"] = rl["n_epochs"] + rl["n_end_test"]
     if rl["type_learning"] == "DDPG":
         rl["instant_feedback"] = True
