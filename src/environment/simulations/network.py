@@ -41,7 +41,7 @@ class Network:
         Create matrices describing the lines and buses of the network
     _assign_power_to_load_or_sgen:
         Distribute the correct active and reative loads to the buses
-    fpower_flow_res_with_pandapower:
+    _power_flow_res_with_pandapower:
         Pre and post processing of pf_simulation
     _check_voltage_differences and _check_losses_differences:
         Perform a comparison between pandapower load flow and optimization
