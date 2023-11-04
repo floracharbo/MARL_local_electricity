@@ -34,7 +34,13 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
                 density_matrix[epoch, i_interval] += 1
 
     fig = plt.figure()
-    plt.imshow(np.transpose(density_matrix), interpolation='none')
+    im = plt.imshow(np.transpose(density_matrix), interpolation='none')
+    # Add a colorbar
+    cbar = plt.colorbar(im)
+    # Optionally, you can set a label for the colorbar
+    cbar.set_label('Number of action selections')
+
+    # Show the plot
     # min_label = min_action + (0.05 - min_action % 0.05)
     # max_label = max_action - (max_action % 0.01)
     y_labels = [f"{label:.2f}" for label in np.linspace(min_action, max_action, 5)]
@@ -44,6 +50,7 @@ def _plot_eval_action_type_repeat(actions_, prm, evaluation_method, labels, i_ac
 
     plt.ylabel(labels[i_action])
     plt.xlabel("Epoch")
+    plt.tight_layout()
     title = f"actions {evaluation_method} {labels[i_action]} {repeat}"
     title_and_save(title, fig, prm, display_title=False)
 

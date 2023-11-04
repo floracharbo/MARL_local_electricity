@@ -372,7 +372,7 @@ def barplot_indiv_savings(record, prm):
 
     eval_not_baseline = [
         method for method in prm['RL']['evaluation_methods']
-        if method != 'baseline'
+        # if method != 'baseline'
     ]
     [
         savings_a, share_sc, std_savings, p10_savings,
@@ -565,7 +565,7 @@ def plot_voltage_statistics(record, prm):
     methods_labels['baseline'] = 'Baseline'
     methods_labels['env_r_c'] = 'MARL'
     methods_labels['opt'] = 'Optimal'
-    fig, axs = plt.subplots(1, 3, figsize=(8, 4))
+    fig, axs = plt.subplots(1, 3, figsize=(8*1.5, 4*1.5))
     # rows = [0, 0, 1, 1]
     # cols = [0, 1, 0, 1]
     min_val, max_val = 1e10, -1e10
@@ -592,7 +592,9 @@ def plot_voltage_statistics(record, prm):
         # Apply the formatter to the tick labels on the y-axis
         ax.yaxis.set_major_formatter(formatter)
         # axs[row, col].set_ticklabel_format(axis='both', style='sci', scilimits=(4, 4))
-
+        # Remove x-axis ticks and labels
+        ax.set_xticks([])  # Remove x-axis ticks
+        ax.set_xticklabels([])  # Remove x-axis tick labels
     plt.tight_layout()
     # plt.ticklabel_format(axis='both', style='sci', scilimits=(4, 4))
     title = "histogram voltage deviations"
